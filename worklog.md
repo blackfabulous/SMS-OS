@@ -799,3 +799,22 @@ Stage Summary:
 
 Unresolved: PWA/Offline, real Paynow, real SMS, NextAuth.js, EMIS export, ZIMSEC import, Bulk ops, Report card PDFs
 
+
+---
+Task ID: FIX-SELECT-EMPTY-VALUE
+Agent: Main Orchestrator
+Task: Fix SelectItem empty string value runtime error in Staff Module
+
+Work Log:
+- Identified runtime error: `<Select.Item /> must have a value prop that is not an empty string` at staff-module.tsx:441
+- Root cause: `<SelectItem value="">All Positions</SelectItem>` used empty string for "All" filter option
+- Radix UI Select reserves empty string for clearing selection / showing placeholder
+- Fixed by changing value from "" to "ALL" and updating state initialization and filter logic accordingly
+- Changed `useState('')` to `useState('ALL')` for positionFilter
+- Updated filter condition from `if (positionFilter)` to `if (positionFilter && positionFilter !== 'ALL')`
+- Lint check passes with zero errors
+- Dev server running successfully
+
+Stage Summary:
+- Runtime error fixed - Staff Module Position filter no longer crashes
+- No other instances of empty SelectItem values found in the codebase

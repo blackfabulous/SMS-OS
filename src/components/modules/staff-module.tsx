@@ -275,7 +275,7 @@ function StaffListView({
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [staffTypeFilter, setStaffTypeFilter] = useState('ALL')
-  const [positionFilter, setPositionFilter] = useState('')
+  const [positionFilter, setPositionFilter] = useState('ALL')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
@@ -294,7 +294,7 @@ function StaffListView({
       params.set('limit', '20')
       if (search) params.set('search', search)
       if (staffTypeFilter !== 'ALL') params.set('staffType', staffTypeFilter)
-      if (positionFilter) params.set('position', positionFilter)
+      if (positionFilter && positionFilter !== 'ALL') params.set('position', positionFilter)
 
       const res = await fetch(`/api/staff?${params.toString()}`)
       if (res.ok) {
@@ -438,7 +438,7 @@ function StaffListView({
                     <SelectValue placeholder="Position" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Positions</SelectItem>
+                    <SelectItem value="ALL">All Positions</SelectItem>
                     <SelectItem value="Headmaster">Headmaster</SelectItem>
                     <SelectItem value="Deputy Head">Deputy Head</SelectItem>
                     <SelectItem value="Teacher">Teacher</SelectItem>
