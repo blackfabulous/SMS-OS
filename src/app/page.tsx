@@ -9,7 +9,6 @@ import {
   Building, MessageSquare, Settings, Clock, Trophy, Coffee,
   ShoppingCart, Shield, Monitor, Calculator, FileText, UsersRound,
   ClipboardCheck, School, BellRing, ArrowRightLeft, Bell,
-  DollarSign as DollarSignIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSession, signIn, signOut } from 'next-auth/react'
@@ -21,59 +20,9 @@ import { getRoleDisplayName, getRoleColor, type UserRole } from '@/lib/rbac'
 import { OfflineIndicator } from '@/components/offline-indicator'
 import { AppSidebar, type NavGroup } from '@/components/app-sidebar'
 import { AppHeader, type Notification } from '@/components/app-header'
-import { ModuleHeader, ModulePlaceholder } from '@/components/module-helpers'
+import { ModuleHeader } from '@/components/module-helpers'
+import { ModuleRenderer } from '@/components/module-registry'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
-
-// ─── Lazy-loaded Modules ────────────────────────────────────────────────────
-const Dashboard = React.lazy(() => import('@/components/dashboard'))
-const LoginPage = React.lazy(() => import('@/components/login-page'))
-const StudentsModule = React.lazy(() => import('@/components/modules/students-module'))
-const StaffModule = React.lazy(() => import('@/components/modules/staff-module'))
-const FinanceModule = React.lazy(() => import('@/components/modules/finance-module'))
-const AttendanceModule = React.lazy(() => import('@/components/modules/attendance-module'))
-const BoardingModule = React.lazy(() => import('@/components/modules/boarding-module'))
-const TransportModule = React.lazy(() => import('@/components/modules/transport-module'))
-const LibraryModule = React.lazy(() => import('@/components/modules/library-module'))
-const InventoryModule = React.lazy(() => import('@/components/modules/inventory-module'))
-const AcademicsModule = React.lazy(() => import('@/components/modules/academics-module'))
-const ExaminationsModule = React.lazy(() => import('@/components/modules/examinations-module'))
-const WelfareModule = React.lazy(() => import('@/components/modules/welfare-module'))
-const DisciplineModule = React.lazy(() => import('@/components/modules/discipline-module'))
-const HealthModule = React.lazy(() => import('@/components/modules/health-module'))
-const AdmissionsModule = React.lazy(() => import('@/components/modules/admissions-module'))
-const PayrollModule = React.lazy(() => import('@/components/modules/payroll-module'))
-const SDCModule = React.lazy(() => import('@/components/modules/sdc-module'))
-const CommunicationModule = React.lazy(() => import('@/components/modules/communication-module'))
-const ReportsModule = React.lazy(() => import('@/components/modules/reports-module'))
-const SettingsModule = React.lazy(() => import('@/components/modules/settings-module'))
-const TimetableModule = React.lazy(() => import('@/components/modules/timetable-module'))
-const EventsModule = React.lazy(() => import('@/components/modules/events-module'))
-const CanteenModule = React.lazy(() => import('@/components/modules/canteen-module'))
-const ProcurementModule = React.lazy(() => import('@/components/modules/procurement-module'))
-const DocumentsModule = React.lazy(() => import('@/components/modules/documents-module'))
-const AlumniModule = React.lazy(() => import('@/components/modules/alumni-module'))
-const SecurityModule = React.lazy(() => import('@/components/modules/security-module'))
-const ElearningModule = React.lazy(() => import('@/components/modules/elearning-module'))
-const ParentPortalModule = React.lazy(() => import('@/components/modules/parent-portal-module'))
-const StudentPortalModule = React.lazy(() => import('@/components/modules/student-portal-module'))
-const FeeCalculatorModule = React.lazy(() => import('@/components/modules/fee-calculator-module'))
-const TeacherPortalModule = React.lazy(() => import('@/components/modules/teacher-portal-module'))
-const SetupWizardModule = React.lazy(() => import('@/components/modules/setup-wizard-module'))
-const ZimsecBulkImportModule = React.lazy(() => import('@/components/modules/zimsec-bulk-import-module'))
-const NotificationCenterModule = React.lazy(() => import('@/components/modules/notification-center-module'))
-const BulkOperationsModule = React.lazy(() => import('@/components/modules/bulk-operations-module'))
-
-// Module loading fallback
-function ModuleLoadingFallback() {
-  return (
-    <div className="flex items-center justify-center h-64">
-      <div className="flex flex-col items-center gap-3">
-        <div className="h-8 w-8 animate-spin rounded-full border-3 border-emerald-200 border-t-emerald-600" />
-        <p className="text-sm text-muted-foreground">Loading module...</p>
-      </div>
-    </div>
-  )
-}
 
 // ─── Navigation Config ────────────────────────────────────────────────────────
 const navGroups: NavGroup[] = [
@@ -259,8 +208,8 @@ export default function Home() {
   // Not authenticated - show login
   if (!session) {
     return (
-      <React.Suspense fallback={<ModuleLoadingFallback />}>
-        <LoginPage />
+      <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><div className="h-8 w-8 animate-spin rounded-full border-3 border-emerald-200 border-t-emerald-600" /></div>}>
+        <ModuleRenderer moduleId="login" />
       </React.Suspense>
     )
   }
@@ -296,87 +245,7 @@ export default function Home() {
           <div className="module-enter">
             <ModuleHeader moduleId={activeModule} />
             <AnimatePresence mode="wait">
-              {activeModule === 'dashboard' ? (
-                <React.Suspense fallback={<ModuleLoadingFallback />}>
-                  <Dashboard key="dashboard" />
-                </React.Suspense>
-              ) : (
-                <React.Suspense fallback={<ModuleLoadingFallback />}>
-                  {activeModule === 'students' ? (
-                    <StudentsModule key="students" />
-                  ) : activeModule === 'staff' ? (
-                    <StaffModule key="staff" />
-                  ) : activeModule === 'finance' ? (
-                    <FinanceModule key="finance" />
-                  ) : activeModule === 'attendance' ? (
-                    <AttendanceModule key="attendance" />
-                  ) : activeModule === 'academics' ? (
-                    <AcademicsModule key="academics" />
-                  ) : activeModule === 'examinations' ? (
-                    <ExaminationsModule key="examinations" />
-                  ) : activeModule === 'welfare' ? (
-                    <WelfareModule key="welfare" />
-                  ) : activeModule === 'discipline' ? (
-                    <DisciplineModule key="discipline" />
-                  ) : activeModule === 'health' ? (
-                    <HealthModule key="health" />
-                  ) : activeModule === 'boarding' ? (
-                    <BoardingModule key="boarding" />
-                  ) : activeModule === 'transport' ? (
-                    <TransportModule key="transport" />
-                  ) : activeModule === 'library' ? (
-                    <LibraryModule key="library" />
-                  ) : activeModule === 'inventory' ? (
-                    <InventoryModule key="inventory" />
-                  ) : activeModule === 'admissions' ? (
-                    <AdmissionsModule key="admissions" />
-                  ) : activeModule === 'payroll' ? (
-                    <PayrollModule key="payroll" />
-                  ) : activeModule === 'sdc' ? (
-                    <SDCModule key="sdc" />
-                  ) : activeModule === 'communication' ? (
-                    <CommunicationModule key="communication" />
-                  ) : activeModule === 'reports' ? (
-                    <ReportsModule key="reports" />
-                  ) : activeModule === 'timetable' ? (
-                    <TimetableModule key="timetable" />
-                  ) : activeModule === 'events' ? (
-                    <EventsModule key="events" />
-                  ) : activeModule === 'settings' ? (
-                    <SettingsModule key="settings" />
-                  ) : activeModule === 'canteen' ? (
-                    <CanteenModule key="canteen" />
-                  ) : activeModule === 'procurement' ? (
-                    <ProcurementModule key="procurement" />
-                  ) : activeModule === 'security' ? (
-                    <SecurityModule key="security" />
-                  ) : activeModule === 'elearning' ? (
-                    <ElearningModule key="elearning" />
-                  ) : activeModule === 'fee-calculator' ? (
-                    <FeeCalculatorModule key="fee-calculator" />
-                  ) : activeModule === 'documents' ? (
-                    <DocumentsModule key="documents" />
-                  ) : activeModule === 'alumni' ? (
-                    <AlumniModule key="alumni" />
-                  ) : activeModule === 'parent-portal' ? (
-                    <ParentPortalModule key="parent-portal" />
-                  ) : activeModule === 'student-portal' ? (
-                    <StudentPortalModule key="student-portal" />
-                  ) : activeModule === 'teacher-portal' ? (
-                    <TeacherPortalModule key="teacher-portal" />
-                  ) : activeModule === 'setup-wizard' ? (
-                    <SetupWizardModule key="setup-wizard" />
-                  ) : activeModule === 'zimsec-import' ? (
-                    <ZimsecBulkImportModule key="zimsec-import" />
-                  ) : activeModule === 'notification-center' ? (
-                    <NotificationCenterModule key="notification-center" />
-                  ) : activeModule === 'bulk-operations' ? (
-                    <BulkOperationsModule key="bulk-operations" />
-                  ) : (
-                    <ModulePlaceholder key={activeModule} moduleId={activeModule} />
-                  )}
-                </React.Suspense>
-              )}
+              <ModuleRenderer moduleId={activeModule} />
             </AnimatePresence>
           </div>
         </main>
