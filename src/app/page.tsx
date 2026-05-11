@@ -57,6 +57,15 @@ import {
   Zap,
   BellRing,
   X,
+  Flag,
+  Star,
+  AlertTriangle,
+  MapPin,
+  Award,
+  Megaphone,
+  Wrench,
+  Home as HomeIcon,
+  Users as UsersIcon2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -70,6 +79,8 @@ import {
   Cell,
   AreaChart,
   Area,
+  LineChart,
+  Line,
 } from 'recharts'
 
 import { useAppStore } from '@/lib/store'
@@ -232,6 +243,100 @@ const feeChartConfig = {
   target: { label: 'Target', color: '#d1d5db' },
 } satisfies ChartConfig
 
+const attendanceTrendChartConfig = {
+  present: { label: 'Present %', color: '#10b981' },
+} satisfies ChartConfig
+
+// ─── Upcoming Events & Holidays (Zimbabwe) ────────────────────────────────────
+const currentYear = new Date().getFullYear()
+const upcomingEventsData = [
+  { id: 1, name: 'Independence Day', date: `${currentYear}-04-18`, type: 'Holiday' as const, icon: Flag },
+  { id: 2, name: 'Workers Day', date: `${currentYear}-05-01`, type: 'Holiday' as const, icon: Users },
+  { id: 3, name: 'Africa Day', date: `${currentYear}-05-25`, type: 'Holiday' as const, icon: Star },
+  { id: 4, name: 'Heroes Day', date: `${currentYear}-08-11`, type: 'Holiday' as const, icon: Flag },
+  { id: 5, name: 'Defence Forces Day', date: `${currentYear}-08-12`, type: 'Holiday' as const, icon: Shield },
+  { id: 6, name: 'Mid-Term Break', date: `${currentYear}-06-28`, type: 'Event' as const, icon: Calendar },
+  { id: 7, name: 'ZIMSEC Exam Period', date: `${currentYear}-10-15`, type: 'Exam' as const, icon: FileCheck },
+  { id: 8, name: 'SDC Quarterly Meeting', date: `${currentYear}-04-10`, type: 'Meeting' as const, icon: Building },
+].map(e => {
+  const eventDate = new Date(e.date)
+  const now = new Date()
+  const diffTime = eventDate.getTime() - now.getTime()
+  const daysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  return { ...e, dateObj: eventDate, daysUntil }
+}).filter(e => e.daysUntil >= -1).sort((a, b) => a.daysUntil - b.daysUntil).slice(0, 6)
+
+// ─── Attendance Trend Data (Weekly) ───────────────────────────────────────────
+const weeklyAttendanceData = [
+  { day: 'Mon', present: 94.2 },
+  { day: 'Tue', present: 92.8 },
+  { day: 'Wed', present: 96.1 },
+  { day: 'Thu', present: 91.5 },
+  { day: 'Fri', present: 89.3 },
+]
+
+// ─── Alerts & Reminders Data ──────────────────────────────────────────────────
+const alertsData = [
+  {
+    id: 1,
+    severity: 'critical' as const,
+    title: 'Outstanding Fees Alert',
+    description: '3 students have outstanding fees exceeding $500',
+    action: 'View Debtors',
+    module: 'finance' as const,
+  },
+  {
+    id: 2,
+    severity: 'critical' as const,
+    title: 'ZIMSEC Registration Deadline',
+    description: 'O-Level registration closes in 5 days. 12 candidates pending.',
+    action: 'Register Now',
+    module: 'examinations' as const,
+  },
+  {
+    id: 3,
+    severity: 'warning' as const,
+    title: 'Staff on Leave Today',
+    description: '5 staff members are on leave today, including 2 teachers',
+    action: 'View Schedule',
+    module: 'staff' as const,
+  },
+  {
+    id: 4,
+    severity: 'warning' as const,
+    title: 'Maintenance Overdue',
+    description: '2 maintenance requests have been overdue for 7+ days',
+    action: 'View Requests',
+    module: 'inventory' as const,
+  },
+  {
+    id: 5,
+    severity: 'info' as const,
+    title: 'Boarding Capacity',
+    description: 'Boarding facility is at 92% capacity - 8 beds remaining',
+    action: 'View Boarding',
+    module: 'boarding' as const,
+  },
+  {
+    id: 6,
+    severity: 'info' as const,
+    title: 'SDC Meeting Tomorrow',
+    description: 'School Development Committee meeting at 2:00 PM in the main hall',
+    action: 'View Details',
+    module: 'sdc' as const,
+  },
+]
+
+// ─── Quick Stats Footer Data ──────────────────────────────────────────────────
+const quickStatsData = [
+  { icon: GraduationCap, label: 'Grade Levels', value: '13' },
+  { icon: BookOpen, label: 'Total Classes', value: '28' },
+  { icon: Users, label: 'Teacher:Student', value: '1:24' },
+  { icon: BarChart3, label: 'Avg Class Size', value: '32' },
+  { icon: HomeIcon, label: 'Boarding Occupancy', value: '92%' },
+  { icon: Library, label: 'Library Books', value: '4,250' },
+]
+
 // ─── Activity helpers ─────────────────────────────────────────────────────────
 const activityIcons = {
   enrollment: UserPlus,
@@ -288,10 +393,10 @@ function AppSidebar({ onLogout, notificationCount }: { onLogout: () => void; not
   const { activeModule, setActiveModule } = useAppStore()
 
   return (
-    <Sidebar collapsible="icon" className="border-r-0">
+    <Sidebar collapsible="icon" className="border-r-0 sidebar-watermark bg-gradient-to-b from-sidebar via-sidebar to-emerald-50/30 dark:to-emerald-950/20">
       <SidebarHeader className="p-3">
         <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md shadow-emerald-200 dark:shadow-emerald-900/30">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md shadow-emerald-200 dark:shadow-emerald-900/30 transition-shadow duration-300 hover:shadow-lg hover:shadow-emerald-200/70 dark:hover:shadow-emerald-800/40">
             <School className="h-5 w-5 text-white" />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
@@ -327,19 +432,23 @@ function AppSidebar({ onLogout, notificationCount }: { onLogout: () => void; not
                         onClick={() => setActiveModule(item.id)}
                         tooltip={item.label}
                         className={cn(
-                          'transition-all duration-200',
+                          'transition-all duration-200 group relative hover-ripple',
                           isActive
                             ? 'bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 hover:text-emerald-800 [&>svg]:text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/60 dark:hover:text-emerald-200 dark:[&>svg]:text-emerald-400'
-                            : 'hover:bg-muted/60'
+                            : 'hover:bg-muted/60 hover:translate-x-0.5'
                         )}
                       >
                         <item.icon className={cn(
-                          'transition-colors',
-                          isActive ? 'text-emerald-600' : 'text-muted-foreground'
+                          'transition-all duration-200',
+                          isActive ? 'text-emerald-600' : 'text-muted-foreground group-hover:text-emerald-500'
                         )} />
                         <span>{item.label}</span>
                         {isActive && (
-                          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-emerald-500" />
+                          <motion.div
+                            layoutId="sidebar-active"
+                            className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-gradient-to-b from-emerald-400 to-teal-500"
+                            transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                          />
                         )}
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -355,8 +464,8 @@ function AppSidebar({ onLogout, notificationCount }: { onLogout: () => void; not
         <Separator className="mb-3 opacity-60" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex w-full items-center gap-3 rounded-lg p-2 transition-colors hover:bg-muted/60 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0">
-              <Avatar className="h-8 w-8 border-2 border-emerald-200">
+            <button className="flex w-full items-center gap-3 rounded-lg p-2 transition-all duration-200 hover:bg-muted/60 hover:ring-1 hover:ring-emerald-200/50 dark:hover:ring-emerald-800/30 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0 group">
+              <Avatar className="h-8 w-8 border-2 border-emerald-200 dark:border-emerald-800 transition-colors group-hover:border-emerald-400 dark:group-hover:border-emerald-600">
                 <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-xs font-semibold">
                   AU
                 </AvatarFallback>
@@ -365,7 +474,7 @@ function AppSidebar({ onLogout, notificationCount }: { onLogout: () => void; not
                 <span className="text-sm font-medium">Admin User</span>
                 <span className="text-[10px] text-muted-foreground">Super Administrator</span>
               </div>
-              <ChevronRight className="h-3 w-3 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+              <ChevronRight className="h-3 w-3 text-muted-foreground group-hover:text-emerald-500 transition-colors group-data-[collapsible=icon]:hidden" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start" className="w-56">
@@ -628,14 +737,16 @@ function StatCard({
   accentColor: string
   bgColor: string
 }) {
+  const accentGradient = accentColor === 'text-emerald-600' ? 'from-emerald-400 to-teal-500' : accentColor === 'text-teal-600' ? 'from-teal-400 to-cyan-500' : accentColor === 'text-amber-600' ? 'from-amber-400 to-orange-500' : 'from-violet-400 to-purple-500'
+
   return (
-    <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow duration-300">
+    <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 stat-card-accent group cursor-default">
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
             <p className="text-2xl font-bold tracking-tight">{value}</p>
-            <div className="flex items-center gap-1.5">
+            <div className={cn('flex items-center gap-1.5', trend === 'up' && 'trend-pulse')}>
               {trend === 'up' ? (
                 <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
               ) : (
@@ -646,13 +757,15 @@ function StatCard({
               </span>
             </div>
           </div>
-          <div className={cn('flex h-11 w-11 items-center justify-center rounded-xl', bgColor)}>
-            <Icon className={cn('h-5 w-5', accentColor)} />
+          <div className={cn('flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-0.5', bgColor)}>
+            <Icon className={cn('h-5 w-5 transition-transform duration-300 group-hover:animate-bounce-subtle', accentColor)} />
           </div>
         </div>
       </CardContent>
-      {/* Decorative gradient line at top */}
-      <div className={cn('absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r', accentColor === 'text-emerald-600' ? 'from-emerald-400 to-teal-500' : accentColor === 'text-teal-600' ? 'from-teal-400 to-cyan-500' : accentColor === 'text-amber-600' ? 'from-amber-400 to-orange-500' : 'from-violet-400 to-purple-500')} />
+      {/* Decorative gradient line at top with shimmer effect */}
+      <div className={cn('absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r', accentGradient)}>
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+      </div>
     </Card>
   )
 }
@@ -955,9 +1068,6 @@ function Dashboard() {
   const maleCount = dashboardData?.genderDistribution?.MALE ?? dashboardData?.genderDistribution?.Male ?? 0
   const femaleCount = dashboardData?.genderDistribution?.FEMALE ?? dashboardData?.genderDistribution?.Female ?? 0
 
-  // Upcoming events - since there's no /api/events, show a placeholder message
-  const upcomingEvents: Array<{ id: number; title: string; date: string; category: string }> = []
-
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
@@ -968,6 +1078,15 @@ function Dashboard() {
       >
         <Card className="border-0 bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-lg shadow-emerald-200/50 overflow-hidden relative">
           <CardContent className="p-6 md:p-8">
+            {/* Sparkle/particle effects */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              <div className="absolute top-4 left-1/4 h-1.5 w-1.5 rounded-full bg-white/40 animate-sparkle" style={{ animationDelay: '0s' }} />
+              <div className="absolute top-8 right-1/3 h-1 w-1 rounded-full bg-white/30 animate-sparkle" style={{ animationDelay: '0.5s' }} />
+              <div className="absolute bottom-12 left-1/2 h-1.5 w-1.5 rounded-full bg-white/35 animate-sparkle" style={{ animationDelay: '1s' }} />
+              <div className="absolute top-1/2 right-1/4 h-1 w-1 rounded-full bg-white/25 animate-sparkle" style={{ animationDelay: '1.5s' }} />
+              <div className="absolute bottom-6 right-12 h-1.5 w-1.5 rounded-full bg-white/30 animate-sparkle" style={{ animationDelay: '0.8s' }} />
+              <div className="absolute top-1/3 left-16 h-1 w-1 rounded-full bg-white/20 animate-sparkle" style={{ animationDelay: '2s' }} />
+            </div>
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-2">
                 <School className="h-5 w-5 text-emerald-200" />
@@ -976,13 +1095,13 @@ function Dashboard() {
               <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Welcome to ZimSchool Pro</h1>
               <p className="mt-1 text-emerald-100 text-sm md:text-base">Your comprehensive school management dashboard</p>
               <div className="mt-4 flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2 rounded-lg bg-white/15 backdrop-blur-sm px-3 py-1.5">
+                <div className="flex items-center gap-2 rounded-lg bg-white/15 backdrop-blur-sm px-3 py-1.5 animate-pulse-glow">
                   <Calendar className="h-4 w-4 text-emerald-200" />
                   <span className="text-sm font-medium">{today}</span>
                 </div>
                 <div className="flex items-center gap-2 rounded-lg bg-white/15 backdrop-blur-sm px-3 py-1.5">
                   <Activity className="h-4 w-4 text-emerald-200" />
-                  <span className="text-sm font-medium">Term 1, {new Date().getFullYear()}</span>
+                  <span className="text-sm font-medium animate-pulse-glow">Term 1, {new Date().getFullYear()}</span>
                 </div>
                 <div className="flex items-center gap-2 rounded-lg bg-white/15 backdrop-blur-sm px-3 py-1.5">
                   <Clock className="h-4 w-4 text-emerald-200" />
@@ -990,10 +1109,10 @@ function Dashboard() {
                 </div>
               </div>
             </div>
-            {/* Decorative circles */}
-            <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/5" />
-            <div className="absolute -right-4 -bottom-12 h-56 w-56 rounded-full bg-white/5" />
-            <div className="absolute right-20 top-8 h-20 w-20 rounded-full bg-white/5" />
+            {/* Decorative circles with subtle float animation */}
+            <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/5 animate-float" />
+            <div className="absolute -right-4 -bottom-12 h-56 w-56 rounded-full bg-white/5 animate-float-slow" />
+            <div className="absolute right-20 top-8 h-20 w-20 rounded-full bg-white/5 animate-float" style={{ animationDelay: '1s' }} />
           </CardContent>
         </Card>
       </motion.div>
@@ -1172,8 +1291,8 @@ function Dashboard() {
         )}
       </motion.div>
 
-      {/* Fee Collection + Activity + Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Fee Collection + Attendance Overview */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Fee Collection Overview */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -1224,11 +1343,66 @@ function Dashboard() {
           </Card>
         </motion.div>
 
-        {/* Recent Activity */}
+        {/* Attendance Overview Mini-Chart */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.35 }}
+        >
+          <Card className="border-0 shadow-md h-full">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-semibold">Attendance Overview</CardTitle>
+                  <CardDescription>Weekly attendance trend</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5">
+                    <CalendarCheck className="h-4 w-4 text-emerald-600" />
+                    <span className="text-sm font-bold text-emerald-700">{attendanceRate}%</span>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-[200px] w-full rounded-lg" />
+              ) : (
+                <>
+                  <ChartContainer config={attendanceTrendChartConfig} className="h-[180px] w-full">
+                    <LineChart data={weeklyAttendanceData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                      <YAxis domain={[80, 100]} tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Line type="monotone" dataKey="present" stroke="var(--color-present)" strokeWidth={3} dot={{ fill: 'var(--color-present)', r: 5 }} activeDot={{ r: 7 }} />
+                    </LineChart>
+                  </ChartContainer>
+                  {/* Attendance by Level */}
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="rounded-lg bg-teal-50 px-3 py-2">
+                      <p className="text-[10px] font-medium text-teal-600 uppercase">Primary Attendance</p>
+                      <p className="text-sm font-bold text-teal-700">94.2%</p>
+                    </div>
+                    <div className="rounded-lg bg-cyan-50 px-3 py-2">
+                      <p className="text-[10px] font-medium text-cyan-600 uppercase">Secondary Attendance</p>
+                      <p className="text-sm font-bold text-cyan-700">91.8%</p>
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* Recent Activity + Upcoming Events & Holidays */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Recent Activity */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
         >
           <Card className="border-0 shadow-md h-full">
             <CardHeader className="pb-2">
@@ -1253,7 +1427,7 @@ function Dashboard() {
                   ))}
                 </div>
               ) : recentActivitiesData.length > 0 ? (
-                <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1 custom-scrollbar">
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
                   {recentActivitiesData.map((activity) => {
                     const Icon = activityIcons[activity.type]
                     const colorClass = activityColors[activity.type]
@@ -1282,77 +1456,265 @@ function Dashboard() {
           </Card>
         </motion.div>
 
-        {/* Quick Actions */}
+        {/* Upcoming Events & Holidays Panel */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
+          transition={{ duration: 0.5, delay: 0.45 }}
         >
           <Card className="border-0 shadow-md h-full">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Quick Actions</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold">Upcoming Events & Holidays</CardTitle>
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-emerald-600 hover:text-emerald-700" onClick={() => setActiveModule('events')}>
+                  View Calendar <ArrowUpRight className="ml-1 h-3 w-3" />
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-2">
-                <QuickAction icon={Plus} label="Add Student" color="bg-emerald-50 text-emerald-600" onClick={() => setActiveModule('students')} />
-                <QuickAction icon={CreditCard} label="Record Payment" color="bg-amber-50 text-amber-600" onClick={() => setActiveModule('finance')} />
-                <QuickAction icon={ClipboardCheck} label="Take Attendance" color="bg-teal-50 text-teal-600" onClick={() => setActiveModule('attendance')} />
-                <QuickAction icon={FileText} label="Generate Report" color="bg-violet-50 text-violet-600" onClick={() => setActiveModule('reports')} />
-                <QuickAction icon={UsersRound} label="Add Staff" color="bg-cyan-50 text-cyan-600" onClick={() => setActiveModule('staff')} />
-                <QuickAction icon={Wallet} label="View Finances" color="bg-orange-50 text-orange-600" onClick={() => setActiveModule('finance')} />
+              <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                {upcomingEventsData.map((event) => {
+                  const EventIcon = event.icon
+                  const typeBadgeColors: Record<string, string> = {
+                    Holiday: 'bg-emerald-100 text-emerald-700',
+                    Event: 'bg-amber-100 text-amber-700',
+                    Exam: 'bg-rose-100 text-rose-700',
+                    Meeting: 'bg-cyan-100 text-cyan-700',
+                  }
+                  const iconColors: Record<string, string> = {
+                    Holiday: 'bg-emerald-50 text-emerald-600',
+                    Event: 'bg-amber-50 text-amber-600',
+                    Exam: 'bg-rose-50 text-rose-600',
+                    Meeting: 'bg-cyan-50 text-cyan-600',
+                  }
+                  return (
+                    <div key={event.id} className="flex items-center gap-3 rounded-xl border p-3 transition-colors hover:bg-emerald-50/30 hover:border-emerald-200">
+                      <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', iconColors[event.type])}>
+                        <EventIcon className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium leading-tight">{event.name}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {event.dateObj.toLocaleDateString('en-ZW', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant="secondary" className={cn('text-[10px] px-1.5 py-0 h-4 border-0', typeBadgeColors[event.type])}>
+                          {event.type}
+                        </Badge>
+                        <span className={cn(
+                          'text-[10px] font-medium',
+                          event.daysUntil <= 3 ? 'text-rose-600' : event.daysUntil <= 7 ? 'text-amber-600' : 'text-muted-foreground'
+                        )}>
+                          {event.daysUntil === 0 ? 'Today' : event.daysUntil === 1 ? 'Tomorrow' : `${event.daysUntil} days`}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </CardContent>
           </Card>
         </motion.div>
       </div>
 
-      {/* Upcoming Events */}
+      {/* Quick Actions */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.45 }}
+        transition={{ duration: 0.5, delay: 0.5 }}
+      >
+        <Card className="border-0 shadow-md">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold">Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+              <QuickAction icon={Plus} label="Add Student" color="bg-emerald-50 text-emerald-600" onClick={() => setActiveModule('students')} />
+              <QuickAction icon={CreditCard} label="Record Payment" color="bg-amber-50 text-amber-600" onClick={() => setActiveModule('finance')} />
+              <QuickAction icon={ClipboardCheck} label="Take Attendance" color="bg-teal-50 text-teal-600" onClick={() => setActiveModule('attendance')} />
+              <QuickAction icon={FileText} label="Generate Report" color="bg-violet-50 text-violet-600" onClick={() => setActiveModule('reports')} />
+              <QuickAction icon={UsersRound} label="Add Staff" color="bg-cyan-50 text-cyan-600" onClick={() => setActiveModule('staff')} />
+              <QuickAction icon={Wallet} label="View Finances" color="bg-orange-50 text-orange-600" onClick={() => setActiveModule('finance')} />
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Alerts & Reminders Panel */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.55 }}
       >
         <Card className="border-0 shadow-md">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-semibold">Upcoming Events</CardTitle>
+              <div className="flex items-center gap-2">
+                <Megaphone className="h-4 w-4 text-emerald-600" />
+                <CardTitle className="text-base font-semibold">Alerts & Reminders</CardTitle>
+              </div>
+              <Badge variant="secondary" className="text-[10px] px-2 bg-emerald-100 text-emerald-700">
+                {alertsData.length} active
+              </Badge>
             </div>
           </CardHeader>
           <CardContent>
-            {upcomingEvents.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {upcomingEvents.map((event) => (
-                  <div key={event.id} className="flex items-center gap-3 rounded-xl border p-3 transition-colors hover:bg-muted/30">
-                    <div className="flex h-10 w-10 flex-col items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
-                      <span className="text-[10px] font-medium leading-none">
-                        {event.date.split(' ')[0]}
-                      </span>
-                      <span className="text-xs font-bold leading-none mt-0.5">
-                        {event.date.split(' ')[1]}
-                      </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {alertsData.map((alert, index) => {
+                const severityStyles: Record<string, { icon: React.ElementType; border: string; bg: string; iconBg: string; iconColor: string; badge: string }> = {
+                  critical: { icon: AlertTriangle, border: 'border-l-red-400', bg: 'bg-red-50/50', iconBg: 'bg-red-100', iconColor: 'text-red-600', badge: 'bg-red-100 text-red-700' },
+                  warning: { icon: AlertCircle, border: 'border-l-amber-400', bg: 'bg-amber-50/50', iconBg: 'bg-amber-100', iconColor: 'text-amber-600', badge: 'bg-amber-100 text-amber-700' },
+                  info: { icon: Bell, border: 'border-l-teal-400', bg: 'bg-teal-50/50', iconBg: 'bg-teal-100', iconColor: 'text-teal-600', badge: 'bg-teal-100 text-teal-700' },
+                }
+                const style = severityStyles[alert.severity]
+                const SeverityIcon = style.icon
+                return (
+                  <motion.div
+                    key={alert.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.6 + index * 0.05 }}
+                  >
+                    <div className={cn('rounded-xl border border-l-4 p-4 transition-all hover:shadow-md', style.border, style.bg)}>
+                      <div className="flex items-start gap-3">
+                        <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', style.iconBg)}>
+                          <SeverityIcon className={cn('h-4 w-4', style.iconColor)} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="text-sm font-semibold truncate">{alert.title}</p>
+                            <Badge variant="secondary" className={cn('text-[9px] px-1.5 py-0 h-4 border-0 shrink-0', style.badge)}>
+                              {alert.severity}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-2">{alert.description}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 mt-2 text-xs px-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                            onClick={() => setActiveModule(alert.module)}
+                          >
+                            {alert.action} <ArrowUpRight className="ml-1 h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Quick Stats Footer */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.65 }}
+      >
+        <Card className="border-0 shadow-md bg-gradient-to-r from-emerald-50/50 via-teal-50/50 to-emerald-50/50">
+          <CardContent className="p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {quickStatsData.map((stat, index) => {
+                const StatIcon = stat.icon
+                return (
+                  <motion.div
+                    key={stat.label}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3, delay: 0.7 + index * 0.05 }}
+                    className="flex items-center gap-3 rounded-xl bg-white/80 p-3 shadow-sm border border-emerald-100/50"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50">
+                      <StatIcon className="h-4 w-4 text-emerald-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium leading-tight">{event.title}</p>
-                      <Badge variant="secondary" className="mt-1 text-[10px] px-1.5 py-0 h-4">
-                        {event.category}
-                      </Badge>
+                      <p className="text-lg font-bold tracking-tight leading-none">{stat.value}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{stat.label}</p>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex items-center justify-center py-8 text-muted-foreground">
-                <div className="text-center">
-                  <Calendar className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm font-medium">No upcoming events</p>
-                  <p className="text-xs mt-1">Events will appear here when scheduled</p>
-                </div>
-              </div>
-            )}
+                  </motion.div>
+                )
+              })}
+            </div>
           </CardContent>
         </Card>
       </motion.div>
     </div>
+  )
+}
+
+// ─── Module Breadcrumb Mapping ────────────────────────────────────────────────
+const moduleGroupMap: Record<string, { group: string; path: string[] }> = {
+  dashboard: { group: 'Main', path: ['Main', 'Dashboard'] },
+  students: { group: 'People', path: ['People', 'Students'] },
+  staff: { group: 'People', path: ['People', 'Staff'] },
+  admissions: { group: 'People', path: ['People', 'Admissions'] },
+  academics: { group: 'Academics', path: ['Academics', 'Classes & Subjects'] },
+  timetable: { group: 'Academics', path: ['Academics', 'Timetable'] },
+  attendance: { group: 'Academics', path: ['Academics', 'Attendance'] },
+  examinations: { group: 'Academics', path: ['Academics', 'Examinations'] },
+  elearning: { group: 'Academics', path: ['Academics', 'E-Learning'] },
+  reports: { group: 'Academics', path: ['Academics', 'Reports'] },
+  finance: { group: 'Finance', path: ['Finance', 'Fees & Billing'] },
+  payroll: { group: 'Finance', path: ['Finance', 'Payroll'] },
+  procurement: { group: 'Finance', path: ['Finance', 'Procurement'] },
+  boarding: { group: 'Operations', path: ['Operations', 'Boarding'] },
+  transport: { group: 'Operations', path: ['Operations', 'Transport'] },
+  library: { group: 'Operations', path: ['Operations', 'Library'] },
+  inventory: { group: 'Operations', path: ['Operations', 'Inventory'] },
+  canteen: { group: 'Operations', path: ['Operations', 'Canteen'] },
+  welfare: { group: 'Welfare', path: ['Welfare', 'Support Programs'] },
+  discipline: { group: 'Welfare', path: ['Welfare', 'Discipline'] },
+  health: { group: 'Welfare', path: ['Welfare', 'Health'] },
+  alumni: { group: 'Community', path: ['Community', 'Alumni'] },
+  sdc: { group: 'Admin', path: ['Admin', 'SDC'] },
+  events: { group: 'Admin', path: ['Admin', 'Events & Sports'] },
+  communication: { group: 'Admin', path: ['Admin', 'Communication'] },
+  documents: { group: 'Admin', path: ['Admin', 'Documents'] },
+  security: { group: 'Admin', path: ['Admin', 'Security'] },
+  settings: { group: 'Admin', path: ['Admin', 'Settings'] },
+}
+
+// ─── Module Header Component ──────────────────────────────────────────────────
+function ModuleHeader({ moduleId }: { moduleId: string }) {
+  const info = moduleInfo[moduleId]
+  const breadcrumb = moduleGroupMap[moduleId]
+  if (!info || !breadcrumb) return null
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="mb-4"
+    >
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+        {breadcrumb.path.map((segment, i) => (
+          <React.Fragment key={i}>
+            {i > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground/40" />}
+            <span className={cn(
+              'transition-colors',
+              i === breadcrumb.path.length - 1 ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'hover:text-foreground cursor-default'
+            )}>
+              {segment}
+            </span>
+          </React.Fragment>
+        ))}
+      </div>
+      {/* Module Title with gradient underline */}
+      <div className="flex items-center gap-3">
+        <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-white shadow-sm', info.gradient)}>
+          <info.icon className="h-4.5 w-4.5" />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold tracking-tight gradient-underline">{info.title}</h2>
+          <p className="text-xs text-muted-foreground mt-1">{info.description}</p>
+        </div>
+      </div>
+    </motion.div>
   )
 }
 
@@ -1411,6 +1773,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
   const [rememberMe, setRememberMe] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [shakeForm, setShakeForm] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1426,19 +1789,29 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Gradient Branding */}
+      {/* Left Side - Animated Gradient Branding */}
       <motion.div
         initial={{ opacity: 0, x: -40 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800"
+        className="hidden lg:flex lg:w-1/2 relative overflow-hidden login-gradient-animated"
       >
-        {/* Decorative elements */}
-        <div className="absolute inset-0">
-          <div className="absolute -top-24 -left-24 h-96 w-96 rounded-full bg-white/5" />
-          <div className="absolute -bottom-32 -right-32 h-[500px] w-[500px] rounded-full bg-white/5" />
-          <div className="absolute top-1/3 right-12 h-64 w-64 rounded-full bg-white/5" />
-          <div className="absolute top-12 left-1/3 h-32 w-32 rounded-full bg-white/10" />
+        {/* Floating geometric shapes */}
+        <div className="absolute inset-0 pointer-events-none">
+          {/* Circles */}
+          <div className="absolute -top-24 -left-24 h-96 w-96 rounded-full bg-white/5 animate-float" />
+          <div className="absolute -bottom-32 -right-32 h-[500px] w-[500px] rounded-full bg-white/5 animate-float-slow" />
+          <div className="absolute top-1/3 right-12 h-64 w-64 rounded-full bg-white/5 animate-float" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-12 left-1/3 h-32 w-32 rounded-full bg-white/10 animate-float-slow" style={{ animationDelay: '2s' }} />
+          {/* Squares / Diamonds */}
+          <div className="absolute top-20 right-1/4 h-16 w-16 rounded-lg bg-white/[0.07] rotate-45 animate-float" style={{ animationDelay: '0.5s' }} />
+          <div className="absolute bottom-40 left-16 h-12 w-12 rounded-md bg-white/[0.06] rotate-12 animate-float-slow" style={{ animationDelay: '1.5s' }} />
+          <div className="absolute top-2/3 right-20 h-8 w-8 rounded-sm bg-white/[0.08] -rotate-12 animate-float" style={{ animationDelay: '3s' }} />
+          <div className="absolute bottom-1/3 left-1/4 h-20 w-20 rounded-xl bg-white/[0.04] rotate-6 animate-float-slow" style={{ animationDelay: '2.5s' }} />
+          {/* Small decorative dots */}
+          <div className="absolute top-1/4 left-1/4 h-2 w-2 rounded-full bg-white/20 animate-float" style={{ animationDelay: '0.3s' }} />
+          <div className="absolute top-1/2 right-1/3 h-3 w-3 rounded-full bg-white/15 animate-float" style={{ animationDelay: '1.8s' }} />
+          <div className="absolute bottom-1/4 left-1/2 h-2 w-2 rounded-full bg-white/20 animate-float" style={{ animationDelay: '2.2s' }} />
           {/* Grid pattern */}
           <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
         </div>
@@ -1455,7 +1828,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
               </div>
             </div>
 
-            {/* School image placeholder */}
+            {/* School building SVG illustration */}
             <div className="rounded-2xl bg-white/10 backdrop-blur-sm p-6 mb-8 border border-white/10">
               <div className="flex items-center gap-4 mb-4">
                 <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-white/15">
@@ -1465,6 +1838,33 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
                   <h3 className="text-lg font-bold text-white">Mufakose High School</h3>
                   <p className="text-sm text-emerald-200">Harare, Zimbabwe</p>
                 </div>
+              </div>
+              {/* School Building SVG */}
+              <div className="flex justify-center mb-4">
+                <svg viewBox="0 0 200 100" className="w-full max-w-[200px] h-auto opacity-80" fill="none">
+                  {/* Main building */}
+                  <rect x="40" y="40" width="120" height="55" rx="2" fill="white" fillOpacity="0.2" />
+                  {/* Roof */}
+                  <path d="M30 42 L100 15 L170 42 Z" fill="white" fillOpacity="0.25" />
+                  {/* Door */}
+                  <rect x="85" y="65" width="30" height="30" rx="1.5" fill="white" fillOpacity="0.3" />
+                  <circle cx="112" cy="80" r="2" fill="white" fillOpacity="0.5" />
+                  {/* Windows */}
+                  <rect x="50" y="52" width="18" height="14" rx="1" fill="white" fillOpacity="0.3" />
+                  <rect x="78" y="52" width="18" height="14" rx="1" fill="white" fillOpacity="0.3" />
+                  <rect x="104" y="52" width="18" height="14" rx="1" fill="white" fillOpacity="0.3" />
+                  <rect x="132" y="52" width="18" height="14" rx="1" fill="white" fillOpacity="0.3" />
+                  {/* Flag */}
+                  <line x1="35" y1="10" x2="35" y2="42" stroke="white" strokeOpacity="0.4" strokeWidth="1.5" />
+                  <rect x="36" y="10" width="14" height="9" rx="0.5" fill="#10b981" fillOpacity="0.6" />
+                  {/* Trees */}
+                  <circle cx="18" cy="75" r="10" fill="white" fillOpacity="0.1" />
+                  <rect x="16" y="85" width="4" height="10" rx="1" fill="white" fillOpacity="0.15" />
+                  <circle cx="182" cy="75" r="10" fill="white" fillOpacity="0.1" />
+                  <rect x="180" y="85" width="4" height="10" rx="1" fill="white" fillOpacity="0.15" />
+                  {/* Ground */}
+                  <line x1="0" y1="95" x2="200" y2="95" stroke="white" strokeOpacity="0.15" strokeWidth="1" />
+                </svg>
               </div>
               <div className="flex gap-4">
                 <div className="flex-1 rounded-lg bg-white/10 p-3 text-center">
@@ -1497,7 +1897,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.3 + i * 0.1 }}
-                className="flex items-center gap-3 rounded-lg bg-white/10 backdrop-blur-sm p-3 border border-white/5"
+                className="flex items-center gap-3 rounded-lg bg-white/10 backdrop-blur-sm p-3 border border-white/5 hover:bg-white/15 transition-colors duration-200"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15">
                   <feature.icon className="h-4 w-4 text-white" />
@@ -1510,9 +1910,9 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
             ))}
           </div>
 
-          {/* Zimbabwe flag colors accent at bottom */}
+          {/* Zimbabwe flag colors accent at bottom - animated wave */}
           <div className="mt-8">
-            <div className="flex h-1.5 w-full overflow-hidden rounded-full">
+            <div className="flex h-1.5 w-full overflow-hidden rounded-full zw-flag-stripe">
               <div className="flex-1 bg-green-500" />
               <div className="flex-1 bg-yellow-400" />
               <div className="flex-1 bg-red-500" />
@@ -1548,6 +1948,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
+            className={cn(shakeForm && 'animate-shake')}
           >
             <div className="mb-8">
               <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
@@ -1558,16 +1959,16 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
 
             <form onSubmit={handleLogin} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium">Email or Username</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="email" className="text-sm font-medium transition-colors group-focus-within:text-emerald-600">Email or Username</Label>
+                <div className="relative group">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-emerald-500" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="admin@zimschool.co.zw"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 h-11"
+                    className="pl-10 h-11 emerald-focus transition-all duration-200"
                     required
                   />
                 </div>
@@ -1575,26 +1976,26 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-sm font-medium">Password</Label>
-                  <button type="button" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                  <Label htmlFor="password" className="text-sm font-medium transition-colors group-focus-within:text-emerald-600">Password</Label>
+                  <button type="button" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium transition-colors">
                     Forgot password?
                   </button>
                 </div>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <div className="relative group">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-emerald-500" />
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 pr-10 h-11"
+                    className="pl-10 pr-10 h-11 emerald-focus transition-all duration-200"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-emerald-600 transition-colors"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -1606,15 +2007,16 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
                   id="remember"
                   checked={rememberMe}
                   onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                  className="emerald-checkbox"
                 />
-                <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
+                <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
                   Remember me for 30 days
                 </Label>
               </div>
 
               <Button
                 type="submit"
-                className="w-full h-11 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-lg shadow-emerald-200/50 transition-all duration-200"
+                className="w-full h-11 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-lg shadow-emerald-200/50 hover:shadow-emerald-300/50 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -1623,14 +2025,17 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
                     Signing in...
                   </div>
                 ) : (
-                  'Sign In'
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-4 w-4" />
+                    Sign In
+                  </div>
                 )}
               </Button>
             </form>
 
-            {/* Zimbabwe flag stripe on mobile */}
+            {/* Zimbabwe flag stripe on mobile - animated wave */}
             <div className="mt-8 lg:hidden">
-              <div className="flex h-1.5 w-full overflow-hidden rounded-full">
+              <div className="flex h-1.5 w-full overflow-hidden rounded-full zw-flag-stripe">
                 <div className="flex-1 bg-green-500" />
                 <div className="flex-1 bg-yellow-400" />
                 <div className="flex-1 bg-red-500" />
@@ -1641,9 +2046,12 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
               </p>
             </div>
 
-            <p className="mt-6 text-center text-xs text-muted-foreground">
-              &copy; {new Date().getFullYear()} ZimSchool Pro. All rights reserved.
-            </p>
+            <div className="mt-6 flex items-center justify-between">
+              <p className="text-center text-xs text-muted-foreground">
+                &copy; {new Date().getFullYear()} ZimSchool Pro
+              </p>
+              <span className="text-[10px] text-muted-foreground/50 font-mono">v2.5.0</span>
+            </div>
           </motion.div>
         </div>
       </motion.div>
@@ -1688,6 +2096,7 @@ export default function Home() {
       <SidebarInset>
         <AppHeader onLogout={handleLogout} notifications={notifications} onMarkAllRead={handleMarkAllRead} onMarkRead={handleMarkRead} />
         <main className="flex-1 overflow-auto p-4 md:p-6 bg-gradient-to-br from-gray-50/50 to-emerald-50/20 dark:from-background dark:to-background">
+          <ModuleHeader moduleId={activeModule} />
           <AnimatePresence mode="wait">
             {activeModule === 'dashboard' ? (
               <Dashboard key="dashboard" />

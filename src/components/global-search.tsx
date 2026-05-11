@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useTheme } from 'next-themes'
 import { useAppStore } from '@/lib/store'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   CommandDialog,
   CommandEmpty,
@@ -34,6 +35,14 @@ import {
   MessageSquare,
   Settings,
   UserPlus,
+  Clock,
+  Coffee,
+  ShoppingCart,
+  Trophy,
+  Monitor,
+  Shield,
+  FileText,
+  UsersRound,
 } from 'lucide-react'
 
 interface SearchResult {
@@ -67,6 +76,14 @@ const moduleIcons: Record<string, React.ElementType> = {
   sdc: Building,
   communication: MessageSquare,
   settings: Settings,
+  timetable: Clock,
+  events: Trophy,
+  canteen: Coffee,
+  procurement: ShoppingCart,
+  security: Shield,
+  elearning: Monitor,
+  documents: FileText,
+  alumni: UsersRound,
 }
 
 // Quick navigation items
@@ -163,26 +180,38 @@ export function GlobalSearch() {
   return (
     <>
       {/* Search trigger button */}
-      <button
+      <motion.button
         onClick={() => setOpen(true)}
-        className="relative flex-1 max-w-md flex items-center gap-2 rounded-md border-0 bg-muted/40 h-9 px-3 text-sm text-muted-foreground hover:bg-muted/60 transition-colors cursor-pointer"
+        whileTap={{ scale: 0.98 }}
+        className="relative flex-1 max-w-md flex items-center gap-2 rounded-md border-0 bg-muted/40 h-9 px-3 text-sm text-muted-foreground hover:bg-muted/60 transition-all duration-200 cursor-pointer hover:ring-1 hover:ring-emerald-200/50 dark:hover:ring-emerald-800/30"
       >
         <Search className="h-4 w-4 shrink-0" />
         <span className="flex-1 text-left truncate">Search students, staff, records...</span>
-        <kbd className="pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+        <kbd className="pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground transition-colors">
           <span className="text-xs">⌘</span>K
         </kbd>
-      </button>
+      </motion.button>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
+        {/* Add custom emerald styling to the command dialog */}
         <CommandInput
           placeholder="Search students, staff, modules..."
           value={query}
           onValueChange={setQuery}
+          className="emerald-focus"
         />
         <CommandList>
           <CommandEmpty>
-            {loading ? 'Searching...' : query.length < 2 ? 'Type at least 2 characters to search...' : 'No results found.'}
+            {loading ? (
+              <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
+                <span className="text-sm">Searching...</span>
+              </div>
+            ) : query.length < 2 ? (
+              <span className="text-sm">Type at least 2 characters to search...</span>
+            ) : (
+              <span className="text-sm">No results found.</span>
+            )}
           </CommandEmpty>
 
           {/* Search results - Students */}
@@ -196,6 +225,7 @@ export function GlobalSearch() {
                       key={result.id}
                       value={`student-${result.title}-${result.subtitle}`}
                       onSelect={() => handleSelect(() => navigateToModule('students'))}
+                      className="transition-all duration-150 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 data-[selected=true]:bg-emerald-50 data-[selected=true]:text-emerald-700 dark:data-[selected=true]:bg-emerald-950/30 dark:data-[selected=true]:text-emerald-300"
                     >
                       <Icon className="mr-2 h-4 w-4 text-emerald-600" />
                       <div className="flex-1 flex flex-col">
@@ -222,6 +252,7 @@ export function GlobalSearch() {
                       key={result.id}
                       value={`staff-${result.title}-${result.subtitle}`}
                       onSelect={() => handleSelect(() => navigateToModule('staff'))}
+                      className="transition-all duration-150 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 data-[selected=true]:bg-emerald-50 data-[selected=true]:text-emerald-700 dark:data-[selected=true]:bg-emerald-950/30 dark:data-[selected=true]:text-emerald-300"
                     >
                       <Icon className="mr-2 h-4 w-4 text-teal-600" />
                       <div className="flex-1 flex flex-col">
@@ -246,6 +277,7 @@ export function GlobalSearch() {
                   key={item.id}
                   value={`${item.label} ${item.keywords}`}
                   onSelect={() => handleSelect(() => navigateToModule(item.id))}
+                  className="transition-all duration-150 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 data-[selected=true]:bg-emerald-50 data-[selected=true]:text-emerald-700 dark:data-[selected=true]:bg-emerald-950/30 dark:data-[selected=true]:text-emerald-300"
                 >
                   <Icon className="mr-2 h-4 w-4" />
                   <span>{item.label}</span>

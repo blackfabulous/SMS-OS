@@ -41,6 +41,18 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  --animate-shimmer: shimmer 2s infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-float-slow: float 8s ease-in-out infinite;
+  --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
+  --animate-shake: shake 0.5s ease-in-out;
+  --animate-gradient-x: gradient-x 3s ease infinite;
+  --animate-sparkle: sparkle 1.5s ease-in-out infinite;
+  --animate-bounce-subtle: bounce-subtle 2s ease-in-out infinite;
+  --animate-slide-down: slide-down 0.2s ease-out;
+  --animate-fade-in: fade-in 0.3s ease-out;
+  --animate-counter: counter 1s ease-out forwards;
 }
 
 :root {
@@ -121,7 +133,29 @@
   }
 }
 
-/* Custom Scrollbar */
+/* ─── Custom Scrollbar (emerald-themed) ────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #059669;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #404040;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #34d399;
+}
+
+/* Custom scrollbar class for specific containers */
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
@@ -133,11 +167,289 @@
   border-radius: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: #059669;
 }
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #404040;
 }
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #525252;
+  background: #34d399;
+}
+
+/* ─── Custom Selection Color (emerald) ─────────────────────────────────────── */
+::selection {
+  background-color: rgba(16, 185, 129, 0.2);
+  color: inherit;
+}
+::-moz-selection {
+  background-color: rgba(16, 185, 129, 0.2);
+  color: inherit;
+}
+.dark ::selection {
+  background-color: rgba(52, 211, 153, 0.25);
+}
+.dark ::-moz-selection {
+  background-color: rgba(52, 211, 153, 0.25);
+}
+
+/* ─── Focus-Visible Styling (emerald ring) ─────────────────────────────────── */
+*:focus-visible {
+  outline: 2px solid #10b981;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.dark *:focus-visible {
+  outline-color: #34d399;
+}
+
+/* ─── Keyframe Animations ──────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(3deg); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  50% { opacity: 0.9; box-shadow: 0 0 12px 4px rgba(16, 185, 129, 0.15); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+@keyframes gradient-x {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes bounce-subtle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes slide-down {
+  0% { opacity: 0; transform: translateY(-8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes counter {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer-line {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+@keyframes flag-wave {
+  0%, 100% { opacity: 1; }
+  25% { opacity: 0.85; }
+  50% { opacity: 1; }
+  75% { opacity: 0.9; }
+}
+
+@keyframes gradient-move {
+  0% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
+}
+
+/* ─── Utility Animation Classes ────────────────────────────────────────────── */
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 25%, rgba(16, 185, 129, 0.1) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-slow {
+  animation: float 8s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+.animate-gradient-x {
+  background-size: 200% 200%;
+  animation: gradient-x 3s ease infinite;
+}
+
+.animate-sparkle {
+  animation: sparkle 1.5s ease-in-out infinite;
+}
+
+.animate-bounce-subtle {
+  animation: bounce-subtle 2s ease-in-out infinite;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.2s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-counter {
+  animation: counter 1s ease-out forwards;
+}
+
+/* ─── Shimmer / Skeleton Loading Improvements ─────────────────────────────── */
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.06), transparent);
+  animation: shimmer-line 1.5s ease-in-out infinite;
+}
+
+/* ─── Hover Ripple Effect ──────────────────────────────────────────────────── */
+.hover-ripple {
+  position: relative;
+  overflow: hidden;
+}
+.hover-ripple::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--ripple-x, 50%) var(--ripple-y, 50%), rgba(16, 185, 129, 0.1) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.hover-ripple:hover::after {
+  opacity: 1;
+}
+
+/* ─── Gradient Underline for Module Headers ────────────────────────────────── */
+.gradient-underline {
+  position: relative;
+  display: inline-block;
+}
+.gradient-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #10b981, #14b8a6, #10b981);
+  background-size: 200% 100%;
+  animation: gradient-x 3s ease infinite;
+}
+
+/* ─── Stat Card Shimmer Accent ─────────────────────────────────────────────── */
+.stat-card-accent {
+  position: relative;
+  overflow: hidden;
+}
+.stat-card-accent .accent-shimmer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  overflow: hidden;
+}
+.stat-card-accent .accent-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  background: inherit;
+}
+.stat-card-accent:hover .accent-shimmer::after {
+  animation: shimmer-line 1s ease-in-out;
+}
+
+/* ─── Smooth Page Transitions ──────────────────────────────────────────────── */
+.page-enter {
+  animation: fade-in 0.3s ease-out, slide-down 0.3s ease-out;
+}
+
+/* ─── Sidebar Watermark Pattern ────────────────────────────────────────────── */
+.sidebar-watermark {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='%2310b981' fill-opacity='0.015'%3E%3Cpath d='M60 10 L70 30 L60 25 L50 30 Z'/%3E%3Ccircle cx='20' cy='20' r='3'/%3E%3Ccircle cx='100' cy='100' r='3'/%3E%3Crect x='90' y='10' width='6' height='6' rx='1'/%3E%3Crect x='10' y='90' width='6' height='6' rx='1'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.dark .sidebar-watermark {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='%2334d399' fill-opacity='0.02'%3E%3Cpath d='M60 10 L70 30 L60 25 L50 30 Z'/%3E%3Ccircle cx='20' cy='20' r='3'/%3E%3Ccircle cx='100' cy='100' r='3'/%3E%3Crect x='90' y='10' width='6' height='6' rx='1'/%3E%3Crect x='10' y='90' width='6' height='6' rx='1'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* ─── Login Animated Gradient ──────────────────────────────────────────────── */
+.login-gradient-animated {
+  background: linear-gradient(-45deg, #059669, #0d9488, #047857, #0f766e, #065f46, #115e59);
+  background-size: 400% 400%;
+  animation: gradient-move 8s ease infinite;
+}
+
+/* ─── Zimbabwe Flag Wave ────────────────────────────────────────────────────── */
+.zw-flag-stripe > div {
+  animation: flag-wave 2s ease-in-out infinite;
+}
+.zw-flag-stripe > div:nth-child(1) { animation-delay: 0s; }
+.zw-flag-stripe > div:nth-child(2) { animation-delay: 0.15s; }
+.zw-flag-stripe > div:nth-child(3) { animation-delay: 0.3s; }
+.zw-flag-stripe > div:nth-child(4) { animation-delay: 0.45s; }
+
+/* ─── Emerald Focus Ring for Inputs ────────────────────────────────────────── */
+.emerald-focus:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2), 0 0 0 1px rgba(16, 185, 129, 0.5);
+  border-color: #10b981;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.dark .emerald-focus:focus {
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.15), 0 0 0 1px rgba(52, 211, 153, 0.4);
+  border-color: #34d399;
+}
+
+/* ─── Custom Checkbox Emerald ───────────────────────────────────────────────── */
+.emerald-checkbox[data-state="checked"] {
+  background-color: #10b981;
+  border-color: #10b981;
+}
+.dark .emerald-checkbox[data-state="checked"] {
+  background-color: #059669;
+  border-color: #059669;
+}
+
+/* ─── Trend Pulse Animation ────────────────────────────────────────────────── */
+.trend-pulse {
+  animation: pulse-glow 2s ease-in-out infinite;
 }
