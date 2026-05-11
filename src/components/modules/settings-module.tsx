@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Settings,
   School,
@@ -30,6 +30,13 @@ import {
   Printer,
   Globe,
   Search,
+  Wand2,
+  Palette,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Upload,
+  X,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -56,6 +63,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -118,6 +126,35 @@ export default function SettingsModule() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [activeTab, setActiveTab] = useState('profile')
+
+  // Setup Wizard state
+  const [wizardStep, setWizardStep] = useState(1)
+  const [wizardComplete, setWizardComplete] = useState(false)
+  const [showWizardOnLogin, setShowWizardOnLogin] = useState(true)
+  const [wizardData, setWizardData] = useState({
+    schoolName: '',
+    motto: '',
+    schoolType: 'Secondary',
+    ownership: 'Government',
+    province: 'Harare',
+    district: '',
+    emisNumber: '',
+    primaryColor: '#10b981',
+    secondaryColor: '#14b8a6',
+    academicYearName: '2025',
+    yearStartDate: '2025-01-14',
+    yearEndDate: '2025-12-05',
+    term1Start: '2025-01-14', term1End: '2025-04-04',
+    term2Start: '2025-05-06', term2End: '2025-08-01',
+    term3Start: '2025-09-02', term3End: '2025-12-05',
+    gradeLevels: [] as string[],
+    subjects: [] as string[],
+    feeCurrency: 'USD',
+    paymentTerms: 'Per Term',
+    headmasterName: '',
+    deputyHeadName: '',
+    bursarName: '',
+  })
 
   // Form state
   const [form, setForm] = useState<Partial<SchoolProfile>>({})
@@ -319,6 +356,10 @@ export default function SettingsModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1 flex flex-wrap">
+          <TabsTrigger value="setup-wizard" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+            <Wand2 className="mr-1.5 h-3.5 w-3.5" />
+            Setup Wizard
+          </TabsTrigger>
           <TabsTrigger value="profile" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
             <School className="mr-1.5 h-3.5 w-3.5" />
             School Profile
@@ -344,6 +385,20 @@ export default function SettingsModule() {
             System
           </TabsTrigger>
         </TabsList>
+
+        {/* ─── Setup Wizard Tab ─────────────────────────────────────────── */}
+        <TabsContent value="setup-wizard" className="space-y-4">
+          <SetupWizard
+            step={wizardStep}
+            setStep={setWizardStep}
+            data={wizardData}
+            setData={setWizardData}
+            complete={wizardComplete}
+            setComplete={setWizardComplete}
+            showOnLogin={showWizardOnLogin}
+            setShowOnLogin={setShowWizardOnLogin}
+          />
+        </TabsContent>
 
         {/* ─── School Profile Tab ────────────────────────────────────────── */}
         <TabsContent value="profile" className="space-y-4">
@@ -1136,5 +1191,620 @@ export default function SettingsModule() {
         </TabsContent>
       </Tabs>
     </motion.div>
+  )
+}
+
+// ─── Setup Wizard Component ──────────────────────────────────────────────────
+interface WizardData {
+  schoolName: string
+  motto: string
+  schoolType: string
+  ownership: string
+  province: string
+  district: string
+  emisNumber: string
+  primaryColor: string
+  secondaryColor: string
+  academicYearName: string
+  yearStartDate: string
+  yearEndDate: string
+  term1Start: string
+  term1End: string
+  term2Start: string
+  term2End: string
+  term3Start: string
+  term3End: string
+  gradeLevels: string[]
+  subjects: string[]
+  feeCurrency: string
+  paymentTerms: string
+  headmasterName: string
+  deputyHeadName: string
+  bursarName: string
+}
+
+const allGradeLevels = ['ECD A', 'ECD B', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Form 1', 'Form 2', 'Form 3', 'Form 4', 'Form 5', 'Form 6']
+const allSubjects = ['English', 'Mathematics', 'Shona', 'Ndebele', 'Science', 'Physics', 'Chemistry', 'Biology', 'History', 'Geography', 'Accounts', 'Commerce', 'Computer Science', 'Art', 'Music', 'Physical Education', 'Religious & Moral Education', 'Agriculture', 'Social Studies', 'Heritage Studies', 'Family & Religious Studies', 'Literature in English']
+
+const feeCategories = [
+  { name: 'Tuition', primaryDefault: 300, secondaryDefault: 450 },
+  { name: 'Boarding', primaryDefault: 0, secondaryDefault: 400 },
+  { name: 'Transport', primaryDefault: 60, secondaryDefault: 80 },
+  { name: 'Exam Fees', primaryDefault: 30, secondaryDefault: 50 },
+  { name: 'IT Levy', primaryDefault: 25, secondaryDefault: 40 },
+  { name: 'Sports Fee', primaryDefault: 20, secondaryDefault: 30 },
+  { name: 'Development Levy', primaryDefault: 40, secondaryDefault: 60 },
+]
+
+const colorOptions = [
+  { name: 'Emerald', value: '#10b981' },
+  { name: 'Teal', value: '#14b8a6' },
+  { name: 'Green', value: '#22c55e' },
+  { name: 'Cyan', value: '#06b6d4' },
+  { name: 'Blue', value: '#3b82f6' },
+  { name: 'Amber', value: '#f59e0b' },
+  { name: 'Orange', value: '#f97316' },
+  { name: 'Red', value: '#ef4444' },
+]
+
+function SetupWizard({
+  step,
+  setStep,
+  data,
+  setData,
+  complete,
+  setComplete,
+  showOnLogin,
+  setShowOnLogin,
+}: {
+  step: number
+  setStep: (s: number) => void
+  data: WizardData
+  setData: React.Dispatch<React.SetStateAction<WizardData>>
+  complete: boolean
+  setComplete: (c: boolean) => void
+  showOnLogin: boolean
+  setShowOnLogin: (s: boolean) => void
+}) {
+  const totalSteps = 5
+  const progress = (step / totalSteps) * 100
+
+  const updateData = (field: string, value: string | string[]) => {
+    setData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const toggleGradeLevel = (level: string) => {
+    setData(prev => ({
+      ...prev,
+      gradeLevels: prev.gradeLevels.includes(level)
+        ? prev.gradeLevels.filter(l => l !== level)
+        : [...prev.gradeLevels, level]
+    }))
+  }
+
+  const toggleSubject = (subject: string) => {
+    setData(prev => ({
+      ...prev,
+      subjects: prev.subjects.includes(subject)
+        ? prev.subjects.filter(s => s !== subject)
+        : [...prev.subjects, subject]
+    }))
+  }
+
+  const handleNext = () => {
+    if (step < totalSteps) {
+      setStep(step + 1)
+    } else {
+      setComplete(true)
+    }
+  }
+
+  const handleBack = () => {
+    if (step > 1) setStep(step - 1)
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Progress Bar */}
+      <Card className="border-0 shadow-md overflow-hidden">
+        <CardContent className="p-0">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">Onboarding Setup Wizard</h3>
+              <span className="text-xs text-muted-foreground">Step {step} of {totalSteps}</span>
+            </div>
+            <div className="h-2 bg-muted rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.5, ease: 'easeInOut' }}
+              />
+            </div>
+            <div className="flex justify-between mt-2">
+              {['School Info', 'Academic', 'Fees', 'Users', 'Complete'].map((label, i) => (
+                <button
+                  key={label}
+                  onClick={() => i + 1 <= step && setStep(i + 1)}
+                  className={cn(
+                    'text-[10px] font-medium transition-colors',
+                    i + 1 === step ? 'text-emerald-600' : i + 1 < step ? 'text-emerald-500 cursor-pointer hover:text-emerald-700' : 'text-muted-foreground'
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Step Content */}
+      <AnimatePresence mode="wait">
+        {step === 1 && (
+          <motion.div key="step1" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}>
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <School className="h-5 w-5 text-emerald-600" />
+                  Step 1 — School Information
+                </CardTitle>
+                <CardDescription>Enter your school&apos;s basic information to get started</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>School Name *</Label>
+                    <Input value={data.schoolName} onChange={e => updateData('schoolName', e.target.value)} placeholder="e.g. Churchill High School" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>School Motto</Label>
+                    <Input value={data.motto} onChange={e => updateData('motto', e.target.value)} placeholder="e.g. Education for Life" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid gap-2">
+                    <Label>School Type *</Label>
+                    <Select value={data.schoolType} onValueChange={v => updateData('schoolType', v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Primary">Primary</SelectItem>
+                        <SelectItem value="Secondary">Secondary</SelectItem>
+                        <SelectItem value="Combined">Combined</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Ownership *</Label>
+                    <Select value={data.ownership} onValueChange={v => updateData('ownership', v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Government">Government</SelectItem>
+                        <SelectItem value="Private">Private</SelectItem>
+                        <SelectItem value="Mission">Mission</SelectItem>
+                        <SelectItem value="Council">Council</SelectItem>
+                        <SelectItem value="Trust">Trust</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>EMIS Number</Label>
+                    <Input value={data.emisNumber} onChange={e => updateData('emisNumber', e.target.value)} placeholder="e.g. EM-2025-001" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Province *</Label>
+                    <Select value={data.province} onValueChange={v => updateData('province', v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {['Harare', 'Bulawayo', 'Manicaland', 'Mashonaland Central', 'Mashonaland East', 'Mashonaland West', 'Masvingo', 'Midlands', 'Matabeleland North', 'Matabeleland South'].map(p => (
+                          <SelectItem key={p} value={p}>{p}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>District</Label>
+                    <Input value={data.district} onChange={e => updateData('district', e.target.value)} placeholder="e.g. Harare District" />
+                  </div>
+                </div>
+
+                {/* School Colors */}
+                <div className="grid gap-2">
+                  <Label className="flex items-center gap-1.5"><Palette className="h-3.5 w-3.5" /> School Colors</Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-xs text-muted-foreground">Primary Color</Label>
+                      <div className="flex gap-2 flex-wrap">
+                        {colorOptions.map(c => (
+                          <button
+                            key={c.value}
+                            className={cn('h-8 w-8 rounded-lg border-2 transition-all', data.primaryColor === c.value ? 'border-foreground scale-110' : 'border-transparent hover:scale-105')}
+                            style={{ backgroundColor: c.value }}
+                            onClick={() => updateData('primaryColor', c.value)}
+                            title={c.name}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-xs text-muted-foreground">Secondary Color</Label>
+                      <div className="flex gap-2 flex-wrap">
+                        {colorOptions.map(c => (
+                          <button
+                            key={`sec-${c.value}`}
+                            className={cn('h-8 w-8 rounded-lg border-2 transition-all', data.secondaryColor === c.value ? 'border-foreground scale-110' : 'border-transparent hover:scale-105')}
+                            style={{ backgroundColor: c.value }}
+                            onClick={() => updateData('secondaryColor', c.value)}
+                            title={c.name}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Logo Upload Placeholder */}
+                <div className="grid gap-2">
+                  <Label>School Logo</Label>
+                  <div className="border-2 border-dashed border-muted rounded-xl p-8 text-center hover:border-emerald-300 transition-colors cursor-pointer">
+                    <Upload className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Click or drag to upload school logo</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">PNG, JPG up to 2MB</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {step === 2 && (
+          <motion.div key="step2" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}>
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-emerald-600" />
+                  Step 2 — Academic Setup
+                </CardTitle>
+                <CardDescription>Configure academic year, terms, grade levels, and subjects</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Academic Year Name</Label>
+                    <Input value={data.academicYearName} onChange={e => updateData('academicYearName', e.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Year Start Date</Label>
+                    <Input type="date" value={data.yearStartDate} onChange={e => updateData('yearStartDate', e.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Year End Date</Label>
+                    <Input type="date" value={data.yearEndDate} onChange={e => updateData('yearEndDate', e.target.value)} />
+                  </div>
+                </div>
+
+                {/* Term Dates */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Term Dates</Label>
+                  {[
+                    { num: 1, startField: 'term1Start', endField: 'term1End' },
+                    { num: 2, startField: 'term2Start', endField: 'term2End' },
+                    { num: 3, startField: 'term3Start', endField: 'term3End' },
+                  ].map(term => (
+                    <div key={term.num} className="grid grid-cols-3 gap-3 items-end">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Term {term.num}</Label>
+                      </div>
+                      <div className="grid gap-1">
+                        <Label className="text-[10px]">Start</Label>
+                        <Input type="date" value={data[term.startField as keyof WizardData] as string} onChange={e => updateData(term.startField, e.target.value)} className="h-8 text-xs" />
+                      </div>
+                      <div className="grid gap-1">
+                        <Label className="text-[10px]">End</Label>
+                        <Input type="date" value={data[term.endField as keyof WizardData] as string} onChange={e => updateData(term.endField, e.target.value)} className="h-8 text-xs" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Grade Levels */}
+                <div className="grid gap-2">
+                  <Label className="text-sm font-semibold">Grade Levels Offered</Label>
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                    {allGradeLevels.map(level => (
+                      <button
+                        key={level}
+                        className={cn(
+                          'p-2 rounded-lg border text-xs font-medium transition-all',
+                          data.gradeLevels.includes(level)
+                            ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                            : 'border-muted hover:border-emerald-200 hover:bg-muted/30'
+                        )}
+                        onClick={() => toggleGradeLevel(level)}
+                      >
+                        <CheckCircle2 className={cn('h-3.5 w-3.5 mb-1 mx-auto', data.gradeLevels.includes(level) ? 'text-emerald-600' : 'text-muted-foreground/30')} />
+                        {level}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{data.gradeLevels.length} grade level(s) selected</p>
+                </div>
+
+                {/* Subjects */}
+                <div className="grid gap-2">
+                  <Label className="text-sm font-semibold">Subjects Offered</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {allSubjects.map(subject => (
+                      <button
+                        key={subject}
+                        className={cn(
+                          'px-3 py-1.5 rounded-full border text-xs font-medium transition-all',
+                          data.subjects.includes(subject)
+                            ? 'border-teal-300 bg-teal-50 text-teal-700'
+                            : 'border-muted hover:border-teal-200 hover:bg-muted/30'
+                        )}
+                        onClick={() => toggleSubject(subject)}
+                      >
+                        {subject}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{data.subjects.length} subject(s) selected</p>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {step === 3 && (
+          <motion.div key="step3" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}>
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-emerald-600" />
+                  Step 3 — Fee Structure
+                </CardTitle>
+                <CardDescription>Set up fee categories, amounts, and payment terms</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Currency</Label>
+                    <Select value={data.feeCurrency} onValueChange={v => updateData('feeCurrency', v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">USD Only</SelectItem>
+                        <SelectItem value="ZiG">ZiG Only</SelectItem>
+                        <SelectItem value="Both">Both USD &amp; ZiG</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Payment Terms</Label>
+                    <Select value={data.paymentTerms} onValueChange={v => updateData('paymentTerms', v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Per Term">Per Term</SelectItem>
+                        <SelectItem value="Per Year">Per Year</SelectItem>
+                        <SelectItem value="Per Semester">Per Semester</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Fee Categories &amp; Default Amounts (per term, USD)</Label>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Category</TableHead>
+                        <TableHead className="text-xs text-right">Primary Default</TableHead>
+                        <TableHead className="text-xs text-right">Secondary Default</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {feeCategories.map(cat => (
+                        <TableRow key={cat.name} className="hover:bg-muted/30">
+                          <TableCell className="text-sm font-medium">{cat.name}</TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              defaultValue={cat.primaryDefault}
+                              className="h-8 w-24 ml-auto text-right font-mono text-xs"
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              defaultValue={cat.secondaryDefault}
+                              className="h-8 w-24 ml-auto text-right font-mono text-xs"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <p className="text-xs text-muted-foreground">Amounts can be adjusted per grade level later in Settings → Fee Structure</p>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {step === 4 && (
+          <motion.div key="step4" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}>
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Users className="h-5 w-5 text-emerald-600" />
+                  Step 4 — User Setup
+                </CardTitle>
+                <CardDescription>Configure key staff members and their roles</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Pre-filled Admin */}
+                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-xs font-bold">AU</div>
+                    <div>
+                      <p className="text-sm font-semibold">Admin User</p>
+                      <p className="text-xs text-muted-foreground">admin@zimschool.co.zw</p>
+                    </div>
+                    <Badge className="ml-auto bg-emerald-100 text-emerald-700 text-[10px]">Super Admin (Pre-filled)</Badge>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Headmaster */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Headmaster / Headmistress</Label>
+                    <Input value={data.headmasterName} onChange={e => updateData('headmasterName', e.target.value)} placeholder="Full name" />
+                  </div>
+                  <div className="flex items-end">
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">Role: Headmaster</Badge>
+                  </div>
+                </div>
+
+                {/* Deputy Head */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Deputy Head</Label>
+                    <Input value={data.deputyHeadName} onChange={e => updateData('deputyHeadName', e.target.value)} placeholder="Full name" />
+                  </div>
+                  <div className="flex items-end">
+                    <Badge variant="outline" className="bg-teal-50 text-teal-700 border-teal-200 text-[10px]">Role: Deputy Head</Badge>
+                  </div>
+                </div>
+
+                {/* Bursar */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Bursar / Finance Officer</Label>
+                    <Input value={data.bursarName} onChange={e => updateData('bursarName', e.target.value)} placeholder="Full name" />
+                  </div>
+                  <div className="flex items-end">
+                    <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 text-[10px]">Role: Bursar</Badge>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-muted/30">
+                  <p className="text-xs text-muted-foreground">Additional users can be added later through User Management in Settings.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {step === 5 && (
+          <motion.div key="step5" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }}>
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  Step 5 — Setup Complete!
+                </CardTitle>
+                <CardDescription>Review your configuration and start using ZimSchool Pro</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {complete ? (
+                  <div className="text-center py-8">
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+                      className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 mx-auto mb-4 shadow-lg shadow-emerald-200"
+                    >
+                      <CheckCircle2 className="h-10 w-10 text-white" />
+                    </motion.div>
+                    <h3 className="text-xl font-bold mb-2">Welcome to ZimSchool Pro!</h3>
+                    <p className="text-sm text-muted-foreground mb-6">Your school has been configured successfully. You&apos;re all set to go.</p>
+                    <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md px-8">
+                      Start Using ZimSchool Pro
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    {/* Summary */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="p-4 rounded-xl bg-muted/30 space-y-2">
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase">School Information</h4>
+                        <p className="text-sm"><span className="font-medium">Name:</span> {data.schoolName || 'Not set'}</p>
+                        <p className="text-sm"><span className="font-medium">Type:</span> {data.schoolType}</p>
+                        <p className="text-sm"><span className="font-medium">Ownership:</span> {data.ownership}</p>
+                        <p className="text-sm"><span className="font-medium">Province:</span> {data.province}</p>
+                        <p className="text-sm"><span className="font-medium">EMIS:</span> {data.emisNumber || 'Not set'}</p>
+                      </div>
+                      <div className="p-4 rounded-xl bg-muted/30 space-y-2">
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase">Academic Setup</h4>
+                        <p className="text-sm"><span className="font-medium">Year:</span> {data.academicYearName}</p>
+                        <p className="text-sm"><span className="font-medium">Grade Levels:</span> {data.gradeLevels.length} selected</p>
+                        <p className="text-sm"><span className="font-medium">Subjects:</span> {data.subjects.length} selected</p>
+                      </div>
+                      <div className="p-4 rounded-xl bg-muted/30 space-y-2">
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase">Fee Structure</h4>
+                        <p className="text-sm"><span className="font-medium">Currency:</span> {data.feeCurrency}</p>
+                        <p className="text-sm"><span className="font-medium">Payment Terms:</span> {data.paymentTerms}</p>
+                        <p className="text-sm"><span className="font-medium">Categories:</span> {feeCategories.length} configured</p>
+                      </div>
+                      <div className="p-4 rounded-xl bg-muted/30 space-y-2">
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase">User Setup</h4>
+                        <p className="text-sm"><span className="font-medium">Admin:</span> Admin User (configured)</p>
+                        <p className="text-sm"><span className="font-medium">Headmaster:</span> {data.headmasterName || 'Not set'}</p>
+                        <p className="text-sm"><span className="font-medium">Deputy Head:</span> {data.deputyHeadName || 'Not set'}</p>
+                        <p className="text-sm"><span className="font-medium">Bursar:</span> {data.bursarName || 'Not set'}</p>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Show on login checkbox */}
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="show-wizard-login"
+                        checked={showOnLogin}
+                        onCheckedChange={(checked) => setShowOnLogin(checked === true)}
+                      />
+                      <label htmlFor="show-wizard-login" className="text-sm cursor-pointer">Show this wizard on next login</label>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Navigation Buttons */}
+      {!complete && (
+        <div className="flex items-center justify-between">
+          <Button
+            variant="outline"
+            onClick={handleBack}
+            disabled={step === 1}
+            className="gap-1.5"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back
+          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" className="text-muted-foreground">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleNext}
+              className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white gap-1.5"
+            >
+              {step === totalSteps ? 'Complete Setup' : 'Next'}
+              {step < totalSteps && <ChevronRight className="h-4 w-4" />}
+              {step === totalSteps && <CheckCircle2 className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

@@ -46,6 +46,7 @@ import {
   Wallet,
   Activity,
   RefreshCw,
+  Calculator,
   Coffee,
   ShoppingCart,
   Trophy,
@@ -113,6 +114,9 @@ import DocumentsModule from '@/components/modules/documents-module'
 import AlumniModule from '@/components/modules/alumni-module'
 import SecurityModule from '@/components/modules/security-module'
 import ElearningModule from '@/components/modules/elearning-module'
+import ParentPortalModule from '@/components/modules/parent-portal-module'
+import StudentPortalModule from '@/components/modules/student-portal-module'
+import FeeCalculatorModule from '@/components/modules/fee-calculator-module'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -170,6 +174,8 @@ const navGroups = [
       { id: 'students', label: 'Students', icon: GraduationCap },
       { id: 'staff', label: 'Staff', icon: Users },
       { id: 'admissions', label: 'Admissions', icon: UserPlus },
+      { id: 'parent-portal', label: 'Parent Portal', icon: UsersRound },
+      { id: 'student-portal', label: 'Student Portal', icon: GraduationCap },
     ],
   },
   {
@@ -187,6 +193,7 @@ const navGroups = [
     label: 'Finance',
     items: [
       { id: 'finance', label: 'Finance', icon: DollarSign },
+      { id: 'fee-calculator', label: 'Fee Calculator', icon: Calculator },
       { id: 'payroll', label: 'Payroll', icon: Banknote },
       { id: 'procurement', label: 'Procurement', icon: ShoppingCart },
     ],
@@ -384,8 +391,11 @@ const moduleInfo: Record<string, { title: string; description: string; icon: Rea
   procurement: { title: 'Procurement', description: 'Purchase orders, vendors, and budgets', icon: ShoppingCart, gradient: 'from-teal-500 to-cyan-600' },
   security: { title: 'Security', description: 'Campus security, visitor management, and access control', icon: Shield, gradient: 'from-emerald-600 to-teal-700' },
   elearning: { title: 'E-Learning', description: 'Online courses, resources, and student progress', icon: Monitor, gradient: 'from-teal-500 to-emerald-600' },
+  'fee-calculator': { title: 'Fee Calculator', description: 'Calculate fees, convert currencies, plan payments', icon: Calculator, gradient: 'from-emerald-500 to-teal-600' },
   documents: { title: 'Documents', description: 'Manage school documents and templates', icon: FileText, gradient: 'from-emerald-500 to-teal-600' },
   alumni: { title: 'Alumni', description: 'Alumni network, contributions and events', icon: UsersRound, gradient: 'from-teal-500 to-emerald-600' },
+  'parent-portal': { title: 'Parent Portal', description: 'View children progress, fees, and communications', icon: UsersRound, gradient: 'from-emerald-500 to-teal-600' },
+  'student-portal': { title: 'Student Portal', description: 'View grades, assignments, and schedule', icon: GraduationCap, gradient: 'from-teal-500 to-emerald-600' },
 }
 
 // ─── App Sidebar Component ────────────────────────────────────────────────────
@@ -1669,6 +1679,8 @@ const moduleGroupMap: Record<string, { group: string; path: string[] }> = {
   discipline: { group: 'Welfare', path: ['Welfare', 'Discipline'] },
   health: { group: 'Welfare', path: ['Welfare', 'Health'] },
   alumni: { group: 'Community', path: ['Community', 'Alumni'] },
+  'parent-portal': { group: 'People', path: ['People', 'Parent Portal'] },
+  'student-portal': { group: 'People', path: ['People', 'Student Portal'] },
   sdc: { group: 'Admin', path: ['Admin', 'SDC'] },
   events: { group: 'Admin', path: ['Admin', 'Events & Sports'] },
   communication: { group: 'Admin', path: ['Admin', 'Communication'] },
@@ -2150,10 +2162,16 @@ export default function Home() {
               <SecurityModule key="security" />
             ) : activeModule === 'elearning' ? (
               <ElearningModule key="elearning" />
+            ) : activeModule === 'fee-calculator' ? (
+              <FeeCalculatorModule key="fee-calculator" />
             ) : activeModule === 'documents' ? (
               <DocumentsModule key="documents" />
             ) : activeModule === 'alumni' ? (
               <AlumniModule key="alumni" />
+            ) : activeModule === 'parent-portal' ? (
+              <ParentPortalModule key="parent-portal" />
+            ) : activeModule === 'student-portal' ? (
+              <StudentPortalModule key="student-portal" />
             ) : (
               <ModulePlaceholder key={activeModule} moduleId={activeModule} />
             )}

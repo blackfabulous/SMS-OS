@@ -692,3 +692,86 @@ Stage Summary:
 - Global search has emerald-themed keyboard navigation highlights
 - All modules now show breadcrumb path and gradient-underlined header
 - Both light and dark modes fully supported
+
+---
+Task ID: CRON-4-B
+Agent: Subagent (full-stack-developer)
+Task: Build Fee Calculator / Currency Converter Tool and Onboarding Setup Wizard
+
+Work Log:
+- Created FeeCalculatorModule at /src/components/modules/fee-calculator-module.tsx with 5 tabs:
+  - Overview: Welcome card, 4 quick stats (fee structures, scholarships, exchange rate, collection rate), 4 action cards navigating to sub-tabs, fee structure summary table
+  - Fee Calculator: Grade level selector, boarding status toggle (Day/Boarder), transport route selector with pricing, additional fees checkboxes (Exam, IT, Sports, Development, Medical), real-time fee breakdown, day vs boarding comparison, BEAM scholarship eligibility checker with 8 vulnerability criteria, print fee statement button
+  - Currency Converter: USD ↔ ZiG converter with direction toggle, RBZ official rate display (1 USD = 28.5 ZiG), custom exchange rate option, historical rate trend line chart (6 months), batch conversion table with comma-separated input, fee structure in both currencies table, export conversion report CSV button
+  - Payment Plans: Student selector with outstanding balance display, payment terms selector (1/2/3 terms), early payment discount calculator (5% full, 2% half), generated plan summary with monthly approximation, print payment plan agreement button, 3 mock active payment plans with progress bars
+  - Scholarships: 4 stats cards (total scholars: 75, total value, programs: 5, coverage avg: 75%), eligibility checker with 12 criteria checkboxes, 5 scholarship programs (BEAM, SDC Bursary, Academic Merit, Sports Excellence, OVC Fund) with apply button, scholarship application dialog with student info and document upload, recipients by program bar chart
+- Created realistic Zimbabwe school fee data: Primary tuition $150-$250/term, Secondary $300-$500/term, Boarding $350-$550/term, Transport $50-$90/term
+- Added Setup Wizard to Settings module at /src/components/modules/settings-module.tsx:
+  - New "Setup Wizard" tab as first tab with Wand2 icon
+  - 5-step multi-step wizard with animated progress bar and step indicators
+  - Step 1 - School Information: School name, motto, type (Primary/Secondary/Combined), ownership (Government/Private/Mission/Council/Trust), province, district, EMIS number, school colors picker (8 color options), logo upload placeholder
+  - Step 2 - Academic Setup: Academic year name, start/end dates, Term 1/2/3 date pickers, grade levels offered (15 checkboxes: ECD A/B through Form 6), subjects offered (22 pill toggles)
+  - Step 3 - Fee Structure: Currency selector (USD/ZiG/Both), payment terms, 7 fee categories with primary/secondary default amounts in editable table
+  - Step 4 - User Setup: Pre-filled admin account display, headmaster/deputy head/bursar input fields with role badges
+  - Step 5 - Complete: Summary cards for all 4 configuration areas, "Show wizard on next login" checkbox, "Start Using ZimSchool Pro" button with spring animation
+  - Framer-motion AnimatePresence transitions between steps (slide left/right)
+  - Back/Next/Cancel navigation buttons, step label click to navigate back
+- Registered Fee Calculator in page.tsx:
+  - Added Calculator icon import from lucide-react
+  - Added FeeCalculatorModule import
+  - Added 'fee-calculator' to Finance nav group between Finance and Payroll
+  - Added moduleInfo entry with emerald-to-teal gradient
+  - Added conditional rendering in module switch
+- Fixed Checkbox import in settings-module.tsx
+- Fixed React Compiler memoization warnings in fee-calculator-module.tsx (replaced useMemo with IIFE patterns)
+- Lint check passed with zero errors
+- Dev server running successfully
+
+Stage Summary:
+- Complete Fee Calculator module with 5 tabs: Overview, Fee Calculator, Currency Converter, Payment Plans, Scholarships
+- Realistic Zimbabwe school fee amounts with USD/ZiG multi-currency support
+- BEAM scholarship eligibility checker with vulnerability criteria
+- USD ↔ ZiG currency converter with historical rate trend chart
+- Payment plan generator with early payment discount calculator
+- Complete Setup Wizard with 5-step onboarding flow
+- School information, academic setup, fee structure, user setup, and completion steps
+- Framer-motion animated step transitions
+- 29 modules now registered and functional in the system (28 existing + Fee Calculator)
+- Settings module now has 7 tabs (Setup Wizard added as first tab)
+
+---
+Task ID: CRON-4-A
+Agent: Subagent (full-stack-developer)
+Task: Build Parent Portal and Student Portal Modules
+
+Work Log:
+- Created ParentPortalModule at /src/components/modules/parent-portal-module.tsx with 5 tabs:
+  - Overview: Welcome banner with parent name (Mrs. Rumbidzai Dube), children count, outstanding balance summary; 4 stat cards (Children Enrolled, Fees Outstanding, Unread Messages, Upcoming Events); Quick actions grid (Pay Fees, Messages, View Grades, Events, Contact School, Payment History); Fee Balance Overview bar chart (outstanding vs paid per child)
+  - My Children: 3 child cards (Tendai Dube Form 4A, Chido Dube Form 2B, Kudzai Dube Grade 6C) with photo avatars, class, student number, 5-subject grade progress bars with letter grades, attendance rate, outstanding fees, average marks. Expandable sections showing recent grades, attendance history, discipline/merit notes
+  - Fee Payments: Outstanding balance card with "Pay Now" button and gradient banner; USD/ZiG currency toggle (rate: 10.83); Invoice list with 8 invoices and status badges (Paid/Partial/Pending/Overdue); Payment history with 5 payment records, receipt numbers, and payment methods (EcoCash, Bank Transfer, Cash)
+  - Communications: 6 messages from school staff (Mr. Hove, Mrs. Mlambo, Headmaster Ndlovu, Mr. Gumbo, School Administration, Mrs. Ncube) with read/unread indicators; Message detail view; WhatsApp-style chat bubbles for conversations; Reply input; Compose message dialog with recipient selector
+  - Calendar: Monthly calendar grid with event dots; Month navigation with Today button; Filter by All/Exams/Events/Meetings/Holidays; 12 calendar events (ZIMSEC exams, essay competition, parent-teacher conference, mid-term break, Independence Day, inter-house athletics, SDC meeting, science fair, mock exams); Add to personal calendar button
+- Created StudentPortalModule at /src/components/modules/student-portal-module.tsx with 5 tabs:
+  - Overview: Welcome banner with student name (Tendai Dube), class Form 4A, house Mhondoro; 4 stat cards (Attendance Rate 94%, Current Average 75%, Library Books Due 3, Assignments Pending 4); Today's timetable preview (8 color-coded periods); Quick actions grid; Upcoming deadlines list with days-until badges and submit buttons
+  - My Schedule: Weekly timetable grid (Mon-Fri × Period 1-8) with color-coded cells by subject; Teacher name and room for each period; Current period highlight with "NOW" indicator; Subject color legend
+  - Grades & Reports: Class position card (8/42 with gradient); Current average card; Report card preview button; Full grades table with Mid-Term/Test/Exam percentages and letter grades for 8 subjects; Performance trend area chart (3 terms); Subject comparison bar chart (Mid-Term vs Test vs Exam)
+  - Assignments: 4 assignment stats cards (Pending/Overdue/Submitted/Graded); Pending assignments list with due dates, days-until badges, submit buttons; Overdue assignments highlighted in red; Completed assignments with marks and percentages; Submit assignment dialog with file upload area
+  - Library & Resources: Borrowed books list (4 books with colored covers); Overdue book with fine amount ($2.50); Overdue fines summary card; Digital resources grid (8 resources with type badges and download buttons); Reserve a book dialog
+  - Report card preview dialog showing school header, student info, grades table, teacher/headmaster comments
+- Registered both modules in page.tsx:
+  - Added ParentPortalModule and StudentPortalModule component imports
+  - Added parent-portal and student-portal to People nav group (icons: UsersRound, GraduationCap)
+  - Added moduleInfo entries for both modules with emerald/teal gradients
+  - Added breadcrumb path entries in modulePaths
+  - Added conditional rendering in module switch
+- Used realistic Zimbabwe school data throughout: Shona/Ndebele names (Dube, Moyo, Hove, Mlambo, Gumbo, Ncube, Zvambe, Chikumba, Sithole), Zimbabwe-specific subjects (Shona, ZIMSEC), local payment methods (EcoCash), multi-currency (USD/ZiG at 10.83 rate), Zimbabwe holidays
+- Lint check passed with zero errors
+- Dev server running successfully on port 3000
+
+Stage Summary:
+- **29 functional modules** now registered in the system (27 existing + 2 new portals)
+- Complete Parent Portal with children overview, fee payments, communications, and calendar
+- Complete Student Portal with schedule, grades, assignments, and library
+- Both modules use emerald/teal color scheme, shadcn/ui components, recharts, framer-motion
+- Zimbabwe-specific mock data with Shona/Ndebele names, USD/ZiG currency, EcoCash payments, ZIMSEC references
+- People navigation group now has 5 items: Students, Staff, Admissions, Parent Portal, Student Portal
