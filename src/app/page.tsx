@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard,
@@ -23,7 +23,6 @@ import {
   Building,
   MessageSquare,
   Settings,
-  Search,
   Bell,
   Sun,
   Moon,
@@ -47,7 +46,19 @@ import {
   Wallet,
   Activity,
   RefreshCw,
+  Coffee,
+  ShoppingCart,
+  Trophy,
+  Monitor,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  Zap,
+  BellRing,
+  X,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   BarChart,
   Bar,
@@ -62,6 +73,8 @@ import {
 } from 'recharts'
 
 import { useAppStore } from '@/lib/store'
+import { useTheme } from 'next-themes'
+import { GlobalSearch } from '@/components/global-search'
 import StudentsModule from '@/components/modules/students-module'
 import StaffModule from '@/components/modules/staff-module'
 import FinanceModule from '@/components/modules/finance-module'
@@ -81,7 +94,20 @@ import SDCModule from '@/components/modules/sdc-module'
 import CommunicationModule from '@/components/modules/communication-module'
 import ReportsModule from '@/components/modules/reports-module'
 import SettingsModule from '@/components/modules/settings-module'
+import TimetableModule from '@/components/modules/timetable-module'
+import EventsModule from '@/components/modules/events-module'
+import CanteenModule from '@/components/modules/canteen-module'
+import ProcurementModule from '@/components/modules/procurement-module'
+import DocumentsModule from '@/components/modules/documents-module'
+import AlumniModule from '@/components/modules/alumni-module'
+import SecurityModule from '@/components/modules/security-module'
+import ElearningModule from '@/components/modules/elearning-module'
 import { cn } from '@/lib/utils'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Sidebar,
   SidebarContent,
@@ -100,7 +126,6 @@ import {
 } from '@/components/ui/sidebar'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -140,8 +165,10 @@ const navGroups = [
     label: 'Academics',
     items: [
       { id: 'academics', label: 'Academics', icon: BookOpen },
+      { id: 'timetable', label: 'Timetable', icon: Clock },
       { id: 'attendance', label: 'Attendance', icon: CalendarCheck },
       { id: 'examinations', label: 'Examinations', icon: FileCheck },
+      { id: 'elearning', label: 'E-Learning', icon: Monitor },
       { id: 'reports', label: 'Reports', icon: BarChart3 },
     ],
   },
@@ -150,6 +177,7 @@ const navGroups = [
     items: [
       { id: 'finance', label: 'Finance', icon: DollarSign },
       { id: 'payroll', label: 'Payroll', icon: Banknote },
+      { id: 'procurement', label: 'Procurement', icon: ShoppingCart },
     ],
   },
   {
@@ -159,6 +187,7 @@ const navGroups = [
       { id: 'transport', label: 'Transport', icon: Bus },
       { id: 'library', label: 'Library', icon: Library },
       { id: 'inventory', label: 'Inventory', icon: Package },
+      { id: 'canteen', label: 'Canteen', icon: Coffee },
     ],
   },
   {
@@ -170,10 +199,19 @@ const navGroups = [
     ],
   },
   {
+    label: 'Community',
+    items: [
+      { id: 'alumni', label: 'Alumni', icon: UsersRound },
+    ],
+  },
+  {
     label: 'Admin',
     items: [
       { id: 'sdc', label: 'SDC', icon: Building },
+      { id: 'events', label: 'Events & Sports', icon: Trophy },
       { id: 'communication', label: 'Communication', icon: MessageSquare },
+      { id: 'documents', label: 'Documents', icon: FileText },
+      { id: 'security', label: 'Security', icon: Shield },
       { id: 'settings', label: 'Settings', icon: Settings },
     ],
   },
@@ -233,23 +271,38 @@ const moduleInfo: Record<string, { title: string; description: string; icon: Rea
   discipline: { title: 'Discipline', description: 'Manage disciplinary records and cases', icon: Scale, gradient: 'from-orange-500 to-amber-600' },
   health: { title: 'Health', description: 'Student health records and wellness', icon: HeartPulse, gradient: 'from-red-500 to-rose-600' },
   sdc: { title: 'SDC', description: 'School Development Committee management', icon: Building, gradient: 'from-emerald-500 to-teal-600' },
+  timetable: { title: 'Timetable', description: 'Manage class schedules and periods', icon: Clock, gradient: 'from-emerald-500 to-teal-600' },
+  events: { title: 'Events & Sports', description: 'School events, sports fixtures and activities', icon: Trophy, gradient: 'from-teal-500 to-emerald-600' },
   communication: { title: 'Communication', description: 'Manage school communications', icon: MessageSquare, gradient: 'from-teal-500 to-cyan-600' },
   settings: { title: 'Settings', description: 'System configuration and preferences', icon: Settings, gradient: 'from-gray-500 to-slate-600' },
+  canteen: { title: 'Canteen', description: 'Canteen menu, POS, and inventory', icon: Coffee, gradient: 'from-orange-500 to-amber-600' },
+  procurement: { title: 'Procurement', description: 'Purchase orders, vendors, and budgets', icon: ShoppingCart, gradient: 'from-teal-500 to-cyan-600' },
+  security: { title: 'Security', description: 'Campus security, visitor management, and access control', icon: Shield, gradient: 'from-emerald-600 to-teal-700' },
+  elearning: { title: 'E-Learning', description: 'Online courses, resources, and student progress', icon: Monitor, gradient: 'from-teal-500 to-emerald-600' },
+  documents: { title: 'Documents', description: 'Manage school documents and templates', icon: FileText, gradient: 'from-emerald-500 to-teal-600' },
+  alumni: { title: 'Alumni', description: 'Alumni network, contributions and events', icon: UsersRound, gradient: 'from-teal-500 to-emerald-600' },
 }
 
 // ─── App Sidebar Component ────────────────────────────────────────────────────
-function AppSidebar() {
+function AppSidebar({ onLogout, notificationCount }: { onLogout: () => void; notificationCount: number }) {
   const { activeModule, setActiveModule } = useAppStore()
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarHeader className="p-3">
         <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md shadow-emerald-200">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md shadow-emerald-200 dark:shadow-emerald-900/30">
             <School className="h-5 w-5 text-white" />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="text-sm font-bold tracking-tight">ZimSchool Pro</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold tracking-tight">ZimSchool Pro</span>
+              {notificationCount > 0 && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                  {notificationCount}
+                </span>
+              )}
+            </div>
             <span className="text-[10px] text-muted-foreground leading-tight">Management System</span>
           </div>
         </div>
@@ -276,7 +329,7 @@ function AppSidebar() {
                         className={cn(
                           'transition-all duration-200',
                           isActive
-                            ? 'bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 hover:text-emerald-800 [&>svg]:text-emerald-600'
+                            ? 'bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 hover:text-emerald-800 [&>svg]:text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/60 dark:hover:text-emerald-200 dark:[&>svg]:text-emerald-400'
                             : 'hover:bg-muted/60'
                         )}
                       >
@@ -322,7 +375,7 @@ function AppSidebar() {
             <DropdownMenuItem><Shield className="mr-2 h-4 w-4" /> Security</DropdownMenuItem>
             <DropdownMenuItem><Settings className="mr-2 h-4 w-4" /> Preferences</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600"><LogOut className="mr-2 h-4 w-4" /> Sign Out</DropdownMenuItem>
+            <DropdownMenuItem className="text-red-600" onClick={onLogout}><LogOut className="mr-2 h-4 w-4" /> Sign Out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarFooter>
@@ -332,40 +385,201 @@ function AppSidebar() {
   )
 }
 
+// ─── Notification Data ────────────────────────────────────────────────────────
+interface Notification {
+  id: string
+  icon: React.ElementType
+  title: string
+  description: string
+  time: string
+  read: boolean
+  type: 'enrollment' | 'payment' | 'attendance' | 'exam' | 'meeting' | 'deadline' | 'alert' | 'system'
+}
+
+const initialNotifications: Notification[] = [
+  {
+    id: '1',
+    icon: UserPlus,
+    title: 'New Student Enrolled',
+    description: 'Tendai Moyo has been enrolled in Form 3A',
+    time: '5 min ago',
+    read: false,
+    type: 'enrollment',
+  },
+  {
+    id: '2',
+    icon: DollarSign,
+    title: 'Fee Payment Received',
+    description: 'Payment of $350.00 received from Chido Ndlovu',
+    time: '15 min ago',
+    read: false,
+    type: 'payment',
+  },
+  {
+    id: '3',
+    icon: AlertCircle,
+    title: 'Attendance Alert',
+    description: 'Form 2B has 5 students absent today - above threshold',
+    time: '1 hour ago',
+    read: false,
+    type: 'attendance',
+  },
+  {
+    id: '4',
+    icon: FileCheck,
+    title: 'ZIMSEC Registration Deadline',
+    description: 'O-Level registration closes in 3 days. 12 candidates pending.',
+    time: '2 hours ago',
+    read: false,
+    type: 'deadline',
+  },
+  {
+    id: '5',
+    icon: Building,
+    title: 'SDC Meeting Tomorrow',
+    description: 'School Development Committee meeting at 2:00 PM in the main hall',
+    time: '3 hours ago',
+    read: true,
+    type: 'meeting',
+  },
+  {
+    id: '6',
+    icon: DollarSign,
+    title: 'Fee Payment Received',
+    description: 'Payment of $200.00 received from Kudzai Chikumbu',
+    time: '4 hours ago',
+    read: true,
+    type: 'payment',
+  },
+  {
+    id: '7',
+    icon: HeartPulse,
+    title: 'Health Alert',
+    description: '3 students in Form 1 reported flu symptoms today',
+    time: '5 hours ago',
+    read: true,
+    type: 'alert',
+  },
+  {
+    id: '8',
+    icon: Settings,
+    title: 'System Update',
+    description: 'ZimSchool Pro v2.4.1 has been installed successfully',
+    time: 'Yesterday',
+    read: true,
+    type: 'system',
+  },
+]
+
+const notificationTypeColors: Record<string, string> = {
+  enrollment: 'text-emerald-600 bg-emerald-50',
+  payment: 'text-amber-600 bg-amber-50',
+  attendance: 'text-red-600 bg-red-50',
+  exam: 'text-violet-600 bg-violet-50',
+  meeting: 'text-teal-600 bg-teal-50',
+  deadline: 'text-orange-600 bg-orange-50',
+  alert: 'text-rose-600 bg-rose-50',
+  system: 'text-slate-600 bg-slate-50',
+}
+
 // ─── Header Component ─────────────────────────────────────────────────────────
-function AppHeader() {
-  const { searchQuery, setSearchQuery } = useAppStore()
-  const [isDark, setIsDark] = React.useState(false)
+function AppHeader({ onLogout, notifications, onMarkAllRead, onMarkRead }: {
+  onLogout: () => void
+  notifications: Notification[]
+  onMarkAllRead: () => void
+  onMarkRead: (id: string) => void
+}) {
+  const { theme, setTheme } = useTheme()
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-white/80 backdrop-blur-xl px-4 md:px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/80 backdrop-blur-xl px-4 md:px-6">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="h-6" />
 
-      <div className="relative flex-1 max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search students, staff, records..."
-          className="pl-9 h-9 bg-muted/40 border-0 focus-visible:ring-1 focus-visible:ring-emerald-500/30 focus-visible:bg-white"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
+      <GlobalSearch />
 
       <div className="ml-auto flex items-center gap-1">
-        <Button variant="ghost" size="icon" className="h-9 w-9 relative">
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white" />
-          <span className="sr-only">Notifications</span>
-        </Button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-9 w-9 relative">
+              <Bell className="h-4 w-4" />
+              {notifications.filter(n => !n.read).length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-background">
+                  {notifications.filter(n => !n.read).length}
+                </span>
+              )}
+              <span className="sr-only">Notifications</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0" align="end" sideOffset={8}>
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <div className="flex items-center gap-2">
+                <BellRing className="h-4 w-4 text-emerald-600" />
+                <h4 className="text-sm font-semibold">Notifications</h4>
+                {notifications.filter(n => !n.read).length > 0 && (
+                  <Badge variant="secondary" className="h-5 text-[10px] bg-emerald-100 text-emerald-700">
+                    {notifications.filter(n => !n.read).length} new
+                  </Badge>
+                )}
+              </div>
+              {notifications.some(n => !n.read) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-emerald-600 hover:text-emerald-700"
+                  onClick={onMarkAllRead}
+                >
+                  Mark all read
+                </Button>
+              )}
+            </div>
+            <ScrollArea className="h-[320px]">
+              <div className="flex flex-col">
+                {notifications.map((notification) => {
+                  const IconComp = notification.icon
+                  return (
+                    <button
+                      key={notification.id}
+                      className={cn(
+                        'flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 w-full',
+                        !notification.read && 'bg-emerald-50/50 dark:bg-emerald-950/20'
+                      )}
+                      onClick={() => onMarkRead(notification.id)}
+                    >
+                      <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-full', notificationTypeColors[notification.type])}>
+                        <IconComp className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className={cn('text-sm truncate', !notification.read ? 'font-semibold' : 'font-medium')}>{notification.title}</p>
+                          {!notification.read && (
+                            <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{notification.description}</p>
+                        <p className="text-[10px] text-muted-foreground/70 mt-1">{notification.time}</p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </ScrollArea>
+            <div className="border-t px-4 py-2">
+              <Button variant="ghost" size="sm" className="w-full text-xs text-emerald-600 hover:text-emerald-700">
+                View all notifications
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
 
         <Button
           variant="ghost"
           size="icon"
           className="h-9 w-9"
-          onClick={() => setIsDark(!isDark)}
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         >
-          {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+          <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
           <span className="sr-only">Toggle theme</span>
         </Button>
 
@@ -388,7 +602,7 @@ function AppHeader() {
             <DropdownMenuItem><User className="mr-2 h-4 w-4" /> Profile</DropdownMenuItem>
             <DropdownMenuItem><Settings className="mr-2 h-4 w-4" /> Settings</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600"><LogOut className="mr-2 h-4 w-4" /> Sign Out</DropdownMenuItem>
+            <DropdownMenuItem className="text-red-600" onClick={onLogout}><LogOut className="mr-2 h-4 w-4" /> Sign Out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -1190,18 +1404,290 @@ function ModulePlaceholder({ moduleId }: { moduleId: string }) {
   )
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── Login Page Component ─────────────────────────────────────────────────────
+function LoginPage({ onLogin }: { onLogin: () => void }) {
+  const [email, setEmail] = useState('admin@zimschool.co.zw')
+  const [password, setPassword] = useState('password')
+  const [rememberMe, setRememberMe] = useState(true)
+  const [showPassword, setShowPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    // Simulate login delay
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    setIsLoading(false)
+    toast.success('Welcome back!', {
+      description: 'Successfully signed in to ZimSchool Pro',
+    })
+    onLogin()
+  }
+
+  return (
+    <div className="min-h-screen flex">
+      {/* Left Side - Gradient Branding */}
+      <motion.div
+        initial={{ opacity: 0, x: -40 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.6, ease: 'easeOut' }}
+        className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800"
+      >
+        {/* Decorative elements */}
+        <div className="absolute inset-0">
+          <div className="absolute -top-24 -left-24 h-96 w-96 rounded-full bg-white/5" />
+          <div className="absolute -bottom-32 -right-32 h-[500px] w-[500px] rounded-full bg-white/5" />
+          <div className="absolute top-1/3 right-12 h-64 w-64 rounded-full bg-white/5" />
+          <div className="absolute top-12 left-1/3 h-32 w-32 rounded-full bg-white/10" />
+          {/* Grid pattern */}
+          <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+        </div>
+
+        <div className="relative z-10 flex flex-col justify-between p-12 w-full">
+          <div>
+            <div className="flex items-center gap-3 mb-12">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm shadow-lg">
+                <School className="h-7 w-7 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">ZimSchool Pro</h2>
+                <p className="text-xs text-emerald-200">Management System</p>
+              </div>
+            </div>
+
+            {/* School image placeholder */}
+            <div className="rounded-2xl bg-white/10 backdrop-blur-sm p-6 mb-8 border border-white/10">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-white/15">
+                  <GraduationCap className="h-9 w-9 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Mufakose High School</h3>
+                  <p className="text-sm text-emerald-200">Harare, Zimbabwe</p>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="flex-1 rounded-lg bg-white/10 p-3 text-center">
+                  <p className="text-2xl font-bold text-white">55</p>
+                  <p className="text-xs text-emerald-200">Students</p>
+                </div>
+                <div className="flex-1 rounded-lg bg-white/10 p-3 text-center">
+                  <p className="text-2xl font-bold text-white">17</p>
+                  <p className="text-xs text-emerald-200">Staff</p>
+                </div>
+                <div className="flex-1 rounded-lg bg-white/10 p-3 text-center">
+                  <p className="text-2xl font-bold text-white">96%</p>
+                  <p className="text-xs text-emerald-200">Attendance</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Feature highlights */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-emerald-200 uppercase tracking-wider mb-4">Key Features</h3>
+            {[
+              { icon: GraduationCap, title: 'Student Management', desc: 'Enrollment, attendance & grades' },
+              { icon: DollarSign, title: 'Finance & Fees', desc: 'Multi-currency billing & BEAM tracking' },
+              { icon: FileCheck, title: 'ZIMSEC Integration', desc: 'Exam registration & results analysis' },
+              { icon: BarChart3, title: 'Reports & Analytics', desc: 'EMIS exports & custom reports' },
+            ].map((feature, i) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.3 + i * 0.1 }}
+                className="flex items-center gap-3 rounded-lg bg-white/10 backdrop-blur-sm p-3 border border-white/5"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15">
+                  <feature.icon className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">{feature.title}</p>
+                  <p className="text-xs text-emerald-200">{feature.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Zimbabwe flag colors accent at bottom */}
+          <div className="mt-8">
+            <div className="flex h-1.5 w-full overflow-hidden rounded-full">
+              <div className="flex-1 bg-green-500" />
+              <div className="flex-1 bg-yellow-400" />
+              <div className="flex-1 bg-red-500" />
+              <div className="flex-1 bg-black" />
+            </div>
+            <p className="mt-3 text-xs text-emerald-200/70 text-center">
+              Proudly built for Zimbabwean schools
+            </p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Right Side - Login Form */}
+      <motion.div
+        initial={{ opacity: 0, x: 40 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.6, ease: 'easeOut' }}
+        className="flex-1 flex items-center justify-center p-6 md:p-12 bg-background"
+      >
+        <div className="w-full max-w-md">
+          {/* Mobile logo */}
+          <div className="flex items-center gap-3 mb-8 lg:hidden">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md">
+              <School className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold">ZimSchool Pro</h1>
+              <p className="text-xs text-muted-foreground">Management System</p>
+            </div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Sign in to your ZimSchool Pro account
+              </p>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-medium">Email or Username</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="admin@zimschool.co.zw"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10 h-11"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-sm font-medium">Password</Label>
+                  <button type="button" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                    Forgot password?
+                  </button>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 pr-10 h-11"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="remember"
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                />
+                <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
+                  Remember me for 30 days
+                </Label>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full h-11 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-lg shadow-emerald-200/50 transition-all duration-200"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Signing in...
+                  </div>
+                ) : (
+                  'Sign In'
+                )}
+              </Button>
+            </form>
+
+            {/* Zimbabwe flag stripe on mobile */}
+            <div className="mt-8 lg:hidden">
+              <div className="flex h-1.5 w-full overflow-hidden rounded-full">
+                <div className="flex-1 bg-green-500" />
+                <div className="flex-1 bg-yellow-400" />
+                <div className="flex-1 bg-red-500" />
+                <div className="flex-1 bg-black" />
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground text-center">
+                Proudly built for Zimbabwean schools
+              </p>
+            </div>
+
+            <p className="mt-6 text-center text-xs text-muted-foreground">
+              &copy; {new Date().getFullYear()} ZimSchool Pro. All rights reserved.
+            </p>
+          </motion.div>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
 export default function Home() {
   const { activeModule } = useAppStore()
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications)
+
+  const handleLogin = useCallback(() => {
+    setIsLoggedIn(true)
+  }, [])
+
+  const handleLogout = useCallback(() => {
+    toast('Signed out successfully', { description: 'You have been logged out of ZimSchool Pro' })
+    setIsLoggedIn(false)
+  }, [])
+
+  const handleMarkAllRead = useCallback(() => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    toast.success('All notifications marked as read')
+  }, [])
+
+  const handleMarkRead = useCallback((id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+  }, [])
+
+  const unreadCount = notifications.filter(n => !n.read).length
+
+  if (!isLoggedIn) {
+    return <LoginPage onLogin={handleLogin} />
+  }
 
   return (
     <SidebarProvider
       style={{ '--sidebar-width': '280px' } as React.CSSProperties}
     >
-      <AppSidebar />
+      <AppSidebar onLogout={handleLogout} notificationCount={unreadCount} />
       <SidebarInset>
-        <AppHeader />
-        <main className="flex-1 overflow-auto p-4 md:p-6 bg-gradient-to-br from-gray-50/50 to-emerald-50/20">
+        <AppHeader onLogout={handleLogout} notifications={notifications} onMarkAllRead={handleMarkAllRead} onMarkRead={handleMarkRead} />
+        <main className="flex-1 overflow-auto p-4 md:p-6 bg-gradient-to-br from-gray-50/50 to-emerald-50/20 dark:from-background dark:to-background">
           <AnimatePresence mode="wait">
             {activeModule === 'dashboard' ? (
               <Dashboard key="dashboard" />
@@ -1241,8 +1727,24 @@ export default function Home() {
               <CommunicationModule key="communication" />
             ) : activeModule === 'reports' ? (
               <ReportsModule key="reports" />
+            ) : activeModule === 'timetable' ? (
+              <TimetableModule key="timetable" />
+            ) : activeModule === 'events' ? (
+              <EventsModule key="events" />
             ) : activeModule === 'settings' ? (
               <SettingsModule key="settings" />
+            ) : activeModule === 'canteen' ? (
+              <CanteenModule key="canteen" />
+            ) : activeModule === 'procurement' ? (
+              <ProcurementModule key="procurement" />
+            ) : activeModule === 'security' ? (
+              <SecurityModule key="security" />
+            ) : activeModule === 'elearning' ? (
+              <ElearningModule key="elearning" />
+            ) : activeModule === 'documents' ? (
+              <DocumentsModule key="documents" />
+            ) : activeModule === 'alumni' ? (
+              <AlumniModule key="alumni" />
             ) : (
               <ModulePlaceholder key={activeModule} moduleId={activeModule} />
             )}

@@ -17,6 +17,9 @@ import {
   Loader2,
   Calendar,
   AlertTriangle,
+  Download,
+  Printer,
+  FileSpreadsheet,
 } from 'lucide-react'
 import {
   BarChart,
@@ -29,6 +32,8 @@ import {
 } from 'recharts'
 
 import { cn } from '@/lib/utils'
+import { exportToCSV, printReport, buildHTMLTable } from '@/lib/export-utils'
+import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -52,6 +57,12 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   ChartContainer,
@@ -347,9 +358,15 @@ export default function AttendanceModule() {
       if (res.ok) {
         setAttendanceEntries({})
         fetchOverview()
+        toast.success('Attendance submitted successfully', {
+          description: `${records.length} attendance records saved`,
+        })
       }
     } catch (err) {
       console.error('Failed to submit attendance:', err)
+      toast.error('Failed to submit attendance', {
+        description: 'An error occurred while saving attendance records',
+      })
     } finally {
       setSubmitting(false)
     }
@@ -417,9 +434,48 @@ export default function AttendanceModule() {
       className="space-y-6"
     >
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Attendance Management</h1>
-        <p className="text-sm text-muted-foreground mt-1">Track and manage student attendance</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Attendance Management</h1>
+          <p className="text-sm text-muted-foreground mt-1">Track and manage student attendance</p>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => {
+              const csvData = filteredRecords.map(r => ({
+                'Student': `${r.student?.firstName || ''} ${r.student?.lastName || ''}`,
+                'Student Number': r.student?.studentNumber || '',
+                'Date': r.date ? new Date(r.date).toLocaleDateString() : '',
+                'Status': r.status,
+                'Remarks': r.remarks || '',
+              }))
+              exportToCSV(csvData, `attendance_export_${new Date().toISOString().slice(0, 10)}`)
+            }}>
+              <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" />
+              Export to CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => {
+              const headers = ['Student', 'Class', 'Date', 'Status', 'Remarks']
+              const rows = filteredRecords.map(r => [
+                `${r.student?.firstName || ''} ${r.student?.lastName || ''}`,
+                r.student?.enrollments?.[0]?.class?.name || '-',
+                r.date ? new Date(r.date).toLocaleDateString() : '-',
+                r.status,
+                r.remarks || '-',
+              ])
+              printReport('Attendance Report', buildHTMLTable(headers, rows))
+            }}>
+              <Printer className="mr-2 h-4 w-4 text-teal-600" />
+              Print Attendance Report
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Tabs */}

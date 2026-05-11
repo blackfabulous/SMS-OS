@@ -33,6 +33,9 @@ import {
   Clock,
   User,
   Briefcase,
+  Download,
+  Printer,
+  FileSpreadsheet,
 } from 'lucide-react'
 import {
   Card,
@@ -72,9 +75,17 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { exportToCSV, printReport, buildHTMLTable } from '@/lib/export-utils'
+import { toast } from 'sonner'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface StudentEnrollment {
@@ -434,11 +445,73 @@ function StudentListView({
                 <CardTitle className="text-lg font-semibold">Student Records</CardTitle>
                 <CardDescription>{total} student{total !== 1 ? 's' : ''} found</CardDescription>
               </div>
-              <AddStudentDialog
-                open={addDialogOpen}
-                onOpenChange={setAddDialogOpen}
-                onSuccess={() => { fetchStudents(); fetchStats() }}
-              />
+              <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                      <Download className="h-4 w-4" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => {
+                      const csvData = sortedStudents.map(s => ({
+                        'Student Number': s.studentNumber,
+                        'First Name': s.firstName,
+                        'Last Name': s.lastName,
+                        'Middle Name': s.middleName || '',
+                        'Gender': s.gender === 'MALE' ? 'Male' : 'Female',
+                        'Grade': s.enrollments[0]?.class?.grade?.name || '',
+                        'Class': s.enrollments[0]?.class?.name || '',
+                        'Boarding Status': s.boardingStatus === 'BOARDER' ? 'Boarder' : s.boardingStatus === 'DAY_SCHOLAR' ? 'Day Scholar' : '',
+                        'Enrollment Status': s.enrollmentStatus,
+                        'BEAM Status': s.beamStatus || '',
+                      }))
+                      exportToCSV(csvData, `students_export_${new Date().toISOString().slice(0, 10)}`)
+                    }}>
+                      <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" />
+                      Export to CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {
+                      const headers = ['Student #', 'Name', 'Gender', 'Grade', 'Class', 'Boarding', 'Status']
+                      const rows = sortedStudents.map(s => [
+                        s.studentNumber,
+                        `${s.firstName} ${s.lastName}`,
+                        s.gender === 'MALE' ? 'Male' : 'Female',
+                        s.enrollments[0]?.class?.grade?.name || '-',
+                        s.enrollments[0]?.class?.name || '-',
+                        s.boardingStatus === 'BOARDER' ? 'Boarder' : s.boardingStatus === 'DAY_SCHOLAR' ? 'Day Scholar' : '-',
+                        s.enrollmentStatus,
+                      ])
+                      printReport('Student List', buildHTMLTable(headers, rows))
+                    }}>
+                      <Printer className="mr-2 h-4 w-4 text-teal-600" />
+                      Print List
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {
+                      const headers = ['Student #', 'Name', 'Gender', 'Grade', 'Class', 'Boarding', 'Status']
+                      const rows = sortedStudents.map(s => [
+                        s.studentNumber,
+                        `${s.firstName} ${s.lastName}`,
+                        s.gender === 'MALE' ? 'Male' : 'Female',
+                        s.enrollments[0]?.class?.grade?.name || '-',
+                        s.enrollments[0]?.class?.name || '-',
+                        s.boardingStatus === 'BOARDER' ? 'Boarder' : s.boardingStatus === 'DAY_SCHOLAR' ? 'Day Scholar' : '-',
+                        s.enrollmentStatus,
+                      ])
+                      printReport('Student List (PDF View)', buildHTMLTable(headers, rows))
+                    }}>
+                      <FileText className="mr-2 h-4 w-4 text-amber-600" />
+                      Export PDF
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <AddStudentDialog
+                  open={addDialogOpen}
+                  onOpenChange={setAddDialogOpen}
+                  onSuccess={() => { fetchStudents(); fetchStats() }}
+                />
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -691,8 +764,14 @@ function AddStudentDialog({
       resetForm()
       onOpenChange(false)
       onSuccess()
+      toast.success('Student added successfully', {
+        description: `${form.firstName} ${form.lastName} has been enrolled`,
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
+      toast.error('Failed to add student', {
+        description: err instanceof Error ? err.message : 'An error occurred',
+      })
     } finally {
       setSubmitting(false)
     }

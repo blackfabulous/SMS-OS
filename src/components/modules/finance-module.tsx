@@ -19,6 +19,9 @@ import {
   AlertTriangle,
   X,
   Loader2,
+  Download,
+  Printer,
+  FileSpreadsheet,
 } from 'lucide-react'
 import {
   PieChart,
@@ -34,6 +37,8 @@ import {
 } from 'recharts'
 
 import { cn } from '@/lib/utils'
+import { exportToCSV, printReport, buildHTMLTable, formatCurrency as fmtCurrency } from '@/lib/export-utils'
+import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -65,6 +70,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   ChartContainer,
@@ -331,9 +342,15 @@ export default function FinanceModule() {
         fetchDashboard()
         if (activeTab === 'payments') fetchPayments()
         if (activeTab === 'invoices') fetchInvoices()
+        toast.success('Payment recorded successfully', {
+          description: `$${parseFloat(paymentForm.amount).toLocaleString()} ${paymentForm.currency} payment recorded`,
+        })
       }
     } catch (err) {
       console.error('Failed to record payment:', err)
+      toast.error('Failed to record payment', {
+        description: 'An error occurred while recording the payment',
+      })
     } finally {
       setSubmitting(false)
     }
@@ -481,6 +498,60 @@ export default function FinanceModule() {
           <p className="text-sm text-muted-foreground mt-1">Manage fees, invoices, and payments</p>
         </div>
         <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => {
+                const csvData = filteredInvoices.map(inv => ({
+                  'Invoice Number': inv.invoiceNumber,
+                  'Student': `${inv.student.firstName} ${inv.student.lastName}`,
+                  'Student Number': inv.student.studentNumber,
+                  'Total Amount': inv.totalAmount,
+                  'Amount Paid': inv.amountPaid,
+                  'Balance': inv.balance,
+                  'Status': inv.status,
+                  'Due Date': formatDate(inv.dueDate),
+                  'Created': formatDate(inv.createdAt),
+                }))
+                exportToCSV(csvData, `invoices_export_${new Date().toISOString().slice(0, 10)}`)
+              }}>
+                <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" />
+                Export Invoices CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                const csvData = filteredPayments.map(pay => ({
+                  'Receipt Number': pay.receiptNumber,
+                  'Student': `${pay.student.firstName} ${pay.student.lastName}`,
+                  'Amount': pay.amount,
+                  'Currency': pay.currency,
+                  'Payment Method': pay.paymentMethod,
+                  'Reference': pay.reference || '',
+                  'Date': formatDate(pay.createdAt),
+                }))
+                exportToCSV(csvData, `payments_export_${new Date().toISOString().slice(0, 10)}`)
+              }}>
+                <FileSpreadsheet className="mr-2 h-4 w-4 text-teal-600" />
+                Export Payments CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                const headers = ['Description', 'Invoiced', 'Collected', 'Outstanding']
+                const rows = [
+                  ['Total Fees', fmtCurrency(dashboard?.totalInvoiced || 0), fmtCurrency(dashboard?.totalCollected || 0), fmtCurrency(dashboard?.totalOutstanding || 0)],
+                  ['Collection Rate', '', dashboard?.collectionRate || '0' + '%', ''],
+                  ['Debtor Count', '', String(dashboard?.debtorCount || 0), ''],
+                ]
+                printReport('Financial Report', buildHTMLTable(headers, rows))
+              }}>
+                <Printer className="mr-2 h-4 w-4 text-amber-600" />
+                Print Financial Report
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Dialog open={recordPaymentOpen} onOpenChange={setRecordPaymentOpen}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md">
@@ -1012,6 +1083,47 @@ export default function FinanceModule() {
                       onChange={(e) => setInvoiceSearch(e.target.value)}
                     />
                   </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-1.5 h-9 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                        <Download className="h-3.5 w-3.5" />
+                        Export
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => {
+                        const csvData = filteredInvoices.map(inv => ({
+                          'Invoice Number': inv.invoiceNumber,
+                          'Student': `${inv.student.firstName} ${inv.student.lastName}`,
+                          'Total Amount': inv.totalAmount,
+                          'Amount Paid': inv.amountPaid,
+                          'Balance': inv.balance,
+                          'Status': inv.status,
+                          'Due Date': formatDate(inv.dueDate),
+                        }))
+                        exportToCSV(csvData, `invoices_${new Date().toISOString().slice(0, 10)}`)
+                      }}>
+                        <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" />
+                        Export CSV
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        const headers = ['Invoice #', 'Student', 'Total', 'Paid', 'Balance', 'Status', 'Due Date']
+                        const rows = filteredInvoices.map(inv => [
+                          inv.invoiceNumber,
+                          `${inv.student.firstName} ${inv.student.lastName}`,
+                          formatCurrency(inv.totalAmount),
+                          formatCurrency(inv.amountPaid),
+                          formatCurrency(inv.balance),
+                          inv.status,
+                          formatDate(inv.dueDate),
+                        ])
+                        printReport('Invoices Report', buildHTMLTable(headers, rows))
+                      }}>
+                        <Printer className="mr-2 h-4 w-4 text-teal-600" />
+                        Print Report
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Select value={invoiceFilter} onValueChange={setInvoiceFilter}>
                     <SelectTrigger className="h-9 w-36">
                       <SelectValue placeholder="Filter status" />
@@ -1185,6 +1297,46 @@ export default function FinanceModule() {
                       onChange={(e) => setPaymentSearch(e.target.value)}
                     />
                   </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-1.5 h-9 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                        <Download className="h-3.5 w-3.5" />
+                        Export
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => {
+                        const csvData = filteredPayments.map(pay => ({
+                          'Receipt Number': pay.receiptNumber,
+                          'Student': `${pay.student.firstName} ${pay.student.lastName}`,
+                          'Amount': pay.amount,
+                          'Currency': pay.currency,
+                          'Payment Method': pay.paymentMethod,
+                          'Reference': pay.reference || '',
+                          'Date': formatDate(pay.createdAt),
+                        }))
+                        exportToCSV(csvData, `payments_${new Date().toISOString().slice(0, 10)}`)
+                      }}>
+                        <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" />
+                        Export CSV
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        const headers = ['Receipt #', 'Student', 'Amount', 'Currency', 'Method', 'Date']
+                        const rows = filteredPayments.map(pay => [
+                          pay.receiptNumber,
+                          `${pay.student.firstName} ${pay.student.lastName}`,
+                          formatCurrency(pay.amount, pay.currency),
+                          pay.currency,
+                          methodLabels[pay.paymentMethod] || pay.paymentMethod,
+                          formatDate(pay.createdAt),
+                        ])
+                        printReport('Payments Report', buildHTMLTable(headers, rows))
+                      }}>
+                        <Printer className="mr-2 h-4 w-4 text-teal-600" />
+                        Print Report
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
                     <SelectTrigger className="h-9 w-40">
                       <SelectValue placeholder="Filter method" />

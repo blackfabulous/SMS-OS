@@ -23,6 +23,7 @@ import {
   BookOpen,
   Shield,
   MapPin,
+  FileSpreadsheet,
 } from 'lucide-react'
 import {
   BarChart,
@@ -36,6 +37,7 @@ import {
 } from 'recharts'
 
 import { cn } from '@/lib/utils'
+import { exportToCSV, printReport, buildHTMLTable } from '@/lib/export-utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -323,17 +325,52 @@ export default function ReportsModule() {
                 <h2 className="text-lg font-semibold">{reportData.title}</h2>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={() => {
+                  if (!reportData) return
+                  const headers = ['Item', ...reportData.table[0] && reportData.table[0].passRate ? ['Value'] : [], ...reportData.table[0] && reportData.table[0].avgMark > 0 ? ['Average'] : [], ...reportData.table[0] && reportData.table[0].entries > 0 ? ['Entries'] : []]
+                  const rows = reportData.table.map(row => {
+                    const cells: string[] = [row.subject]
+                    if (reportData!.table[0].passRate) cells.push(row.passRate)
+                    if (reportData!.table[0].avgMark > 0) cells.push(String(row.avgMark))
+                    if (reportData!.table[0].entries > 0) cells.push(String(row.entries))
+                    return cells
+                  })
+                  printReport(reportData.title, buildHTMLTable(headers.filter(Boolean), rows))
+                }}>
                   <Printer className="mr-2 h-3.5 w-3.5" />
                   Print
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={() => {
+                  if (!reportData) return
+                  const csvData = reportData.table.map(row => {
+                    const obj: Record<string, string> = { Item: row.subject }
+                    if (reportData!.table[0].passRate) obj['Value'] = row.passRate
+                    if (reportData!.table[0].avgMark > 0) obj['Average'] = String(row.avgMark)
+                    if (reportData!.table[0].entries > 0) obj['Entries'] = String(row.entries)
+                    return obj
+                  })
+                  exportToCSV(csvData, `${reportData.title.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}`)
+                }}>
+                  <FileSpreadsheet className="mr-2 h-3.5 w-3.5" />
+                  Export CSV
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => {
+                  if (!reportData) return
+                  const headers = ['Item']
+                  if (reportData.table[0]?.passRate) headers.push('Value')
+                  if (reportData.table[0]?.avgMark > 0) headers.push('Average')
+                  if (reportData.table[0]?.entries > 0) headers.push('Entries')
+                  const rows = reportData.table.map(row => {
+                    const cells: string[] = [row.subject]
+                    if (reportData!.table[0]?.passRate) cells.push(row.passRate)
+                    if (reportData!.table[0]?.avgMark > 0) cells.push(String(row.avgMark))
+                    if (reportData!.table[0]?.entries > 0) cells.push(String(row.entries))
+                    return cells
+                  })
+                  printReport(`${reportData.title} (PDF View)`, buildHTMLTable(headers, rows))
+                }}>
                   <Download className="mr-2 h-3.5 w-3.5" />
                   Export PDF
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Download className="mr-2 h-3.5 w-3.5" />
-                  Export Excel
                 </Button>
               </div>
             </div>
