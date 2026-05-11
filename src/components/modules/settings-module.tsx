@@ -32,7 +32,6 @@ import {
   Search,
   Wand2,
   Palette,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Upload,

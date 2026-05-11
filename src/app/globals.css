@@ -453,3 +453,208 @@
 .trend-pulse {
   animation: pulse-glow 2s ease-in-out infinite;
 }
+
+/* ─── Glass Morphism Card ──────────────────────────────────────────────────── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+.dark .glass-card {
+  background: rgba(30, 30, 30, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Gradient Text ────────────────────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #10b981, #14b8a6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Premium Card Hover Effect ────────────────────────────────────────────── */
+.premium-card {
+  position: relative;
+  transition: all 0.3s ease;
+}
+.premium-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0), rgba(16, 185, 129, 0.3), rgba(20, 184, 166, 0), rgba(20, 184, 166, 0.3));
+  background-size: 300% 300%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  animation: gradient-x 4s ease infinite;
+}
+.premium-card:hover::before {
+  opacity: 1;
+}
+.premium-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(16, 185, 129, 0.12);
+}
+.dark .premium-card:hover {
+  box-shadow: 0 12px 40px rgba(16, 185, 129, 0.06);
+}
+
+/* ─── Animated Badge Pulse ─────────────────────────────────────────────────── */
+.badge-pulse {
+  position: relative;
+}
+.badge-pulse::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: inherit;
+  opacity: 0.4;
+  animation: pulse-glow 2s ease-in-out infinite;
+  z-index: -1;
+}
+
+/* ─── Sidebar Section Divider ──────────────────────────────────────────────── */
+.sidebar-divider {
+  position: relative;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.2), transparent);
+  margin: 4px 8px;
+}
+.dark .sidebar-divider {
+  background: linear-gradient(90deg, transparent, rgba(52, 211, 153, 0.15), transparent);
+}
+
+/* ─── Neon Glow Button ─────────────────────────────────────────────────────── */
+.neon-glow-btn {
+  position: relative;
+  overflow: hidden;
+}
+.neon-glow-btn::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(from 0deg, transparent, rgba(16, 185, 129, 0.1), transparent 30%);
+  animation: spin 4s linear infinite;
+  pointer-events: none;
+}
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+/* ─── Module Transition ────────────────────────────────────────────────────── */
+.module-enter {
+  animation: module-enter-anim 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes module-enter-anim {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ─── Dot Pattern Background ───────────────────────────────────────────────── */
+.dot-pattern {
+  background-image: radial-gradient(circle, rgba(16, 185, 129, 0.07) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.dark .dot-pattern {
+  background-image: radial-gradient(circle, rgba(52, 211, 153, 0.05) 1px, transparent 1px);
+}
+
+/* ─── Status Dot Indicator ─────────────────────────────────────────────────── */
+.status-dot {
+  position: relative;
+}
+.status-dot::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid white;
+}
+.dark .status-dot::after {
+  border-color: #1a1a1a;
+}
+.status-dot-online::after {
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+}
+.status-dot-away::after {
+  background: #f59e0b;
+}
+.status-dot-offline::after {
+  background: #9ca3af;
+}
+
+/* ─── Responsive Card Grid ─────────────────────────────────────────────────── */
+.stat-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+@media (min-width: 768px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 1024px) {
+  .stat-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ─── Table Row Hover Enhancement ──────────────────────────────────────────── */
+.table-row-hover {
+  transition: all 0.15s ease;
+}
+.table-row-hover:hover {
+  background-color: rgba(16, 185, 129, 0.04);
+  transform: scale(1.002);
+}
+.dark .table-row-hover:hover {
+  background-color: rgba(52, 211, 153, 0.04);
+}
+
+/* ─── Number Counter Animation ─────────────────────────────────────────────── */
+.count-up {
+  animation: count-up-anim 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes count-up-anim {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Tooltip Enhancement ──────────────────────────────────────────────────── */
+[data-radix-tooltip-content] {
+  animation: fade-in 0.15s ease-out;
+}
+
+/* ─── Smooth Scrollbar for Sidebar ─────────────────────────────────────────── */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 3px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.2);
+  border-radius: 3px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.4);
+}

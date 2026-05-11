@@ -117,6 +117,8 @@ import ElearningModule from '@/components/modules/elearning-module'
 import ParentPortalModule from '@/components/modules/parent-portal-module'
 import StudentPortalModule from '@/components/modules/student-portal-module'
 import FeeCalculatorModule from '@/components/modules/fee-calculator-module'
+import TeacherPortalModule from '@/components/modules/teacher-portal-module'
+import NotificationCenterModule from '@/components/modules/notification-center-module'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -176,6 +178,7 @@ const navGroups = [
       { id: 'admissions', label: 'Admissions', icon: UserPlus },
       { id: 'parent-portal', label: 'Parent Portal', icon: UsersRound },
       { id: 'student-portal', label: 'Student Portal', icon: GraduationCap },
+      { id: 'teacher-portal', label: 'Teacher Portal', icon: ClipboardCheck },
     ],
   },
   {
@@ -227,6 +230,7 @@ const navGroups = [
     items: [
       { id: 'sdc', label: 'SDC', icon: Building },
       { id: 'events', label: 'Events & Sports', icon: Trophy },
+      { id: 'notification-center', label: 'Notifications', icon: BellRing },
       { id: 'communication', label: 'Communication', icon: MessageSquare },
       { id: 'documents', label: 'Documents', icon: FileText },
       { id: 'security', label: 'Security', icon: Shield },
@@ -396,6 +400,8 @@ const moduleInfo: Record<string, { title: string; description: string; icon: Rea
   alumni: { title: 'Alumni', description: 'Alumni network, contributions and events', icon: UsersRound, gradient: 'from-teal-500 to-emerald-600' },
   'parent-portal': { title: 'Parent Portal', description: 'View children progress, fees, and communications', icon: UsersRound, gradient: 'from-emerald-500 to-teal-600' },
   'student-portal': { title: 'Student Portal', description: 'View grades, assignments, and schedule', icon: GraduationCap, gradient: 'from-teal-500 to-emerald-600' },
+  'teacher-portal': { title: 'Teacher Portal', description: 'Manage classes, marks, assignments, and schedule', icon: ClipboardCheck, gradient: 'from-emerald-500 to-teal-600' },
+  'notification-center': { title: 'Notification Center', description: 'SMS, WhatsApp, and email notification management', icon: BellRing, gradient: 'from-teal-500 to-cyan-600' },
 }
 
 // ─── App Sidebar Component ────────────────────────────────────────────────────
@@ -423,12 +429,13 @@ function AppSidebar({ onLogout, notificationCount }: { onLogout: () => void; not
         </div>
       </SidebarHeader>
 
-      <Separator className="mx-3 w-auto opacity-60" />
+      <div className="sidebar-divider" />
 
-      <SidebarContent className="px-2 py-2">
-        {navGroups.map((group) => (
-          <SidebarGroup key={group.label} className="py-1">
-            <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-semibold px-2">
+      <SidebarContent className="px-2 py-2 sidebar-scroll">
+        {navGroups.map((group, groupIndex) => (
+          <SidebarGroup key={group.label} className={cn("py-1", groupIndex > 0 && "mt-1")}>
+            <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-semibold px-2 flex items-center gap-1.5">
+              <div className="h-1 w-1 rounded-full bg-emerald-400/40" />
               {group.label}
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -750,12 +757,12 @@ function StatCard({
   const accentGradient = accentColor === 'text-emerald-600' ? 'from-emerald-400 to-teal-500' : accentColor === 'text-teal-600' ? 'from-teal-400 to-cyan-500' : accentColor === 'text-amber-600' ? 'from-amber-400 to-orange-500' : 'from-violet-400 to-purple-500'
 
   return (
-    <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 stat-card-accent group cursor-default">
+    <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 stat-card-accent premium-card group cursor-default">
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
-            <p className="text-2xl font-bold tracking-tight">{value}</p>
+            <p className="text-2xl font-bold tracking-tight count-up">{value}</p>
             <div className={cn('flex items-center gap-1.5', trend === 'up' && 'trend-pulse')}>
               {trend === 'up' ? (
                 <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
@@ -767,7 +774,7 @@ function StatCard({
               </span>
             </div>
           </div>
-          <div className={cn('flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-0.5', bgColor)}>
+          <div className={cn('flex h-12 w-12 items-center justify-center rounded-xl transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-1 group-hover:rotate-3 shadow-sm', bgColor)}>
             <Icon className={cn('h-5 w-5 transition-transform duration-300 group-hover:animate-bounce-subtle', accentColor)} />
           </div>
         </div>
@@ -816,8 +823,8 @@ function ChartCardSkeleton({ title }: { title: string }) {
 // ─── Quick Action Button ──────────────────────────────────────────────────────
 function QuickAction({ icon: Icon, label, color, onClick }: { icon: React.ElementType; label: string; color: string; onClick?: () => void }) {
   return (
-    <button onClick={onClick} className="flex flex-col items-center gap-2 rounded-xl p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 border border-transparent hover:border-muted bg-muted/30 hover:bg-white group">
-      <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg transition-colors', color)}>
+    <button onClick={onClick} className="flex flex-col items-center gap-2 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border border-transparent hover:border-emerald-100 dark:hover:border-emerald-900/40 bg-muted/30 hover:bg-white dark:hover:bg-card group premium-card">
+      <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-300 group-hover:scale-110 group-hover:rotate-3', color)}>
         <Icon className="h-5 w-5" />
       </div>
       <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">{label}</span>
@@ -1102,20 +1109,24 @@ function Dashboard() {
                 <School className="h-5 w-5 text-emerald-200" />
                 <span className="text-sm font-medium text-emerald-100">{schoolName}</span>
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Welcome to ZimSchool Pro</h1>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Welcome to <span className="text-white drop-shadow-sm">ZimSchool Pro</span></h1>
               <p className="mt-1 text-emerald-100 text-sm md:text-base">Your comprehensive school management dashboard</p>
-              <div className="mt-4 flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2 rounded-lg bg-white/15 backdrop-blur-sm px-3 py-1.5 animate-pulse-glow">
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 rounded-lg bg-white/20 backdrop-blur-sm px-3 py-1.5 animate-pulse-glow shadow-sm shadow-emerald-900/10">
                   <Calendar className="h-4 w-4 text-emerald-200" />
                   <span className="text-sm font-medium">{today}</span>
                 </div>
-                <div className="flex items-center gap-2 rounded-lg bg-white/15 backdrop-blur-sm px-3 py-1.5">
+                <div className="flex items-center gap-2 rounded-lg bg-white/20 backdrop-blur-sm px-3 py-1.5 shadow-sm shadow-emerald-900/10">
                   <Activity className="h-4 w-4 text-emerald-200" />
                   <span className="text-sm font-medium animate-pulse-glow">Term 1, {new Date().getFullYear()}</span>
                 </div>
-                <div className="flex items-center gap-2 rounded-lg bg-white/15 backdrop-blur-sm px-3 py-1.5">
+                <div className="flex items-center gap-2 rounded-lg bg-white/20 backdrop-blur-sm px-3 py-1.5 shadow-sm shadow-emerald-900/10">
                   <Clock className="h-4 w-4 text-emerald-200" />
                   <span className="text-sm font-medium">{activeStudents} Active Students</span>
+                </div>
+                <div className="flex items-center gap-2 rounded-lg bg-white/20 backdrop-blur-sm px-3 py-1.5 shadow-sm shadow-emerald-900/10">
+                  <School className="h-4 w-4 text-emerald-200" />
+                  <span className="text-sm font-medium">{schoolName || 'Mufakose High School'}</span>
                 </div>
               </div>
             </div>
@@ -1947,7 +1958,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md shadow-emerald-200 dark:shadow-emerald-900/30">
               <School className="h-6 w-6 text-white" />
             </div>
             <div>
@@ -1965,7 +1976,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
             <div className="mb-8">
               <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                Sign in to your ZimSchool Pro account
+                Sign in to your <span className="gradient-text font-semibold">ZimSchool Pro</span> account
               </p>
             </div>
 
@@ -2028,7 +2039,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
 
               <Button
                 type="submit"
-                className="w-full h-11 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-lg shadow-emerald-200/50 hover:shadow-emerald-300/50 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0"
+                className="w-full h-11 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-lg shadow-emerald-200/50 hover:shadow-xl hover:shadow-emerald-300/50 dark:shadow-emerald-900/30 dark:hover:shadow-emerald-800/40 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 neon-glow-btn"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -2107,7 +2118,8 @@ export default function Home() {
       <AppSidebar onLogout={handleLogout} notificationCount={unreadCount} />
       <SidebarInset>
         <AppHeader onLogout={handleLogout} notifications={notifications} onMarkAllRead={handleMarkAllRead} onMarkRead={handleMarkRead} />
-        <main className="flex-1 overflow-auto p-4 md:p-6 bg-gradient-to-br from-gray-50/50 to-emerald-50/20 dark:from-background dark:to-background">
+        <main className="flex-1 overflow-auto p-4 md:p-6 bg-gradient-to-br from-gray-50/50 to-emerald-50/20 dark:from-background dark:to-background dot-pattern">
+          <div className="module-enter">
           <ModuleHeader moduleId={activeModule} />
           <AnimatePresence mode="wait">
             {activeModule === 'dashboard' ? (
@@ -2172,10 +2184,15 @@ export default function Home() {
               <ParentPortalModule key="parent-portal" />
             ) : activeModule === 'student-portal' ? (
               <StudentPortalModule key="student-portal" />
+            ) : activeModule === 'teacher-portal' ? (
+              <TeacherPortalModule key="teacher-portal" />
+            ) : activeModule === 'notification-center' ? (
+              <NotificationCenterModule key="notification-center" />
             ) : (
               <ModulePlaceholder key={activeModule} moduleId={activeModule} />
             )}
           </AnimatePresence>
+          </div>
         </main>
       </SidebarInset>
     </SidebarProvider>
