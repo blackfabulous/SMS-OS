@@ -1085,3 +1085,36 @@ Stage Summary:
 - 1 new API route (/api/finance/exchange-rate)
 - 1 new mini-service (/mini-services/notification-service/)
 - 1 new component (/src/components/offline-indicator.tsx)
+
+---
+Task ID: COMPONENT-EXTRACTION
+Agent: Main Orchestrator
+Task: Extract heavy components from page.tsx to fix OOM crashes and ChunkLoadError
+
+Work Log:
+- Identified root cause of server crashes: page.tsx was 2409 lines with 35 static module imports + inline Dashboard (765 lines), LoginPage (330 lines), AppSidebar (123 lines), AppHeader (156 lines), ModuleHeader/ModulePlaceholder (88 lines)
+- Next.js dev server (turbopack) was using 3.9GB RAM during compilation, triggering Linux OOM killer
+- Extracted Dashboard → /src/components/dashboard.tsx (989 lines, lazy-loaded, default export)
+- Extracted LoginPage → /src/components/login-page.tsx (329 lines, lazy-loaded, default export)
+- Extracted AppSidebar → /src/components/app-sidebar.tsx (170 lines, named export with NavGroup type)
+- Extracted AppHeader → /src/components/app-header.tsx (198 lines, named export with Notification type)
+- Extracted ModuleHeader + ModulePlaceholder → /src/components/module-helpers.tsx (184 lines, named exports)
+- Converted all 35 module imports to React.lazy() dynamic imports
+- Added React.Suspense fallback with ModuleLoadingFallback spinner component
+- page.tsx reduced from 2409 → 386 lines (84% reduction)
+- Switched dev server from turbopack to webpack (--webpack flag) for better memory efficiency
+- Fixed ChunkLoadError: Changed LoginPage from named export to default export (React.lazy requires default exports)
+- Verified stability: 5 consecutive requests all returned HTTP 200, memory stable at ~2.3GB
+- Lint check passes with zero errors
+
+Stage Summary:
+- Server no longer crashes on page load (was OOM at 3.9GB, now stable at 2.3GB)
+- ChunkLoadError for login-page chunk fixed by using default export
+- page.tsx is now a clean 386-line orchestrator that lazy-loads everything
+- All 35+ modules use React.lazy() + Suspense for on-demand loading
+- Dev server uses webpack mode (--webpack) instead of turbopack for memory efficiency
+- Total code base: 57,746 lines across 37 module components, 33 API routes, 6 extracted components
+
+### Known Issues:
+- Server process may not persist across shell session resets in sandbox (use `node node_modules/.bin/next dev -p 3000 --webpack &` to start)
+- Some modules still use mock data instead of real API-backed CRUD (lower priority for next phase)

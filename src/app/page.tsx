@@ -26,7 +26,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 
 // ─── Lazy-loaded Modules ────────────────────────────────────────────────────
 const Dashboard = React.lazy(() => import('@/components/dashboard'))
-const LoginPage = React.lazy(() => import('@/components/login-page').then(m => ({ default: m.LoginPage })))
+const LoginPage = React.lazy(() => import('@/components/login-page'))
 const StudentsModule = React.lazy(() => import('@/components/modules/students-module'))
 const StaffModule = React.lazy(() => import('@/components/modules/staff-module'))
 const FinanceModule = React.lazy(() => import('@/components/modules/finance-module'))

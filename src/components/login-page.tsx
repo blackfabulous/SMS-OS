@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 
-export function LoginPage() {
+export default function LoginPage() {
   const [email, setEmail] = useState('admin@zimschool.co.zw')
   const [password, setPassword] = useState('password123')
   const [rememberMe, setRememberMe] = useState(true)
