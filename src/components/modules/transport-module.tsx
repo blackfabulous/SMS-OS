@@ -404,16 +404,16 @@ export default function TransportModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Overview
           </TabsTrigger>
-          <TabsTrigger value="routes" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="routes" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Routes
           </TabsTrigger>
-          <TabsTrigger value="vehicles" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="vehicles" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Vehicles
           </TabsTrigger>
-          <TabsTrigger value="students" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="students" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Students
           </TabsTrigger>
         </TabsList>

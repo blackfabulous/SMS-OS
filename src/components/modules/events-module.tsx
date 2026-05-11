@@ -154,7 +154,7 @@ const resultColors: Record<string, string> = {
   Win: 'bg-emerald-100 text-emerald-800 border-emerald-300',
   Loss: 'bg-red-100 text-red-800 border-red-300',
   Draw: 'bg-amber-100 text-amber-800 border-amber-300',
-  Pending: 'bg-gray-100 text-gray-700 border-gray-300',
+  Pending: 'bg-muted text-muted-foreground border-border',
 }
 
 const sportIcons: Record<string, string> = {
@@ -351,16 +351,16 @@ export default function EventsModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Overview
           </TabsTrigger>
-          <TabsTrigger value="events" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="events" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Events
           </TabsTrigger>
-          <TabsTrigger value="sports" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="sports" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Sports
           </TabsTrigger>
-          <TabsTrigger value="calendar" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="calendar" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Calendar
           </TabsTrigger>
         </TabsList>
@@ -476,7 +476,7 @@ export default function EventsModule() {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{ev.name}</p>
                               <div className="flex items-center gap-2 mt-1">
-                                <Badge className={cn('text-[10px] border', eventTypeColors[ev.type] || 'bg-gray-100 text-gray-700 border-gray-300')}>
+                                <Badge className={cn('text-[10px] border', eventTypeColors[ev.type] || 'bg-muted text-muted-foreground border-border')}>
                                   {ev.type}
                                 </Badge>
                                 <span className="text-[10px] text-muted-foreground">{ev.venue}</span>
@@ -649,7 +649,7 @@ export default function EventsModule() {
                               <div className="text-[10px] text-muted-foreground max-w-[200px] truncate">{ev.description}</div>
                             </TableCell>
                             <TableCell>
-                              <Badge className={cn('text-[10px] border', eventTypeColors[ev.type] || 'bg-gray-100 text-gray-700 border-gray-300')}>
+                              <Badge className={cn('text-[10px] border', eventTypeColors[ev.type] || 'bg-muted text-muted-foreground border-border')}>
                                 {ev.type}
                               </Badge>
                             </TableCell>
@@ -785,7 +785,7 @@ export default function EventsModule() {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <Badge className={cn('text-[10px] border', resultColors[f.result] || 'bg-gray-100 text-gray-700')}>
+                              <Badge className={cn('text-[10px] border', resultColors[f.result] || 'bg-muted text-muted-foreground')}>
                                 {f.result}
                               </Badge>
                             </TableCell>
@@ -875,7 +875,7 @@ export default function EventsModule() {
                                   key={i}
                                   className={cn(
                                     'text-[9px] px-1 py-0.5 rounded truncate',
-                                    isFixture ? 'bg-amber-100 text-amber-800' : eventTypeColors[(ev as SchoolEvent).type]?.replace('border-', '').split(' ')[0] || 'bg-gray-100 text-gray-700'
+                                    isFixture ? 'bg-amber-100 text-amber-800' : eventTypeColors[(ev as SchoolEvent).type]?.replace('border-', '').split(' ')[0] || 'bg-muted text-muted-foreground'
                                   )}
                                   style={{
                                     backgroundColor: isFixture ? undefined : undefined,

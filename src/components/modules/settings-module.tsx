@@ -355,31 +355,31 @@ export default function SettingsModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1 flex flex-wrap">
-          <TabsTrigger value="setup-wizard" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="setup-wizard" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <Wand2 className="mr-1.5 h-3.5 w-3.5" />
             Setup Wizard
           </TabsTrigger>
-          <TabsTrigger value="profile" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="profile" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <School className="mr-1.5 h-3.5 w-3.5" />
             School Profile
           </TabsTrigger>
-          <TabsTrigger value="academic" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="academic" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <BookOpen className="mr-1.5 h-3.5 w-3.5" />
             Academic Setup
           </TabsTrigger>
-          <TabsTrigger value="fees" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="fees" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <DollarSign className="mr-1.5 h-3.5 w-3.5" />
             Fee Structure
           </TabsTrigger>
-          <TabsTrigger value="users" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="users" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <Users className="mr-1.5 h-3.5 w-3.5" />
             User Management
           </TabsTrigger>
-          <TabsTrigger value="audit" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="audit" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <Activity className="mr-1.5 h-3.5 w-3.5" />
             Audit Trail
           </TabsTrigger>
-          <TabsTrigger value="system" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="system" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <Database className="mr-1.5 h-3.5 w-3.5" />
             System
           </TabsTrigger>

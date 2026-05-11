@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { fromGradeId, toGradeId, academicYearId, studentIds } = body
+    const { fromGradeId, toGradeId, studentIds, academicYearId, promoteAll } = body
 
     if (!fromGradeId || !toGradeId || !academicYearId) {
       return NextResponse.json(
@@ -26,22 +26,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid academic year ID' }, { status: 400 })
     }
 
-    // Get students currently enrolled in the fromGrade
+    // Determine which students to promote
     let studentsToPromote
-    if (studentIds && studentIds.length > 0) {
-      // Promote specific students
+
+    if (promoteAll || !studentIds || studentIds.length === 0) {
+      // Promote all active students in the fromGrade
       studentsToPromote = await db.studentEnrollment.findMany({
         where: {
-          studentId: { in: studentIds },
           status: 'ACTIVE',
           class: { gradeId: fromGradeId },
         },
         include: { student: true, class: true },
       })
     } else {
-      // Promote all active students in the grade
+      // Promote specific students
       studentsToPromote = await db.studentEnrollment.findMany({
         where: {
+          studentId: { in: studentIds },
           status: 'ACTIVE',
           class: { gradeId: fromGradeId },
         },
@@ -56,20 +57,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get a class in the target grade (use first available class or match by stream)
+    // Get target classes in the toGrade
     const targetClasses = await db.class.findMany({
       where: { gradeId: toGradeId, isActive: true },
     })
 
     if (targetClasses.length === 0) {
       return NextResponse.json(
-        { error: 'No active classes found in the target grade' },
+        { error: 'No active classes found in the target grade. Create classes first.' },
         { status: 400 }
       )
     }
 
-    // Create new enrollment records
-    let promotedCount = 0
+    // Promote each student
+    let promoted = 0
+    let failed = 0
     const errors: string[] = []
 
     for (const enrollment of studentsToPromote) {
@@ -85,7 +87,10 @@ export async function POST(request: NextRequest) {
         })
 
         if (existingEnrollment) {
-          errors.push(`${enrollment.student.firstName} ${enrollment.student.lastName} already enrolled for this academic year`)
+          errors.push(
+            `${enrollment.student.firstName} ${enrollment.student.lastName} already enrolled for academic year ${academicYear.name}`
+          )
+          failed++
           continue
         }
 
@@ -97,7 +102,7 @@ export async function POST(request: NextRequest) {
           targetClass = targetClasses[0]
         }
 
-        // Create new enrollment
+        // Create new enrollment in the target grade/class
         await db.studentEnrollment.create({
           data: {
             studentId: enrollment.studentId,
@@ -108,7 +113,7 @@ export async function POST(request: NextRequest) {
           },
         })
 
-        // Update old enrollment status
+        // Mark old enrollment as promoted
         await db.studentEnrollment.update({
           where: { id: enrollment.id },
           data: {
@@ -117,20 +122,33 @@ export async function POST(request: NextRequest) {
           },
         })
 
-        promotedCount++
-      } catch (err) {
+        promoted++
+      } catch {
         errors.push(
           `Failed to promote ${enrollment.student.firstName} ${enrollment.student.lastName}`
         )
+        failed++
       }
     }
 
+    // Log audit entry
+    try {
+      await db.auditLog.create({
+        data: {
+          action: 'BULK_PROMOTE',
+          entity: 'StudentEnrollment',
+          details: `Promoted ${promoted} students from ${fromGrade.name} to ${toGrade.name} for ${academicYear.name}`,
+        },
+      })
+    } catch {
+      // Audit log failure should not break the operation
+    }
+
     return NextResponse.json({
-      success: true,
-      promotedCount,
-      errorCount: errors.length,
-      errors: errors.length > 0 ? errors : undefined,
-      message: `${promotedCount} student${promotedCount !== 1 ? 's' : ''} promoted from ${fromGrade.name} to ${toGrade.name}`,
+      promoted,
+      failed,
+      errors: errors.length > 0 ? errors : [],
+      message: `${promoted} student${promoted !== 1 ? 's' : ''} promoted from ${fromGrade.name} to ${toGrade.name}`,
     })
   } catch (error) {
     console.error('Bulk promotion error:', error)

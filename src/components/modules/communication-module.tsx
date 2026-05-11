@@ -145,7 +145,7 @@ const priorityColors: Record<string, string> = {
   CRITICAL: 'bg-red-100 text-red-700 border-red-200',
   HIGH: 'bg-orange-100 text-orange-700 border-orange-200',
   MEDIUM: 'bg-amber-100 text-amber-700 border-amber-200',
-  LOW: 'bg-gray-100 text-gray-700 border-gray-200',
+  LOW: 'bg-muted text-muted-foreground border-border',
 }
 
 // ─── Communication Module ───────────────────────────────────────────────────
@@ -337,11 +337,11 @@ export default function CommunicationModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Overview</TabsTrigger>
-          <TabsTrigger value="compose" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Compose</TabsTrigger>
-          <TabsTrigger value="sent" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Sent Messages</TabsTrigger>
-          <TabsTrigger value="templates" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Templates</TabsTrigger>
-          <TabsTrigger value="complaints" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Complaints</TabsTrigger>
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Overview</TabsTrigger>
+          <TabsTrigger value="compose" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Compose</TabsTrigger>
+          <TabsTrigger value="sent" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Sent Messages</TabsTrigger>
+          <TabsTrigger value="templates" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Templates</TabsTrigger>
+          <TabsTrigger value="complaints" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Complaints</TabsTrigger>
         </TabsList>
 
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}

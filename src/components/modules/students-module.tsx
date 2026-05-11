@@ -86,6 +86,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { exportToCSV, printReport, buildHTMLTable } from '@/lib/export-utils'
 import { toast } from 'sonner'
+import { EmptyState } from '@/components/empty-state'
+import { ModuleSkeleton } from '@/components/module-skeleton'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface StudentEnrollment {
@@ -608,12 +610,14 @@ function StudentListView({
                     ))
                   ) : sortedStudents.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="h-32 text-center">
-                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                          <GraduationCap className="h-8 w-8 opacity-40" />
-                          <p className="text-sm">No students found</p>
-                          <p className="text-xs">Try adjusting your search or filters</p>
-                        </div>
+                      <TableCell colSpan={7} className="py-0 px-0">
+                        <EmptyState
+                          icon={GraduationCap}
+                          title="No students found"
+                          description="Try adjusting your search or filters to find what you're looking for."
+                          actionLabel={search ? undefined : "Add Student"}
+                          onAction={search ? undefined : () => setAddDialogOpen(true)}
+                        />
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -624,7 +628,7 @@ function StudentListView({
                       return (
                         <TableRow
                           key={student.id}
-                          className="cursor-pointer hover:bg-emerald-50/50 transition-colors"
+                          className="cursor-pointer hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-colors"
                           onClick={() => onSelectStudent(student.id)}
                         >
                           <TableCell className="font-mono text-xs">{student.studentNumber}</TableCell>
@@ -926,11 +930,22 @@ function StudentDetailView({
       transition={{ duration: 0.3 }}
       className="space-y-5"
     >
-      {/* Back Button */}
-      <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground" onClick={onBack}>
-        <ChevronLeft className="h-4 w-4" />
-        Back to Student List
-      </Button>
+      {/* Back Button + Print Report Card */}
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground" onClick={onBack}>
+          <ChevronLeft className="h-4 w-4" />
+          Back to Student List
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+          onClick={() => window.open(`/api/reports/report-card-pdf?studentId=${studentId}`, '_blank')}
+        >
+          <Printer className="h-4 w-4" />
+          Print Report Card
+        </Button>
+      </div>
 
       {/* Profile Card */}
       <Card className="border-0 shadow-md overflow-hidden">

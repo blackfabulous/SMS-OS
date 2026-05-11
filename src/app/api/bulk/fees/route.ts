@@ -4,18 +4,18 @@ import { db } from '@/lib/db'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { gradeId, classId, feeStructureId, dueDate, studentIds } = body
+    const { feeStructureId, gradeIds, classIds, studentIds, academicYearId, termId } = body
 
-    if (!feeStructureId || !dueDate) {
+    if (!feeStructureId) {
       return NextResponse.json(
-        { error: 'feeStructureId and dueDate are required' },
+        { error: 'feeStructureId is required' },
         { status: 400 }
       )
     }
 
-    if (!gradeId && !classId) {
+    if (!gradeIds && !classIds && !studentIds) {
       return NextResponse.json(
-        { error: 'Either gradeId or classId is required' },
+        { error: 'At least one of gradeIds, classIds, or studentIds is required' },
         { status: 400 }
       )
     }
@@ -23,30 +23,42 @@ export async function POST(request: NextRequest) {
     // Validate fee structure
     const feeStructure = await db.feeStructure.findUnique({
       where: { id: feeStructureId },
+      include: { grade: true },
     })
     if (!feeStructure) {
       return NextResponse.json({ error: 'Invalid fee structure ID' }, { status: 400 })
     }
 
-    // Get the current term
-    const currentTerm = await db.term.findFirst({
-      where: { isCurrent: true },
-    })
-
-    if (!currentTerm) {
-      return NextResponse.json({ error: 'No current term found' }, { status: 400 })
+    // Determine the term to use
+    let targetTermId = termId
+    if (!targetTermId) {
+      const currentTerm = await db.term.findFirst({
+        where: { isCurrent: true },
+      })
+      if (!currentTerm) {
+        return NextResponse.json({ error: 'No current term found. Provide termId.' }, { status: 400 })
+      }
+      targetTermId = currentTerm.id
     }
 
-    // Get active students based on grade/class
+    // Validate the term exists
+    const term = await db.term.findUnique({ where: { id: targetTermId } })
+    if (!term) {
+      return NextResponse.json({ error: 'Invalid term ID' }, { status: 400 })
+    }
+
+    // Build the enrollment query to find matching students
     const enrollmentWhere: Record<string, unknown> = { status: 'ACTIVE' }
-    if (classId) {
-      enrollmentWhere.classId = classId
-    } else if (gradeId) {
-      enrollmentWhere.class = { gradeId: gradeId }
-    }
 
     if (studentIds && studentIds.length > 0) {
+      // Specific student IDs take priority
       enrollmentWhere.studentId = { in: studentIds }
+    } else if (classIds && classIds.length > 0) {
+      // Filter by specific class IDs
+      enrollmentWhere.classId = { in: classIds }
+    } else if (gradeIds && gradeIds.length > 0) {
+      // Filter by grade IDs
+      enrollmentWhere.class = { gradeId: { in: gradeIds } }
     }
 
     const enrollments = await db.studentEnrollment.findMany({
@@ -77,23 +89,47 @@ export async function POST(request: NextRequest) {
     }
 
     // Create invoices for each student
-    let createdCount = 0
+    let created = 0
+    let skipped = 0
+    let totalAmount = 0
     const errors: string[] = []
 
     for (const enrollment of enrollments) {
       try {
+        // Check if student already has a pending/paid invoice for this fee structure in this term
+        const existingInvoice = await db.feeInvoice.findFirst({
+          where: {
+            studentId: enrollment.studentId,
+            termId: targetTermId,
+            items: {
+              some: {
+                feeType: feeStructure.feeType,
+                description: feeStructure.name,
+              },
+            },
+          },
+        })
+
+        if (existingInvoice) {
+          skipped++
+          continue
+        }
+
         const invoiceNumber = `INV-${new Date().getFullYear()}-${String(invoiceCounter).padStart(4, '0')}`
         invoiceCounter++
+
+        const dueDate = new Date()
+        dueDate.setDate(dueDate.getDate() + 30) // Default 30-day due date
 
         await db.feeInvoice.create({
           data: {
             studentId: enrollment.studentId,
-            termId: currentTerm.id,
+            termId: targetTermId,
             invoiceNumber,
             totalAmount: feeStructure.amount,
             amountPaid: 0,
             balance: feeStructure.amount,
-            dueDate: new Date(dueDate),
+            dueDate,
             status: 'PENDING',
             items: {
               create: {
@@ -105,20 +141,34 @@ export async function POST(request: NextRequest) {
           },
         })
 
-        createdCount++
-      } catch (err) {
+        created++
+        totalAmount += feeStructure.amount
+      } catch {
         errors.push(
           `Failed to create invoice for ${enrollment.student.firstName} ${enrollment.student.lastName}`
         )
       }
     }
 
+    // Log audit entry
+    try {
+      await db.auditLog.create({
+        data: {
+          action: 'BULK_FEE_ASSIGNMENT',
+          entity: 'FeeInvoice',
+          details: `Assigned ${feeStructure.name} (${feeStructure.feeType}) to ${created} students. Total: $${totalAmount.toFixed(2)}`,
+        },
+      })
+    } catch {
+      // Audit log failure should not break the operation
+    }
+
     return NextResponse.json({
-      success: true,
-      createdCount,
-      errorCount: errors.length,
-      errors: errors.length > 0 ? errors : undefined,
-      message: `${createdCount} invoice${createdCount !== 1 ? 's' : ''} created for ${feeStructure.name}`,
+      created,
+      skipped,
+      totalAmount,
+      errors: errors.length > 0 ? errors : [],
+      message: `${created} invoice${created !== 1 ? 's' : ''} created for ${feeStructure.name}, ${skipped} skipped (already invoiced). Total: $${totalAmount.toFixed(2)}`,
     })
   } catch (error) {
     console.error('Bulk fee assignment error:', error)

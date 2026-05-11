@@ -1,153 +1,327 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
+// ─── ZIMSEC Bulk Import - Results Endpoint ───────────────────────────────────
+// Accepts bulk ZIMSEC results and creates/updates candidate records.
+// Supports both JSON and CSV file upload formats.
+
+interface ZimsecResultEntry {
+  studentNumber: string
+  subject: string
+  grade: string
+  marks?: number
+  year: number
+  level: 'O-Level' | 'A-Level'
+  session?: string
+}
+
+interface ImportResult {
+  imported: number
+  skipped: number
+  errors: Array<{ row: number; studentNumber: string; error: string }>
+}
+
+// ─── POST: Bulk Import ZIMSEC Results ───────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData()
-    const file = formData.get('file') as File | null
+    const contentType = request.headers.get('content-type') || ''
 
-    if (!file) {
+    let results: ZimsecResultEntry[] = []
+
+    // Handle JSON body (direct API call)
+    if (contentType.includes('application/json')) {
+      const body = await request.json()
+
+      if (body.results && Array.isArray(body.results)) {
+        results = body.results
+      } else if (Array.isArray(body)) {
+        results = body
+      } else {
+        return NextResponse.json(
+          { error: 'Expected { results: [...] } or an array of result entries' },
+          { status: 400 }
+        )
+      }
+    } else {
+      // Handle form data (CSV file upload)
+      const formData = await request.formData()
+      const file = formData.get('file') as File | null
+
+      if (!file) {
+        return NextResponse.json(
+          { error: 'No file uploaded. Please upload a CSV file or send JSON data.' },
+          { status: 400 }
+        )
+      }
+
+      const text = await file.text()
+      const lines = text.split('\n').filter(l => l.trim())
+
+      if (lines.length < 2) {
+        return NextResponse.json(
+          { error: 'CSV file must have a header row and at least one data row' },
+          { status: 400 }
+        )
+      }
+
+      // Parse headers
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, '').toLowerCase())
+
+      const colIndex = {
+        studentNumber: headers.indexOf('studentnumber'),
+        subject: headers.indexOf('subject'),
+        grade: headers.indexOf('grade'),
+        marks: headers.indexOf('marks'),
+        year: headers.indexOf('year'),
+        level: headers.indexOf('level'),
+        session: headers.indexOf('session'),
+      }
+
+      if (colIndex.studentNumber === -1 || colIndex.subject === -1 || colIndex.grade === -1 || colIndex.year === -1 || colIndex.level === -1) {
+        return NextResponse.json(
+          { error: 'Missing required columns. Expected: studentNumber, subject, grade, marks, year, level, session' },
+          { status: 400 }
+        )
+      }
+
+      // Parse data rows
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''))
+
+        const studentNumber = values[colIndex.studentNumber] || ''
+        const subject = values[colIndex.subject] || ''
+        const gradeVal = values[colIndex.grade] || ''
+        const marksVal = colIndex.marks !== -1 ? parseFloat(values[colIndex.marks]) : undefined
+        const yearVal = parseInt(values[colIndex.year]) || 0
+        const levelVal = values[colIndex.level] || ''
+        const sessionVal = colIndex.session !== -1 ? values[colIndex.session] : undefined
+
+        if (!studentNumber || !subject || !gradeVal || !yearVal || !levelVal) {
+          continue // Skip invalid rows silently for CSV import
+        }
+
+        // Normalize level
+        const normalizedLevel = levelVal.toUpperCase().includes('A') ? 'A-Level' : 'O-Level'
+
+        results.push({
+          studentNumber,
+          subject,
+          grade: gradeVal,
+          marks: isNaN(marksVal as number) ? undefined : marksVal,
+          year: yearVal,
+          level: normalizedLevel as 'O-Level' | 'A-Level',
+          session: sessionVal || undefined,
+        })
+      }
+    }
+
+    if (results.length === 0) {
       return NextResponse.json(
-        { error: 'No file uploaded. Please upload a CSV file.' },
+        { error: 'No valid result entries provided' },
         { status: 400 }
       )
     }
 
-    const text = await file.text()
-    const lines = text.split('\n').filter(l => l.trim())
-
-    if (lines.length < 2) {
-      return NextResponse.json(
-        { error: 'CSV file must have a header row and at least one data row' },
-        { status: 400 }
-      )
+    // Process results
+    const importResult: ImportResult = {
+      imported: 0,
+      skipped: 0,
+      errors: [],
     }
 
-    // Parse headers
-    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, '').toLowerCase())
-    const requiredColumns = ['candidatenumber', 'subject', 'grade', 'year', 'level']
-    const missingColumns = requiredColumns.filter(col => !headers.includes(col))
+    // Validate grades
+    const validGrades = ['A*', 'A', 'B', 'C', 'D', 'E', 'U', '1', '2', '3', '4', '5', '6', '7', '8', '9']
 
-    if (missingColumns.length > 0) {
-      return NextResponse.json(
-        { error: `Missing required columns: ${missingColumns.join(', ')}. Expected: candidateNumber, subject, grade, year, level` },
-        { status: 400 }
-      )
+    // Group results by student for efficient processing
+    const resultsByStudent = new Map<string, ZimsecResultEntry[]>()
+    for (const entry of results) {
+      if (!resultsByStudent.has(entry.studentNumber)) {
+        resultsByStudent.set(entry.studentNumber, [])
+      }
+      resultsByStudent.get(entry.studentNumber)!.push(entry)
     }
 
-    const colIndex = {
-      candidateNumber: headers.indexOf('candidatenumber'),
-      subject: headers.indexOf('subject'),
-      grade: headers.indexOf('grade'),
-      year: headers.indexOf('year'),
-      level: headers.indexOf('level'),
-    }
-
-    let createdCount = 0
-    let updatedCount = 0
-    const errors: string[] = []
-    const resultsMap: Record<string, { subjects: string[]; grades: string[] }> = {}
-
-    // Parse data rows
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''))
-
-      const candidateNumber = values[colIndex.candidateNumber] || ''
-      const subject = values[colIndex.subject] || ''
-      const grade = values[colIndex.grade] || ''
-      const year = values[colIndex.year] || ''
-      const level = values[colIndex.level] || ''
-
-      if (!candidateNumber || !subject || !grade || !year || !level) {
-        errors.push(`Row ${i + 1}: Missing required values`)
-        continue
-      }
-
-      // Validate grade
-      const validGrades = ['A*', 'A', 'B', 'C', 'D', 'E', 'U', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-      if (!validGrades.includes(grade.toUpperCase())) {
-        errors.push(`Row ${i + 1}: Invalid grade "${grade}". Must be one of: ${validGrades.join(', ')}`)
-        continue
-      }
-
-      // Validate level
-      const validLevels = ['O_LEVEL', 'O-LEVEL', 'O LEVEL', 'A_LEVEL', 'A-LEVEL', 'A LEVEL', 'GRADE_7', 'GRADE 7']
-      const normalizedLevel = level.toUpperCase().replace(/[\s-]/g, '_')
-      if (!validLevels.includes(normalizedLevel)) {
-        errors.push(`Row ${i + 1}: Invalid level "${level}". Must be O-Level, A-Level, or Grade 7`)
-        continue
-      }
-
-      // Track results per candidate
-      const key = `${candidateNumber}-${year}-${level}`
-      if (!resultsMap[key]) {
-        resultsMap[key] = { subjects: [], grades: [] }
-      }
-      resultsMap[key].subjects.push(subject)
-      resultsMap[key].grades.push(grade)
-    }
-
-    // Create/update ZimsecCandidate records
-    for (const [key, data] of Object.entries(resultsMap)) {
-      const [candidateNumber, yearStr, levelRaw] = key.split('-')
-      const examYear = parseInt(yearStr)
-      const normalizedLevel = levelRaw.replace(/[\s-]/g, '_')
-
+    for (const [studentNumber, studentResults] of resultsByStudent) {
       try {
-        // Try to find existing candidate by candidateNumber
-        const existing = await db.zimsecCandidate.findFirst({
-          where: { candidateNumber },
+        // Find student by studentNumber
+        const student = await db.student.findFirst({
+          where: { studentNumber },
         })
 
-        if (existing) {
-          // Update existing
-          await db.zimsecCandidate.update({
-            where: { id: existing.id },
-            data: {
-              subjects: JSON.stringify([...new Set([...(existing.subjects ? JSON.parse(existing.subjects) : []), ...data.subjects])]),
-            },
+        if (!student) {
+          importResult.errors.push({
+            row: 0,
+            studentNumber,
+            error: `Student with number "${studentNumber}" not found`,
           })
-          updatedCount++
-        } else {
-          // Create new - find a student to link (use first student without existing candidate as fallback)
-          const studentWithoutCandidate = await db.student.findFirst({
-            where: {
-              zimsecCandidate: null,
-              enrollmentStatus: 'ACTIVE',
+          importResult.skipped += studentResults.length
+          continue
+        }
+
+        // Validate all grades for this student
+        const invalidGrades = studentResults.filter(
+          r => !validGrades.includes(r.grade.toUpperCase())
+        )
+        if (invalidGrades.length > 0) {
+          importResult.errors.push({
+            row: 0,
+            studentNumber,
+            error: `Invalid grades: ${invalidGrades.map(g => g.grade).join(', ')}. Must be one of: ${validGrades.join(', ')}`,
+          })
+          importResult.skipped += invalidGrades.length
+        }
+
+        const validResults = studentResults.filter(
+          r => validGrades.includes(r.grade.toUpperCase())
+        )
+
+        if (validResults.length === 0) {
+          continue
+        }
+
+        // Determine exam level and year from results
+        const firstResult = validResults[0]
+        const examLevel = firstResult.level.toUpperCase().includes('A') ? 'A_LEVEL' : 'O_LEVEL'
+        const examYear = firstResult.year
+
+        // Create or update ZimsecCandidate
+        const existingCandidate = await db.zimsecCandidate.findFirst({
+          where: {
+            studentId: student.id,
+            examYear,
+          },
+        })
+
+        // Build subjects list from valid results
+        const subjectsData = validResults.map(r => ({
+          subject: r.subject,
+          grade: r.grade.toUpperCase(),
+          marks: r.marks,
+          session: r.session,
+        }))
+
+        if (existingCandidate) {
+          // Update existing candidate - merge subjects
+          const existingSubjects = existingCandidate.subjects
+            ? JSON.parse(existingCandidate.subjects)
+            : []
+
+          const mergedSubjects = [...existingSubjects]
+          for (const newSubject of subjectsData) {
+            const existingIdx = mergedSubjects.findIndex(
+              (s: { subject: string }) => s.subject === newSubject.subject
+            )
+            if (existingIdx >= 0) {
+              mergedSubjects[existingIdx] = newSubject
+            } else {
+              mergedSubjects.push(newSubject)
+            }
+          }
+
+          await db.zimsecCandidate.update({
+            where: { id: existingCandidate.id },
+            data: {
+              subjects: JSON.stringify(mergedSubjects),
+              registrationStatus: 'REGISTERED',
             },
           })
 
-          if (studentWithoutCandidate) {
-            await db.zimsecCandidate.create({
-              data: {
-                studentId: studentWithoutCandidate.id,
-                candidateNumber,
-                examLevel: normalizedLevel === 'GRADE_7' ? 'GRADE_7' : normalizedLevel === 'A_LEVEL' ? 'A_LEVEL' : 'O_LEVEL',
-                examYear,
-                registrationStatus: 'REGISTERED',
-                subjects: JSON.stringify(data.subjects),
-                totalFees: 0,
-                feesPaid: 0,
-              },
+          importResult.imported += validResults.length
+        } else {
+          // Create new ZimsecCandidate
+          await db.zimsecCandidate.create({
+            data: {
+              studentId: student.id,
+              centreNumber: student.schoolId ? 'CN-001' : null,
+              candidateNumber: `C-${studentNumber}`,
+              examLevel,
+              examYear,
+              registrationStatus: 'REGISTERED',
+              subjects: JSON.stringify(subjectsData),
+              totalFees: 0,
+              feesPaid: 0,
+            },
+          })
+
+          importResult.imported += validResults.length
+        }
+
+        // Also create assessment marks for each subject result
+        for (const result of validResults) {
+          try {
+            // Find the subject
+            const subject = await db.subject.findFirst({
+              where: { name: { contains: result.subject, mode: 'insensitive' } },
             })
-            createdCount++
-          } else {
-            errors.push(`Candidate ${candidateNumber}: No available student to link`)
+
+            if (subject) {
+              // Find current term
+              const currentTerm = await db.term.findFirst({
+                where: { isCurrent: true },
+                orderBy: { createdAt: 'desc' },
+              })
+
+              if (currentTerm) {
+                // Check if assessment already exists for this subject/term
+                const existingAssessment = await db.assessment.findFirst({
+                  where: {
+                    subjectId: subject.id,
+                    termId: currentTerm.id,
+                    name: { contains: 'ZIMSEC' },
+                  },
+                })
+
+                if (existingAssessment) {
+                  // Upsert the mark
+                  const numericMarks = result.marks || (
+                    result.grade === 'A*' ? 95 : result.grade === 'A' ? 85 :
+                    result.grade === 'B' ? 75 : result.grade === 'C' ? 65 :
+                    result.grade === 'D' ? 55 : result.grade === 'E' ? 45 :
+                    result.grade === 'U' ? 25 : parseInt(result.grade) * 10 || 50
+                  )
+
+                  await db.assessmentMark.upsert({
+                    where: {
+                      assessmentId_studentId: {
+                        assessmentId: existingAssessment.id,
+                        studentId: student.id,
+                      },
+                    },
+                    create: {
+                      assessmentId: existingAssessment.id,
+                      studentId: student.id,
+                      marksObtained: numericMarks,
+                      grade: result.grade.toUpperCase(),
+                    },
+                    update: {
+                      marksObtained: numericMarks,
+                      grade: result.grade.toUpperCase(),
+                    },
+                  })
+                }
+              }
+            }
+          } catch {
+            // Skip assessment mark creation errors silently
           }
         }
       } catch (err) {
-        errors.push(`Candidate ${candidateNumber}: Failed to create/update record`)
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+        importResult.errors.push({
+          row: 0,
+          studentNumber,
+          error: `Failed to process: ${errorMessage}`,
+        })
+        importResult.skipped += studentResults.length
       }
     }
 
     return NextResponse.json({
       success: true,
-      createdCount,
-      updatedCount,
-      totalProcessed: createdCount + updatedCount,
-      errorCount: errors.length,
-      errors: errors.length > 0 ? errors.slice(0, 20) : undefined,
-      message: `Import complete: ${createdCount} created, ${updatedCount} updated, ${errors.length} errors`,
+      imported: importResult.imported,
+      skipped: importResult.skipped,
+      errors: importResult.errors.slice(0, 50),
+      message: `Import complete: ${importResult.imported} results imported, ${importResult.skipped} skipped, ${importResult.errors.length} errors`,
     })
   } catch (error) {
     console.error('ZIMSEC bulk import error:', error)

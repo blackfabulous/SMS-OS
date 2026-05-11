@@ -1,63 +1,104 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
-export async function GET() {
+// GET /api/boarding — List hostels with dormitory counts and boarding assignments
+// Query params: search, gender, status, page, limit
+export async function GET(request: NextRequest) {
   try {
-    const hostels = await db.hostel.findMany({
-      include: {
-        dormitories: {
-          include: {
-            boardingAssignments: {
-              where: { status: 'ACTIVE' },
-              include: {
-                student: {
-                  select: {
-                    id: true,
-                    firstName: true,
-                    lastName: true,
-                    studentNumber: true,
-                    gender: true,
-                    boardingStatus: true,
+    const { searchParams } = new URL(request.url)
+    const search = searchParams.get('search') || ''
+    const gender = searchParams.get('gender') || ''
+    const status = searchParams.get('status') || 'ACTIVE'
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '50')
+
+    // Build hostel filter
+    const hostelFilter: Record<string, unknown> = {}
+    if (search) {
+      hostelFilter.OR = [
+        { name: { contains: search } },
+      ]
+    }
+    if (gender) {
+      hostelFilter.gender = gender
+    }
+
+    const [hostels, hostelTotal] = await Promise.all([
+      db.hostel.findMany({
+        where: hostelFilter,
+        include: {
+          dormitories: {
+            include: {
+              boardingAssignments: {
+                where: { status },
+                include: {
+                  student: {
+                    select: {
+                      id: true,
+                      firstName: true,
+                      lastName: true,
+                      studentNumber: true,
+                      gender: true,
+                      boardingStatus: true,
+                    },
                   },
                 },
               },
             },
           },
         },
-      },
-      orderBy: { name: 'asc' },
-    })
+        orderBy: { name: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      db.hostel.count({ where: hostelFilter }),
+    ])
 
+    // Boarding assignments with student + dormitory + hostel details
+    const assignmentFilter: Record<string, unknown> = {}
+    if (status) assignmentFilter.status = status
+
+    const [assignments, assignmentTotal] = await Promise.all([
+      db.boardingAssignment.findMany({
+        where: assignmentFilter,
+        include: {
+          student: {
+            select: { id: true, firstName: true, lastName: true, studentNumber: true, gender: true, boardingStatus: true },
+          },
+          dormitory: {
+            include: { hostel: { select: { id: true, name: true, gender: true } } },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      db.boardingAssignment.count({ where: assignmentFilter }),
+    ])
+
+    // Stats
     const totalBoarders = await db.boardingAssignment.count({ where: { status: 'ACTIVE' } })
-    const totalHostels = hostels.length
-    const totalDormitories = hostels.reduce((sum, h) => sum + h.dormitories.length, 0)
-    const totalCapacity = hostels.reduce(
-      (sum, h) => sum + h.dormitories.reduce((ds, d) => ds + d.capacity, 0),
-      0
-    )
-    const totalOccupancy = hostels.reduce(
-      (sum, h) => sum + h.dormitories.reduce((ds, d) => ds + d.currentOccupancy, 0),
-      0
-    )
-    const occupancyRate = totalCapacity > 0 ? ((totalOccupancy / totalCapacity) * 100).toFixed(1) : '0'
+    const totalHostels = await db.hostel.count()
+    const totalDormitories = await db.dormitory.count()
 
-    const assignments = await db.boardingAssignment.findMany({
-      where: { status: 'ACTIVE' },
-      include: {
-        student: {
-          select: { id: true, firstName: true, lastName: true, studentNumber: true, gender: true },
-        },
-        dormitory: {
-          include: { hostel: { select: { id: true, name: true, gender: true } } },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
+    const dormStats = await db.dormitory.aggregate({
+      _sum: { capacity: true, currentOccupancy: true },
     })
+    const totalCapacity = dormStats._sum.capacity || 0
+    const totalOccupancy = dormStats._sum.currentOccupancy || 0
+    const occupancyRate = totalCapacity > 0 ? ((totalOccupancy / totalCapacity) * 100).toFixed(1) : '0'
 
     return NextResponse.json({
       hostels,
       assignments,
       stats: { totalBoarders, totalHostels, totalDormitories, totalCapacity, totalOccupancy, occupancyRate },
+      pagination: {
+        page,
+        limit,
+        totalHostels: hostelTotal,
+        totalAssignments: assignmentTotal,
+        totalPages: Math.ceil(hostelTotal / limit),
+      },
     })
   } catch (error) {
     console.error('Failed to fetch boarding data:', error)
@@ -65,12 +106,14 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+// POST /api/boarding — Create hostel / dormitory / assign boarder
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { action, studentId, dormitoryId, bedNumber } = body
+    const { action } = body
 
     if (action === 'assign') {
+      const { studentId, dormitoryId, bedNumber } = body
       if (!studentId || !dormitoryId) {
         return NextResponse.json({ error: 'studentId and dormitoryId are required' }, { status: 400 })
       }
@@ -110,7 +153,10 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Hostel name is required' }, { status: 400 })
       }
       let sid = schoolId
-      if (!sid) { const school = await db.school.findFirst(); sid = school?.id }
+      if (!sid) {
+        const school = await db.school.findFirst()
+        sid = school?.id
+      }
       const hostel = await db.hostel.create({
         data: { schoolId: sid || 'default', name, gender: gender || null, capacity: capacity || 50 },
       })
@@ -128,14 +174,15 @@ export async function POST(request: Request) {
       return NextResponse.json(dormitory, { status: 201 })
     }
 
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid action. Use: assign, createHostel, or createDormitory' }, { status: 400 })
   } catch (error) {
     console.error('Failed to process boarding request:', error)
     return NextResponse.json({ error: 'Failed to process boarding request' }, { status: 500 })
   }
 }
 
-export async function PUT(request: Request) {
+// PUT /api/boarding — Update assignment / checkout
+export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
     const { id, action, ...updates } = body
@@ -163,7 +210,11 @@ export async function PUT(request: Request) {
 
     const assignment = await db.boardingAssignment.update({
       where: { id },
-      data: { bedNumber: updates.bedNumber, dormitoryId: updates.dormitoryId, status: updates.status },
+      data: {
+        bedNumber: updates.bedNumber,
+        dormitoryId: updates.dormitoryId,
+        status: updates.status,
+      },
     })
 
     return NextResponse.json(assignment)
@@ -173,7 +224,8 @@ export async function PUT(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+// DELETE /api/boarding?id=xxx&type=hostel|dormitory|assignment
+export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -189,7 +241,10 @@ export async function DELETE(request: Request) {
       await db.dormitory.delete({ where: { id } })
     } else {
       const assignment = await db.boardingAssignment.delete({ where: { id } })
-      await db.dormitory.update({ where: { id: assignment.dormitoryId }, data: { currentOccupancy: { decrement: 1 } } })
+      await db.dormitory.update({
+        where: { id: assignment.dormitoryId },
+        data: { currentOccupancy: { decrement: 1 } },
+      })
     }
 
     return NextResponse.json({ message: 'Deleted successfully' })

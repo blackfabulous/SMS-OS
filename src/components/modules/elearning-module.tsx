@@ -300,7 +300,7 @@ export default function ElearningModule() {
       case 'Video': return 'bg-red-100 text-red-700'
       case 'Past Exam Paper': return 'bg-amber-100 text-amber-700'
       case 'Worksheet': return 'bg-teal-100 text-teal-700'
-      default: return 'bg-gray-100 text-gray-700'
+      default: return 'bg-muted text-muted-foreground'
     }
   }
 
@@ -308,8 +308,8 @@ export default function ElearningModule() {
     switch (status) {
       case 'Open': return 'bg-emerald-100 text-emerald-700'
       case 'Grading': return 'bg-amber-100 text-amber-700'
-      case 'Closed': return 'bg-gray-100 text-gray-600'
-      default: return 'bg-gray-100 text-gray-600'
+      case 'Closed': return 'bg-muted text-muted-foreground'
+      default: return 'bg-muted text-muted-foreground'
     }
   }
 
@@ -433,7 +433,7 @@ export default function ElearningModule() {
                     <div className="flex items-center gap-3">
                       <div className={cn(
                         'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white',
-                        idx === 0 ? 'bg-amber-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-orange-400' : 'bg-muted text-muted-foreground'
+                        idx === 0 ? 'bg-amber-500' : idx === 1 ? 'bg-muted-foreground' : idx === 2 ? 'bg-orange-400' : 'bg-muted text-muted-foreground'
                       )}>
                         {idx + 1}
                       </div>
@@ -469,13 +469,13 @@ export default function ElearningModule() {
                       act.type === 'resource' ? 'bg-cyan-100' :
                       act.type === 'submission' ? 'bg-teal-100' :
                       act.type === 'grade' ? 'bg-amber-100' :
-                      'bg-gray-100'
+                      'bg-muted'
                     )}>
                       {act.type === 'assignment' ? <BookOpen className="h-3.5 w-3.5 text-emerald-600" /> :
                        act.type === 'resource' ? <FileText className="h-3.5 w-3.5 text-cyan-600" /> :
                        act.type === 'submission' ? <Users className="h-3.5 w-3.5 text-teal-600" /> :
                        act.type === 'grade' ? <BarChart3 className="h-3.5 w-3.5 text-amber-600" /> :
-                       <GraduationCap className="h-3.5 w-3.5 text-gray-600" />}
+                       <GraduationCap className="h-3.5 w-3.5 text-muted-foreground" />}
                     </div>
                     <div>
                       <p className="text-sm font-medium">{act.action}</p>

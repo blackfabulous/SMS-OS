@@ -38,6 +38,8 @@ import {
 
 import { cn } from '@/lib/utils'
 import { exportToCSV, printReport, buildHTMLTable, formatCurrency as fmtCurrency } from '@/lib/export-utils'
+import { EmptyState } from '@/components/empty-state'
+import { ModuleSkeleton } from '@/components/module-skeleton'
 import { formatDualCurrency, formatUSD, formatZiG, getCurrentRate, fetchExchangeRate, type CurrencyCode } from '@/lib/currency'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -465,23 +467,7 @@ export default function FinanceModule() {
   // ─── Loading ───────────────────────────────────────────────────────────
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="h-8 w-48 bg-muted animate-pulse rounded" />
-          <div className="h-10 w-40 bg-muted animate-pulse rounded" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-32 bg-muted animate-pulse rounded-xl" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="h-80 bg-muted animate-pulse rounded-xl" />
-          <div className="h-80 bg-muted animate-pulse rounded-xl" />
-        </div>
-      </div>
-    )
+    return <ModuleSkeleton statCount={4} showChart showTable={false} />
   }
 
   const collectionRate = dashboard ? parseFloat(dashboard.collectionRate) : 0
@@ -813,13 +799,13 @@ export default function FinanceModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Overview
           </TabsTrigger>
-          <TabsTrigger value="invoices" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="invoices" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Invoices
           </TabsTrigger>
-          <TabsTrigger value="payments" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="payments" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Payments
           </TabsTrigger>
         </TabsList>
@@ -1284,8 +1270,12 @@ export default function FinanceModule() {
                       })}
                       {filteredInvoices.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
-                            No invoices found
+                          <TableCell colSpan={8} className="py-0 px-0">
+                            <EmptyState
+                              icon={FileText}
+                              title="No invoices found"
+                              description="There are no invoices matching your current filters. Create a new invoice to get started."
+                            />
                           </TableCell>
                         </TableRow>
                       )}
@@ -1430,8 +1420,12 @@ export default function FinanceModule() {
                       ))}
                       {filteredPayments.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
-                            No payments found
+                          <TableCell colSpan={6} className="py-0 px-0">
+                            <EmptyState
+                              icon={CreditCard}
+                              title="No payments found"
+                              description="There are no payment records matching your current filters. Record a payment to get started."
+                            />
                           </TableCell>
                         </TableRow>
                       )}

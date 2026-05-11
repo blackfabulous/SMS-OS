@@ -251,11 +251,11 @@ export default function PayrollModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Overview</TabsTrigger>
-          <TabsTrigger value="staff" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Staff Payroll</TabsTrigger>
-          <TabsTrigger value="process" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Process Payroll</TabsTrigger>
-          <TabsTrigger value="payslips" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Payslips</TabsTrigger>
-          <TabsTrigger value="statutory" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Statutory</TabsTrigger>
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Overview</TabsTrigger>
+          <TabsTrigger value="staff" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Staff Payroll</TabsTrigger>
+          <TabsTrigger value="process" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Process Payroll</TabsTrigger>
+          <TabsTrigger value="payslips" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Payslips</TabsTrigger>
+          <TabsTrigger value="statutory" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Statutory</TabsTrigger>
         </TabsList>
 
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   UsersRound,
@@ -64,6 +64,7 @@ import {
 } from '@/components/ui/chart'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area } from 'recharts'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { PaynowDialog } from '@/components/modules/paynow-dialog'
@@ -135,7 +136,7 @@ interface CalendarEvent {
   description: string
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+// ─── Mock Data (fallback) ─────────────────────────────────────────────────────
 const parentName = 'Mrs. Rumbidzai Dube'
 const parentInitials = 'RD'
 
@@ -424,7 +425,7 @@ export default function ParentPortalModule() {
   const [composeOpen, setComposeOpen] = useState(false)
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
   const [calendarFilter, setCalendarFilter] = useState('All')
-  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 2, 1)) // March 2026
+  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 2, 1))
   const [newMsgRecipient, setNewMsgRecipient] = useState('')
   const [newMsgSubject, setNewMsgSubject] = useState('')
   const [newMsgBody, setNewMsgBody] = useState('')
@@ -433,16 +434,124 @@ export default function ParentPortalModule() {
   const [paynowStudent, setPaynowStudent] = useState('')
   const [paynowAmount, setPaynowAmount] = useState(0)
 
-  const totalOutstanding = mockChildren.reduce((s, c) => s + c.outstandingFees, 0) + 400 // include Kudzai extra
-  const unreadCount = mockMessages.filter(m => !m.read).length
-  const upcomingCount = mockCalendarEvents.filter(e => new Date(e.date) >= new Date()).length
+  // ─── API Data State ───────────────────────────────────────────────────────────
+  const [children, setChildren] = useState<Child[]>(mockChildren)
+  const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices)
+  const [payments, setPayments] = useState<Payment[]>(mockPayments)
+  const [messages, setMessages] = useState<Message[]>(mockMessages)
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(mockCalendarEvents)
+  const [loading, setLoading] = useState({ children: true, fees: true, messages: true })
+
+  // ─── Fetch from APIs ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    async function fetchChildren() {
+      try {
+        const res = await fetch('/api/students?limit=10&enrollmentStatus=ACTIVE')
+        if (res.ok) {
+          const json = await res.json()
+          if (json.data && json.data.length > 0) {
+            const apiChildren: Child[] = json.data.map((s: Record<string, unknown>) => ({
+              id: s.id as string,
+              name: `${s.firstName} ${s.lastName}`,
+              class: (s as Record<string, unknown[]>).enrollments?.[0] ? `${((s as Record<string, unknown[]>).enrollments[0] as Record<string, Record<string, string>>).class?.grade?.name || ''} ${((s as Record<string, unknown[]>).enrollments[0] as Record<string, Record<string, string>>).class?.name || ''}`.trim() : 'N/A',
+              studentNumber: s.studentNumber as string,
+              initials: `${(s.firstName as string)[0]}${(s.lastName as string)[0]}`,
+              grades: [],
+              attendanceRate: 0,
+              outstandingFees: 0,
+              recentGrades: [],
+              attendanceHistory: [],
+              disciplineNotes: [],
+            }))
+            setChildren(apiChildren)
+          }
+        }
+      } catch { /* fallback to mock */ }
+      setLoading(prev => ({ ...prev, children: false }))
+    }
+    fetchChildren()
+  }, [])
+
+  useEffect(() => {
+    async function fetchFees() {
+      try {
+        const [invRes, payRes] = await Promise.all([
+          fetch('/api/finance/invoices?limit=20'),
+          fetch('/api/finance/payments?limit=20'),
+        ])
+        if (invRes.ok) {
+          const invJson = await invRes.json()
+          if (invJson.data && invJson.data.length > 0) {
+            const apiInvoices: Invoice[] = invJson.data.map((inv: Record<string, unknown>) => ({
+              id: inv.id as string,
+              studentName: `${(inv.student as Record<string, string>)?.firstName || ''} ${(inv.student as Record<string, string>)?.lastName || ''}`.trim(),
+              description: (inv.items as Record<string, string>[])?.[0]?.description || (inv as Record<string, string>).invoiceNumber || 'Fee Invoice',
+              amount: inv.totalAmount as number,
+              amountZiG: (inv.totalAmount as number) * ZIG_RATE,
+              paid: inv.amountPaid as number,
+              paidZiG: (inv.amountPaid as number) * ZIG_RATE,
+              status: ((inv.status as string) || 'PENDING').toLowerCase() === 'paid' ? 'Paid' : (inv.status as string) === 'PARTIAL' ? 'Partial' : (inv.status as string) === 'OVERDUE' ? 'Overdue' : 'Pending',
+              dueDate: inv.dueDate ? new Date(inv.dueDate as string).toISOString().split('T')[0] : '',
+              invoiceNumber: inv.invoiceNumber as string,
+            }))
+            setInvoices(apiInvoices)
+          }
+        }
+        if (payRes.ok) {
+          const payJson = await payRes.json()
+          if (payJson.data && payJson.data.length > 0) {
+            const apiPayments: Payment[] = payJson.data.map((pay: Record<string, unknown>) => ({
+              id: pay.id as string,
+              receiptNumber: pay.receiptNumber as string,
+              studentName: `${(pay.student as Record<string, string>)?.firstName || ''} ${(pay.student as Record<string, string>)?.lastName || ''}`.trim(),
+              amount: pay.amount as number,
+              amountZiG: (pay.amount as number) * ZIG_RATE,
+              method: pay.paymentMethod as string,
+              date: pay.createdAt ? new Date(pay.createdAt as string).toISOString().split('T')[0] : '',
+              description: `Fee Payment - ${pay.paymentMethod || 'Cash'}`,
+            }))
+            setPayments(apiPayments)
+          }
+        }
+      } catch { /* fallback to mock */ }
+      setLoading(prev => ({ ...prev, fees: false }))
+    }
+    fetchFees()
+  }, [])
+
+  useEffect(() => {
+    async function fetchMessagesAndEvents() {
+      try {
+        const evRes = await fetch('/api/events?limit=20')
+        if (evRes.ok) {
+          const evJson = await evRes.json()
+          if (evJson.data && evJson.data.length > 0) {
+            const apiEvents: CalendarEvent[] = evJson.data.map((ev: Record<string, unknown>) => ({
+              id: ev.id as string,
+              title: ev.title as string,
+              date: ev.startDate ? new Date(ev.startDate as string).toISOString().split('T')[0] : '',
+              type: (ev.eventType as string)?.toLowerCase() === 'sports' ? 'event' : (ev.eventType as string)?.toLowerCase() === 'academic' ? 'exam' : (ev.eventType as string)?.toLowerCase() === 'meeting' ? 'meeting' : 'event',
+              description: ev.description as string || '',
+            }))
+            setCalendarEvents(apiEvents.length > 0 ? apiEvents : mockCalendarEvents)
+          }
+        }
+      } catch { /* fallback to mock */ }
+      setLoading(prev => ({ ...prev, messages: false }))
+    }
+    fetchMessagesAndEvents()
+  }, [])
+
+  const totalOutstanding = invoices.reduce((s, inv) => s + (inv.amount - inv.paid), 0)
+  const unreadCount = messages.filter(m => !m.read).length
+  const upcomingCount = calendarEvents.filter(e => new Date(e.date) >= new Date()).length
 
   const formatAmount = (usd: number) => {
     if (currency === 'ZiG') return `ZiG ${(usd * ZIG_RATE).toLocaleString('en-ZW', { minimumFractionDigits: 2 })}`
     return `$${usd.toLocaleString('en-ZW', { minimumFractionDigits: 2 })}`
   }
 
-  const filteredCalendarEvents = mockCalendarEvents.filter(e => {
+  const filteredCalendarEvents = calendarEvents.filter(e => {
     if (calendarFilter === 'All') return true
     return e.type === calendarFilter.toLowerCase().slice(0, -1) || e.type === calendarFilter.toLowerCase()
   }).filter(e => {
@@ -473,7 +582,7 @@ export default function ParentPortalModule() {
   })()
 
   const getEventsForDay = (day: number) => {
-    return mockCalendarEvents.filter(e => {
+    return calendarEvents.filter(e => {
       const d = new Date(e.date)
       return d.getDate() === day && d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear()
     })
@@ -518,7 +627,7 @@ export default function ParentPortalModule() {
                   </Avatar>
                   <div>
                     <h3 className="text-2xl font-bold">Mhoroi, {parentName.split(' ').pop()}!</h3>
-                    <p className="text-emerald-100 mt-1">You have {mockChildren.length} children enrolled • {unreadCount} unread messages</p>
+                    <p className="text-emerald-100 mt-1">You have {children.length} children enrolled • {unreadCount} unread messages</p>
                   </div>
                 </div>
                 <div className="mt-4 flex items-center gap-6">
@@ -542,7 +651,7 @@ export default function ParentPortalModule() {
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Children Enrolled</p>
-                    <p className="text-2xl font-bold">{mockChildren.length}</p>
+                    <p className="text-2xl font-bold">{children.length}</p>
                     <div className="flex items-center gap-1">
                       <GraduationCap className="h-3 w-3 text-emerald-600" />
                       <span className="text-xs font-medium text-emerald-600">All active</span>
@@ -640,16 +749,23 @@ export default function ParentPortalModule() {
                 <CardDescription>Outstanding vs paid per child</CardDescription>
               </CardHeader>
               <CardContent>
-                <ChartContainer config={feeChartConfig} className="h-[200px] w-full">
-                  <BarChart data={feeChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                    <XAxis dataKey="child" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="paid" fill="var(--color-paid)" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                    <Bar dataKey="outstanding" fill="var(--color-outstanding)" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                  </BarChart>
-                </ChartContainer>
+                {loading.fees ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-[160px] w-full" />
+                    </div>
+                  ) : (
+                    <ChartContainer config={feeChartConfig} className="h-[200px] w-full">
+                      <BarChart data={feeChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                        <XAxis dataKey="child" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                        <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Bar dataKey="paid" fill="var(--color-paid)" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                        <Bar dataKey="outstanding" fill="var(--color-outstanding)" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                      </BarChart>
+                    </ChartContainer>
+                  )}
               </CardContent>
             </Card>
           </div>
@@ -658,7 +774,7 @@ export default function ParentPortalModule() {
         {/* ─── My Children Tab ────────────────────────────────────────────────── */}
         <TabsContent value="children" className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
-            {mockChildren.map((child) => (
+            {children.map((child) => (
               <motion.div key={child.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: parseInt(child.id) * 0.1 }}>
                 <Card className="border-0 shadow-md overflow-hidden">
                   <CardContent className="p-0">
@@ -841,7 +957,7 @@ export default function ParentPortalModule() {
                 <div>
                   <p className="text-amber-100 text-sm">Total Outstanding Balance</p>
                   <p className="text-3xl font-bold mt-1">{formatAmount(totalOutstanding)}</p>
-                  <p className="text-amber-100 text-xs mt-2">Across {mockChildren.length} children • 2 invoices overdue</p>
+                  <p className="text-amber-100 text-xs mt-2">Across {children.length} children • {invoices.filter(i => i.status === 'Overdue').length} invoices overdue</p>
                 </div>
                 <Button className="bg-white text-amber-700 hover:bg-white/90 gap-2" onClick={() => { setPaynowStudent(''); setPaynowAmount(totalOutstanding); setPaynowOpen(true) }}>
                   <CreditCard className="h-4 w-4" /> Pay Now
@@ -859,7 +975,7 @@ export default function ParentPortalModule() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {mockInvoices.map(inv => (
+                {invoices.map(inv => (
                   <div key={inv.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className={cn(
@@ -899,7 +1015,7 @@ export default function ParentPortalModule() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {mockPayments.map(pay => (
+                {payments.map(pay => (
                   <div key={pay.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100">
@@ -941,7 +1057,7 @@ export default function ParentPortalModule() {
               </CardHeader>
               <CardContent className="max-h-96 overflow-y-auto">
                 <div className="space-y-2">
-                  {mockMessages.map(msg => (
+                  {messages.map(msg => (
                     <button
                       key={msg.id}
                       onClick={() => setSelectedMessage(msg)}
@@ -1156,7 +1272,7 @@ export default function ParentPortalModule() {
             </div>
           </Card>
 
-          {mockChildren.map(child => (
+          {children.map(child => (
             <Card key={child.id} className="border-0 shadow-md">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -1231,7 +1347,7 @@ export default function ParentPortalModule() {
       <PaynowDialog
         open={paynowOpen}
         onOpenChange={setPaynowOpen}
-        students={mockChildren.map(c => ({ id: c.id, name: c.name, outstandingFees: c.outstandingFees }))}
+        students={children.map(c => ({ id: c.id, name: c.name, outstandingFees: c.outstandingFees }))}
         defaultStudentId={paynowStudent || undefined}
         defaultAmount={paynowAmount || undefined}
       />

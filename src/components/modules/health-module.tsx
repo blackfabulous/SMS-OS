@@ -596,16 +596,16 @@ export default function HealthModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Overview
           </TabsTrigger>
-          <TabsTrigger value="records" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="records" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Records
           </TabsTrigger>
-          <TabsTrigger value="sickbay" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="sickbay" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Sick Bay Today
           </TabsTrigger>
-          <TabsTrigger value="profiles" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="profiles" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Medical Profiles
           </TabsTrigger>
         </TabsList>
@@ -811,7 +811,7 @@ export default function HealthModule() {
                             )}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', visitTypeColors[record.visitType] || 'bg-gray-100 text-gray-700')}>
+                            <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', visitTypeColors[record.visitType] || 'bg-muted text-muted-foreground')}>
                               <VisitIcon className="mr-1 h-3 w-3" />
                               {visitTypeLabels[record.visitType] || record.visitType}
                             </Badge>

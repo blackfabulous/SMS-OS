@@ -509,7 +509,7 @@ export default function CanteenModule() {
                 ) : (
                   <>
                     {lowStockItems.map(item => (
-                      <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-amber-50/60">
+                      <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-amber-50/60 dark:bg-amber-950/30">
                         <div className="flex items-center gap-2">
                           <Badge variant={item.status === 'Out of Stock' ? 'destructive' : 'secondary'} className="text-[10px]">
                             {item.status}
@@ -520,7 +520,7 @@ export default function CanteenModule() {
                       </div>
                     ))}
                     {stockAlerts.filter(s => !lowStockItems.find(l => l.name.includes(s.name.split(' ')[0]))).slice(0, 3).map(item => (
-                      <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-orange-50/60">
+                      <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-orange-50/60 dark:bg-orange-950/30">
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary" className="text-[10px]">Reorder</Badge>
                           <span className="text-sm">{item.name}</span>
@@ -709,7 +709,7 @@ export default function CanteenModule() {
                     key={item.id}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="flex flex-col items-center gap-2 p-4 rounded-xl border bg-white hover:shadow-md transition-shadow text-center"
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl border bg-background hover:shadow-md transition-shadow text-center"
                     onClick={() => addToCart(item)}
                   >
                     <div className={cn(

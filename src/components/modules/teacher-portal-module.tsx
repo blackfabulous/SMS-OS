@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users,
@@ -76,6 +76,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -109,7 +110,7 @@ function gradeTextColor(grade: string): string {
   return 'text-red-700'
 }
 
-// ─── Mock Data ─────────────────────────────────────────────────────────────────
+// ─── Mock Data (fallback) ───────────────────────────────────────────────────────
 const teacherName = 'Mr. Tendai Hove'
 const teacherInitials = 'TH'
 const teacherSubject = 'Mathematics & Physics'
@@ -400,6 +401,89 @@ export default function TeacherPortalModule() {
   const [activeTab, setActiveTab] = useState('overview')
   const [expandedClass, setExpandedClass] = useState<string | null>(null)
 
+  // ─── API Data State ───────────────────────────────────────────────────────────
+  const [classes, setClasses] = useState<TeacherClass[]>(mockClasses)
+  const [teacherAssignments, setTeacherAssignments] = useState<Assignment[]>(mockAssignments)
+  const [loading, setLoading] = useState({ classes: true, assignments: true })
+
+  // ─── Fetch from APIs ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    async function fetchClasses() {
+      try {
+        const res = await fetch('/api/students?limit=100&enrollmentStatus=ACTIVE')
+        if (res.ok) {
+          const json = await res.json()
+          if (json.data && json.data.length > 0) {
+            // Group students by class to build teacher classes
+            const classMap = new Map<string, { name: string; students: StudentInClass[] }>()
+            for (const s of json.data as Record<string, unknown>[]) {
+              const enrollment = (s as Record<string, unknown[]>).enrollments?.[0] as Record<string, Record<string, string>> | undefined
+              const className = enrollment?.class?.name || 'Unassigned'
+              if (!classMap.has(className)) {
+                classMap.set(className, { name: className, students: [] })
+              }
+              classMap.get(className)!.students.push({
+                id: s.id as string,
+                name: `${s.firstName} ${s.lastName}`,
+                initials: `${(s.firstName as string)[0]}${(s.lastName as string)[0]}`,
+                studentNumber: s.studentNumber as string,
+                avgMark: 0,
+                grade: '—',
+                attendance: 0,
+              })
+            }
+            if (classMap.size > 0) {
+              const apiClasses: TeacherClass[] = Array.from(classMap.entries()).map(([id, data], idx) => ({
+                id: `c${idx}`,
+                name: data.name,
+                subject: idx % 2 === 0 ? 'Mathematics' : 'Physics',
+                studentCount: data.students.length,
+                avgPerformance: 0,
+                attendanceRate: 0,
+                upcomingAssessments: [],
+                gradeDistribution: [],
+                students: data.students,
+              }))
+              setClasses(apiClasses.length > 0 ? apiClasses : mockClasses)
+            }
+          }
+        }
+      } catch { /* fallback to mock */ }
+      setLoading(prev => ({ ...prev, classes: false }))
+    }
+    fetchClasses()
+  }, [])
+
+  useEffect(() => {
+    async function fetchAssignments() {
+      try {
+        const res = await fetch('/api/elearning?type=assignments')
+        if (res.ok) {
+          const json = await res.json()
+          if (json.data && json.data.length > 0) {
+            const apiAssignments: Assignment[] = json.data.map((a: Record<string, unknown>) => ({
+              id: a.id as string,
+              title: a.title as string,
+              subject: (a.course as Record<string, string>)?.name || 'General',
+              className: (a.course as Record<string, string>)?.name || 'General',
+              dueDate: a.dueDate ? new Date(a.dueDate as string).toISOString().split('T')[0] : '',
+              maxMarks: a.maxMarks as number || 100,
+              description: a.description as string || '',
+              status: ((a.status as string) || 'OPEN').toLowerCase() === 'closed' ? 'Closed' : ((a.status as string) || 'OPEN').toLowerCase() === 'grading' ? 'Grading' : 'Active',
+              submitted: a.submissionsCount as number || 0,
+              total: a.submissionsCount as number || 0,
+              avgScore: a.avgScore as number || null,
+              graded: 0,
+            }))
+            setTeacherAssignments(apiAssignments.length > 0 ? apiAssignments : mockAssignments)
+          }
+        }
+      } catch { /* fallback to mock */ }
+      setLoading(prev => ({ ...prev, assignments: false }))
+    }
+    fetchAssignments()
+  }, [])
+
   // Marks Entry State
   const [selectedGrade, setSelectedGrade] = useState('Form 4A')
   const [selectedSubject, setSelectedSubject] = useState('Mathematics')
@@ -417,8 +501,8 @@ export default function TeacherPortalModule() {
   const [attendanceData, setAttendanceData] = useState<Record<string, string>>({})
 
   // ─── Computed Values ───────────────────────────────────────────────────────
-  const currentClassForMarks = mockClasses.find(c => c.name === selectedGrade)
-  const currentClassForAttendance = mockClasses.find(c => c.name === attendanceClass)
+  const currentClassForMarks = classes.find(c => c.name === selectedGrade)
+  const currentClassForAttendance = classes.find(c => c.name === attendanceClass)
 
   const marksForCurrentClass = useMemo(() => {
     if (!currentClassForMarks) return []
@@ -793,7 +877,7 @@ export default function TeacherPortalModule() {
         ═══════════════════════════════════════════════════════════════════════ */}
         <TabsContent value="classes" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {mockClasses.map((cls, idx) => (
+            {classes.map((cls, idx) => (
               <motion.div key={cls.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }}>
                 <Card className="border-0 shadow-md overflow-hidden">
                   {/* Class Header */}
@@ -1150,7 +1234,7 @@ export default function TeacherPortalModule() {
 
           {/* Assignment Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {mockAssignments.map((assignment, idx) => (
+            {teacherAssignments.map((assignment, idx) => (
               <motion.div key={assignment.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}>
                 <Card className="border-0 shadow-md">
                   <CardContent className="p-4 space-y-3">
@@ -1305,7 +1389,7 @@ export default function TeacherPortalModule() {
               <DialogHeader>
                 <DialogTitle>Grade Submissions</DialogTitle>
                 <DialogDescription>
-                  {mockAssignments.find(a => a.id === gradeAssignOpen)?.title} — {mockAssignments.find(a => a.id === gradeAssignOpen)?.className}
+                  {teacherAssignments.find(a => a.id === gradeAssignOpen)?.title} — {teacherAssignments.find(a => a.id === gradeAssignOpen)?.className}
                 </DialogDescription>
               </DialogHeader>
               <ScrollArea className="max-h-[50vh]">
@@ -1314,12 +1398,12 @@ export default function TeacherPortalModule() {
                     <TableRow>
                       <TableHead className="text-xs">#</TableHead>
                       <TableHead className="text-xs">Student</TableHead>
-                      <TableHead className="text-xs text-center w-24">Mark /{mockAssignments.find(a => a.id === gradeAssignOpen)?.maxMarks || 100}</TableHead>
+                      <TableHead className="text-xs text-center w-24">Mark /{teacherAssignments.find(a => a.id === gradeAssignOpen)?.maxMarks || 100}</TableHead>
                       <TableHead className="text-xs text-center w-20">Grade</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mockClasses.find(c => c.name === mockAssignments.find(a => a.id === gradeAssignOpen)?.className)?.students.map((student, idx) => (
+                    {classes.find(c => c.name === teacherAssignments.find(a => a.id === gradeAssignOpen)?.className)?.students.map((student, idx) => (
                       <TableRow key={student.id}>
                         <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
                         <TableCell className="text-sm">{student.name}</TableCell>

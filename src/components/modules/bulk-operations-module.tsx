@@ -496,16 +496,16 @@ export default function BulkOperationsModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="promotion" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="promotion" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <ArrowRightLeft className="mr-2 h-4 w-4" /> Student Promotion
           </TabsTrigger>
-          <TabsTrigger value="fees" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="fees" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <DollarSign className="mr-2 h-4 w-4" /> Fee Assignment
           </TabsTrigger>
-          <TabsTrigger value="attendance" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="attendance" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <CalendarCheck className="mr-2 h-4 w-4" /> Bulk Attendance
           </TabsTrigger>
-          <TabsTrigger value="import" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="import" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <Upload className="mr-2 h-4 w-4" /> Bulk Import
           </TabsTrigger>
         </TabsList>
@@ -1047,8 +1047,8 @@ export default function BulkOperationsModule() {
             <CardContent>
               <Tabs defaultValue="students" className="space-y-3">
                 <TabsList className="bg-muted/50 p-1 h-8">
-                  <TabsTrigger value="students" className="text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm">Students</TabsTrigger>
-                  <TabsTrigger value="staff" className="text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm">Staff</TabsTrigger>
+                  <TabsTrigger value="students" className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">Students</TabsTrigger>
+                  <TabsTrigger value="staff" className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">Staff</TabsTrigger>
                 </TabsList>
                 <TabsContent value="students">
                   <div className="p-3 rounded-lg bg-muted/30 font-mono text-xs space-y-1">

@@ -735,16 +735,16 @@ export default function AcademicsModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Overview
           </TabsTrigger>
-          <TabsTrigger value="grades" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="grades" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Grades & Classes
           </TabsTrigger>
-          <TabsTrigger value="subjects" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="subjects" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Subjects
           </TabsTrigger>
-          <TabsTrigger value="assessments" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="assessments" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Assessments
           </TabsTrigger>
         </TabsList>

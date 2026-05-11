@@ -116,7 +116,7 @@ const positionColors: Record<string, string> = {
   Secretary: 'bg-teal-100 text-teal-700 border-teal-200',
   Treasurer: 'bg-amber-100 text-amber-700 border-amber-200',
   'Vice Chairperson': 'bg-cyan-100 text-cyan-700 border-cyan-200',
-  'Committee Member': 'bg-gray-100 text-gray-700 border-gray-200',
+  'Committee Member': 'bg-muted text-muted-foreground border-border',
 }
 
 const budgetChartConfig = {
@@ -362,11 +362,11 @@ export default function SDCModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Overview</TabsTrigger>
-          <TabsTrigger value="members" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Members</TabsTrigger>
-          <TabsTrigger value="meetings" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Meetings</TabsTrigger>
-          <TabsTrigger value="projects" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Projects</TabsTrigger>
-          <TabsTrigger value="finances" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Finances</TabsTrigger>
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Overview</TabsTrigger>
+          <TabsTrigger value="members" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Members</TabsTrigger>
+          <TabsTrigger value="meetings" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Meetings</TabsTrigger>
+          <TabsTrigger value="projects" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Projects</TabsTrigger>
+          <TabsTrigger value="finances" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Finances</TabsTrigger>
         </TabsList>
 
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}
@@ -535,7 +535,7 @@ export default function SDCModule() {
                           : 'Not set'}
                       </TableCell>
                       <TableCell>
-                        <Badge className={cn('text-[10px]', member.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700')}>
+                        <Badge className={cn('text-[10px]', member.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground')}>
                           {member.isActive ? 'Active' : 'Inactive'}
                         </Badge>
                       </TableCell>

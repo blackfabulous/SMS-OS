@@ -429,23 +429,23 @@ export default function NotificationCenterModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1 h-auto flex-wrap">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm gap-1.5">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
             <BarChart3 className="h-4 w-4" />
             Overview
           </TabsTrigger>
-          <TabsTrigger value="compose" className="data-[state=active]:bg-white data-[state=active]:shadow-sm gap-1.5">
+          <TabsTrigger value="compose" className="data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
             <Send className="h-4 w-4" />
             Compose
           </TabsTrigger>
-          <TabsTrigger value="history" className="data-[state=active]:bg-white data-[state=active]:shadow-sm gap-1.5">
+          <TabsTrigger value="history" className="data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
             <Clock className="h-4 w-4" />
             History
           </TabsTrigger>
-          <TabsTrigger value="templates" className="data-[state=active]:bg-white data-[state=active]:shadow-sm gap-1.5">
+          <TabsTrigger value="templates" className="data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
             <FileText className="h-4 w-4" />
             Templates
           </TabsTrigger>
-          <TabsTrigger value="settings" className="data-[state=active]:bg-white data-[state=active]:shadow-sm gap-1.5">
+          <TabsTrigger value="settings" className="data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
             <Settings className="h-4 w-4" />
             Settings
           </TabsTrigger>

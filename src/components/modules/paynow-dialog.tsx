@@ -5,17 +5,18 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   CreditCard,
   Smartphone,
-  Building2,
   DollarSign,
   CheckCircle2,
   AlertCircle,
   Loader2,
   ArrowRight,
   ArrowLeft,
-  X,
   Receipt,
   Shield,
   Clock,
+  ExternalLink,
+  Copy,
+  QrCode,
 } from 'lucide-react'
 import {
   Dialog,
@@ -23,7 +24,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogClose,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,6 +48,8 @@ interface PaynowDialogProps {
   students: { id: string; name: string; outstandingFees: number }[]
   defaultStudentId?: string
   defaultAmount?: number
+  invoiceId?: string
+  onPaymentSuccess?: () => void
 }
 
 type PaymentStep = 'details' | 'processing' | 'success' | 'failed'
@@ -57,7 +59,15 @@ type Currency = 'USD' | 'ZiG'
 const ZIG_RATE = 10.83
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export function PaynowDialog({ open, onOpenChange, students, defaultStudentId, defaultAmount }: PaynowDialogProps) {
+export function PaynowDialog({
+  open,
+  onOpenChange,
+  students,
+  defaultStudentId,
+  defaultAmount,
+  invoiceId,
+  onPaymentSuccess,
+}: PaynowDialogProps) {
   const [step, setStep] = useState<PaymentStep>('details')
   const [selectedStudent, setSelectedStudent] = useState(defaultStudentId || '')
   const [amount, setAmount] = useState(defaultAmount?.toString() || '')
@@ -66,8 +76,11 @@ export function PaynowDialog({ open, onOpenChange, students, defaultStudentId, d
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [transactionRef, setTransactionRef] = useState('')
+  const [transactionId, setTransactionId] = useState('')
+  const [paymentUrl, setPaymentUrl] = useState('')
   const [polling, setPolling] = useState(false)
   const [countdown, setCountdown] = useState(30)
+  const [paymentStatus, setPaymentStatus] = useState<string>('pending')
 
   const selectedStudentData = students.find(s => s.id === selectedStudent)
 
@@ -75,21 +88,26 @@ export function PaynowDialog({ open, onOpenChange, students, defaultStudentId, d
     ? `ZiG ${(parseFloat(amount || '0') * ZIG_RATE).toLocaleString('en-ZW', { minimumFractionDigits: 2 })}`
     : `$${parseFloat(amount || '0').toLocaleString('en-ZW', { minimumFractionDigits: 2 })}`
 
-  // ─── Poll for payment status ──────────────────────────────────────────────
-  const pollPaymentStatus = useCallback(async (txnId: string) => {
+  // ─── Poll for payment status via new status API ─────────────────────────
+  const pollPaymentStatus = useCallback(async (txnId: string, ref: string) => {
     setPolling(true)
     let attempts = 0
     const maxAttempts = 12 // 60 seconds total
 
     const poll = async () => {
       try {
-        const response = await fetch(`/api/payments/paynow?transactionId=${txnId}`)
+        const response = await fetch(
+          `/api/payments/paynow/status?transactionId=${encodeURIComponent(txnId)}&reference=${encodeURIComponent(ref)}`
+        )
         const data = await response.json()
+
+        setPaymentStatus(data.status)
 
         if (data.status === 'paid') {
           setStep('success')
           setPolling(false)
           toast.success('Payment successful!', { description: `Reference: ${data.reference}` })
+          onPaymentSuccess?.()
           return
         }
 
@@ -118,7 +136,7 @@ export function PaynowDialog({ open, onOpenChange, students, defaultStudentId, d
     }
 
     poll()
-  }, [])
+  }, [onPaymentSuccess])
 
   // ─── Countdown timer for processing step ──────────────────────────────────
   useEffect(() => {
@@ -137,12 +155,21 @@ export function PaynowDialog({ open, onOpenChange, students, defaultStudentId, d
     setPhone('')
     setEmail('')
     setTransactionRef('')
+    setTransactionId('')
+    setPaymentUrl('')
     setPolling(false)
     setCountdown(30)
+    setPaymentStatus('pending')
     onOpenChange(false)
   }
 
-  // ─── Submit payment ───────────────────────────────────────────────────────
+  // ─── Copy payment link to clipboard ─────────────────────────────────────
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(paymentUrl)
+    toast.success('Payment link copied to clipboard!')
+  }
+
+  // ─── Submit payment via new initiate API ────────────────────────────────
   const handleSubmit = async () => {
     if (!selectedStudent || !amount || parseFloat(amount) <= 0) {
       toast.error('Please fill in all required fields')
@@ -158,18 +185,16 @@ export function PaynowDialog({ open, onOpenChange, students, defaultStudentId, d
     setCountdown(30)
 
     try {
-      const response = await fetch('/api/payments/paynow', {
+      const response = await fetch('/api/payments/paynow/initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentId: selectedStudent,
-          studentName: selectedStudentData?.name || '',
+          invoiceId: invoiceId || undefined,
           amount: parseFloat(amount),
           currency,
-          paymentMethod,
-          phone: phone || undefined,
-          email: email || undefined,
-          description: `School fee payment - ${selectedStudentData?.name}`,
+          returnUrl: typeof window !== 'undefined' ? window.location.origin : '',
+          resultUrl: typeof window !== 'undefined' ? `${window.location.origin}/api/payments/paynow/status` : '',
         }),
       })
 
@@ -177,20 +202,11 @@ export function PaynowDialog({ open, onOpenChange, students, defaultStudentId, d
 
       if (data.success) {
         setTransactionRef(data.reference)
+        setTransactionId(data.transactionId)
+        setPaymentUrl(data.paymentUrl)
 
-        if (data.redirectUrl && paymentMethod === 'card') {
-          // For card payments, show redirect info
-          toast.info('Redirecting to payment page...', { description: data.redirectUrl })
-        }
-
-        if (data.instructions) {
-          toast.info(data.instructions)
-        }
-
-        // Start polling
-        if (data.transactionId) {
-          pollPaymentStatus(data.transactionId)
-        }
+        // Start polling for status
+        pollPaymentStatus(data.transactionId, data.reference)
       } else {
         setStep('failed')
         toast.error('Payment initiation failed', { description: data.error || 'Unknown error' })
@@ -206,6 +222,16 @@ export function PaynowDialog({ open, onOpenChange, students, defaultStudentId, d
     { id: 'onemoney', label: 'OneMoney', icon: Smartphone, description: 'Pay with NetOne OneMoney', color: 'text-red-600' },
     { id: 'card', label: 'Bank Card', icon: CreditCard, description: 'Visa / Mastercard', color: 'text-blue-600' },
   ]
+
+  // ─── QR Code SVG placeholder ──────────────────────────────────────────────
+  const QRCodePlaceholder = () => (
+    <div className="mx-auto flex h-36 w-36 items-center justify-center rounded-lg border-2 border-dashed border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/20">
+      <div className="text-center">
+        <QrCode className="h-10 w-10 text-emerald-400 mx-auto mb-1" />
+        <p className="text-[9px] text-emerald-600 font-medium">SCAN TO PAY</p>
+      </div>
+    </div>
+  )
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -350,25 +376,26 @@ export function PaynowDialog({ open, onOpenChange, students, defaultStudentId, d
 
           {/* ─── Step: Processing ──────────────────────────────────────────── */}
           {step === 'processing' && (
-            <motion.div key="processing" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6 py-6 text-center">
+            <motion.div key="processing" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5 py-4 text-center">
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
-                className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100"
+                className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100"
               >
-                <Loader2 className="h-8 w-8 text-emerald-600" />
+                <Loader2 className="h-7 w-7 text-emerald-600" />
               </motion.div>
 
               <div>
                 <h3 className="text-lg font-semibold">Processing Payment</h3>
                 <p className="text-sm text-muted-foreground mt-1">
                   {paymentMethod === 'card'
-                    ? 'Redirecting to secure payment page...'
+                    ? 'Complete payment on the secure Paynow page'
                     : `Confirm payment on your ${paymentMethod === 'ecocash' ? 'EcoCash' : 'OneMoney'} phone`
                   }
                 </p>
               </div>
 
+              {/* Transaction Reference */}
               {transactionRef && (
                 <div className="bg-muted/50 rounded-lg p-3">
                   <p className="text-xs text-muted-foreground">Transaction Reference</p>
@@ -376,9 +403,48 @@ export function PaynowDialog({ open, onOpenChange, students, defaultStudentId, d
                 </div>
               )}
 
+              {/* QR Code & Payment Link */}
+              {paymentUrl && (
+                <div className="space-y-3">
+                  <QRCodePlaceholder />
+                  <div className="flex items-center gap-2 justify-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs gap-1"
+                      onClick={() => window.open(paymentUrl, '_blank')}
+                    >
+                      <ExternalLink className="h-3 w-3" /> Open Payment Page
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs gap-1"
+                      onClick={handleCopyLink}
+                    >
+                      <Copy className="h-3 w-3" /> Copy Link
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Status Badge */}
+              <div className="flex items-center justify-center gap-2">
+                <Badge className={cn(
+                  'text-xs',
+                  paymentStatus === 'pending' && 'bg-amber-100 text-amber-700',
+                  paymentStatus === 'paid' && 'bg-emerald-100 text-emerald-700',
+                  paymentStatus === 'failed' && 'bg-red-100 text-red-700',
+                )}>
+                  {paymentStatus === 'pending' && '⏳ Waiting for payment'}
+                  {paymentStatus === 'paid' && '✓ Payment received'}
+                  {paymentStatus === 'failed' && '✗ Payment failed'}
+                </Badge>
+              </div>
+
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" />
-                <span>Checking status... {countdown}s remaining</span>
+                <span>{polling ? `Checking status... ${countdown}s remaining` : 'Status check complete'}</span>
               </div>
 
               {(paymentMethod === 'ecocash' || paymentMethod === 'onemoney') && (

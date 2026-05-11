@@ -373,7 +373,7 @@ export default function ProcurementModule() {
 
   const statusIcon = (status: string) => {
     switch (status) {
-      case 'Draft': return <Edit className="h-3.5 w-3.5 text-gray-500" />
+      case 'Draft': return <Edit className="h-3.5 w-3.5 text-muted-foreground" />
       case 'Pending': return <Clock className="h-3.5 w-3.5 text-amber-500" />
       case 'Approved': return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
       case 'Received': return <Package className="h-3.5 w-3.5 text-teal-500" />
@@ -399,7 +399,7 @@ export default function ProcurementModule() {
 
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
-      <Star key={i} className={cn('h-3.5 w-3.5', i < Math.round(rating) ? 'fill-amber-400 text-amber-400' : 'text-gray-200')} />
+      <Star key={i} className={cn('h-3.5 w-3.5', i < Math.round(rating) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30')} />
     ))
   }
 
@@ -546,7 +546,7 @@ export default function ProcurementModule() {
                 ) : (
                   <>
                     {purchaseOrders.filter(p => p.status === 'Pending').map(po => (
-                      <div key={po.id} className="flex items-center justify-between p-2 rounded-lg bg-amber-50/60">
+                      <div key={po.id} className="flex items-center justify-between p-2 rounded-lg bg-amber-50/60 dark:bg-amber-950/30">
                         <div className="flex items-center gap-2">
                           <FileText className="h-4 w-4 text-amber-600" />
                           <div>
@@ -560,7 +560,7 @@ export default function ProcurementModule() {
                       </div>
                     ))}
                     {requisitions.filter(r => r.status === 'Pending').map(req => (
-                      <div key={req.id} className="flex items-center justify-between p-2 rounded-lg bg-orange-50/60">
+                      <div key={req.id} className="flex items-center justify-between p-2 rounded-lg bg-orange-50/60 dark:bg-orange-950/30">
                         <div className="flex items-center gap-2">
                           <Send className="h-4 w-4 text-orange-600" />
                           <div>

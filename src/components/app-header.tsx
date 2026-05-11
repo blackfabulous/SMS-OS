@@ -29,14 +29,14 @@ export interface Notification {
 }
 
 const notificationTypeColors: Record<string, string> = {
-  enrollment: 'text-emerald-600 bg-emerald-50',
-  payment: 'text-amber-600 bg-amber-50',
-  attendance: 'text-red-600 bg-red-50',
-  exam: 'text-violet-600 bg-violet-50',
-  meeting: 'text-teal-600 bg-teal-50',
-  deadline: 'text-orange-600 bg-orange-50',
-  alert: 'text-rose-600 bg-rose-50',
-  system: 'text-slate-600 bg-slate-50',
+  enrollment: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30',
+  payment: 'text-amber-600 bg-amber-50 dark:bg-amber-950/30',
+  attendance: 'text-red-600 bg-red-50 dark:bg-red-950/30',
+  exam: 'text-violet-600 bg-violet-50 dark:bg-violet-950/30',
+  meeting: 'text-teal-600 bg-teal-50 dark:bg-teal-950/30',
+  deadline: 'text-orange-600 bg-orange-50 dark:bg-orange-950/30',
+  alert: 'text-rose-600 bg-rose-50 dark:bg-rose-950/30',
+  system: 'text-slate-600 bg-slate-50 dark:bg-slate-900/30',
 }
 
 export function AppHeader({

@@ -255,23 +255,23 @@ export default function FeeCalculatorModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1 flex flex-wrap">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <Info className="mr-1.5 h-3.5 w-3.5" />
             Overview
           </TabsTrigger>
-          <TabsTrigger value="calculator" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="calculator" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <Calculator className="mr-1.5 h-3.5 w-3.5" />
             Fee Calculator
           </TabsTrigger>
-          <TabsTrigger value="currency" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="currency" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
             Currency Converter
           </TabsTrigger>
-          <TabsTrigger value="payments" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="payments" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <CreditCard className="mr-1.5 h-3.5 w-3.5" />
             Payment Plans
           </TabsTrigger>
-          <TabsTrigger value="scholarships" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="scholarships" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <Award className="mr-1.5 h-3.5 w-3.5" />
             Scholarships
           </TabsTrigger>

@@ -10,10 +10,10 @@ import {
   CheckCircle2,
   Loader2,
   Clock,
-  FileText,
   GraduationCap,
   UserCheck,
-  X,
+  Phone,
+  Mail,
 } from 'lucide-react'
 import {
   Dialog,
@@ -44,6 +44,8 @@ interface SmsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   defaultRecipientGroup?: string
+  availableClasses?: string[]
+  availableGrades?: string[]
 }
 
 type SmsStep = 'compose' | 'sending' | 'result'
@@ -63,23 +65,41 @@ interface SmsTemplate {
   content: string
 }
 
+interface DeliveryResult {
+  messageId: string
+  recipient: string
+  status: 'Sent' | 'Delivered' | 'Failed' | 'Rejected' | 'Queued'
+  cost: number
+  network: string
+  failureReason?: string
+}
+
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const recipientGroups: RecipientGroup[] = [
   { id: 'all_parents', label: 'All Parents', icon: Users, count: 145, description: 'Send to all parents with children enrolled' },
-  { id: 'class_parents', label: 'Class Parents', icon: GraduationCap, count: 35, description: 'Parents of students in a specific class' },
-  { id: 'grade_parents', label: 'Grade Parents', icon: GraduationCap, count: 52, description: 'Parents of students in a grade level' },
-  { id: 'individual', label: 'Individual', icon: UserCheck, count: 1, description: 'Send to a specific phone number' },
+  { id: 'class_parents', label: 'By Class', icon: GraduationCap, count: 35, description: 'Parents of students in a specific class' },
+  { id: 'grade_parents', label: 'By Grade', icon: GraduationCap, count: 52, description: 'Parents of students in a grade level' },
+  { id: 'individual', label: 'Individual', icon: UserCheck, count: 1, description: 'Send to specific phone number(s)' },
 ]
 
 const smsTemplates: SmsTemplate[] = [
-  { id: 'fee_reminder', name: 'Fee Reminder', category: 'Finance', content: 'Dear Parent, your child has an outstanding fee balance. Please arrange payment at your earliest convenience. Contact the bursar for details.' },
-  { id: 'meeting_notice', name: 'SDC Meeting Notice', category: 'Meetings', content: 'Dear Parent, you are invited to attend the SDC meeting on {date} at {time} in the school hall. Your attendance is valued.' },
-  { id: 'exam_schedule', name: 'Exam Schedule', category: 'Academics', content: 'Dear Parent, end-of-term examinations begin on {date}. Please ensure your child is well prepared and arrives on time.' },
-  { id: 'attendance_alert', name: 'Attendance Alert', category: 'Attendance', content: 'Dear Parent, your child was marked absent today. Please contact the school office if this is an error.' },
-  { id: 'school_closure', name: 'School Closure', category: 'Emergency', content: 'URGENT: School will be closed on {date} due to {reason}. Please make alternative arrangements for your children.' },
-  { id: 'sports_event', name: 'Sports Event', category: 'Events', content: 'Dear Parent, the inter-house athletics competition will be held on {date}. Come support your child!' },
-  { id: 'parent_teacher', name: 'Parent-Teacher Conference', category: 'Meetings', content: 'Dear Parent, the Parent-Teacher Conference is scheduled for {date} from {time}. Please attend to discuss your child\'s progress.' },
-  { id: 'results_available', name: 'Results Available', category: 'Academics', content: 'Dear Parent, term results are now available. Please visit the school to collect your child\'s report card.' },
+  { id: 'fee_reminder', name: 'Fee Reminder', category: 'Finance', content: 'Dear Parent, your child has an outstanding fee balance. Please arrange payment at your earliest convenience. Contact the bursar for details. - ZimSchool' },
+  { id: 'attendance_alert', name: 'Attendance Alert', category: 'Attendance', content: 'Dear Parent, your child was marked absent today. Please contact the school office if this is an error. - ZimSchool' },
+  { id: 'exam_notice', name: 'Exam Notice', category: 'Academics', content: 'Dear Parent, end-of-term examinations begin soon. Please ensure your child is well prepared and arrives on time. - ZimSchool' },
+  { id: 'meeting_notice', name: 'Meeting Notice', category: 'Meetings', content: 'Dear Parent, you are invited to attend the SDC meeting. Your attendance is valued. - ZimSchool' },
+  { id: 'school_closure', name: 'School Closure', category: 'Emergency', content: 'URGENT: School will be closed. Please make alternative arrangements for your children. - ZimSchool' },
+  { id: 'sports_event', name: 'Sports Event', category: 'Events', content: 'Dear Parent, the inter-house athletics competition will be held soon. Come support your child! - ZimSchool' },
+  { id: 'parent_teacher', name: 'Parent-Teacher Conference', category: 'Meetings', content: 'Dear Parent, the Parent-Teacher Conference is scheduled. Please attend to discuss your child\'s progress. - ZimSchool' },
+  { id: 'results_available', name: 'Results Available', category: 'Academics', content: 'Dear Parent, term results are now available. Please visit the school to collect your child\'s report card. - ZimSchool' },
+]
+
+const availableClasses = [
+  'Form 1A', 'Form 1B', 'Form 2A', 'Form 2B', 'Form 3A', 'Form 3B',
+  'Form 4A', 'Form 4B', 'Form 5A', 'Form 6A',
+]
+
+const availableGrades = [
+  'Form 1', 'Form 2', 'Form 3', 'Form 4', 'Form 5', 'Form 6',
 ]
 
 const MAX_SMS_LENGTH = 160
@@ -90,31 +110,47 @@ export function SmsDialog({ open, onOpenChange, defaultRecipientGroup }: SmsDial
   const [recipientGroup, setRecipientGroup] = useState(defaultRecipientGroup || 'all_parents')
   const [selectedClass, setSelectedClass] = useState('')
   const [selectedGrade, setSelectedGrade] = useState('')
-  const [individualPhone, setIndividualPhone] = useState('')
+  const [individualPhones, setIndividualPhones] = useState('')
   const [message, setMessage] = useState('')
   const [selectedTemplate, setSelectedTemplate] = useState('')
+  const [smsType, setSmsType] = useState<'sms' | 'whatsapp'>('sms')
   const [sending, setSending] = useState(false)
-  const [sendResult, setSendResult] = useState<{ totalSent: number; totalFailed: number; cost: number } | null>(null)
+  const [sendProgress, setSendProgress] = useState(0)
+  const [sendResult, setSendResult] = useState<{
+    totalSent: number
+    totalFailed: number
+    cost: number
+    messageId: string
+    results: DeliveryResult[]
+  } | null>(null)
 
   const charCount = message.length
   const smsCount = Math.ceil(charCount / MAX_SMS_LENGTH) || (charCount > 0 ? 1 : 0)
-  const estimatedCost = (smsCount * 0.02 * (recipientGroups.find(g => g.id === recipientGroup)?.count || 1)).toFixed(2)
-  const isOverLimit = charCount > MAX_SMS_LENGTH * 5 // Max 5 SMS segments
-
   const selectedGroup = recipientGroups.find(g => g.id === recipientGroup)
+  const recipientCount = recipientGroup === 'individual'
+    ? individualPhones.split(',').filter(p => p.trim()).length || 0
+    : (selectedGroup?.count || 0)
+  const estimatedCost = (smsCount * 0.02 * recipientCount).toFixed(2)
+  const isOverLimit = charCount > MAX_SMS_LENGTH * 5
 
+  // Build recipient phone list based on group selection
   const phoneNumbers = useMemo(() => {
-    // In production, this would fetch from the database based on group
+    if (recipientGroup === 'individual' && individualPhones) {
+      return individualPhones
+        .split(',')
+        .map(p => p.trim())
+        .filter(Boolean)
+        .map(p => p.startsWith('+') ? p : `+263${p}`)
+    }
+    // In production, these would be fetched from the database
+    // For demo, generate sample phone numbers
     const count = selectedGroup?.count || 1
     const phones: string[] = []
     for (let i = 0; i < Math.min(count, 5); i++) {
       phones.push(`+26377${Math.floor(1000000 + Math.random() * 9000000)}`)
     }
-    if (recipientGroup === 'individual' && individualPhone) {
-      return [individualPhone.startsWith('+') ? individualPhone : `+263${individualPhone}`]
-    }
     return phones
-  }, [recipientGroup, individualPhone, selectedGroup])
+  }, [recipientGroup, individualPhones, selectedGroup])
 
   const handleTemplateSelect = (templateId: string) => {
     const template = smsTemplates.find(t => t.id === templateId)
@@ -130,40 +166,70 @@ export function SmsDialog({ open, onOpenChange, defaultRecipientGroup }: SmsDial
       return
     }
 
-    if (recipientGroup === 'individual' && !individualPhone) {
-      toast.error('Please enter a phone number')
+    if (recipientGroup === 'individual' && phoneNumbers.length === 0) {
+      toast.error('Please enter at least one phone number')
+      return
+    }
+
+    if (recipientGroup === 'class_parents' && !selectedClass) {
+      toast.error('Please select a class')
+      return
+    }
+
+    if (recipientGroup === 'grade_parents' && !selectedGrade) {
+      toast.error('Please select a grade')
       return
     }
 
     setStep('sending')
     setSending(true)
+    setSendProgress(0)
+
+    // Simulate progress for bulk sends
+    const progressInterval = setInterval(() => {
+      setSendProgress(prev => {
+        if (prev >= 90) {
+          clearInterval(progressInterval)
+          return 90
+        }
+        return prev + Math.random() * 15
+      })
+    }, 300)
 
     try {
-      const response = await fetch('/api/communication/sms', {
+      const response = await fetch('/api/communication/sms/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          recipients: phoneNumbers,
+          to: phoneNumbers,
           message,
-          category: smsTemplates.find(t => t.id === selectedTemplate)?.category?.toLowerCase() || 'general',
+          type: smsType,
         }),
       })
 
       const data = await response.json()
+
+      clearInterval(progressInterval)
+      setSendProgress(100)
 
       if (data.success) {
         setSendResult({
           totalSent: data.totalSent,
           totalFailed: data.totalFailed,
           cost: data.cost,
+          messageId: data.messageId,
+          results: data.results || [],
         })
-        setStep('result')
-        toast.success(`${data.totalSent} SMS sent successfully!`)
+        setTimeout(() => {
+          setStep('result')
+          toast.success(`${data.totalSent} SMS sent successfully!`)
+        }, 500)
       } else {
         toast.error('Failed to send SMS', { description: data.error })
         setStep('compose')
       }
     } catch {
+      clearInterval(progressInterval)
       toast.error('Failed to send SMS', { description: 'Network error' })
       setStep('compose')
     } finally {
@@ -175,8 +241,9 @@ export function SmsDialog({ open, onOpenChange, defaultRecipientGroup }: SmsDial
     setStep('compose')
     setMessage('')
     setSelectedTemplate('')
-    setIndividualPhone('')
+    setIndividualPhones('')
     setSendResult(null)
+    setSendProgress(0)
     onOpenChange(false)
   }
 
@@ -221,52 +288,86 @@ export function SmsDialog({ open, onOpenChange, defaultRecipientGroup }: SmsDial
                 </div>
               </div>
 
-              {/* Class/Grade Selector */}
+              {/* Class Selector */}
               {recipientGroup === 'class_parents' && (
-                <div className="space-y-2">
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2">
                   <Label>Select Class</Label>
                   <Select value={selectedClass} onValueChange={setSelectedClass}>
                     <SelectTrigger>
                       <SelectValue placeholder="Choose a class" />
                     </SelectTrigger>
                     <SelectContent>
-                      {['Form 1A', 'Form 1B', 'Form 2A', 'Form 2B', 'Form 3A', 'Form 3B', 'Form 4A', 'Form 4B', 'Form 5A', 'Form 6A'].map(c => (
+                      {availableClasses.map(c => (
                         <SelectItem key={c} value={c}>{c}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                </motion.div>
               )}
 
+              {/* Grade Selector */}
               {recipientGroup === 'grade_parents' && (
-                <div className="space-y-2">
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2">
                   <Label>Select Grade</Label>
                   <Select value={selectedGrade} onValueChange={setSelectedGrade}>
                     <SelectTrigger>
                       <SelectValue placeholder="Choose a grade" />
                     </SelectTrigger>
                     <SelectContent>
-                      {['Form 1', 'Form 2', 'Form 3', 'Form 4', 'Form 5', 'Form 6'].map(g => (
+                      {availableGrades.map(g => (
                         <SelectItem key={g} value={g}>{g}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                </motion.div>
               )}
 
+              {/* Individual Phone Numbers */}
               {recipientGroup === 'individual' && (
-                <div className="space-y-2">
-                  <Label>Phone Number</Label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">+263</span>
-                    <Input
-                      placeholder="7XX XXX XXX"
-                      value={individualPhone}
-                      onChange={e => setIndividualPhone(e.target.value)}
-                    />
-                  </div>
-                </div>
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2">
+                  <Label>Phone Number(s)</Label>
+                  <Textarea
+                    placeholder="Enter phone numbers separated by commas (e.g., 0771234567, 0712345678)"
+                    value={individualPhones}
+                    onChange={e => setIndividualPhones(e.target.value)}
+                    rows={2}
+                    className="text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Phone className="h-3 w-3" />
+                    Separate multiple numbers with commas. Zimbabwe format: 07XXXXXXXX
+                  </p>
+                </motion.div>
               )}
+
+              {/* Message Type */}
+              <div className="space-y-2">
+                <Label>Message Type</Label>
+                <div className="flex gap-2">
+                  <button
+                    className={cn(
+                      'flex items-center gap-2 rounded-lg border px-4 py-2 transition-all text-sm',
+                      smsType === 'sms'
+                        ? 'border-teal-300 bg-teal-50/50 dark:border-teal-700 dark:bg-teal-950/20 text-teal-600'
+                        : 'hover:bg-muted/50 text-muted-foreground'
+                    )}
+                    onClick={() => setSmsType('sms')}
+                  >
+                    <MessageSquare className="h-4 w-4" /> SMS
+                  </button>
+                  <button
+                    className={cn(
+                      'flex items-center gap-2 rounded-lg border px-4 py-2 transition-all text-sm',
+                      smsType === 'whatsapp'
+                        ? 'border-green-300 bg-green-50/50 dark:border-green-700 dark:bg-green-950/20 text-green-600'
+                        : 'hover:bg-muted/50 text-muted-foreground'
+                    )}
+                    onClick={() => setSmsType('whatsapp')}
+                  >
+                    <Phone className="h-4 w-4" /> WhatsApp
+                  </button>
+                </div>
+              </div>
 
               {/* Template Selector */}
               <div className="space-y-2">
@@ -328,7 +429,7 @@ export function SmsDialog({ open, onOpenChange, defaultRecipientGroup }: SmsDial
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-muted-foreground">Recipients</p>
-                  <p className="text-sm font-medium">{selectedGroup?.count || 0}</p>
+                  <p className="text-sm font-medium">{recipientCount}</p>
                 </div>
               </div>
 
@@ -337,7 +438,7 @@ export function SmsDialog({ open, onOpenChange, defaultRecipientGroup }: SmsDial
                 <Button
                   className="bg-teal-600 hover:bg-teal-700 gap-2"
                   onClick={handleSend}
-                  disabled={!message.trim() || isOverLimit || (recipientGroup === 'individual' && !individualPhone)}
+                  disabled={!message.trim() || isOverLimit || (recipientGroup === 'individual' && phoneNumbers.length === 0) || (recipientGroup === 'class_parents' && !selectedClass) || (recipientGroup === 'grade_parents' && !selectedGrade)}
                 >
                   <Send className="h-4 w-4" /> Send SMS
                 </Button>
@@ -358,10 +459,13 @@ export function SmsDialog({ open, onOpenChange, defaultRecipientGroup }: SmsDial
               <div>
                 <h3 className="text-lg font-semibold">Sending SMS...</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Delivering {selectedGroup?.count || 0} messages via Africa&apos;s Talking
+                  Delivering {recipientCount} messages via Africa&apos;s Talking
                 </p>
               </div>
-              <Progress value={65} className="h-2" />
+              <Progress value={sendProgress} className="h-2" />
+              <p className="text-xs text-muted-foreground">
+                {Math.round(sendProgress)}% complete
+              </p>
             </motion.div>
           )}
 
@@ -378,6 +482,10 @@ export function SmsDialog({ open, onOpenChange, defaultRecipientGroup }: SmsDial
               </div>
 
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Message ID</span>
+                  <span className="font-mono text-xs">{sendResult.messageId}</span>
+                </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total Sent</span>
                   <span className="font-semibold text-emerald-600">{sendResult.totalSent}</span>
@@ -398,6 +506,43 @@ export function SmsDialog({ open, onOpenChange, defaultRecipientGroup }: SmsDial
                   <span className="font-medium">{smsCount}</span>
                 </div>
               </div>
+
+              {/* Delivery Status Details */}
+              {sendResult.results && sendResult.results.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium flex items-center gap-2">
+                    <Mail className="h-4 w-4" /> Delivery Status
+                  </p>
+                  <div className="max-h-40 overflow-y-auto space-y-1.5">
+                    {sendResult.results.map((result, idx) => (
+                      <div
+                        key={idx}
+                        className={cn(
+                          'flex items-center justify-between rounded-md px-3 py-1.5 text-xs',
+                          result.status === 'Delivered' || result.status === 'Sent'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/20'
+                            : result.status === 'Failed' || result.status === 'Rejected'
+                              ? 'bg-red-50 dark:bg-red-950/20'
+                              : 'bg-amber-50 dark:bg-amber-950/20'
+                        )}
+                      >
+                        <span className="font-mono">{result.recipient}</span>
+                        <div className="flex items-center gap-2">
+                          <Badge className={cn(
+                            'text-[8px] px-1.5 py-0',
+                            (result.status === 'Delivered' || result.status === 'Sent') && 'bg-emerald-100 text-emerald-700',
+                            (result.status === 'Failed' || result.status === 'Rejected') && 'bg-red-100 text-red-700',
+                            result.status === 'Queued' && 'bg-amber-100 text-amber-700',
+                          )}>
+                            {result.status}
+                          </Badge>
+                          <span className="text-muted-foreground">${result.cost.toFixed(3)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center gap-2 justify-center text-xs text-muted-foreground">
                 <Clock className="h-3.5 w-3.5" />

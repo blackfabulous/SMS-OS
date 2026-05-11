@@ -563,13 +563,13 @@ export default function LibraryModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Overview
           </TabsTrigger>
-          <TabsTrigger value="catalog" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="catalog" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Catalog
           </TabsTrigger>
-          <TabsTrigger value="overdue" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="overdue" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Overdue
           </TabsTrigger>
         </TabsList>

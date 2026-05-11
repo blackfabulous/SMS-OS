@@ -112,7 +112,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.E
   REJECTED: { label: 'Rejected', color: 'bg-red-100 text-red-700 border-red-200', icon: XCircle },
   WAITLISTED: { label: 'Waitlisted', color: 'bg-purple-100 text-purple-700 border-purple-200', icon: ListOrdered },
   DROPPED_OUT: { label: 'Rejected', color: 'bg-red-100 text-red-700 border-red-200', icon: XCircle },
-  TRANSFERRED: { label: 'Transferred', color: 'bg-gray-100 text-gray-700 border-gray-200', icon: ArrowRight },
+  TRANSFERRED: { label: 'Transferred', color: 'bg-muted text-muted-foreground border-border', icon: ArrowRight },
 }
 
 const funnelChartConfig = {
@@ -357,7 +357,7 @@ export default function AdmissionsModule() {
                 <div className="grid grid-cols-2 gap-2">
                   {['Birth Certificate', 'Previous School Report', 'Transfer Letter', 'Passport Photo', 'Immunisation Card', 'National ID Copy'].map((doc) => (
                     <label key={doc} className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="checkbox" className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+                      <input type="checkbox" className="rounded border-border text-muted-foreground focus:ring-emerald-500" />
                       <span>{doc}</span>
                     </label>
                   ))}
@@ -378,10 +378,10 @@ export default function AdmissionsModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Overview</TabsTrigger>
-          <TabsTrigger value="applications" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Applications</TabsTrigger>
-          <TabsTrigger value="enrollment" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Enrollment</TabsTrigger>
-          <TabsTrigger value="waiting" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Waiting List</TabsTrigger>
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Overview</TabsTrigger>
+          <TabsTrigger value="applications" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Applications</TabsTrigger>
+          <TabsTrigger value="enrollment" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Enrollment</TabsTrigger>
+          <TabsTrigger value="waiting" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Waiting List</TabsTrigger>
         </TabsList>
 
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}
@@ -493,7 +493,7 @@ export default function AdmissionsModule() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search by name, student number..."
-                className="pl-9 h-9 bg-white border-muted"
+                className="pl-9 h-9 bg-background border-muted"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />

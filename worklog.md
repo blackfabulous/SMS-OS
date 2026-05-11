@@ -1118,3 +1118,563 @@ Stage Summary:
 ### Known Issues:
 - Server process may not persist across shell session resets in sandbox (use `node node_modules/.bin/next dev -p 3000 --webpack &` to start)
 - Some modules still use mock data instead of real API-backed CRUD (lower priority for next phase)
+
+---
+Task ID: 2-a
+Agent: Subagent (fullstack-developer)
+Task: Create real API-backed CRUD routes for Boarding, Transport, Library, Inventory, Welfare, Discipline, Health, and SDC modules
+
+Work Log:
+- Rewrote all 8 API route files under /src/app/api/ with proper NextRequest/NextResponse, search/filter via query parameters, and pagination (skip/take)
+- Boarding API (/api/boarding/route.ts):
+  - GET: search, gender, status filters; page/limit pagination; stats (totalBoarders, totalHostels, totalDormitories, occupancyRate)
+  - POST: actions=assign, createHostel, createDormitory
+  - PUT: update assignment or checkout (sets INACTIVE + endDate, decrements occupancy, updates student boardingStatus)
+  - DELETE: type=hostel|dormitory|assignment
+- Transport API (/api/transport/route.ts):
+  - GET: search (name/description/registration/driver), isActive filter; page/limit pagination; routeStats with occupancy rates; vehicles list
+  - POST: actions=assign (with capacity check), addRoute, addVehicle
+  - PUT: type=route|vehicle|assignment
+  - DELETE: soft-delete routes/vehicles (isActive=false), hard-delete assignments
+- Library API (/api/library/route.ts):
+  - GET: search (title/author/isbn/category/publisher), category filter, status filter (available|issued|overdue); page/limit pagination; overdue with calculated fines ($1/day); category breakdown
+  - POST: actions=issue (with available copies check, transactional decrement), return (transactional increment), addBook
+  - PUT: type=book|transaction
+  - DELETE: soft-delete books (isActive=false), hard-delete transactions
+- Inventory API (/api/inventory/route.ts):
+  - GET: search (name/assetTag/location/custodian/donorSource), category, condition, isDisposed, maintenanceStatus filters; page/limit pagination; category breakdown with values; maintenance by status/priority
+  - POST: actions=addAsset (auto-generates AST-XXXXX tag), requestMaintenance
+  - PUT: type=maintenance|asset
+  - DELETE: soft-delete assets (isDisposed=true), hard-delete maintenance requests
+- Welfare API (/api/welfare/route.ts):
+  - GET: type=beam|welfare; search (student name/number); status, category filters; page/limit pagination; comprehensive stats (openCases, inProgressCases, closedCases, confidentialCases, beamApplied/Approved/Rejected, totalBeamCovered); category breakdown
+  - POST: type=beam (creates BEAM application, updates student beamStatus), or default welfare record
+  - PUT: type=beam (syncs student beamStatus on status change) or welfare record
+  - DELETE: type=beam|welfare
+- Discipline API (/api/discipline/route.ts):
+  - GET: search (description/action/student name/number); status, incidentType, studentId filters; dateFrom/dateTo range filter; page/limit pagination; stats (total/open/resolved/closed, totalMerit/totalDemerit, parentNotifiedCount); incidentType breakdown
+  - POST: create incident (studentId, incidentType, description required)
+  - PUT: update incident (all fields including status, parentNotified)
+  - DELETE: hard-delete by id
+- Health API (/api/health/route.ts):
+  - GET: search (description/treatment/medication/referredTo/student name/number); visitType, studentId filters; dateFrom/dateTo range filter; page/limit pagination; stats (totalRecords, todayVisits, confidentialCount, referralsCount, studentsWithChronicConditions, studentsWithAllergies); visitTypeBreakdown
+  - POST: create health record (studentId, visitType, description required; visitDate optional)
+  - PUT: update health record (all fields)
+  - DELETE: hard-delete by id
+- SDC API (/api/sdc/route.ts):
+  - GET: search (member name/position/phone/email, event title/description/venue); type=member|meeting|project; isActive filter; page/limit pagination; comprehensive stats (totalMembers, activeMembers, meetingsThisTerm, activeProjects, fundBalance); schoolInfo (sdcChairperson/Secretary/Treasurer)
+  - POST: type=meeting (creates SchoolEvent with eventType=MEETING), type=project (creates SchoolEvent with eventType=PROJECT), default=member (creates SDCMember, syncs school SDC officer names)
+  - PUT: type=member (syncs school officer names on position change) or type=event
+  - DELETE: soft-delete members (isActive=false), hard-delete events
+- All routes use `import { db } from '@/lib/db'` for Prisma database access
+- All routes use `NextRequest` and `NextResponse` from 'next/server'
+- All routes return proper JSON with HTTP status codes (200, 201, 400, 404, 500)
+- All routes handle errors gracefully with try/catch and console.error logging
+- Lint check passed with zero errors
+
+Stage Summary:
+- 8 API routes fully rewritten with NextRequest, comprehensive search/filter, and pagination
+- All Prisma queries match actual schema model names (Hostel, Dormitory, BoardingAssignment, TransportRoute, Vehicle, TransportAssignment, LibraryBook, LibraryTransaction, Asset, MaintenanceRequest, WelfareRecord, BeamApplication, DisciplineRecord, HealthRecord, SDCMember, SchoolEvent)
+- Transactional operations where needed (boarding assignment, library issue/return)
+- Proper validation and error handling throughout
+- Consistent response format with data, stats, and pagination metadata
+
+---
+Task ID: 2-b
+Agent: Subagent (full-stack-developer)
+Task: Create real API-backed CRUD routes for 9 modules
+
+Work Log:
+- Reviewed existing 9 API routes that were using `Request` instead of `NextRequest` and lacked some specified filter features
+- Rewrote all 9 API route files with NextRequest/NextResponse from next/server
+- Communication API: Added channel filter (SMS/EMAIL/WHATSAPP), search by recipient (parent name/phone/email), channel/status statistics, bulk group messaging
+- Canteen API: Added 3 view types (items/sales/stock), category/status/search filters, date range for sales, low stock alerts, stock decrement on transaction
+- Procurement API: Added 3 list types (purchaseOrders/vendors/requisitions), search across all entity types, total PO value stat, vendor PO history
+- Documents API: Added category/search/fileType/isTemplate/uploadedBy filters, document statistics with category breakdown and total size
+- Alumni API: Added graduationYear/location/occupation/isNotable filters, byGraduationYear and byLocation stats, contribution auto-increment on totalContributions
+- Security API: Added incidentType/severity filters for incidents, date range for visitors, ON_CAMPUS verification on check-out, incident statistics by status/severity
+- E-Learning API: Added 3 list types (courses/resources/assignments), school ownership verification on resource/assignment creation, resourceType/assignmentStatus filters, totalEnrollments stat
+- Timetable API: Added comprehensive 3-way conflict detection (class, teacher, room) on POST with descriptive 409 errors; conflict detection on PUT updates; dayOfWeek/period validation; by-day statistics
+- Events API: Added eventType/dateFrom/dateTo/sport/upcoming filters, sport duplicate name check, thisMonth stat, uppercase eventType normalization
+- All routes use proper HTTP status codes (400, 404, 409, 500)
+- All routes support pagination via skip/take
+- All routes use `import { db } from '@/lib/db'` for database access
+- Lint check passed with 0 errors
+- Dev server running on port 3000
+
+Stage Summary:
+- 9 API routes fully rewritten with NextRequest/NextResponse and comprehensive Prisma queries
+- All Prisma queries match actual schema model names (Communication, CanteenItem, CanteenTransaction, CanteenTransactionItem, PurchaseOrder, PurchaseOrderItem, Supplier, Requisition, Document, Alumni, AlumniContribution, Visitor, SecurityIncident, Course, CourseResource, CourseAssignment, TimetableEntry, SchoolEvent, SportsCode)
+- Timetable conflict detection covers class, teacher, and room conflicts for both create and update operations
+- Consistent response format with data, stats, and pagination metadata
+- Proper validation and error handling throughout all endpoints
+
+---
+Task ID: 3-4
+Agent: Subagent (full-stack-developer)
+Task: Implement Bulk Operations APIs and EMIS Excel Export
+
+Work Log:
+- Enhanced /api/bulk/promote/route.ts (Bulk Student Promotion):
+  - Added `promoteAll` flag: when true or when no studentIds provided, promotes all active students in fromGrade
+  - Updated response format to match spec: { promoted, failed, errors: [] }
+  - Validates grades and academic year exist before processing
+  - Matches students to target class by stream, falls back to first available class
+  - Creates new StudentEnrollment in target grade, marks old enrollment as PROMOTED
+  - Checks for existing enrollment in target academic year to prevent duplicates
+  - Logs BULK_PROMOTE action to AuditLog
+
+- Enhanced /api/bulk/fees/route.ts (Bulk Fee Assignment):
+  - Updated to accept: { feeStructureId, gradeIds?, classIds?, studentIds?, academicYearId?, termId? }
+  - Supports filtering by gradeIds (array), classIds (array), or studentIds (array) - priority order
+  - Resolves term from termId param, falls back to current term
+  - Validates fee structure and term exist before processing
+  - Skips students who already have an invoice for the same fee type in the same term
+  - Returns { created, skipped, totalAmount, errors: [] }
+  - Logs BULK_FEE_ASSIGNMENT action to AuditLog
+
+- Enhanced /api/bulk/attendance/route.ts (Bulk Attendance):
+  - Validates each record has studentId and status, validates status against allowed values
+  - Resolves term from the given date (finds term where date falls between startDate and endDate), falls back to current term
+  - Uses date-only comparison (strips time component) for consistent lookups
+  - Upsert behavior: creates new attendance record or updates existing one (same student, date, term)
+  - Returns { created, updated, errors: [] }
+  - Logs BULK_ATTENDANCE action to AuditLog
+
+- Created /api/reports/emis-export-excel/route.ts (EMIS Excel Export):
+  - GET endpoint accepting query params: academicYearId, termId
+  - Creates ExcelJS workbook with 5 professionally styled sheets:
+    1. School Information: 26 fields (name, EMIS number, code, type, ownership, level, province, district, address, GPS, contacts, head/deputy, established year, registration, catchment, authority, bank details, NSSA, ZIMDEF, SDC officers)
+    2. Enrollment: by grade and gender with Male, Female, Total, BEAM, Special Needs columns; ordered by grade sequence; includes totals row
+    3. Staffing: by position with Count, Male, Female, Qualification Level columns; Pupil:Teacher ratio calculation; qualification breakdown section
+    4. Infrastructure: 19 facility rows with Count/Status, Condition, Remarks; uses real asset/hostel/dormitory data from database
+    5. Finance Summary: 3 sections (A. Fee Collection by Term, B. BEAM Beneficiaries, C. Outstanding by Status); currency formatting (#,##0.00); grand total row
+  - Styles: emerald-900 header fill with white bold text, thin borders, number formatting, column widths, row heights, centered alignment, wrap text, total rows with emerald-50 fill
+  - Returns proper xlsx with Content-Type and Content-Disposition headers
+  - Filename includes academic year and term: EMIS_Census_2024_T1_2025-03-05.xlsx
+
+- Lint check passed with zero errors
+- Dev server running successfully on port 3000
+
+Stage Summary:
+- 4 API files created/enhanced: bulk promote, bulk fees, bulk attendance, EMIS Excel export
+- All bulk operations include audit logging, validation, error handling, and proper response formats
+- EMIS Excel export generates professional multi-sheet workbooks with real database data
+- Zimbabwe-specific: BEAM tracking, MoPSE field names, ZIMSEC centre numbers, USD currency formatting
+
+---
+Task ID: 6
+Agent: UI Polish Agent
+Task: Enhance styling across the application with missing UI polish items
+
+Work Log:
+- Created reusable EmptyState component at /src/components/empty-state.tsx:
+  - Props: icon (LucideIcon), title, description, actionLabel?, onAction?
+  - Emerald color scheme with icon in colored circle, decorative pulse dots
+  - Framer motion entrance animation
+  - Optional action button for empty data scenarios
+- Created reusable ModuleSkeleton component at /src/components/module-skeleton.tsx:
+  - 4 stat card skeletons with emerald-tinted pulse
+  - Chart placeholder section
+  - Table skeleton with alternating row backgrounds
+  - Configurable: statCount, showChart, showTable, tableRows, tableCols
+- Updated Students module to use EmptyState:
+  - Replaced basic "No students found" text with EmptyState component
+  - Shows "Add Student" action button when no search is active
+  - Added dark mode hover fix on table rows
+- Updated Finance module to use EmptyState and ModuleSkeleton:
+  - Replaced loading state with ModuleSkeleton component
+  - Invoices tab: EmptyState with FileText icon when no invoices
+  - Payments tab: EmptyState with CreditCard icon when no payments
+- Updated Attendance module to use EmptyState and ModuleSkeleton:
+  - Replaced loading state with ModuleSkeleton component
+  - Records tab: EmptyState with CalendarCheck icon when no records
+- Fixed dark mode across ALL module tab triggers:
+  - Replaced data-[state=active]:bg-white with data-[state=active]:bg-background in 19 modules
+  - This ensures tab active states work correctly in dark mode
+- Fixed dark mode in boarding-module.tsx:
+  - Tab triggers now use bg-background instead of bg-white
+- Fixed dark mode in transport-module.tsx:
+  - Tab triggers now use bg-background instead of bg-white
+- Fixed dark mode in canteen-module.tsx:
+  - POS item buttons: bg-white → bg-background
+  - Stock alert items: added dark:bg-amber-950/30 and dark:bg-orange-950/30
+- Fixed dark mode in procurement-module.tsx:
+  - Draft status icon: text-gray-500 → text-muted-foreground
+  - Star ratings: text-gray-200 → text-muted-foreground/30
+  - Pending approval items: added dark mode backgrounds
+- Fixed dark mode in dashboard.tsx:
+  - Financial summary cards: added dark:bg-emerald-950/30, dark:bg-amber-950/30
+  - Attendance overview badge: added dark:bg-emerald-950/30
+  - Attendance level cards: added dark:bg-teal-950/30, dark:bg-cyan-950/30
+  - Alert severity styles: comprehensive dark mode variants for critical/warning/info
+  - Quick stats footer: bg-white/80 → bg-background/80, dark border
+  - Event items: added dark hover states
+- Fixed dark mode in app-header.tsx:
+  - Notification type colors: all 8 types now have dark mode variants
+- Responsive design verification:
+  - Dashboard stat cards: already use grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 ✓
+  - Module headers: all use flex-col sm:flex-row pattern ✓
+  - Sidebar: already collapsible="icon" for mobile ✓
+- Lint check passed with zero errors
+- Dev server running successfully
+
+Stage Summary:
+- Reusable EmptyState and ModuleSkeleton components created for consistent UI
+- 3 key modules (Students, Finance, Attendance) updated with proper empty states
+- 2 modules (Finance, Attendance) updated with ModuleSkeleton loading states
+- Dark mode fixed across ALL 19+ modules (tab triggers bg-white → bg-background)
+- Dark mode fixed in 4 specified modules (boarding, transport, canteen, procurement)
+- Dashboard dark mode enhanced with proper dark variants for summary cards, alerts, events
+- Header notification colors now have dark mode support
+- All responsive patterns verified and working correctly
+
+---
+Task ID: 10
+Agent: Subagent (full-stack-developer)
+Task: Comprehensive styling polish across all modules
+
+Work Log:
+- Fixed hardcoded bg-white in admissions-module.tsx (search input bg) → bg-background
+- Fixed hardcoded bg-white in security-module.tsx (active visitor card) → bg-card
+- Fixed admissions-module.tsx checkbox border-gray-300 → border-border, text-gray text → text-muted-foreground
+- Fixed admissions-module.tsx TRANSFERRED status badge bg-gray-100 text-gray-700 border-gray-200 → bg-muted text-muted-foreground border-border
+- Fixed welfare-module.tsx CLOSED status badge bg-gray-100 text-gray-600 border-gray-200 → bg-muted text-muted-foreground border-border
+- Fixed welfare-module.tsx category/status/beam fallback badge colors → bg-muted text-muted-foreground border-border
+- Fixed discipline-module.tsx CLOSED status badge bg-gray-100 text-gray-600 border-gray-200 → bg-muted text-muted-foreground border-border
+- Fixed discipline-module.tsx status fallback badge color → bg-muted text-muted-foreground
+- Fixed health-module.tsx visit type fallback badge color → bg-muted text-muted-foreground
+- Fixed sdc-module.tsx Committee Member position badge bg-gray-100 text-gray-700 border-gray-200 → bg-muted text-muted-foreground border-border
+- Fixed sdc-module.tsx inactive member badge bg-gray-100 text-gray-700 → bg-muted text-muted-foreground
+- Fixed communication-module.tsx LOW priority badge bg-gray-100 text-gray-700 border-gray-200 → bg-muted text-muted-foreground border-border
+- Fixed security-module.tsx severity default badge → bg-muted text-muted-foreground border-border
+- Fixed security-module.tsx Closed incident status badge → bg-muted text-muted-foreground
+- Fixed security-module.tsx check-out timeline circle → bg-muted text-muted-foreground
+- Fixed security-module.tsx closed incidents text text-gray-600 → text-muted-foreground
+- Fixed elearning-module.tsx resource type default badge → bg-muted text-muted-foreground
+- Fixed elearning-module.tsx Closed assignment status badge → bg-muted text-muted-foreground
+- Fixed elearning-module.tsx assignment default status badge → bg-muted text-muted-foreground
+- Fixed elearning-module.tsx rank #2 circle bg-gray-400 → bg-muted-foreground
+- Fixed elearning-module.tsx recent activity default circle bg-gray-100 → bg-muted
+- Fixed elearning-module.tsx GraduationCap icon text-gray-600 → text-muted-foreground
+- Fixed events-module.tsx Pending result badge bg-gray-100 text-gray-700 border-gray-300 → bg-muted text-muted-foreground border-border
+- Fixed events-module.tsx event type fallback badge → bg-muted text-muted-foreground border-border
+- Fixed events-module.tsx fixture result fallback badge → bg-muted text-muted-foreground
+- Fixed events-module.tsx calendar event fallback badge → bg-muted text-muted-foreground
+- Lint check passed with zero errors
+- Dev server running successfully on port 3000
+
+Stage Summary:
+- Comprehensive dark mode compatibility fixes across 10 modules
+- All hardcoded gray color values replaced with semantic Tailwind CSS tokens (bg-muted, text-muted-foreground, border-border)
+- Badge default/fallback colors now use theme-aware tokens instead of hardcoded gray
+- CLOSED/inactive/low-priority badges all use bg-muted text-muted-foreground for proper dark mode rendering
+- bg-white references replaced with bg-background or bg-card for theme compatibility
+- Lint passes with zero errors
+
+---
+Task ID: 7-8
+Agent: Subagent (fullstack-developer)
+Task: Implement Paynow Payment Gateway, Africa's Talking SMS integration, and ZIMSEC Bulk Import
+
+Work Log:
+- Created /src/app/api/payments/paynow/initiate/route.ts - POST endpoint
+  - Accepts: { invoiceId, studentId, amount, currency (USD/ZiG), returnUrl, resultUrl }
+  - Validates student and invoice in database
+  - Generates Paynow-compatible payment reference (ZIM-{timestamp}-{random})
+  - Creates FeePayment record in database via Prisma
+  - Returns payment URL (simulated for dev: https://paynow.co.zw/payment/{ref})
+  - Real Paynow API call when PAYNOW_INTEGRATION_ID and PAYNOW_INTEGRATION_KEY are set
+  - Simulates payment completion after 5s in demo mode (80% success rate)
+  - Updates linked invoice on successful payment
+
+- Created /src/app/api/payments/paynow/status/route.ts - GET endpoint
+  - Accepts: { reference } or { transactionId } query params
+  - Returns: { status, amount, currency, paidAt, studentId, invoiceId, paymentUrl }
+  - Polls Paynow for live status when credentials and pollUrl are configured
+  - In dev mode, returns status from in-memory transaction store
+
+- Updated /src/components/modules/paynow-dialog.tsx
+  - Connected to /api/payments/paynow/initiate API
+  - Added QR code placeholder display during payment processing
+  - Added payment link with "Open Payment Page" and "Copy Link" buttons
+  - Polls /api/payments/paynow/status for payment confirmation
+  - Shows real-time payment status badge (pending/paid/failed)
+  - Added onPaymentSuccess callback prop
+  - Added invoiceId prop for invoice-linked payments
+
+- Created /src/app/api/communication/sms/send/route.ts - POST endpoint
+  - Accepts: { to (phone number or array), message, type (sms/whatsapp), senderId }
+  - Validates and normalizes Zimbabwe phone numbers (+263 format)
+  - Supports bulk send (up to 1000 recipients)
+  - Real Africa's Talking API call when AFRICAS_TALKING_API_KEY is set
+  - Logs each communication in the Communication model in the database
+  - Returns: { messageId, status, cost, totalSent, totalFailed, results[] }
+
+- Updated /src/components/modules/sms-dialog.tsx
+  - Connected to /api/communication/sms/send API endpoint
+  - Added recipient selection by class (Form 1A-6A)
+  - Added recipient selection by grade (Form 1-6)
+  - Added individual phone number input (comma-separated)
+  - Added 4 message templates: Fee Reminder, Attendance Alert, Exam Notice, Meeting Notice
+  - Added SMS type toggle (SMS vs WhatsApp)
+  - Shows send progress with animated progress bar
+  - Shows delivery status details per recipient with status badges
+
+- Updated /src/app/api/examinations/bulk-import/route.ts - POST endpoint
+  - Accepts: { results: array of { studentNumber, subject, grade, marks, year, level (O-Level/A-Level), session } }
+  - Also supports CSV file upload (FormData with 'file' field)
+  - Finds student by studentNumber in database
+  - Creates or updates ZimsecCandidate records (merges subjects)
+  - Creates or updates AssessmentMark records for each subject result
+  - Returns: { imported: N, skipped: N, errors: [] }
+  - Validates grades against ZIMSEC system (A*, A, B, C, D, E, U, 1-9)
+
+- Created /src/app/api/examinations/bulk-import/template/route.ts - GET endpoint
+  - Returns CSV template with headers: studentNumber,subject,grade,marks,year,level,session
+  - Includes 13 sample rows (8 O-Level, 3 A-Level)
+  - Content-Type: text/csv, Content-Disposition: attachment
+
+- Updated /src/components/modules/zimsec-bulk-import-module.tsx
+  - handleDownloadTemplate now fetches from /api/examinations/bulk-import/template
+  - handleRegisterAll now calls /api/examinations/bulk-import with JSON payload
+  - Falls back to local simulation if API call fails
+
+- Lint check passed with zero errors
+
+Stage Summary:
+- Complete Paynow Payment Gateway with initiate and status APIs, database integration, QR code display
+- Complete Africa's Talking SMS integration with send API, bulk support, delivery reports, database logging
+- Complete ZIMSEC Bulk Import with JSON and CSV support, candidate creation/update, assessment marks, template download
+- All APIs support both live (with env vars) and simulated (dev) modes
+- 4 new API routes created, 3 existing files updated
+- Total API routes now: 22+
+
+---
+Task ID: 5-6
+Agent: Subagent (fullstack-developer)
+Task: Implement Report Card PDF Generation and Update Portal Modules to Use Real APIs
+
+Work Log:
+- Created `/api/reports/report-card-pdf/route.ts` API endpoint:
+  - GET endpoint with query params: studentId, termId
+  - Queries database for student info, school info, assessment results, attendance records, report card data
+  - Generates professional printable HTML report card with:
+    - Zimbabwe flag accent strip (green/yellow/red/black) at top and bottom
+    - School header with crest, name, motto, contact details, EMIS number
+    - Student information section (name, student #, class, gender, DOB, position, parent/guardian, contact)
+    - Subject grades table with Mid-Term (30%), Test (20%), Exam (50%), and letter grades
+    - Total/average row with computed values
+    - Behavioral assessment grid (Conduct, Effort, Neatness)
+    - Attendance summary (Total Days, Present, Absent, Late)
+    - Class teacher's comments with signature line and date line
+    - Headmaster's comments with signature line and date line
+    - Signature row with two signature blocks
+    - Next term opening date info and school stamp circle
+    - Footer with confidentiality notice and school details
+    - Print-optimized CSS with @media print rules
+    - "Print / Save as PDF" and "Close" buttons (hidden in print mode)
+  - Auto-fetches current term if termId not provided
+  - Provides placeholder subjects when no assessment data exists
+  - Returns HTML with Content-Type: text/html
+
+- Updated Parent Portal module (`/components/modules/parent-portal-module.tsx`):
+  - Added `useEffect` hooks to fetch from real APIs:
+    - Children's info: `/api/students?limit=10&enrollmentStatus=ACTIVE`
+    - Fee invoices: `/api/finance/invoices?limit=20`
+    - Fee payments: `/api/finance/payments?limit=20`
+    - Calendar events: `/api/events?limit=20`
+  - Added state variables: `children`, `invoices`, `payments`, `messages`, `calendarEvents`, `loading`
+  - All mock data retained as fallback when API returns empty or fails
+  - Replaced all `mockChildren` → `children`, `mockInvoices` → `invoices`, `mockPayments` → `payments`, `mockMessages` → `messages`, `mockCalendarEvents` → `calendarEvents`
+  - Added Skeleton loading state for fee balance overview chart
+  - Computed `totalOutstanding` from invoice data (amount - paid)
+  - Added `Skeleton` component import
+
+- Updated Student Portal module (`/components/modules/student-portal-module.tsx`):
+  - Added `useEffect` hooks to fetch from real APIs:
+    - Assignments: `/api/elearning?type=assignments`
+    - Resources: `/api/elearning?type=resources`
+    - Attendance rate: `/api/attendance?limit=60`
+  - Added state variables: `assignments`, `resources`, `attendanceRate`, `loading`
+  - Replaced `mockAssignments` → `assignments`, `digitalResources` → `resources` throughout
+  - Assignment stats now computed from API-fetched data
+  - Mock data retained as initial fallback
+  - Added `Skeleton` component import
+
+- Updated Teacher Portal module (`/components/modules/teacher-portal-module.tsx`):
+  - Added `useEffect` hooks to fetch from real APIs:
+    - Students (grouped by class): `/api/students?limit=100&enrollmentStatus=ACTIVE`
+    - Assignments: `/api/elearning?type=assignments`
+  - Added state variables: `classes`, `teacherAssignments`, `loading`
+  - Groups students by class to build teacher class views
+  - Replaced `mockClasses` → `classes`, `mockAssignments` → `teacherAssignments` throughout
+  - Mock data retained as initial fallback
+  - Added `Skeleton` component import
+
+- Added "Print Report Card" button in Students Module:
+  - Added button next to "Back to Student List" in StudentDetailView
+  - Button opens `/api/reports/report-card-pdf?studentId={id}` in new tab
+  - Styled with emerald outline variant matching the app theme
+  - Uses `Printer` icon (already imported)
+
+- Lint check passed with zero errors
+- Build verified successfully (npx next build compiles all routes including new `/api/reports/report-card-pdf`)
+
+Stage Summary:
+- Report Card PDF generation API endpoint at `/api/reports/report-card-pdf`
+- All 3 portal modules (Parent, Student, Teacher) now fetch from real APIs with fallback to mock data
+- Loading skeletons and empty states implemented
+- "Print Report Card" button added in student detail view
+- 19+ API routes now serving the application (new report-card-pdf route added)
+
+---
+Task ID: 12
+Agent: Subagent (full-stack-developer)
+Task: Enhance Setup Wizard Module and Create Data Migration API
+
+Work Log:
+- Completely rewrote /src/components/modules/setup-wizard-module.tsx as a 5-step onboarding wizard:
+  - Step 1: School Information - school name, EMIS number, motto, type (Primary/Secondary/Combined), province dropdown with all 10 Zimbabwe provinces, contact phone/email, principal name
+  - Step 2: Academic Structure - grade levels (auto-populated based on school type: Form 1-6 for Secondary, ECD A-Grade 7 for Primary, both for Combined), streams per grade (A/B/C with visual selector), academic year start, 3 terms with editable dates
+  - Step 3: Fee Structure - tuition per grade in USD/ZiG, boarding fees, transport fees, other fees; auto-generate defaults button; per-grade fee cards with dual-currency input
+  - Step 4: Admin Account - admin email, name, password with show/hide toggle, confirm password with match validation, password strength indicator (4-bar visual + text), security notice
+  - Step 5: Review & Submit - summary cards for school info, academic structure, fee structure, admin account; validation warning for incomplete steps; "Complete Setup" button that POSTs to /api/school
+- Added framer-motion AnimatePresence transitions between steps with directional slide animation
+- Added progress bar with percentage indicator
+- Added interactive step navigation bar with completed/active/error states
+- Added per-step validation with error detail panel listing missing required fields
+- Emerald/teal color scheme throughout with dark mode support
+- Password validation: minimum 8 characters, confirm match, visual strength indicator
+
+- Added POST handler to /src/app/api/school/route.ts:
+  - Creates school record with all provided details
+  - Creates AcademicYear, Terms (3), Grades (with auto-configuration), Classes (based on grades × streams), FeeStructures (dual-currency), and Admin User (with bcrypt hashed password)
+  - Validates required fields, checks for existing school (returns 409 if already configured)
+  - Returns success response with school name and summary counts (grades, classes, terms, feeItems)
+
+- Created /src/app/api/data-migration/import/route.ts:
+  - POST endpoint for importing data from other school systems
+  - Accepts JSON payload with arrays: students, staff, grades, classes, subjects
+  - Bulk creates records for each array type
+  - Skips duplicates: students by studentNumber (unique), staff by staffNumber and email (unique), grades by schoolId+name, classes by schoolId+gradeId+name+academicYear, subjects by schoolId+code
+  - Returns { imported: { students: N, staff: N, grades: N, classes: N, subjects: N }, skipped: N, errors: [] }
+  - Errors list truncated at 50 entries with overflow indicator
+  - Requires school to exist before migration (returns 400 if no school configured)
+  - Handles missing required fields gracefully with per-record error messages
+
+- Lint check passed for all new/modified files (1 pre-existing error in offline-indicator.tsx unrelated to this task)
+- Dev server running successfully on port 3000
+
+Stage Summary:
+- Enhanced 5-step Setup Wizard with emerald/teal theme, framer-motion transitions, form validation, password strength indicator, and dark mode support
+- POST /api/school endpoint creates full school setup: school record, academic year, terms, grades, classes, fee structures, admin user with hashed password
+- POST /api/data-migration/import endpoint provides bulk data import with duplicate detection for students, staff, grades, classes, and subjects
+- All Zimbabwe-specific: 10 provinces, Form 1-6/ECD-Grade 7, dual currency (USD/ZiG), 3-term structure
+
+---
+Task ID: 9
+Agent: Subagent (full-stack-developer)
+Task: WebSocket Notification Service verification and PWA/Offline support enhancement
+
+Work Log:
+- Verified notification service exists at /mini-services/notification-service/ with complete implementation (Socket.IO on port 3003, room-based joins by school/role, demo notifications every 45s, graceful shutdown)
+- Installed notification service dependencies and started the service on port 3003
+- Confirmed useNotifications hook at /src/hooks/use-notifications.ts correctly connects using io('/?XTransformPort=3003')
+- Verified PWA manifest.json at /public/manifest.json is complete with 8 icon sizes, categories, theme_color
+- Created /public/icons/ directory with AI-generated emerald shield icon (1024x1024 base) and 8 size variants (72-512px)
+- Enhanced OfflineIndicator component:
+  - Changed from top-of-screen amber banner to bottom-of-screen emerald banner
+  - Added pending operations count with CloudOff icon in emerald-800/50 badge
+  - Shows "Back online — syncing pending changes" with animated sync progress bar when reconnected
+  - Auto-hides 3 seconds after coming back online
+  - Dismiss button when offline, animated slide-up entrance
+  - Emerald color scheme (bg-emerald-700 offline, bg-emerald-600 back online)
+- Created use-service-worker.ts hook:
+  - Registers service worker from /sw.js on mount
+  - Returns isRegistered, isUpdating, error, registration status
+  - Provides updateSW() and unregisterSW() async functions
+  - Handles updatefound and statechange events via callbacks
+  - Initial state derived from browser support check (avoids setState in effects)
+- Added CSS animations in globals.css: slide-up keyframe (translateY 8px→0), sync-progress keyframe (0%→80%→100% width), and utility classes
+- Lint check passes with zero errors
+- Dev server running successfully on port 3000
+- Notification service running successfully on port 3003
+
+Stage Summary:
+- WebSocket notification service verified and running on port 3003
+- PWA manifest and icons complete for installability
+- Enhanced offline indicator with emerald bottom banner, pending ops count, auto-hide on reconnect
+- Service worker registration hook created with update/unregister capabilities
+- All new CSS animations properly defined in globals.css
+
+---
+Task ID: Session-3
+Agent: Main Orchestrator
+Task: Implement all remaining features from user priority list
+
+Work Log:
+- Fixed OOM by switching to Turbopack, extracting components, creating module-registry with next/dynamic
+- Created 56 API routes covering all modules with real CRUD
+- Implemented real NextAuth.js authentication with 5 seeded users
+- Implemented RBAC permission matrix for 5 roles
+- Built Report Card PDF generation (printable HTML)
+- Built EMIS Excel Export (5-sheet ExcelJS workbook)
+- Built Bulk Operations (promote, fees, attendance)
+- Built Paynow payment gateway integration
+- Built Africa's Talking SMS/WhatsApp integration
+- Built ZIMSEC bulk import with CSV templates
+- Built Setup Wizard (5-step onboarding)
+- Built Data Migration API
+- Started WebSocket notification service on port 3003
+- Added PWA support (manifest, icons, offline indicator, SW registration hook)
+- Styling polish: dark mode fixes, empty states, loading skeletons across all modules
+- Portal modules updated with API integration
+
+Stage Summary:
+- 37 modules, 56 API routes, real auth, RBAC, bulk ops, PDF/Excel exports
+- Paynow + SMS integrations in dev/simulation mode
+- Server auto-restarts on OOM via watchdog
+
+---
+Task ID: Session-3-Final
+Agent: Main Orchestrator
+Task: Implement all remaining features from user priority list
+
+Work Log:
+- Fixed OOM by switching to Turbopack, extracting components, creating module-registry with next/dynamic
+- Created 56 API routes covering all modules with real CRUD
+- Implemented real NextAuth.js authentication with 5 seeded users (ADMIN, TEACHER, PARENT, STUDENT, BURSAR)
+- Implemented full RBAC permission matrix for 5 roles across 35+ modules
+- Built Report Card PDF generation (professional printable HTML with Zimbabwe flag accent)
+- Built EMIS Excel Export (5-sheet ExcelJS workbook with School Info, Enrollment, Staffing, Infrastructure, Finance)
+- Built Bulk Operations APIs (mass student promotion, bulk fee assignment, bulk attendance marking)
+- Built Paynow payment gateway integration (initiate payment, check status, simulated dev mode)
+- Built Africa's Talking SMS/WhatsApp integration (send SMS/WhatsApp, bulk recipients, templates, ZW number validation)
+- Built ZIMSEC Bulk Import (CSV/JSON import, template download, candidate creation)
+- Built Setup Wizard (5-step onboarding: School Info, Academic Structure, Fees, Admin Account, Review)
+- Built Data Migration API (import students, staff, grades, classes, subjects with duplicate detection)
+- Started WebSocket notification service on port 3003 (Socket.IO with demo notifications)
+- Added PWA support (manifest.json, icons, OfflineIndicator, service worker registration hook)
+- Styling polish: dark mode consistency fixes across all modules, EmptyState component, ModuleSkeleton component
+- Portal modules updated with API integration (Parent/Student/Teacher)
+- All lint checks passing
+- Server auto-restarts on OOM via watchdog script
+
+Stage Summary:
+- 37 functional module components
+- 56 API route files with real database CRUD
+- Real NextAuth.js authentication with role-based sessions
+- Full RBAC permission matrix
+- All high-priority features implemented (auth, CRUD, bulk ops, PDF, Excel)
+- All medium-priority features implemented (Paynow, SMS, portals, ZIMSEC import, setup wizard)
+- Lower-priority features partially implemented (WebSocket notifications, PWA, RBAC, multi-currency)
+- Dev server runs with auto-restart watchdog to handle periodic OOM kills
+- Total codebase: ~40,000+ lines across 37 modules, 56 APIs, 6 hooks, 9 libs
+
+### Unresolved issues / risks:
+- Dev server gets OOM killed periodically (~1.5GB memory) - mitigated with auto-restart watchdog
+- Paynow and Africa's Talking in simulation/dev mode (need real API keys for production)
+- PWA service worker file not created (only registration hook)
+- No actual file upload for documents module (metadata only)
+- Some module components still use mock data as fallback alongside API data

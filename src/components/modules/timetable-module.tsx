@@ -301,16 +301,16 @@ export default function TimetableModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Overview
           </TabsTrigger>
-          <TabsTrigger value="weekly" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="weekly" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Weekly View
           </TabsTrigger>
-          <TabsTrigger value="schedule" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="schedule" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             My Schedule
           </TabsTrigger>
-          <TabsTrigger value="manage" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="manage" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Manage
           </TabsTrigger>
         </TabsList>

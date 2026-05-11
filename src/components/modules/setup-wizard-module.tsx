@@ -6,31 +6,32 @@ import {
   Building2,
   GraduationCap,
   DollarSign,
-  Users,
-  Home,
+  Shield,
   CheckCircle2,
   ChevronRight,
   ChevronLeft,
   Plus,
   X,
-  School,
-  Upload,
   AlertCircle,
   Loader2,
   MapPin,
   Phone,
   Mail,
-  BookOpen,
   Sparkles,
   Flag,
+  Eye,
+  EyeOff,
+  User,
+  BookOpen,
+  Bus,
+  BedDouble,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Textarea } from '@/components/ui/textarea'
 import { Progress } from '@/components/ui/progress'
 import {
   Select,
@@ -58,44 +59,17 @@ interface WizardStep {
 }
 
 const STEPS: WizardStep[] = [
-  { id: 1, title: 'School Information', description: 'Basic school details', icon: Building2 },
-  { id: 2, title: 'Academic Setup', description: 'Terms, grades, subjects', icon: GraduationCap },
-  { id: 3, title: 'Fee Structure', description: 'Fee types and amounts', icon: DollarSign },
-  { id: 4, title: 'Staff Setup', description: 'Key staff members', icon: Users },
-  { id: 5, title: 'Infrastructure', description: 'Hostels, classrooms', icon: Home },
-  { id: 6, title: 'Review & Complete', description: 'Verify and submit', icon: CheckCircle2 },
+  { id: 1, title: 'School Information', description: 'Basic school details & contact', icon: Building2 },
+  { id: 2, title: 'Academic Structure', description: 'Grades, streams & terms', icon: GraduationCap },
+  { id: 3, title: 'Fee Structure', description: 'Tuition, boarding & transport', icon: DollarSign },
+  { id: 4, title: 'Admin Account', description: 'Create administrator login', icon: Shield },
+  { id: 5, title: 'Review & Submit', description: 'Verify and complete setup', icon: CheckCircle2 },
 ]
 
 const ZIMBABWE_PROVINCES = [
   'Bulawayo', 'Harare', 'Manicaland', 'Mashonaland Central',
   'Mashonaland East', 'Mashonaland West', 'Masvingo',
   'Matabeleland North', 'Matabeleland South', 'Midlands',
-]
-
-const DEFAULT_SUBJECTS = [
-  { code: 'MATH', name: 'Mathematics', department: 'Mathematics', isCore: true },
-  { code: 'ENG', name: 'English Language', department: 'Languages', isCore: true },
-  { code: 'SHO', name: 'Shona', department: 'Languages', isCore: true },
-  { code: 'PHY', name: 'Physics', department: 'Sciences', isCore: false },
-  { code: 'CHEM', name: 'Chemistry', department: 'Sciences', isCore: false },
-  { code: 'BIO', name: 'Biology', department: 'Sciences', isCore: false },
-  { code: 'HIST', name: 'History', department: 'Humanities', isCore: false },
-  { code: 'GEO', name: 'Geography', department: 'Humanities', isCore: false },
-  { code: 'ACC', name: 'Accounts', department: 'Commercial', isCore: false },
-  { code: 'CS', name: 'Computer Science', department: 'Commercial', isCore: false },
-]
-
-const DEFAULT_PRIMARY_SUBJECTS = [
-  { code: 'MATH', name: 'Mathematics', department: 'Core', isCore: true },
-  { code: 'ENG', name: 'English', department: 'Core', isCore: true },
-  { code: 'SHO', name: 'Shona', department: 'Core', isCore: true },
-  { code: 'SCI', name: 'Science', department: 'Core', isCore: true },
-  { code: 'SS', name: 'Social Studies', department: 'Core', isCore: true },
-  { code: 'RE', name: 'Religious Education', department: 'Core', isCore: true },
-  { code: 'PE', name: 'Physical Education', department: 'Core', isCore: true },
-  { code: 'ART', name: 'Art & Design', department: 'Creative', isCore: false },
-  { code: 'MUSIC', name: 'Music', department: 'Creative', isCore: false },
-  { code: 'ICT', name: 'Information Communication Tech', department: 'Core', isCore: true },
 ]
 
 const SECONDARY_GRADES = [
@@ -119,220 +93,244 @@ const PRIMARY_GRADES = [
   { name: 'Grade 7', level: 'PRIMARY', sequence: 9 },
 ]
 
+const STREAMS = ['A', 'B', 'C']
+
+const FEE_TYPES = [
+  { key: 'tuition', label: 'Tuition Fee', icon: BookOpen },
+  { key: 'boarding', label: 'Boarding Fee', icon: BedDouble },
+  { key: 'transport', label: 'Transport Fee', icon: Bus },
+  { key: 'other', label: 'Other Fees', icon: DollarSign },
+]
+
+// ─── Animation Variants ───────────────────────────────────────────────────────
+const stepVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 80 : -80,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+  },
+  exit: (direction: number) => ({
+    x: direction > 0 ? -80 : 80,
+    opacity: 0,
+  }),
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function SetupWizardModule() {
   const [currentStep, setCurrentStep] = useState(1)
+  const [direction, setDirection] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [setupComplete, setSetupComplete] = useState(false)
   const [setupResult, setSetupResult] = useState<{ schoolName: string; summary: Record<string, number> } | null>(null)
 
   // Step 1: School Info
   const [schoolName, setSchoolName] = useState('')
-  const [schoolCode, setSchoolCode] = useState('')
-  const [schoolType, setSchoolType] = useState('GOVERNMENT')
-  const [schoolLevel, setSchoolLevel] = useState('SECONDARY')
-  const [ownershipType, setOwnershipType] = useState('GOVERNMENT')
-  const [province, setProvince] = useState('')
-  const [district, setDistrict] = useState('')
   const [emisNumber, setEmisNumber] = useState('')
   const [motto, setMotto] = useState('')
+  const [schoolType, setSchoolType] = useState<'PRIMARY' | 'SECONDARY' | 'COMBINED'>('SECONDARY')
+  const [province, setProvince] = useState('')
   const [contactEmail, setContactEmail] = useState('')
   const [contactPhone, setContactPhone] = useState('')
-  const [physicalAddress, setPhysicalAddress] = useState('')
+  const [principalName, setPrincipalName] = useState('')
 
-  // Step 2: Academic
-  const [yearName, setYearName] = useState(`${new Date().getFullYear()} Academic Year`)
+  // Step 2: Academic Structure
   const [yearStart, setYearStart] = useState(`${new Date().getFullYear()}-01-13`)
-  const [yearEnd, setYearEnd] = useState(`${new Date().getFullYear()}-12-05`)
   const [terms, setTerms] = useState([
     { name: 'Term 1', termNumber: 1, startDate: `${new Date().getFullYear()}-01-13`, endDate: `${new Date().getFullYear()}-04-10` },
     { name: 'Term 2', termNumber: 2, startDate: `${new Date().getFullYear()}-05-05`, endDate: `${new Date().getFullYear()}-08-08` },
     { name: 'Term 3', termNumber: 3, startDate: `${new Date().getFullYear()}-09-01`, endDate: `${new Date().getFullYear()}-12-05` },
   ])
   const [grades, setGrades] = useState(SECONDARY_GRADES)
-  const [subjects, setSubjects] = useState(DEFAULT_SUBJECTS)
-  const [classes, setClasses] = useState<{ gradeName: string; name: string; stream: string; capacity: number }[]>([])
-  const [addClassOpen, setAddClassOpen] = useState(false)
-  const [newClassGrade, setNewClassGrade] = useState('')
-  const [newClassStream, setNewClassStream] = useState('A')
-  const [newClassCapacity, setNewClassCapacity] = useState('40')
+  const [streamsPerGrade, setStreamsPerGrade] = useState(1) // 1=A, 2=A+B, 3=A+B+C
+  const [addStreamOpen, setAddStreamOpen] = useState(false)
 
-  // Step 3: Fees
-  const [feeItems, setFeeItems] = useState<{ gradeName: string; feeType: string; amount: string; currency: string }[]>([])
+  // Step 3: Fee Structure
+  const [feeData, setFeeData] = useState<Record<string, Record<string, { usd: string; zig: string }>>>({})
 
-  // Step 4: Staff
-  const [headmaster, setHeadmaster] = useState({ firstName: '', lastName: '', phone: '', email: '' })
-  const [deputy, setDeputy] = useState({ firstName: '', lastName: '', phone: '', email: '' })
-  const [bursar, setBursar] = useState({ firstName: '', lastName: '', phone: '', email: '' })
-  const [seniorTeachers, setSeniorTeachers] = useState<{ firstName: string; lastName: string; subjectSpecialisation: string; phone: string }[]>([])
-  const [addTeacherOpen, setAddTeacherOpen] = useState(false)
-  const [newTeacher, setNewTeacher] = useState({ firstName: '', lastName: '', subjectSpecialisation: '', phone: '' })
+  // Step 4: Admin Account
+  const [adminEmail, setAdminEmail] = useState('')
+  const [adminName, setAdminName] = useState('')
+  const [adminPassword, setAdminPassword] = useState('')
+  const [adminConfirmPassword, setAdminConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  // Step 5: Infrastructure
-  const [hostels, setHostels] = useState<{ name: string; gender: string; capacity: string }[]>([])
-  const [addHostelOpen, setAddHostelOpen] = useState(false)
-  const [newHostel, setNewHostel] = useState({ name: '', gender: 'Mixed', capacity: '50' })
-  const [classroomCount, setClassroomCount] = useState('20')
-  const [facilities, setFacilities] = useState<string[]>([])
-  const [facilityOptions] = useState([
-    'Science Lab', 'Computer Lab', 'Library', 'Sports Field', 'Swimming Pool',
-    'Chapel', 'Assembly Hall', 'Sick Bay', 'Tuck Shop', 'Staff Room',
-    'Admin Block', 'Kitchen', 'Dining Hall', 'Workshop', 'Farm',
-  ])
+  // ─── Derived Data ─────────────────────────────────────────────────────────
+  const activeStreams = STREAMS.slice(0, streamsPerGrade)
 
-  // ─── Handlers ──────────────────────────────────────────────────────────────
-  const handleLevelChange = useCallback((level: string) => {
-    setSchoolLevel(level)
-    if (level === 'PRIMARY' || level === 'COMBINED') {
-      setGrades(level === 'COMBINED' ? [...PRIMARY_GRADES, ...SECONDARY_GRADES] : PRIMARY_GRADES)
-      setSubjects(DEFAULT_PRIMARY_SUBJECTS)
-    } else {
-      setGrades(SECONDARY_GRADES)
-      setSubjects(DEFAULT_SUBJECTS)
-    }
-    // Reset classes and fees when level changes
-    setClasses([])
-    setFeeItems([])
-  }, [])
-
-  const generateDefaultClasses = useCallback(() => {
-    const defaultClasses = grades.map(g => ({
-      gradeName: g.name,
-      name: `${g.name} A`,
-      stream: 'A',
-      capacity: 40,
-    }))
-    setClasses(defaultClasses)
-    toast.success(`Generated ${defaultClasses.length} default classes`)
-  }, [grades])
-
-  const generateDefaultFees = useCallback(() => {
-    const feeTypes = ['Tuition Fee', 'Activity Fee', 'Levy']
-    const defaultFees = grades.flatMap(g =>
-      feeTypes.map(ft => ({
+  const generateClasses = useCallback(() => {
+    return grades.flatMap(g =>
+      activeStreams.map(stream => ({
         gradeName: g.name,
-        feeType: ft,
-        amount: ft === 'Tuition Fee' ? '450' : ft === 'Activity Fee' ? '50' : '100',
-        currency: 'USD',
+        name: `${g.name} ${stream}`,
+        stream,
+        capacity: 40,
       }))
     )
-    setFeeItems(defaultFees)
-    toast.success(`Generated ${defaultFees.length} fee items`)
+  }, [grades, activeStreams])
+
+  const classes = generateClasses()
+
+  // ─── Handlers ──────────────────────────────────────────────────────────────
+  const handleTypeChange = useCallback((type: 'PRIMARY' | 'SECONDARY' | 'COMBINED') => {
+    setSchoolType(type)
+    if (type === 'PRIMARY') {
+      setGrades(PRIMARY_GRADES)
+    } else if (type === 'SECONDARY') {
+      setGrades(SECONDARY_GRADES)
+    } else {
+      setGrades([...PRIMARY_GRADES, ...SECONDARY_GRADES])
+    }
+    setFeeData({})
+  }, [])
+
+  const generateDefaultFees = useCallback(() => {
+    const defaults: Record<string, Record<string, { usd: string; zig: string }>> = {}
+    for (const g of grades) {
+      defaults[g.name] = {
+        tuition: { usd: g.level === 'A_LEVEL' ? '600' : g.level === 'SECONDARY' ? '450' : '300', zig: g.level === 'A_LEVEL' ? '15000' : g.level === 'SECONDARY' ? '11250' : '7500' },
+        boarding: { usd: '200', zig: '5000' },
+        transport: { usd: '80', zig: '2000' },
+        other: { usd: '50', zig: '1250' },
+      }
+    }
+    setFeeData(defaults)
+    toast.success(`Generated fee structure for ${grades.length} grades`)
   }, [grades])
 
-  const addClass = useCallback(() => {
-    if (!newClassGrade) return
-    setClasses(prev => [...prev, {
-      gradeName: newClassGrade,
-      name: `${newClassGrade} ${newClassStream}`,
-      stream: newClassStream,
-      capacity: parseInt(newClassCapacity) || 40,
-    }])
-    setAddClassOpen(false)
-    setNewClassGrade('')
-    setNewClassStream('A')
-    setNewClassCapacity('40')
-  }, [newClassGrade, newClassStream, newClassCapacity])
-
-  const removeClass = useCallback((index: number) => {
-    setClasses(prev => prev.filter((_, i) => i !== index))
+  const updateFeeAmount = useCallback((gradeName: string, feeKey: string, currency: 'usd' | 'zig', value: string) => {
+    setFeeData(prev => ({
+      ...prev,
+      [gradeName]: {
+        ...prev[gradeName],
+        [feeKey]: {
+          ...prev[gradeName]?.[feeKey],
+          [currency]: value,
+        },
+      },
+    }))
   }, [])
-
-  const addTeacher = useCallback(() => {
-    if (!newTeacher.firstName || !newTeacher.lastName) return
-    setSeniorTeachers(prev => [...prev, { ...newTeacher }])
-    setAddTeacherOpen(false)
-    setNewTeacher({ firstName: '', lastName: '', subjectSpecialisation: '', phone: '' })
-  }, [newTeacher])
-
-  const removeTeacher = useCallback((index: number) => {
-    setSeniorTeachers(prev => prev.filter((_, i) => i !== index))
-  }, [])
-
-  const addHostel = useCallback(() => {
-    if (!newHostel.name) return
-    setHostels(prev => [...prev, { ...newHostel }])
-    setAddHostelOpen(false)
-    setNewHostel({ name: '', gender: 'Mixed', capacity: '50' })
-  }, [newHostel])
-
-  const removeHostel = useCallback((index: number) => {
-    setHostels(prev => prev.filter((_, i) => i !== index))
-  }, [])
-
-  const toggleFacility = useCallback((facility: string) => {
-    setFacilities(prev =>
-      prev.includes(facility)
-        ? prev.filter(f => f !== facility)
-        : [...prev, facility]
-    )
-  }, [])
-
-  const toggleSubject = useCallback((code: string) => {
-    setSubjects(prev =>
-      prev.some(s => s.code === code)
-        ? prev.filter(s => s.code !== code)
-        : [...prev, (schoolLevel === 'PRIMARY' ? DEFAULT_PRIMARY_SUBJECTS : DEFAULT_SUBJECTS).find(s => s.code === code)!]
-    )
-  }, [schoolLevel])
 
   // ─── Validation ────────────────────────────────────────────────────────────
   const isStepValid = (step: number): boolean => {
     switch (step) {
-      case 1: return !!(schoolName && schoolCode && province && district)
-      case 2: return !!(yearName && terms.length > 0 && grades.length > 0 && subjects.length > 0)
-      case 3: return feeItems.length > 0
-      case 4: return !!(headmaster.firstName && headmaster.lastName)
+      case 1: return !!(schoolName && emisNumber && province && contactPhone && principalName)
+      case 2: return terms.length === 3 && grades.length > 0
+      case 3: return Object.keys(feeData).length > 0
+      case 4: return !!(adminEmail && adminName && adminPassword && adminPassword.length >= 8 && adminPassword === adminConfirmPassword)
       case 5: return true
-      case 6: return true
       default: return false
     }
   }
+
+  const getStepErrors = (step: number): string[] => {
+    const errors: string[] = []
+    switch (step) {
+      case 1: {
+        if (!schoolName) errors.push('School name is required')
+        if (!emisNumber) errors.push('EMIS number is required')
+        if (!province) errors.push('Province is required')
+        if (!contactPhone) errors.push('Contact phone is required')
+        if (!principalName) errors.push('Principal name is required')
+        break
+      }
+      case 2: {
+        if (terms.length !== 3) errors.push('Three terms are required')
+        if (grades.length === 0) errors.push('At least one grade is required')
+        break
+      }
+      case 3: {
+        if (Object.keys(feeData).length === 0) errors.push('Fee structure must be configured')
+        break
+      }
+      case 4: {
+        if (!adminEmail) errors.push('Admin email is required')
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) errors.push('Invalid email format')
+        if (!adminName) errors.push('Admin name is required')
+        if (!adminPassword) errors.push('Password is required')
+        else if (adminPassword.length < 8) errors.push('Password must be at least 8 characters')
+        if (adminPassword !== adminConfirmPassword) errors.push('Passwords do not match')
+        break
+      }
+    }
+    return errors
+  }
+
+  const goToStep = useCallback((step: number) => {
+    if (step < currentStep || isStepValid(currentStep)) {
+      setDirection(step > currentStep ? 1 : -1)
+      setCurrentStep(step)
+    }
+  }, [currentStep, isStepValid])
+
+  const nextStep = useCallback(() => {
+    if (currentStep < 5 && isStepValid(currentStep)) {
+      setDirection(1)
+      setCurrentStep(prev => prev + 1)
+    }
+  }, [currentStep, isStepValid])
+
+  const prevStep = useCallback(() => {
+    if (currentStep > 1) {
+      setDirection(-1)
+      setCurrentStep(prev => prev - 1)
+    }
+  }, [currentStep])
 
   // ─── Submit ───────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     setIsSubmitting(true)
 
     try {
+      const feeItems: { gradeName: string; feeType: string; amount: number; currency: string }[] = []
+      for (const [gradeName, fees] of Object.entries(feeData)) {
+        for (const [feeKey, amounts] of Object.entries(fees)) {
+          const usdVal = parseFloat(amounts.usd) || 0
+          const zigVal = parseFloat(amounts.zig) || 0
+          if (usdVal > 0) {
+            feeItems.push({ gradeName, feeType: FEE_TYPES.find(f => f.key === feeKey)?.label || feeKey, amount: usdVal, currency: 'USD' })
+          }
+          if (zigVal > 0) {
+            feeItems.push({ gradeName, feeType: FEE_TYPES.find(f => f.key === feeKey)?.label || feeKey, amount: zigVal, currency: 'ZiG' })
+          }
+        }
+      }
+
       const payload = {
         school: {
           name: schoolName,
-          code: schoolCode,
-          type: schoolType,
-          district,
-          province,
-          emisNumber: emisNumber || undefined,
+          code: emisNumber,
+          emisNumber,
           motto: motto || undefined,
-          levelType: schoolLevel,
-          ownershipType,
+          levelType: schoolType,
+          province,
           contactEmail: contactEmail || undefined,
-          contactPhone: contactPhone || undefined,
-          physicalAddress: physicalAddress || undefined,
+          contactPhone,
+          headName: principalName,
+          schoolType: 'GOVERNMENT',
+          ownershipType: 'GOVERNMENT',
         },
         academic: {
-          yearName,
+          yearName: `${new Date().getFullYear()} Academic Year`,
           startDate: yearStart,
-          endDate: yearEnd,
+          endDate: `${new Date().getFullYear()}-12-05`,
           terms,
           grades,
-          subjects,
           classes,
+          subjects: [],
         },
-        fees: { grades: feeItems.map(f => ({ ...f, amount: parseFloat(f.amount) || 0 })) },
-        staff: {
-          headmaster: headmaster.firstName ? headmaster : undefined,
-          deputy: deputy.firstName ? deputy : undefined,
-          bursar: bursar.firstName ? bursar : undefined,
-          seniorTeachers,
-        },
-        infrastructure: {
-          hostels: hostels.map(h => ({ ...h, capacity: parseInt(h.capacity) || 50 })),
-          classrooms: parseInt(classroomCount) || 20,
-          facilities,
+        fees: { grades: feeItems },
+        admin: {
+          email: adminEmail,
+          name: adminName,
+          password: adminPassword,
         },
       }
 
-      const response = await fetch('/api/setup', {
+      const response = await fetch('/api/school', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -342,8 +340,8 @@ export default function SetupWizardModule() {
 
       if (data.success) {
         setSetupComplete(true)
-        setSetupResult({ schoolName: data.schoolName, summary: data.summary })
-        toast.success('School setup completed!', { description: `${data.schoolName} has been configured successfully.` })
+        setSetupResult({ schoolName: data.schoolName || schoolName, summary: data.summary || {} })
+        toast.success('School setup completed!', { description: `${schoolName} has been configured successfully.` })
       } else {
         toast.error('Setup failed', { description: data.error || 'Unknown error' })
       }
@@ -354,39 +352,39 @@ export default function SetupWizardModule() {
     }
   }
 
-  const progressPercent = (currentStep / 6) * 100
+  const progressPercent = (currentStep / 5) * 100
 
   // ─── Step Content Renderers ───────────────────────────────────────────────
   const renderStep1 = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label className="flex items-center gap-1">School Name <span className="text-red-500">*</span></Label>
-          <Input placeholder="e.g., Mufakose High School" value={schoolName} onChange={e => setSchoolName(e.target.value)} />
-        </div>
-        <div className="space-y-2">
-          <Label className="flex items-center gap-1">School Code <span className="text-red-500">*</span></Label>
-          <Input placeholder="e.g., MHS001" value={schoolCode} onChange={e => setSchoolCode(e.target.value.toUpperCase())} />
+      {/* School Basic Info */}
+      <div>
+        <h4 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-3 flex items-center gap-2">
+          <Building2 className="h-4 w-4" /> School Details
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1">School Name <span className="text-red-500">*</span></Label>
+            <Input placeholder="e.g., Mufakose High School" value={schoolName} onChange={e => setSchoolName(e.target.value)} className="border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20" />
+          </div>
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1">EMIS Number <span className="text-red-500">*</span></Label>
+            <Input placeholder="e.g., E1234" value={emisNumber} onChange={e => setEmisNumber(e.target.value.toUpperCase())} className="border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20" />
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>School Type</Label>
-          <Select value={schoolType} onValueChange={setSchoolType}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="GOVERNMENT">Government</SelectItem>
-              <SelectItem value="MISSION">Mission</SelectItem>
-              <SelectItem value="PRIVATE">Private</SelectItem>
-              <SelectItem value="COUNCIL">Council</SelectItem>
-            </SelectContent>
-          </Select>
+          <Label>School Motto</Label>
+          <Input placeholder="e.g., Knowledge is Power" value={motto} onChange={e => setMotto(e.target.value)} className="border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20" />
         </div>
         <div className="space-y-2">
-          <Label className="flex items-center gap-1">Level <span className="text-red-500">*</span></Label>
-          <Select value={schoolLevel} onValueChange={handleLevelChange}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+          <Label className="flex items-center gap-1">School Type <span className="text-red-500">*</span></Label>
+          <Select value={schoolType} onValueChange={v => handleTypeChange(v as 'PRIMARY' | 'SECONDARY' | 'COMBINED')}>
+            <SelectTrigger className="border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="PRIMARY">Primary School</SelectItem>
               <SelectItem value="SECONDARY">Secondary School</SelectItem>
@@ -394,61 +392,50 @@ export default function SetupWizardModule() {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-2">
-          <Label>Ownership</Label>
-          <Select value={ownershipType} onValueChange={setOwnershipType}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="GOVERNMENT">Government</SelectItem>
-              <SelectItem value="CHURCH">Church</SelectItem>
-              <SelectItem value="PRIVATE">Private</SelectItem>
-              <SelectItem value="LOCAL_AUTHORITY">Local Authority</SelectItem>
-            </SelectContent>
-          </Select>
+      </div>
+
+      <Separator className="bg-emerald-100 dark:bg-emerald-900/30" />
+
+      {/* Location */}
+      <div>
+        <h4 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-3 flex items-center gap-2">
+          <MapPin className="h-4 w-4" /> Location
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1">Province <span className="text-red-500">*</span></Label>
+            <Select value={province} onValueChange={setProvince}>
+              <SelectTrigger className="border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20">
+                <SelectValue placeholder="Select province" />
+              </SelectTrigger>
+              <SelectContent>
+                {ZIMBABWE_PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1">Principal Name <span className="text-red-500">*</span></Label>
+            <Input placeholder="e.g., Mr. J. Moyo" value={principalName} onChange={e => setPrincipalName(e.target.value)} className="border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20" />
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label className="flex items-center gap-1">Province <span className="text-red-500">*</span></Label>
-          <Select value={province} onValueChange={setProvince}>
-            <SelectTrigger><SelectValue placeholder="Select province" /></SelectTrigger>
-            <SelectContent>
-              {ZIMBABWE_PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label className="flex items-center gap-1">District <span className="text-red-500">*</span></Label>
-          <Input placeholder="e.g., Harare" value={district} onChange={e => setDistrict(e.target.value)} />
-        </div>
-      </div>
+      <Separator className="bg-emerald-100 dark:bg-emerald-900/30" />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>EMIS Number</Label>
-          <Input placeholder="e.g., E1234" value={emisNumber} onChange={e => setEmisNumber(e.target.value)} />
-        </div>
-        <div className="space-y-2">
-          <Label>School Motto</Label>
-          <Input placeholder="e.g., Knowledge is Power" value={motto} onChange={e => setMotto(e.target.value)} />
-        </div>
-      </div>
-
-      <Separator />
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <Label><Mail className="h-3 w-3 inline mr-1" />Contact Email</Label>
-          <Input placeholder="info@school.co.zw" value={contactEmail} onChange={e => setContactEmail(e.target.value)} />
-        </div>
-        <div className="space-y-2">
-          <Label><Phone className="h-3 w-3 inline mr-1" />Contact Phone</Label>
-          <Input placeholder="+263 4 XXXXXX" value={contactPhone} onChange={e => setContactPhone(e.target.value)} />
-        </div>
-        <div className="space-y-2">
-          <Label><MapPin className="h-3 w-3 inline mr-1" />Physical Address</Label>
-          <Input placeholder="School address" value={physicalAddress} onChange={e => setPhysicalAddress(e.target.value)} />
+      {/* Contact */}
+      <div>
+        <h4 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-3 flex items-center gap-2">
+          <Phone className="h-4 w-4" /> Contact Information
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1"><Phone className="h-3 w-3" /> Contact Phone <span className="text-red-500">*</span></Label>
+            <Input placeholder="+263 4 XXXXXX" value={contactPhone} onChange={e => setContactPhone(e.target.value)} className="border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20" />
+          </div>
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1"><Mail className="h-3 w-3" /> Contact Email</Label>
+            <Input placeholder="info@school.co.zw" type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)} className="border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20" />
+          </div>
         </div>
       </div>
     </div>
@@ -456,118 +443,106 @@ export default function SetupWizardModule() {
 
   const renderStep2 = () => (
     <div className="space-y-6">
+      {/* Grade Levels */}
+      <div>
+        <h4 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-3 flex items-center gap-2">
+          <GraduationCap className="h-4 w-4" /> Grade Levels
+        </h4>
+        <p className="text-xs text-muted-foreground mb-3">
+          Based on your school type (<span className="font-medium text-emerald-600">{schoolType}</span>), these grades are configured:
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {grades.map(g => (
+            <Badge key={g.name} variant="secondary" className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800">
+              {g.name} <span className="text-[10px] opacity-60 ml-1">({g.level})</span>
+            </Badge>
+          ))}
+        </div>
+      </div>
+
+      {/* Streams */}
+      <div>
+        <h4 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-3 flex items-center gap-2">
+          <BookOpen className="h-4 w-4" /> Streams per Grade
+        </h4>
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          {([1, 2, 3] as const).map(count => (
+            <button
+              key={count}
+              onClick={() => setStreamsPerGrade(count)}
+              className={cn(
+                'p-4 rounded-xl border-2 transition-all text-center',
+                streamsPerGrade === count
+                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 shadow-md shadow-emerald-100 dark:shadow-emerald-900/20'
+                  : 'border-muted hover:border-emerald-200 dark:hover:border-emerald-800'
+              )}
+            >
+              <p className="text-2xl font-bold text-emerald-600">{count}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {count === 1 ? 'Single stream' : count === 2 ? 'A & B streams' : 'A, B & C streams'}
+              </p>
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {activeStreams.map(s => (
+            <Badge key={s} className="bg-teal-100 text-teal-700 border border-teal-300 dark:bg-teal-950/30 dark:text-teal-300 dark:border-teal-800">
+              Stream {s}
+            </Badge>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          This will create <span className="font-semibold text-emerald-600">{grades.length * streamsPerGrade}</span> classes total
+        </p>
+      </div>
+
       {/* Academic Year */}
       <div>
-        <h4 className="text-sm font-semibold mb-3">Academic Year</h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <h4 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-3">Academic Year Start</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Year Name</Label>
-            <Input value={yearName} onChange={e => setYearName(e.target.value)} />
+            <Label>Year Start Date</Label>
+            <Input type="date" value={yearStart} onChange={e => setYearStart(e.target.value)} className="border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20" />
           </div>
           <div className="space-y-2">
-            <Label>Start Date</Label>
-            <Input type="date" value={yearStart} onChange={e => setYearStart(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>End Date</Label>
-            <Input type="date" value={yearEnd} onChange={e => setYearEnd(e.target.value)} />
+            <Label>Academic Year</Label>
+            <Input value={`${new Date().getFullYear()} Academic Year`} disabled className="bg-muted/50" />
           </div>
         </div>
       </div>
 
       {/* Terms */}
       <div>
-        <h4 className="text-sm font-semibold mb-3">Terms ({terms.length})</h4>
+        <h4 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-3">Three Terms</h4>
         <div className="space-y-3">
           {terms.map((term, idx) => (
-            <div key={idx} className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-muted/30 rounded-lg p-3">
+            <div key={idx} className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl p-4 border border-emerald-100 dark:border-emerald-900/30">
               <div className="space-y-1">
-                <Label className="text-xs">Name</Label>
-                <Input className="h-8 text-sm" value={term.name} onChange={e => {
+                <Label className="text-xs font-medium">Term Name</Label>
+                <Input className="h-8 text-sm border-emerald-200 focus:border-emerald-500" value={term.name} onChange={e => {
                   const updated = [...terms]; updated[idx] = { ...updated[idx], name: e.target.value }; setTerms(updated)
                 }} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Start</Label>
-                <Input className="h-8 text-sm" type="date" value={term.startDate} onChange={e => {
+                <Label className="text-xs font-medium">Start Date</Label>
+                <Input className="h-8 text-sm border-emerald-200 focus:border-emerald-500" type="date" value={term.startDate} onChange={e => {
                   const updated = [...terms]; updated[idx] = { ...updated[idx], startDate: e.target.value }; setTerms(updated)
                 }} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">End</Label>
-                <Input className="h-8 text-sm" type="date" value={term.endDate} onChange={e => {
+                <Label className="text-xs font-medium">End Date</Label>
+                <Input className="h-8 text-sm border-emerald-200 focus:border-emerald-500" type="date" value={term.endDate} onChange={e => {
                   const updated = [...terms]; updated[idx] = { ...updated[idx], endDate: e.target.value }; setTerms(updated)
                 }} />
               </div>
               <div className="flex items-end">
-                <Badge variant="outline" className="text-xs">Term {term.termNumber}</Badge>
+                <Badge variant="outline" className="text-xs border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400">
+                  Term {term.termNumber}
+                </Badge>
               </div>
             </div>
           ))}
         </div>
-      </div>
-
-      {/* Grades */}
-      <div>
-        <h4 className="text-sm font-semibold mb-3">Grades ({grades.length})</h4>
-        <div className="flex flex-wrap gap-2">
-          {grades.map(g => (
-            <Badge key={g.name} variant="secondary" className="px-3 py-1.5">
-              {g.name} <span className="text-[10px] text-muted-foreground ml-1">({g.level})</span>
-            </Badge>
-          ))}
-        </div>
-      </div>
-
-      {/* Subjects */}
-      <div>
-        <h4 className="text-sm font-semibold mb-3">Subjects ({subjects.length})</h4>
-        <div className="flex flex-wrap gap-2">
-          {(schoolLevel === 'PRIMARY' ? DEFAULT_PRIMARY_SUBJECTS : DEFAULT_SUBJECTS).map(s => (
-            <button
-              key={s.code}
-              onClick={() => toggleSubject(s.code)}
-              className={cn(
-                'px-3 py-1.5 rounded-full text-xs font-medium transition-all border',
-                subjects.some(sub => sub.code === s.code)
-                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                  : 'bg-muted/30 text-muted-foreground border-transparent hover:border-muted'
-              )}
-            >
-              {s.name}
-              {s.isCore && <span className="ml-1 text-[9px] opacity-60">(Core)</span>}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Classes */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-semibold">Classes ({classes.length})</h4>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="text-xs gap-1" onClick={generateDefaultClasses}>
-              <Sparkles className="h-3 w-3" /> Auto-generate
-            </Button>
-            <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => setAddClassOpen(true)}>
-              <Plus className="h-3 w-3" /> Add Class
-            </Button>
-          </div>
-        </div>
-        {classes.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {classes.map((cls, idx) => (
-              <div key={idx} className="flex items-center justify-between bg-muted/30 rounded-lg p-2">
-                <span className="text-xs font-medium">{cls.name}</span>
-                <button onClick={() => removeClass(idx)} className="text-muted-foreground hover:text-red-500">
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground">No classes configured. Click &quot;Auto-generate&quot; to create default classes.</p>
-        )}
       </div>
     </div>
   )
@@ -576,55 +551,83 @@ export default function SetupWizardModule() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h4 className="text-sm font-semibold">Fee Structure</h4>
-          <p className="text-xs text-muted-foreground">Define fee types and amounts per grade</p>
+          <h4 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Fee Structure</h4>
+          <p className="text-xs text-muted-foreground">Define fee amounts per grade in USD and ZiG</p>
         </div>
-        <Button variant="outline" size="sm" className="text-xs gap-1" onClick={generateDefaultFees}>
+        <Button variant="outline" size="sm" className="text-xs gap-1 border-emerald-300 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/30" onClick={generateDefaultFees}>
           <Sparkles className="h-3 w-3" /> Auto-generate defaults
         </Button>
       </div>
 
-      {feeItems.length > 0 ? (
-        <div className="max-h-96 overflow-y-auto space-y-2">
-          {feeItems.map((fee, idx) => (
-            <div key={idx} className="grid grid-cols-4 gap-2 bg-muted/30 rounded-lg p-3 items-center">
-              <span className="text-xs font-medium truncate">{fee.gradeName}</span>
-              <span className="text-xs text-muted-foreground">{fee.feeType}</span>
-              <div className="flex items-center gap-1">
-                <Input className="h-7 text-xs w-20" value={fee.amount} onChange={e => {
-                  const updated = [...feeItems]; updated[idx] = { ...updated[idx], amount: e.target.value }; setFeeItems(updated)
-                }} />
-                <Select value={fee.currency} onValueChange={v => {
-                  const updated = [...feeItems]; updated[idx] = { ...updated[idx], currency: v }; setFeeItems(updated)
-                }}>
-                  <SelectTrigger className="h-7 text-xs w-16"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="ZiG">ZiG</SelectItem>
-                  </SelectContent>
-                </Select>
+      {Object.keys(feeData).length > 0 ? (
+        <div className="max-h-[500px] overflow-y-auto space-y-4 pr-1">
+          {grades.map(grade => (
+            <div key={grade.name} className="bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl p-4 border border-emerald-100 dark:border-emerald-900/30">
+              <h5 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-3">{grade.name}</h5>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {FEE_TYPES.map(ft => {
+                  const FeeIcon = ft.icon
+                  return (
+                    <div key={ft.key} className="bg-white dark:bg-background rounded-lg p-3 border border-emerald-100 dark:border-emerald-900/20">
+                      <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                        <FeeIcon className="h-3 w-3" /> {ft.label}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">USD</Label>
+                          <Input
+                            className="h-7 text-xs border-emerald-200 focus:border-emerald-500"
+                            placeholder="0.00"
+                            value={feeData[grade.name]?.[ft.key]?.usd || ''}
+                            onChange={e => updateFeeAmount(grade.name, ft.key, 'usd', e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">ZiG</Label>
+                          <Input
+                            className="h-7 text-xs border-emerald-200 focus:border-emerald-500"
+                            placeholder="0.00"
+                            value={feeData[grade.name]?.[ft.key]?.zig || ''}
+                            onChange={e => updateFeeAmount(grade.name, ft.key, 'zig', e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-              <button onClick={() => setFeeItems(prev => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-red-500 justify-self-end">
-                <X className="h-3.5 w-3.5" />
-              </button>
             </div>
           ))}
         </div>
       ) : (
-        <div className="text-center py-8 bg-muted/20 rounded-lg">
-          <DollarSign className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">No fee items configured</p>
-          <p className="text-xs text-muted-foreground">Click &quot;Auto-generate defaults&quot; to create standard fee structures</p>
+        <div className="text-center py-12 bg-emerald-50/30 dark:bg-emerald-950/10 rounded-xl border border-dashed border-emerald-200 dark:border-emerald-800">
+          <DollarSign className="h-10 w-10 text-emerald-400 mx-auto mb-3" />
+          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">No fee structure configured</p>
+          <p className="text-xs text-muted-foreground mt-1">Click &quot;Auto-generate defaults&quot; to create standard fee structures</p>
         </div>
       )}
 
-      {feeItems.length > 0 && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-4">
-          <p className="text-xs text-muted-foreground mb-1">Total Fee Items</p>
-          <p className="text-lg font-bold text-emerald-600">{feeItems.length}</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Total per grade: ${feeItems.filter(f => f.gradeName === grades[0]?.name).reduce((s, f) => s + (parseFloat(f.amount) || 0), 0).toFixed(2)}
-          </p>
+      {Object.keys(feeData).length > 0 && (
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-xl p-4 border border-emerald-100 dark:border-emerald-900/30">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">Total Fee Items</p>
+              <p className="text-2xl font-bold text-emerald-600">
+                {Object.values(feeData).reduce((sum, fees) => {
+                  return sum + Object.values(fees).filter(a => (parseFloat(a.usd) || 0) > 0 || (parseFloat(a.zig) || 0) > 0).length
+                }, 0)}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">First Grade Total (USD)</p>
+              <p className="text-xl font-bold text-teal-600">
+                ${grades[0] && feeData[grades[0].name]
+                  ? Object.values(feeData[grades[0].name]).reduce((s, a) => s + (parseFloat(a.usd) || 0), 0).toFixed(2)
+                  : '0.00'
+                }
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -632,129 +635,130 @@ export default function SetupWizardModule() {
 
   const renderStep4 = () => (
     <div className="space-y-6">
-      {/* Headmaster */}
-      <div className="bg-muted/30 rounded-lg p-4 space-y-3">
-        <h4 className="text-sm font-semibold flex items-center gap-2">
-          <School className="h-4 w-4 text-emerald-600" /> Headmaster <span className="text-red-500 text-xs">*required</span>
-        </h4>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1"><Label className="text-xs">First Name</Label><Input className="h-8 text-sm" value={headmaster.firstName} onChange={e => setHeadmaster(p => ({ ...p, firstName: e.target.value }))} /></div>
-          <div className="space-y-1"><Label className="text-xs">Last Name</Label><Input className="h-8 text-sm" value={headmaster.lastName} onChange={e => setHeadmaster(p => ({ ...p, lastName: e.target.value }))} /></div>
-          <div className="space-y-1"><Label className="text-xs">Phone</Label><Input className="h-8 text-sm" value={headmaster.phone} onChange={e => setHeadmaster(p => ({ ...p, phone: e.target.value }))} /></div>
-          <div className="space-y-1"><Label className="text-xs">Email</Label><Input className="h-8 text-sm" value={headmaster.email} onChange={e => setHeadmaster(p => ({ ...p, email: e.target.value }))} /></div>
-        </div>
-      </div>
-
-      {/* Deputy */}
-      <div className="bg-muted/30 rounded-lg p-4 space-y-3">
-        <h4 className="text-sm font-semibold">Deputy Head</h4>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1"><Label className="text-xs">First Name</Label><Input className="h-8 text-sm" value={deputy.firstName} onChange={e => setDeputy(p => ({ ...p, firstName: e.target.value }))} /></div>
-          <div className="space-y-1"><Label className="text-xs">Last Name</Label><Input className="h-8 text-sm" value={deputy.lastName} onChange={e => setDeputy(p => ({ ...p, lastName: e.target.value }))} /></div>
-          <div className="space-y-1"><Label className="text-xs">Phone</Label><Input className="h-8 text-sm" value={deputy.phone} onChange={e => setDeputy(p => ({ ...p, phone: e.target.value }))} /></div>
-          <div className="space-y-1"><Label className="text-xs">Email</Label><Input className="h-8 text-sm" value={deputy.email} onChange={e => setDeputy(p => ({ ...p, email: e.target.value }))} /></div>
-        </div>
-      </div>
-
-      {/* Bursar */}
-      <div className="bg-muted/30 rounded-lg p-4 space-y-3">
-        <h4 className="text-sm font-semibold">Bursar</h4>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1"><Label className="text-xs">First Name</Label><Input className="h-8 text-sm" value={bursar.firstName} onChange={e => setBursar(p => ({ ...p, firstName: e.target.value }))} /></div>
-          <div className="space-y-1"><Label className="text-xs">Last Name</Label><Input className="h-8 text-sm" value={bursar.lastName} onChange={e => setBursar(p => ({ ...p, lastName: e.target.value }))} /></div>
-          <div className="space-y-1"><Label className="text-xs">Phone</Label><Input className="h-8 text-sm" value={bursar.phone} onChange={e => setBursar(p => ({ ...p, phone: e.target.value }))} /></div>
-          <div className="space-y-1"><Label className="text-xs">Email</Label><Input className="h-8 text-sm" value={bursar.email} onChange={e => setBursar(p => ({ ...p, email: e.target.value }))} /></div>
-        </div>
-      </div>
-
-      {/* Senior Teachers */}
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-semibold">Senior Teachers ({seniorTeachers.length})</h4>
-          <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => setAddTeacherOpen(true)}>
-            <Plus className="h-3 w-3" /> Add Teacher
-          </Button>
-        </div>
-        {seniorTeachers.length > 0 ? (
+        <h4 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-1 flex items-center gap-2">
+          <Shield className="h-4 w-4" /> Administrator Account
+        </h4>
+        <p className="text-xs text-muted-foreground mb-4">Create the initial admin user who will manage the school system</p>
+      </div>
+
+      <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 rounded-xl p-6 border border-emerald-100 dark:border-emerald-900/30 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            {seniorTeachers.map((t, idx) => (
-              <div key={idx} className="flex items-center justify-between bg-muted/30 rounded-lg p-3">
-                <div>
-                  <p className="text-sm font-medium">{t.firstName} {t.lastName}</p>
-                  <p className="text-xs text-muted-foreground">{t.subjectSpecialisation} {t.phone && `• ${t.phone}`}</p>
-                </div>
-                <button onClick={() => removeTeacher(idx)} className="text-muted-foreground hover:text-red-500">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
+            <Label className="flex items-center gap-1"><User className="h-3 w-3" /> Full Name <span className="text-red-500">*</span></Label>
+            <Input
+              placeholder="e.g., John Moyo"
+              value={adminName}
+              onChange={e => setAdminName(e.target.value)}
+              className="border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+            />
           </div>
-        ) : (
-          <p className="text-xs text-muted-foreground text-center py-4">No senior teachers added yet</p>
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1"><Mail className="h-3 w-3" /> Email Address <span className="text-red-500">*</span></Label>
+            <Input
+              placeholder="admin@school.co.zw"
+              type="email"
+              value={adminEmail}
+              onChange={e => setAdminEmail(e.target.value)}
+              className="border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1">Password <span className="text-red-500">*</span></Label>
+            <div className="relative">
+              <Input
+                placeholder="Min. 8 characters"
+                type={showPassword ? 'text' : 'password'}
+                value={adminPassword}
+                onChange={e => setAdminPassword(e.target.value)}
+                className="border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20 pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-emerald-600"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1">Confirm Password <span className="text-red-500">*</span></Label>
+            <div className="relative">
+              <Input
+                placeholder="Re-enter password"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={adminConfirmPassword}
+                onChange={e => setAdminConfirmPassword(e.target.value)}
+                className={cn(
+                  'border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/20 pr-10',
+                  adminConfirmPassword && adminPassword !== adminConfirmPassword && 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
+                )}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-emerald-600"
+              >
+                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Password strength indicator */}
+        {adminPassword && (
+          <div className="space-y-2">
+            <div className="flex gap-1">
+              {[1, 2, 3, 4].map(level => (
+                <div
+                  key={level}
+                  className={cn(
+                    'h-1.5 flex-1 rounded-full transition-colors',
+                    adminPassword.length >= level * 3
+                      ? level <= 1 ? 'bg-red-400'
+                        : level <= 2 ? 'bg-amber-400'
+                          : level <= 3 ? 'bg-emerald-400'
+                            : 'bg-teal-500'
+                      : 'bg-muted'
+                  )}
+                />
+              ))}
+            </div>
+            <p className={cn(
+              'text-xs',
+              adminPassword.length < 4 ? 'text-red-500' :
+                adminPassword.length < 8 ? 'text-amber-500' :
+                  adminPassword.length < 12 ? 'text-emerald-500' : 'text-teal-500'
+            )}>
+              {adminPassword.length < 4 ? 'Weak' :
+                adminPassword.length < 8 ? 'Fair (minimum 8 characters required)' :
+                  adminPassword.length < 12 ? 'Good' : 'Strong'}
+            </p>
+          </div>
         )}
+
+        {adminConfirmPassword && adminPassword !== adminConfirmPassword && (
+          <div className="flex items-center gap-2 text-red-500 text-xs bg-red-50 dark:bg-red-950/20 rounded-lg p-3">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>Passwords do not match</span>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
+        <p className="text-xs text-amber-700 dark:text-amber-400 font-medium flex items-center gap-2">
+          <AlertCircle className="h-4 w-4" />
+          This account will have full administrative access to the school management system.
+        </p>
       </div>
     </div>
   )
 
   const renderStep5 = () => (
-    <div className="space-y-6">
-      {/* Hostels */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-semibold">Hostels ({hostels.length})</h4>
-          <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => setAddHostelOpen(true)}>
-            <Plus className="h-3 w-3" /> Add Hostel
-          </Button>
-        </div>
-        {hostels.length > 0 ? (
-          <div className="space-y-2">
-            {hostels.map((h, idx) => (
-              <div key={idx} className="flex items-center justify-between bg-muted/30 rounded-lg p-3">
-                <div>
-                  <p className="text-sm font-medium">{h.name}</p>
-                  <p className="text-xs text-muted-foreground">{h.gender} • Capacity: {h.capacity}</p>
-                </div>
-                <button onClick={() => removeHostel(idx)} className="text-muted-foreground hover:text-red-500">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground text-center py-4 bg-muted/20 rounded-lg">No hostels — skip if day school</p>
-        )}
-      </div>
-
-      {/* Classrooms */}
-      <div className="space-y-2">
-        <Label>Number of Classrooms</Label>
-        <Input type="number" value={classroomCount} onChange={e => setClassroomCount(e.target.value)} className="w-32" />
-      </div>
-
-      {/* Facilities */}
-      <div>
-        <h4 className="text-sm font-semibold mb-3">Facilities ({facilities.length} selected)</h4>
-        <div className="flex flex-wrap gap-2">
-          {facilityOptions.map(f => (
-            <button
-              key={f}
-              onClick={() => toggleFacility(f)}
-              className={cn(
-                'px-3 py-1.5 rounded-full text-xs font-medium transition-all border',
-                facilities.includes(f)
-                  ? 'bg-teal-100 text-teal-700 border-teal-300'
-                  : 'bg-muted/30 text-muted-foreground border-transparent hover:border-muted'
-              )}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-
-  const renderStep6 = () => (
     <div className="space-y-4">
       <div className="text-center mb-4">
         <h3 className="text-lg font-bold">Review Your Setup</h3>
@@ -762,43 +766,90 @@ export default function SetupWizardModule() {
       </div>
 
       {/* School Summary */}
-      <Card className="border-0 shadow-md">
+      <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-50/50 to-white dark:from-emerald-950/10 dark:to-background">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <Building2 className="h-4 w-4 text-emerald-600" /> School Information
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-sm space-y-1">
+        <CardContent className="text-sm space-y-1.5">
           <div className="flex justify-between"><span className="text-muted-foreground">Name</span><span className="font-medium">{schoolName || '—'}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Code</span><span className="font-mono">{schoolCode || '—'}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Type</span><span>{schoolType} • {schoolLevel}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Location</span><span>{district}, {province}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">EMIS Number</span><span className="font-mono">{emisNumber || '—'}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Type</span><span className="capitalize">{schoolType}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Province</span><span>{province || '—'}</span></div>
           {motto && <div className="flex justify-between"><span className="text-muted-foreground">Motto</span><span className="italic">&quot;{motto}&quot;</span></div>}
+          <div className="flex justify-between"><span className="text-muted-foreground">Principal</span><span>{principalName || '—'}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span>{contactPhone || '—'}</span></div>
+          {contactEmail && <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span>{contactEmail}</span></div>}
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="border-0 shadow-sm"><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-emerald-600">{terms.length}</p><p className="text-xs text-muted-foreground">Terms</p></CardContent></Card>
-        <Card className="border-0 shadow-sm"><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-teal-600">{grades.length}</p><p className="text-xs text-muted-foreground">Grades</p></CardContent></Card>
-        <Card className="border-0 shadow-sm"><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-amber-600">{subjects.length}</p><p className="text-xs text-muted-foreground">Subjects</p></CardContent></Card>
-        <Card className="border-0 shadow-sm"><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-violet-600">{classes.length}</p><p className="text-xs text-muted-foreground">Classes</p></CardContent></Card>
-      </div>
+      {/* Academic Summary */}
+      <Card className="border-0 shadow-md">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <GraduationCap className="h-4 w-4 text-teal-600" /> Academic Structure
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm space-y-1.5">
+          <div className="flex justify-between"><span className="text-muted-foreground">Grades</span><span>{grades.length} grade levels</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Streams</span><span>{streamsPerGrade} per grade ({activeStreams.join(', ')})</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Total Classes</span><span>{grades.length * streamsPerGrade}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Terms</span><span>3 terms</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Year Starts</span><span>{yearStart}</span></div>
+        </CardContent>
+      </Card>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="border-0 shadow-sm"><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-emerald-600">{feeItems.length}</p><p className="text-xs text-muted-foreground">Fee Items</p></CardContent></Card>
-        <Card className="border-0 shadow-sm"><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-teal-600">{1 + (deputy.firstName ? 1 : 0) + (bursar.firstName ? 1 : 0) + seniorTeachers.length}</p><p className="text-xs text-muted-foreground">Staff</p></CardContent></Card>
-        <Card className="border-0 shadow-sm"><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-amber-600">{hostels.length}</p><p className="text-xs text-muted-foreground">Hostels</p></CardContent></Card>
-        <Card className="border-0 shadow-sm"><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-violet-600">{facilities.length}</p><p className="text-xs text-muted-foreground">Facilities</p></CardContent></Card>
-      </div>
+      {/* Fee Summary */}
+      <Card className="border-0 shadow-md">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-amber-600" /> Fee Structure
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm space-y-1.5">
+          <div className="flex justify-between"><span className="text-muted-foreground">Grades with Fees</span><span>{Object.keys(feeData).length}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Fee Types</span><span>{FEE_TYPES.length} (Tuition, Boarding, Transport, Other)</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Currencies</span><span>USD + ZiG</span></div>
+          {grades[0] && feeData[grades[0].name] && (
+            <div className="flex justify-between"><span className="text-muted-foreground">First Grade Total</span><span className="font-medium text-emerald-600">
+              ${Object.values(feeData[grades[0].name]).reduce((s, a) => s + (parseFloat(a.usd) || 0), 0).toFixed(2)} / ZiG {Object.values(feeData[grades[0].name]).reduce((s, a) => s + (parseFloat(a.zig) || 0), 0).toFixed(2)}
+            </span></div>
+          )}
+        </CardContent>
+      </Card>
 
-      {!isStepValid(1) && (
+      {/* Admin Summary */}
+      <Card className="border-0 shadow-md">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Shield className="h-4 w-4 text-violet-600" /> Admin Account
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm space-y-1.5">
+          <div className="flex justify-between"><span className="text-muted-foreground">Name</span><span>{adminName || '—'}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span>{adminEmail || '—'}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Password</span><span className="text-muted-foreground">{'•'.repeat(Math.min(adminPassword.length, 12))}</span></div>
+        </CardContent>
+      </Card>
+
+      {/* Validation Summary */}
+      {[1, 2, 3, 4].some(s => !isStepValid(s)) && (
         <div className="flex items-center gap-2 text-amber-600 text-xs bg-amber-50 dark:bg-amber-950/20 rounded-lg p-3">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>Some required fields are missing. Please go back and complete Step 1 (School Name, Code, Province, District) and Step 4 (Headmaster).</span>
+          <span>Some required fields are missing. Please go back and complete the highlighted steps.</span>
         </div>
       )}
     </div>
   )
+
+  const stepRenderers: Record<number, () => React.JSX.Element> = {
+    1: renderStep1,
+    2: renderStep2,
+    3: renderStep3,
+    4: renderStep4,
+    5: renderStep5,
+  }
 
   // ─── Completion Screen ─────────────────────────────────────────────────────
   if (setupComplete) {
@@ -806,30 +857,34 @@ export default function SetupWizardModule() {
       <div className="space-y-6">
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-12">
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, delay: 0.2 }}>
-            <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
-              <CheckCircle2 className="h-10 w-10 text-emerald-600" />
+            <div className="inline-flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30">
+              <CheckCircle2 className="h-12 w-12 text-emerald-600" />
             </div>
           </motion.div>
-          <h2 className="text-2xl font-bold mt-6">School Setup Complete!</h2>
-          <p className="text-muted-foreground mt-2">{setupResult?.schoolName} has been configured successfully.</p>
+          <motion.h2 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="text-2xl font-bold mt-6">
+            School Setup Complete!
+          </motion.h2>
+          <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="text-muted-foreground mt-2">
+            {setupResult?.schoolName} has been configured successfully.
+          </motion.p>
 
-          {setupResult?.summary && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-xl mx-auto mt-6">
+          {setupResult?.summary && Object.keys(setupResult.summary).length > 0 && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-xl mx-auto mt-6">
               {Object.entries(setupResult.summary).map(([key, value]) => (
-                <Card key={key} className="border-0 shadow-sm">
+                <Card key={key} className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20">
                   <CardContent className="p-3 text-center">
                     <p className="text-xl font-bold text-emerald-600">{value}</p>
                     <p className="text-[10px] text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}</p>
                   </CardContent>
                 </Card>
               ))}
-            </div>
+            </motion.div>
           )}
 
-          <div className="flex items-center justify-center gap-2 mt-8">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }} className="flex items-center justify-center gap-2 mt-8">
             <Flag className="h-4 w-4 text-emerald-600" />
             <span className="text-sm text-muted-foreground">You can now start enrolling students and managing your school!</span>
-          </div>
+          </motion.div>
         </motion.div>
       </div>
     )
@@ -841,186 +896,194 @@ export default function SetupWizardModule() {
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600">
-            <School className="h-5 w-5 text-white" />
+            <Sparkles className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-bold tracking-tight">Multi-School Setup Wizard</h2>
-            <p className="text-sm text-muted-foreground">Configure a new school in 6 easy steps</p>
+            <h2 className="text-lg font-bold">School Setup Wizard</h2>
+            <p className="text-xs text-muted-foreground">Configure your new school in 5 simple steps</p>
           </div>
         </div>
       </motion.div>
 
       {/* Progress Bar */}
-      <Card className="border-0 shadow-md">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium">Step {currentStep} of 6</span>
-            <span className="text-xs text-muted-foreground">{Math.round(progressPercent)}% complete</span>
-          </div>
-          <Progress value={progressPercent} className="h-2" />
-          <div className="flex items-center justify-between mt-3">
-            {STEPS.map(step => (
-              <button
-                key={step.id}
-                onClick={() => { if (step.id <= currentStep) setCurrentStep(step.id) }}
-                className={cn(
-                  'flex flex-col items-center gap-1 transition-all',
-                  step.id === currentStep ? 'text-emerald-600' : step.id < currentStep ? 'text-emerald-400' : 'text-muted-foreground'
+      <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+        <div className="space-y-2">
+          <Progress value={progressPercent} className="h-2 bg-emerald-100 dark:bg-emerald-900/30 [&>div]:bg-gradient-to-r [&>div]:from-emerald-500 [&>div]:to-teal-500" />
+          <p className="text-xs text-muted-foreground text-right">Step {currentStep} of 5 — {Math.round(progressPercent)}% complete</p>
+        </div>
+      </motion.div>
+
+      {/* Step Navigation */}
+      <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+        <div className="flex items-center gap-1 overflow-x-auto pb-2">
+          {STEPS.map((step, idx) => {
+            const StepIcon = step.icon
+            const isActive = currentStep === step.id
+            const isCompleted = currentStep > step.id
+            const isClickable = step.id <= currentStep || (step.id === currentStep + 1 && isStepValid(currentStep))
+            const hasErrors = step.id < currentStep && !isStepValid(step.id)
+
+            return (
+              <React.Fragment key={step.id}>
+                {idx > 0 && (
+                  <div className={cn(
+                    'h-0.5 flex-1 min-w-[20px] transition-colors',
+                    currentStep > step.id ? 'bg-emerald-400' : 'bg-muted'
+                  )} />
                 )}
-              >
-                <div className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all',
-                  step.id === currentStep ? 'border-emerald-500 bg-emerald-50' : step.id < currentStep ? 'border-emerald-400 bg-emerald-100' : 'border-muted'
-                )}>
-                  {step.id < currentStep ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                  ) : (
-                    <step.icon className="h-4 w-4" />
+                <button
+                  onClick={() => isClickable && goToStep(step.id)}
+                  disabled={!isClickable}
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-xs font-medium whitespace-nowrap',
+                    isActive
+                      ? 'bg-emerald-100 text-emerald-700 shadow-sm dark:bg-emerald-950/40 dark:text-emerald-300'
+                      : isCompleted
+                        ? hasErrors
+                          ? 'bg-red-50 text-red-600 dark:bg-red-950/20 dark:text-red-400'
+                          : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400'
+                        : isClickable
+                          ? 'bg-muted/50 text-muted-foreground hover:bg-emerald-50 dark:hover:bg-emerald-950/20'
+                          : 'bg-muted/20 text-muted-foreground/50 cursor-not-allowed'
                   )}
-                </div>
-                <span className="text-[10px] font-medium hidden md:block">{step.title}</span>
-              </button>
-            ))}
-          </div>
+                >
+                  <div className={cn(
+                    'flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold',
+                    isActive
+                      ? 'bg-emerald-500 text-white'
+                      : isCompleted
+                        ? hasErrors
+                          ? 'bg-red-500 text-white'
+                          : 'bg-emerald-500 text-white'
+                        : 'bg-muted-foreground/20 text-muted-foreground/60'
+                  )}>
+                    {isCompleted && !hasErrors ? <CheckCircle2 className="h-3.5 w-3.5" /> : step.id}
+                  </div>
+                  <span className="hidden md:inline">{step.title}</span>
+                </button>
+              </React.Fragment>
+            )
+          })}
+        </div>
+      </motion.div>
+
+      {/* Step Content */}
+      <Card className="border-0 shadow-lg overflow-hidden">
+        <CardContent className="p-6">
+          <AnimatePresence mode="wait" custom={direction}>
+            <motion.div
+              key={currentStep}
+              custom={direction}
+              variants={stepVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+            >
+              {stepRenderers[currentStep]?.()}
+            </motion.div>
+          </AnimatePresence>
         </CardContent>
       </Card>
 
-      {/* Step Content */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentStep}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.2 }}
-        >
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {React.createElement(STEPS[currentStep - 1].icon, { className: 'h-5 w-5 text-emerald-600' })}
-                {STEPS[currentStep - 1].title}
-              </CardTitle>
-              <CardDescription>{STEPS[currentStep - 1].description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {currentStep === 1 && renderStep1()}
-              {currentStep === 2 && renderStep2()}
-              {currentStep === 3 && renderStep3()}
-              {currentStep === 4 && renderStep4()}
-              {currentStep === 5 && renderStep5()}
-              {currentStep === 6 && renderStep6()}
-            </CardContent>
-          </Card>
-        </motion.div>
-      </AnimatePresence>
-
       {/* Navigation Buttons */}
-      <div className="flex items-center justify-between">
-        <Button
-          variant="outline"
-          onClick={() => setCurrentStep(s => Math.max(1, s - 1))}
-          disabled={currentStep === 1}
-          className="gap-1"
-        >
-          <ChevronLeft className="h-4 w-4" /> Back
-        </Button>
-
-        {currentStep < 6 ? (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
+        <div className="flex items-center justify-between">
           <Button
-            className="bg-emerald-600 hover:bg-emerald-700 gap-1"
-            onClick={() => setCurrentStep(s => Math.min(6, s + 1))}
+            variant="outline"
+            onClick={prevStep}
+            disabled={currentStep === 1}
+            className="gap-1 border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
           >
-            Next <ChevronRight className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4" /> Previous
           </Button>
-        ) : (
-          <Button
-            className="bg-emerald-600 hover:bg-emerald-700 gap-2"
-            onClick={handleSubmit}
-            disabled={isSubmitting || !isStepValid(1)}
-          >
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            {isSubmitting ? 'Creating School...' : 'Complete Setup'}
-          </Button>
-        )}
-      </div>
 
-      {/* Add Class Dialog */}
-      <Dialog open={addClassOpen} onOpenChange={setAddClassOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Add Class</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label>Grade</Label>
-              <Select value={newClassGrade} onValueChange={setNewClassGrade}>
-                <SelectTrigger><SelectValue placeholder="Select grade" /></SelectTrigger>
-                <SelectContent>
-                  {grades.map(g => <SelectItem key={g.name} value={g.name}>{g.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Stream</Label>
-              <Select value={newClassStream} onValueChange={setNewClassStream}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {['A', 'B', 'C', 'D'].map(s => <SelectItem key={s} value={s}>Stream {s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Capacity</Label>
-              <Input type="number" value={newClassCapacity} onChange={e => setNewClassCapacity(e.target.value)} />
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {!isStepValid(currentStep) && currentStep < 5 && (
+              <span className="text-amber-600 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                Complete required fields to continue
+              </span>
+            )}
+          </div>
+
+          {currentStep < 5 ? (
+            <Button
+              onClick={nextStep}
+              disabled={!isStepValid(currentStep)}
+              className="gap-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md shadow-emerald-200 dark:shadow-emerald-900/30"
+            >
+              Next <ChevronRight className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting || [1, 2, 3, 4].some(s => !isStepValid(s))}
+              className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md shadow-emerald-200 dark:shadow-emerald-900/30 px-6"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Setting up...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  Complete Setup
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Step Errors Detail */}
+      {currentStep < 5 && getStepErrors(currentStep).length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-2 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" /> Required fields missing:
+            </p>
+            <ul className="text-xs text-amber-600 dark:text-amber-400 space-y-1">
+              {getStepErrors(currentStep).map((err, i) => (
+                <li key={i} className="flex items-center gap-1">
+                  <span className="h-1 w-1 rounded-full bg-amber-500" />
+                  {err}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Add Stream Dialog (kept for potential future use) */}
+      <Dialog open={addStreamOpen} onOpenChange={setAddStreamOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Configure Streams</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Select how many streams each grade will have. Each stream becomes a separate class.
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              {([1, 2, 3] as const).map(count => (
+                <button
+                  key={count}
+                  onClick={() => { setStreamsPerGrade(count); setAddStreamOpen(false) }}
+                  className={cn(
+                    'p-4 rounded-xl border-2 transition-all text-center',
+                    streamsPerGrade === count
+                      ? 'border-emerald-500 bg-emerald-50'
+                      : 'border-muted hover:border-emerald-200'
+                  )}
+                >
+                  <p className="text-xl font-bold">{count}</p>
+                  <p className="text-xs text-muted-foreground">{count === 1 ? 'Stream A' : count === 2 ? 'A & B' : 'A, B & C'}</p>
+                </button>
+              ))}
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddClassOpen(false)}>Cancel</Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={addClass}>Add</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Teacher Dialog */}
-      <Dialog open={addTeacherOpen} onOpenChange={setAddTeacherOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Add Senior Teacher</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2"><Label>First Name</Label><Input value={newTeacher.firstName} onChange={e => setNewTeacher(p => ({ ...p, firstName: e.target.value }))} /></div>
-              <div className="space-y-2"><Label>Last Name</Label><Input value={newTeacher.lastName} onChange={e => setNewTeacher(p => ({ ...p, lastName: e.target.value }))} /></div>
-            </div>
-            <div className="space-y-2"><Label>Subject Specialisation</Label><Input value={newTeacher.subjectSpecialisation} onChange={e => setNewTeacher(p => ({ ...p, subjectSpecialisation: e.target.value }))} placeholder="e.g., Mathematics" /></div>
-            <div className="space-y-2"><Label>Phone</Label><Input value={newTeacher.phone} onChange={e => setNewTeacher(p => ({ ...p, phone: e.target.value }))} placeholder="+263..." /></div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddTeacherOpen(false)}>Cancel</Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={addTeacher}>Add</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Hostel Dialog */}
-      <Dialog open={addHostelOpen} onOpenChange={setAddHostelOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Add Hostel</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-2"><Label>Hostel Name</Label><Input value={newHostel.name} onChange={e => setNewHostel(p => ({ ...p, name: e.target.value }))} placeholder="e.g., Mufakose Boys Hostel" /></div>
-            <div className="space-y-2">
-              <Label>Gender</Label>
-              <Select value={newHostel.gender} onValueChange={v => setNewHostel(p => ({ ...p, gender: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Male">Boys</SelectItem>
-                  <SelectItem value="Female">Girls</SelectItem>
-                  <SelectItem value="Mixed">Mixed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2"><Label>Capacity</Label><Input type="number" value={newHostel.capacity} onChange={e => setNewHostel(p => ({ ...p, capacity: e.target.value }))} /></div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddHostelOpen(false)}>Cancel</Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={addHostel}>Add</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

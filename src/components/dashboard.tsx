@@ -637,11 +637,11 @@ export default function Dashboard() {
               {/* Financial Summary */}
               {!loading && financeData && (
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div className="rounded-lg bg-emerald-50 px-3 py-2">
+                  <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2">
                     <p className="text-[10px] font-medium text-emerald-600 uppercase">Collected</p>
                     <p className="text-sm font-bold text-emerald-700">${financeData.totalCollected.toLocaleString()}</p>
                   </div>
-                  <div className="rounded-lg bg-amber-50 px-3 py-2">
+                  <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 px-3 py-2">
                     <p className="text-[10px] font-medium text-amber-600 uppercase">Outstanding</p>
                     <p className="text-sm font-bold text-amber-700">${financeData.totalOutstanding.toLocaleString()}</p>
                   </div>
@@ -665,7 +665,7 @@ export default function Dashboard() {
                   <CardDescription>Weekly attendance trend</CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5">
+                  <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1.5">
                     <CalendarCheck className="h-4 w-4 text-emerald-600" />
                     <span className="text-sm font-bold text-emerald-700">{attendanceRate}%</span>
                   </div>
@@ -688,11 +688,11 @@ export default function Dashboard() {
                   </ChartContainer>
                   {/* Attendance by Level */}
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="rounded-lg bg-teal-50 px-3 py-2">
+                    <div className="rounded-lg bg-teal-50 dark:bg-teal-950/30 px-3 py-2">
                       <p className="text-[10px] font-medium text-teal-600 uppercase">Primary Attendance</p>
                       <p className="text-sm font-bold text-teal-700">94.2%</p>
                     </div>
-                    <div className="rounded-lg bg-cyan-50 px-3 py-2">
+                    <div className="rounded-lg bg-cyan-50 dark:bg-cyan-950/30 px-3 py-2">
                       <p className="text-[10px] font-medium text-cyan-600 uppercase">Secondary Attendance</p>
                       <p className="text-sm font-bold text-cyan-700">91.8%</p>
                     </div>
@@ -796,7 +796,7 @@ export default function Dashboard() {
                     Meeting: 'bg-cyan-50 text-cyan-600',
                   }
                   return (
-                    <div key={event.id} className="flex items-center gap-3 rounded-xl border p-3 transition-colors hover:bg-emerald-50/30 hover:border-emerald-200">
+                    <div key={event.id} className="flex items-center gap-3 rounded-xl border p-3 transition-colors hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 hover:border-emerald-200 dark:hover:border-emerald-800/40">
                       <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', iconColors[event.type])}>
                         <EventIcon className="h-4 w-4" />
                       </div>
@@ -871,9 +871,9 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {alertsData.map((alert, index) => {
                 const severityStyles: Record<string, { icon: React.ElementType; border: string; bg: string; iconBg: string; iconColor: string; badge: string }> = {
-                  critical: { icon: AlertTriangle, border: 'border-l-red-400', bg: 'bg-red-50/50', iconBg: 'bg-red-100', iconColor: 'text-red-600', badge: 'bg-red-100 text-red-700' },
-                  warning: { icon: AlertCircle, border: 'border-l-amber-400', bg: 'bg-amber-50/50', iconBg: 'bg-amber-100', iconColor: 'text-amber-600', badge: 'bg-amber-100 text-amber-700' },
-                  info: { icon: Bell, border: 'border-l-teal-400', bg: 'bg-teal-50/50', iconBg: 'bg-teal-100', iconColor: 'text-teal-600', badge: 'bg-teal-100 text-teal-700' },
+                  critical: { icon: AlertTriangle, border: 'border-l-red-400', bg: 'bg-red-50/50 dark:bg-red-950/30', iconBg: 'bg-red-100 dark:bg-red-900/40', iconColor: 'text-red-600', badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' },
+                  warning: { icon: AlertCircle, border: 'border-l-amber-400', bg: 'bg-amber-50/50 dark:bg-amber-950/30', iconBg: 'bg-amber-100 dark:bg-amber-900/40', iconColor: 'text-amber-600', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400' },
+                  info: { icon: Bell, border: 'border-l-teal-400', bg: 'bg-teal-50/50 dark:bg-teal-950/30', iconBg: 'bg-teal-100 dark:bg-teal-900/40', iconColor: 'text-teal-600', badge: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400' },
                 }
                 const style = severityStyles[alert.severity]
                 const SeverityIcon = style.icon
@@ -933,9 +933,9 @@ export default function Dashboard() {
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.3, delay: 0.7 + index * 0.05 }}
-                    className="flex items-center gap-3 rounded-xl bg-white/80 p-3 shadow-sm border border-emerald-100/50"
+                    className="flex items-center gap-3 rounded-xl bg-background/80 p-3 shadow-sm border border-emerald-100/50 dark:border-emerald-900/30"
                   >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/40">
                       <StatIcon className="h-4 w-4 text-emerald-600" />
                     </div>
                     <div>

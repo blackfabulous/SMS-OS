@@ -34,6 +34,8 @@ import {
 import { cn } from '@/lib/utils'
 import { exportToCSV, printReport, buildHTMLTable } from '@/lib/export-utils'
 import { toast } from 'sonner'
+import { EmptyState } from '@/components/empty-state'
+import { ModuleSkeleton } from '@/components/module-skeleton'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -406,20 +408,7 @@ export default function AttendanceModule() {
   // ─── Loading ───────────────────────────────────────────────────────────
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-8 w-56 bg-muted animate-pulse rounded" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-32 bg-muted animate-pulse rounded-xl" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="h-80 bg-muted animate-pulse rounded-xl" />
-          <div className="h-80 bg-muted animate-pulse rounded-xl" />
-        </div>
-      </div>
-    )
+    return <ModuleSkeleton statCount={4} showChart showTable={false} />
   }
 
   const summary = attendanceData?.summary
@@ -481,16 +470,16 @@ export default function AttendanceModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Overview
           </TabsTrigger>
-          <TabsTrigger value="take" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="take" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Take Attendance
           </TabsTrigger>
-          <TabsTrigger value="records" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="records" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Records
           </TabsTrigger>
-          <TabsTrigger value="chronic" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="chronic" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Chronic Absenteeism
           </TabsTrigger>
         </TabsList>
@@ -975,8 +964,12 @@ export default function AttendanceModule() {
                       })}
                       {filteredRecords.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
-                            No records found for the selected filters
+                          <TableCell colSpan={5} className="py-0 px-0">
+                            <EmptyState
+                              icon={CalendarCheck}
+                              title="No records found"
+                              description="No attendance records match the selected filters. Try adjusting the date, class, or status."
+                            />
                           </TableCell>
                         </TableRow>
                       )}

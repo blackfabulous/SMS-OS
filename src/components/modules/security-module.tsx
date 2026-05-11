@@ -261,7 +261,7 @@ export default function SecurityModule() {
       case 'High': return 'bg-orange-100 text-orange-700 border-orange-200'
       case 'Medium': return 'bg-amber-100 text-amber-700 border-amber-200'
       case 'Low': return 'bg-green-100 text-green-700 border-green-200'
-      default: return 'bg-gray-100 text-gray-700 border-gray-200'
+      default: return 'bg-muted text-muted-foreground border-border'
     }
   }
 
@@ -270,8 +270,8 @@ export default function SecurityModule() {
       case 'Open': return 'bg-red-100 text-red-700'
       case 'Under Investigation': return 'bg-amber-100 text-amber-700'
       case 'Resolved': return 'bg-emerald-100 text-emerald-700'
-      case 'Closed': return 'bg-gray-100 text-gray-600'
-      default: return 'bg-gray-100 text-gray-600'
+      case 'Closed': return 'bg-muted text-muted-foreground'
+      default: return 'bg-muted text-muted-foreground'
     }
   }
 
@@ -403,7 +403,7 @@ export default function SecurityModule() {
                     <div className="flex flex-col items-center">
                       <div className={cn(
                         'flex h-7 w-7 items-center justify-center rounded-full text-xs',
-                        entry.type === 'check-in' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                        entry.type === 'check-in' ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground'
                       )}>
                         {entry.type === 'check-in' ? <Users className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
                       </div>
@@ -467,7 +467,7 @@ export default function SecurityModule() {
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {activeVisitors.map(v => (
-                  <div key={v.id} className="flex items-center gap-3 p-3 rounded-lg border bg-white">
+                  <div key={v.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100">
                       <Users className="h-4 w-4 text-emerald-600" />
                     </div>
@@ -824,7 +824,7 @@ export default function SecurityModule() {
             </Card>
             <Card className="border-0 shadow-sm">
               <CardContent className="p-3 text-center">
-                <p className="text-lg font-bold text-gray-600">{incidents.filter(i => i.status === 'Closed').length}</p>
+                <p className="text-lg font-bold text-muted-foreground">{incidents.filter(i => i.status === 'Closed').length}</p>
                 <p className="text-[10px] text-muted-foreground uppercase">Closed</p>
               </CardContent>
             </Card>

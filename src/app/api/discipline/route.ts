@@ -1,19 +1,40 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
-export async function GET(request: Request) {
+// GET /api/discipline — List discipline incidents with student details
+// Query params: search, status, incidentType, studentId, dateFrom, dateTo, page, limit
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status')
-    const incidentType = searchParams.get('incidentType')
-    const studentId = searchParams.get('studentId')
+    const search = searchParams.get('search') || ''
+    const status = searchParams.get('status') || ''
+    const incidentType = searchParams.get('incidentType') || ''
+    const studentId = searchParams.get('studentId') || ''
+    const dateFrom = searchParams.get('dateFrom') || ''
+    const dateTo = searchParams.get('dateTo') || ''
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
 
+    // Build filter
     const where: Record<string, unknown> = {}
     if (status) where.status = status
     if (incidentType) where.incidentType = incidentType
     if (studentId) where.studentId = studentId
+    if (dateFrom || dateTo) {
+      const dateFilter: Record<string, unknown> = {}
+      if (dateFrom) dateFilter.gte = new Date(dateFrom)
+      if (dateTo) dateFilter.lte = new Date(dateTo)
+      where.date = dateFilter
+    }
+    if (search) {
+      where.OR = [
+        { description: { contains: search } },
+        { action: { contains: search } },
+        { student: { firstName: { contains: search } } },
+        { student: { lastName: { contains: search } } },
+        { student: { studentNumber: { contains: search } } },
+      ]
+    }
 
     const [records, total] = await Promise.all([
       db.disciplineRecord.findMany({
@@ -25,6 +46,8 @@ export async function GET(request: Request) {
               firstName: true,
               lastName: true,
               studentNumber: true,
+              gender: true,
+              enrollmentStatus: true,
             },
           },
         },
@@ -43,22 +66,49 @@ export async function GET(request: Request) {
       closed: await db.disciplineRecord.count({ where: { status: 'CLOSED' } }),
       totalMerit: (await db.disciplineRecord.aggregate({ _sum: { meritPoints: true } }))._sum.meritPoints || 0,
       totalDemerit: (await db.disciplineRecord.aggregate({ _sum: { demeritPoints: true } }))._sum.demeritPoints || 0,
+      parentNotifiedCount: await db.disciplineRecord.count({ where: { parentNotified: true } }),
     }
 
-    return NextResponse.json({ data: records, total, page, totalPages: Math.ceil(total / limit), stats })
+    // Incident type breakdown
+    const incidentTypeBreakdown = await db.disciplineRecord.groupBy({
+      by: ['incidentType'],
+      _count: { id: true },
+    })
+
+    return NextResponse.json({
+      data: records,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+      stats,
+      incidentTypeBreakdown: incidentTypeBreakdown.map((i) => ({ type: i.incidentType, count: i._count.id })),
+    })
   } catch (error) {
     console.error('Failed to fetch discipline records:', error)
     return NextResponse.json({ error: 'Failed to fetch discipline records' }, { status: 500 })
   }
 }
 
-export async function POST(request: Request) {
+// POST /api/discipline — Create incident
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { studentId, incidentType, description, date, action, meritPoints, demeritPoints, parentNotified } = body
+    const {
+      studentId,
+      incidentType,
+      description,
+      date,
+      action,
+      meritPoints,
+      demeritPoints,
+      parentNotified,
+    } = body
 
     if (!studentId || !incidentType || !description) {
-      return NextResponse.json({ error: 'Student ID, incident type, and description are required' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Student ID, incident type, and description are required' },
+        { status: 400 }
+      )
     }
 
     const record = await db.disciplineRecord.create({
@@ -85,7 +135,8 @@ export async function POST(request: Request) {
   }
 }
 
-export async function PUT(request: Request) {
+// PUT /api/discipline — Update discipline record
+export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
     const { id, ...updates } = body
@@ -117,7 +168,8 @@ export async function PUT(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+// DELETE /api/discipline?id=xxx
+export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')

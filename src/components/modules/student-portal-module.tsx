@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   GraduationCap,
@@ -65,6 +65,7 @@ import {
 } from '@/components/ui/chart'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar, AreaChart, Area } from 'recharts'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -121,7 +122,7 @@ interface DigitalResource {
   downloads: number
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+// ─── Default Data (fallback) ─────────────────────────────────────────────────
 const studentName = 'Tendai Dube'
 const studentClass = 'Form 4A'
 const studentHouse = 'Mhondoro'
@@ -330,15 +331,87 @@ export default function StudentPortalModule() {
   const [reserveBookTitle, setReserveBookTitle] = useState('')
   const [reportCardOpen, setReportCardOpen] = useState(false)
 
-  const attendanceRate = 94
+  // ─── API Data State ───────────────────────────────────────────────────────────
+  const [assignments, setAssignments] = useState<Assignment[]>(mockAssignments)
+  const [resources, setResources] = useState<DigitalResource[]>(digitalResources)
+  const [attendanceRate, setAttendanceRate] = useState(94)
+  const [loading, setLoading] = useState({ assignments: true, resources: true, attendance: true })
+
+  // ─── Fetch from APIs ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    async function fetchAssignments() {
+      try {
+        const res = await fetch('/api/elearning?type=assignments')
+        if (res.ok) {
+          const json = await res.json()
+          if (json.data && json.data.length > 0) {
+            const apiAssignments: Assignment[] = json.data.map((a: Record<string, unknown>) => ({
+              id: a.id as string,
+              title: a.title as string,
+              subject: (a.course as Record<string, string>)?.name || 'General',
+              teacher: '',
+              dueDate: a.dueDate ? new Date(a.dueDate as string).toISOString().split('T')[0] : '',
+              status: ((a.status as string) || 'OPEN').toLowerCase() === 'closed' ? 'graded' : ((a.status as string) || 'OPEN').toLowerCase() === 'grading' ? 'submitted' : 'pending',
+              maxMark: a.maxMarks as number || 100,
+              description: a.description as string || '',
+            }))
+            setAssignments(apiAssignments)
+          }
+        }
+      } catch { /* fallback to mock */ }
+      setLoading(prev => ({ ...prev, assignments: false }))
+    }
+    fetchAssignments()
+  }, [])
+
+  useEffect(() => {
+    async function fetchResources() {
+      try {
+        const res = await fetch('/api/elearning?type=resources')
+        if (res.ok) {
+          const json = await res.json()
+          if (json.data && json.data.length > 0) {
+            const apiResources: DigitalResource[] = json.data.map((r: Record<string, unknown>) => ({
+              id: r.id as string,
+              title: r.title as string,
+              subject: (r.course as Record<string, string>)?.name || 'General',
+              type: ((r.resourceType as string) || 'notes').toLowerCase() === 'video' ? 'Video' : ((r.resourceType as string) || 'notes').toLowerCase() === 'past_paper' ? 'Past Paper' : ((r.resourceType as string) || 'notes').toLowerCase() === 'worksheet' ? 'Worksheet' : 'Notes',
+              size: r.fileSize ? `${(r.fileSize as number / 1024).toFixed(1)} MB` : '—',
+              downloads: 0,
+            }))
+            setResources(apiResources)
+          }
+        }
+      } catch { /* fallback to mock */ }
+      setLoading(prev => ({ ...prev, resources: false }))
+    }
+    fetchResources()
+  }, [])
+
+  useEffect(() => {
+    async function fetchAttendance() {
+      try {
+        const res = await fetch('/api/attendance?limit=60')
+        if (res.ok) {
+          const json = await res.json()
+          if (json.summary && json.summary.attendanceRate) {
+            setAttendanceRate(parseFloat(json.summary.attendanceRate))
+          }
+        }
+      } catch { /* fallback to mock */ }
+      setLoading(prev => ({ ...prev, attendance: false }))
+    }
+    fetchAttendance()
+  }, [])
+
   const currentAverage = Math.round(subjectGrades.reduce((s, g) => s + g.exam, 0) / subjectGrades.length)
   const libraryBooksDue = borrowedBooks.filter(b => !b.overdue).length
-  const assignmentsPending = mockAssignments.filter(a => a.status === 'pending' || a.status === 'overdue').length
+  const assignmentsPending = assignments.filter(a => a.status === 'pending' || a.status === 'overdue').length
   const classPosition = 8
   const classSize = 42
 
-  const pendingAssignments = mockAssignments.filter(a => a.status === 'pending' || a.status === 'overdue')
-  const completedAssignments = mockAssignments.filter(a => a.status === 'graded' || a.status === 'submitted')
+  const pendingAssignments = assignments.filter(a => a.status === 'pending' || a.status === 'overdue')
+  const completedAssignments = assignments.filter(a => a.status === 'graded' || a.status === 'submitted')
 
   const handleSubmitAssignment = () => {
     if (selectedAssignment) {
@@ -794,25 +867,25 @@ export default function StudentPortalModule() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Card className="border-0 shadow-md">
               <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-blue-600">{mockAssignments.filter(a => a.status === 'pending').length}</p>
+                <p className="text-2xl font-bold text-blue-600">{assignments.filter(a => a.status === 'pending').length}</p>
                 <p className="text-xs text-muted-foreground">Pending</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-md">
               <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-red-600">{mockAssignments.filter(a => a.status === 'overdue').length}</p>
+                <p className="text-2xl font-bold text-red-600">{assignments.filter(a => a.status === 'overdue').length}</p>
                 <p className="text-xs text-muted-foreground">Overdue</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-md">
               <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-teal-600">{mockAssignments.filter(a => a.status === 'submitted').length}</p>
+                <p className="text-2xl font-bold text-teal-600">{assignments.filter(a => a.status === 'submitted').length}</p>
                 <p className="text-xs text-muted-foreground">Submitted</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-md">
               <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-emerald-600">{mockAssignments.filter(a => a.status === 'graded').length}</p>
+                <p className="text-2xl font-bold text-emerald-600">{assignments.filter(a => a.status === 'graded').length}</p>
                 <p className="text-xs text-muted-foreground">Graded</p>
               </CardContent>
             </Card>
@@ -984,7 +1057,7 @@ export default function StudentPortalModule() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {digitalResources.map(res => (
+                {resources.map(res => (
                   <div key={res.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
                     <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-background">
                       {resourceTypeIcon(res.type)}
@@ -1186,7 +1259,7 @@ export default function StudentPortalModule() {
           {/* Resources Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
-              ...digitalResources,
+              ...resources,
               { id: '9', title: 'ZIMSEC 2024 Shona Paper 1', subject: 'Shona', type: 'Past Paper' as const, size: '1.9 MB', downloads: 98 },
               { id: '10', title: 'Forces & Energy Notes', subject: 'Physics', type: 'Notes' as const, size: '3.8 MB', downloads: 62 },
               { id: '11', title: 'Zimbabwe Geography Study Guide', subject: 'Geography', type: 'Notes' as const, size: '6.2 MB', downloads: 34 },

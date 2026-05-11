@@ -550,13 +550,13 @@ export default function InventoryModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Overview
           </TabsTrigger>
-          <TabsTrigger value="assets" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="assets" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Assets
           </TabsTrigger>
-          <TabsTrigger value="maintenance" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="maintenance" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Maintenance
           </TabsTrigger>
         </TabsList>

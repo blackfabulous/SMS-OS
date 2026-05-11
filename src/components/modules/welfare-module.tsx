@@ -153,7 +153,7 @@ const welfareStatusColors: Record<string, string> = {
   OPEN: 'bg-amber-100 text-amber-700 border-amber-200',
   IN_PROGRESS: 'bg-teal-100 text-teal-700 border-teal-200',
   RESOLVED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  CLOSED: 'bg-gray-100 text-gray-600 border-gray-200',
+  CLOSED: 'bg-muted text-muted-foreground border-border',
 }
 
 const beamStatusColors: Record<string, string> = {
@@ -663,13 +663,13 @@ export default function WelfareModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Overview
           </TabsTrigger>
-          <TabsTrigger value="welfare" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="welfare" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Welfare Cases
           </TabsTrigger>
-          <TabsTrigger value="beam" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="beam" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             BEAM
           </TabsTrigger>
         </TabsList>
@@ -912,7 +912,7 @@ export default function WelfareModule() {
                             )}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', categoryColors[record.category] || 'bg-gray-100 text-gray-700 border-gray-200')}>
+                            <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', categoryColors[record.category] || 'bg-muted text-muted-foreground border-border')}>
                               {categoryLabels[record.category] || record.category}
                             </Badge>
                           </TableCell>
@@ -924,7 +924,7 @@ export default function WelfareModule() {
                             )}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', welfareStatusColors[record.status] || 'bg-gray-100 text-gray-700')}>
+                            <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', welfareStatusColors[record.status] || 'bg-muted text-muted-foreground')}>
                               {record.status.replace('_', ' ')}
                             </Badge>
                           </TableCell>
@@ -1025,7 +1025,7 @@ export default function WelfareModule() {
                           {app.student.firstName} {app.student.lastName}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', beamStatusColors[app.status] || 'bg-gray-100 text-gray-700')}>
+                          <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', beamStatusColors[app.status] || 'bg-muted text-muted-foreground')}>
                             {app.status}
                           </Badge>
                         </TableCell>
