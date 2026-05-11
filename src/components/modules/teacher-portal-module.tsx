@@ -32,6 +32,8 @@ import {
   AlertTriangle,
   Star,
   Zap,
+  FolderOpen,
+  X,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -567,11 +569,12 @@ export default function TeacherPortalModule() {
       </motion.div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="classes">My Classes</TabsTrigger>
           <TabsTrigger value="marks">Marks Entry</TabsTrigger>
           <TabsTrigger value="assignments">Assignments</TabsTrigger>
+          <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="attendance">Attendance & Schedule</TabsTrigger>
         </TabsList>
 
@@ -1352,6 +1355,120 @@ export default function TeacherPortalModule() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+        </TabsContent>
+
+        {/* ═══════════════════════════════════════════════════════════════════════
+            RESOURCES TAB
+        ═══════════════════════════════════════════════════════════════════════ */}
+        <TabsContent value="resources" className="space-y-4">
+          <Card className="border-0 shadow-md overflow-hidden">
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 text-white">
+              <h3 className="text-lg font-bold flex items-center gap-2"><FolderOpen className="h-5 w-5" /> Teaching Resources</h3>
+              <p className="text-emerald-100 text-sm mt-1">Upload, share, and manage learning materials for your classes</p>
+            </div>
+          </Card>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Total Resources</p>
+                    <p className="text-2xl font-bold">24</p>
+                    <span className="text-xs text-emerald-600">6 this month</span>
+                  </div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50"><FolderOpen className="h-5 w-5 text-emerald-600" /></div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Total Downloads</p>
+                    <p className="text-2xl font-bold">342</p>
+                    <span className="text-xs text-teal-600">by students</span>
+                  </div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50"><Download className="h-5 w-5 text-teal-600" /></div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Shared Classes</p>
+                    <p className="text-2xl font-bold">4</p>
+                    <span className="text-xs text-amber-600">all active classes</span>
+                  </div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50"><BookOpen className="h-5 w-5 text-amber-600" /></div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Upload Button */}
+          <div className="flex items-center justify-between">
+            <div className="flex gap-2">
+              {['All', 'Mathematics', 'Physics'].map(s => (
+                <Button key={s} variant="outline" size="sm" className={cn('text-xs', s === 'All' && 'bg-emerald-50 border-emerald-200 text-emerald-700')}>{s}</Button>
+              ))}
+            </div>
+            <Button className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={() => toast.info('Upload dialog opening...')}>
+              <Upload className="h-4 w-4" /> Upload Resource
+            </Button>
+          </div>
+
+          {/* Resources List */}
+          <Card className="border-0 shadow-md">
+            <CardContent className="p-0">
+              <div className="divide-y">
+                {[
+                  { name: 'Quadratic Equations Chapter 7 Notes', subject: 'Mathematics', classes: ['Form 3A', 'Form 4A'], type: 'PDF', size: '2.4 MB', downloads: 89, date: 'Feb 15, 2026' },
+                  { name: 'ZIMSEC 2024 Maths Paper 1', subject: 'Mathematics', classes: ['Form 4A'], type: 'PDF', size: '1.8 MB', downloads: 156, date: 'Feb 10, 2026' },
+                  { name: 'Newton\'s Laws Video Series', subject: 'Physics', classes: ['Form 6A'], type: 'Video', size: '120 MB', downloads: 33, date: 'Feb 8, 2026' },
+                  { name: 'Trigonometry Worksheet Set', subject: 'Mathematics', classes: ['Form 3A', 'Form 4A'], type: 'DOC', size: '0.5 MB', downloads: 67, date: 'Feb 5, 2026' },
+                  { name: 'Calculus: Derivatives Notes', subject: 'Mathematics', classes: ['Form 5A'], type: 'PDF', size: '3.1 MB', downloads: 28, date: 'Feb 2, 2026' },
+                  { name: 'Electromagnetism Problem Set', subject: 'Physics', classes: ['Form 6A'], type: 'PDF', size: '1.2 MB', downloads: 22, date: 'Jan 28, 2026' },
+                  { name: 'Algebra Revision Pack', subject: 'Mathematics', classes: ['Form 3A', 'Form 4A', 'Form 5A'], type: 'PDF', size: '4.5 MB', downloads: 134, date: 'Jan 20, 2026' },
+                  { name: 'Mechanics Practical Guide', subject: 'Physics', classes: ['Form 6A'], type: 'PDF', size: '2.8 MB', downloads: 19, date: 'Jan 15, 2026' },
+                ].map((resource, idx) => (
+                  <div key={idx} className="flex items-center gap-4 p-4 hover:bg-muted/30 transition-colors">
+                    <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg shrink-0',
+                      resource.type === 'PDF' ? 'bg-red-100' : resource.type === 'DOC' ? 'bg-blue-100' : 'bg-purple-100'
+                    )}>
+                      <FileText className={cn('h-5 w-5', resource.type === 'PDF' ? 'text-red-600' : resource.type === 'DOC' ? 'text-blue-600' : 'text-purple-600')} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{resource.name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-[9px]">{resource.subject}</Badge>
+                        <Badge variant="outline" className="text-[9px]">{resource.type}</Badge>
+                        <span className="text-[10px] text-muted-foreground">{resource.size}</span>
+                        <span className="text-[10px] text-muted-foreground">•</span>
+                        <span className="text-[10px] text-muted-foreground">{resource.downloads} downloads</span>
+                      </div>
+                      <div className="flex gap-1 mt-1">
+                        {resource.classes.map(c => (
+                          <Badge key={c} variant="secondary" className="text-[8px] px-1.5 py-0">{c}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-muted-foreground">{resource.date}</span>
+                      <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={() => toast.info(`Editing ${resource.name}`)}>
+                        <Edit3 className="h-3 w-3" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-xs gap-1 text-red-500 hover:text-red-700" onClick={() => toast.success(`Resource deleted`)}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ═══════════════════════════════════════════════════════════════════════

@@ -27,6 +27,7 @@ import {
 } from 'recharts'
 
 import { cn } from '@/lib/utils'
+import { formatDualCurrency, formatUSD, formatZiG, getCurrentRate, fetchExchangeRate } from '@/lib/currency'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -142,6 +143,7 @@ export default function PayrollModule() {
   const [distribution, setDistribution] = useState<Array<{ range: string; count: number }>>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
+  const [exchangeRate, setExchangeRate] = useState(getCurrentRate().rate)
   const [selectedMonth, setSelectedMonth] = useState(String(new Date().getMonth() + 1))
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()))
   const [processDialogOpen, setProcessDialogOpen] = useState(false)
@@ -168,6 +170,7 @@ export default function PayrollModule() {
 
   useEffect(() => {
     fetchData()
+    fetchExchangeRate().then(r => setExchangeRate(r.rate))
   }, [fetchData])
 
   const handleProcessPayroll = async () => {
@@ -215,6 +218,11 @@ export default function PayrollModule() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Payroll & HR</h1>
           <p className="text-sm text-muted-foreground mt-1">Process salaries, manage statutory deductions</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs text-amber-600 font-medium bg-amber-50 dark:bg-amber-950/30 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800/50">
+              Rate: 1 USD = {exchangeRate.toFixed(1)} ZiG
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
@@ -260,6 +268,7 @@ export default function PayrollModule() {
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Payroll</p>
                     <p className="text-2xl font-bold tracking-tight">{formatCurrency(stats?.totalPayroll || 0)}</p>
+                    <p className="text-[10px] text-muted-foreground">{formatZiG((stats?.totalPayroll || 0) * exchangeRate)}</p>
                     <div className="flex items-center gap-1.5">
                       <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
                       <span className="text-xs font-medium text-emerald-600">{stats?.totalStaff || 0} staff</span>
@@ -279,6 +288,7 @@ export default function PayrollModule() {
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Net Pay This Month</p>
                     <p className="text-2xl font-bold tracking-tight">{formatCurrency(stats?.totalNetPay || 0)}</p>
+                    <p className="text-[10px] text-muted-foreground">{formatZiG((stats?.totalNetPay || 0) * exchangeRate)}</p>
                     <div className="flex items-center gap-1.5">
                       <DollarSign className="h-3.5 w-3.5 text-teal-600" />
                       <span className="text-xs font-medium text-teal-600">After deductions</span>
@@ -590,12 +600,17 @@ export default function PayrollModule() {
                       <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-2">Earnings</p>
                       <div className="space-y-1 text-sm">
                         <div className="flex justify-between"><span>Basic Salary</span><span className="font-mono">{formatCurrency(viewPayslip.basicSalary)}</span></div>
+                        <div className="flex justify-between text-[10px] text-muted-foreground"><span></span><span>{formatZiG(viewPayslip.basicSalary * exchangeRate)}</span></div>
                         <div className="flex justify-between"><span>Housing Allowance</span><span className="font-mono">{formatCurrency(viewPayslip.housingAllowance)}</span></div>
+                        <div className="flex justify-between text-[10px] text-muted-foreground"><span></span><span>{formatZiG(viewPayslip.housingAllowance * exchangeRate)}</span></div>
                         <div className="flex justify-between"><span>Transport Allowance</span><span className="font-mono">{formatCurrency(viewPayslip.transportAllowance)}</span></div>
+                        <div className="flex justify-between text-[10px] text-muted-foreground"><span></span><span>{formatZiG(viewPayslip.transportAllowance * exchangeRate)}</span></div>
                         <div className="flex justify-between"><span>Responsibility Allowance</span><span className="font-mono">{formatCurrency(viewPayslip.responsibilityAllowance)}</span></div>
+                        <div className="flex justify-between text-[10px] text-muted-foreground"><span></span><span>{formatZiG(viewPayslip.responsibilityAllowance * exchangeRate)}</span></div>
                         <div className="flex justify-between"><span>Overtime</span><span className="font-mono">{formatCurrency(viewPayslip.overtime)}</span></div>
                         <Separator />
                         <div className="flex justify-between font-bold"><span>Gross Pay</span><span className="font-mono">{formatCurrency(viewPayslip.grossPay)}</span></div>
+                        <div className="flex justify-between text-[10px] text-muted-foreground"><span></span><span>{formatZiG(viewPayslip.grossPay * exchangeRate)}</span></div>
                       </div>
                     </div>
                     <div>
@@ -612,7 +627,10 @@ export default function PayrollModule() {
                     <Separator />
                     <div className="flex justify-between text-lg font-bold bg-emerald-50 p-3 rounded-lg">
                       <span>Net Pay</span>
-                      <span className="text-emerald-600 font-mono">{formatCurrency(viewPayslip.netPay)}</span>
+                      <div className="text-right">
+                        <div className="text-emerald-600 font-mono">{formatCurrency(viewPayslip.netPay)}</div>
+                        <div className="text-[10px] text-muted-foreground font-mono">{formatZiG(viewPayslip.netPay * exchangeRate)}</div>
+                      </div>
                     </div>
                   </div>
                   <DialogFooter>
@@ -638,7 +656,9 @@ export default function PayrollModule() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">Total PAYE Collected</span><span className="font-bold">{formatCurrency(stats?.payeTotal || 0)}</span></div>
+                <div className="flex justify-between text-[10px] text-muted-foreground"><span></span><span>{formatZiG((stats?.payeTotal || 0) * exchangeRate)}</span></div>
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">AIDS Levy (6% of PAYE)</span><span className="font-bold">{formatCurrency(stats?.aidsLevy || 0)}</span></div>
+                <div className="flex justify-between text-[10px] text-muted-foreground"><span></span><span>{formatZiG((stats?.aidsLevy || 0) * exchangeRate)}</span></div>
                 <Separator />
                 <div className="flex justify-between text-sm font-semibold"><span>Total to ZIMRA</span><span className="text-amber-600">{formatCurrency((stats?.payeTotal || 0) + (stats?.aidsLevy || 0))}</span></div>
                 <div className="p-2 rounded bg-amber-50 text-xs text-amber-700">
@@ -657,7 +677,9 @@ export default function PayrollModule() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">Employee Contribution</span><span className="font-bold">{formatCurrency(stats?.nssaEmployee || 0)}</span></div>
+                <div className="flex justify-between text-[10px] text-muted-foreground"><span></span><span>{formatZiG((stats?.nssaEmployee || 0) * exchangeRate)}</span></div>
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">Employer Contribution</span><span className="font-bold">{formatCurrency(stats?.nssaEmployer || 0)}</span></div>
+                <div className="flex justify-between text-[10px] text-muted-foreground"><span></span><span>{formatZiG((stats?.nssaEmployer || 0) * exchangeRate)}</span></div>
                 <Separator />
                 <div className="flex justify-between text-sm font-semibold"><span>Total NSSA Remittance</span><span className="text-rose-600">{formatCurrency((stats?.nssaEmployee || 0) + (stats?.nssaEmployer || 0))}</span></div>
                 <div className="p-2 rounded bg-rose-50 text-xs text-rose-700">
@@ -676,6 +698,7 @@ export default function PayrollModule() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">1% of Total Payroll</span><span className="font-bold">{formatCurrency(stats?.zimdef || 0)}</span></div>
+                <div className="flex justify-between text-[10px] text-muted-foreground"><span></span><span>{formatZiG((stats?.zimdef || 0) * exchangeRate)}</span></div>
                 <div className="p-2 rounded bg-teal-50 text-xs text-teal-700">
                   Zimbabwe Manpower Development Fund. Employer-only contribution.
                 </div>
@@ -692,6 +715,7 @@ export default function PayrollModule() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">6% of PAYE</span><span className="font-bold">{formatCurrency(stats?.aidsLevy || 0)}</span></div>
+                <div className="flex justify-between text-[10px] text-muted-foreground"><span></span><span>{formatZiG((stats?.aidsLevy || 0) * exchangeRate)}</span></div>
                 <div className="p-2 rounded bg-orange-50 text-xs text-orange-700">
                   National AIDS Trust Fund. Paid together with PAYE to ZIMRA.
                 </div>

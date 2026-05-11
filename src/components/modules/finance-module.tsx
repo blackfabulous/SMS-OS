@@ -38,6 +38,7 @@ import {
 
 import { cn } from '@/lib/utils'
 import { exportToCSV, printReport, buildHTMLTable, formatCurrency as fmtCurrency } from '@/lib/export-utils'
+import { formatDualCurrency, formatUSD, formatZiG, getCurrentRate, fetchExchangeRate, type CurrencyCode } from '@/lib/currency'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -199,6 +200,8 @@ export default function FinanceModule() {
   const [dashboard, setDashboard] = useState<FinanceDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
+  const [exchangeRate, setExchangeRate] = useState(getCurrentRate().rate)
+  const [primaryCurrency, setPrimaryCurrency] = useState<CurrencyCode>('USD')
 
   // Invoices state
   const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -305,6 +308,7 @@ export default function FinanceModule() {
 
   useEffect(() => {
     fetchDashboard()
+    fetchExchangeRate().then(r => setExchangeRate(r.rate))
   }, [fetchDashboard])
 
   useEffect(() => {
@@ -496,6 +500,18 @@ export default function FinanceModule() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Finance Management</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage fees, invoices, and payments</p>
+          {/* Dual Currency Rate Display */}
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs text-amber-600 font-medium bg-amber-50 dark:bg-amber-950/30 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800/50">
+              Rate: 1 USD = {exchangeRate.toFixed(1)} ZiG
+            </span>
+            <button
+              onClick={() => setPrimaryCurrency(primaryCurrency === 'USD' ? 'ZiG' : 'USD')}
+              className="text-xs text-emerald-600 font-medium bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-950/50 transition-colors cursor-pointer"
+            >
+              Toggle to {primaryCurrency === 'USD' ? 'ZiG' : 'USD'} primary
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <DropdownMenu>
@@ -817,7 +833,8 @@ export default function FinanceModule() {
                 <div className="flex items-start justify-between">
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Invoiced</p>
-                    <p className="text-2xl font-bold tracking-tight">{formatCurrency(dashboard?.totalInvoiced || 0)}</p>
+                    <p className="text-2xl font-bold tracking-tight">{primaryCurrency === 'USD' ? formatCurrency(dashboard?.totalInvoiced || 0) : formatZiG((dashboard?.totalInvoiced || 0) * exchangeRate)}</p>
+                    <p className="text-[10px] text-muted-foreground">{primaryCurrency === 'USD' ? formatZiG((dashboard?.totalInvoiced || 0) * exchangeRate) : formatUSD((dashboard?.totalInvoiced || 0))}</p>
                     <div className="flex items-center gap-1.5">
                       <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
                       <span className="text-xs font-medium text-emerald-600">All time</span>
@@ -836,7 +853,8 @@ export default function FinanceModule() {
                 <div className="flex items-start justify-between">
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Collected</p>
-                    <p className="text-2xl font-bold tracking-tight">{formatCurrency(dashboard?.totalCollected || 0)}</p>
+                    <p className="text-2xl font-bold tracking-tight">{primaryCurrency === 'USD' ? formatCurrency(dashboard?.totalCollected || 0) : formatZiG((dashboard?.totalCollected || 0) * exchangeRate)}</p>
+                    <p className="text-[10px] text-muted-foreground">{primaryCurrency === 'USD' ? formatZiG((dashboard?.totalCollected || 0) * exchangeRate) : formatUSD((dashboard?.totalCollected || 0))}</p>
                     <div className="flex items-center gap-1.5">
                       <CheckCircle2 className="h-3.5 w-3.5 text-teal-600" />
                       <span className="text-xs font-medium text-teal-600">{dashboard?.debtorCount || 0} debtors</span>
@@ -855,7 +873,8 @@ export default function FinanceModule() {
                 <div className="flex items-start justify-between">
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Outstanding</p>
-                    <p className="text-2xl font-bold tracking-tight">{formatCurrency(dashboard?.totalOutstanding || 0)}</p>
+                    <p className="text-2xl font-bold tracking-tight">{primaryCurrency === 'USD' ? formatCurrency(dashboard?.totalOutstanding || 0) : formatZiG((dashboard?.totalOutstanding || 0) * exchangeRate)}</p>
+                    <p className="text-[10px] text-muted-foreground">{primaryCurrency === 'USD' ? formatZiG((dashboard?.totalOutstanding || 0) * exchangeRate) : formatUSD((dashboard?.totalOutstanding || 0))}</p>
                     <div className="flex items-center gap-1.5">
                       <TrendingDown className="h-3.5 w-3.5 text-amber-600" />
                       <span className="text-xs font-medium text-amber-600">Needs attention</span>

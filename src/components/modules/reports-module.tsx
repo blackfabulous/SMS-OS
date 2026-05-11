@@ -440,6 +440,10 @@ export default function ReportsModule() {
   // EMIS Census state
   const [showEmisCensus, setShowEmisCensus] = useState(false)
 
+  // PDF Download state
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
+  const [exportingEmis, setExportingEmis] = useState(false)
+
   const handleGenerate = useCallback((reportId: string) => {
     // Special handling for new report types
     if (reportId === 'report_card') {
@@ -564,6 +568,22 @@ export default function ReportsModule() {
                   <Printer className="mr-2 h-3.5 w-3.5" />
                   Print Report Card
                 </Button>
+                <Button variant="outline" size="sm" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100" disabled={downloadingPdf} onClick={async () => {
+                  setDownloadingPdf(true)
+                  try {
+                    const url = `/api/reports/report-card?studentId=${selectedStudent}&termId=${selectedTerm}`
+                    const printWindow = window.open(url, '_blank', 'width=800,height=600')
+                    if (!printWindow) {
+                      window.open(url, '_blank')
+                    }
+                  } catch {
+                    // fallback
+                  }
+                  setDownloadingPdf(false)
+                }}>
+                  {downloadingPdf ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-2 h-3.5 w-3.5" />}
+                  Download PDF
+                </Button>
               </div>
             </div>
 
@@ -680,6 +700,48 @@ export default function ReportsModule() {
                   </TableBody>
                 </Table>
 
+                {/* Behavioral Assessment */}
+                <div className="mt-6 p-4 rounded-xl border bg-muted/20">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">Behavioral Assessment</p>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center p-2 rounded-lg bg-white border">
+                      <p className="text-[10px] text-muted-foreground uppercase">Conduct</p>
+                      <p className="text-sm font-bold text-emerald-700 mt-1">Good</p>
+                    </div>
+                    <div className="text-center p-2 rounded-lg bg-white border">
+                      <p className="text-[10px] text-muted-foreground uppercase">Effort</p>
+                      <p className="text-sm font-bold text-teal-700 mt-1">Satisfactory</p>
+                    </div>
+                    <div className="text-center p-2 rounded-lg bg-white border">
+                      <p className="text-[10px] text-muted-foreground uppercase">Neatness</p>
+                      <p className="text-sm font-bold text-emerald-700 mt-1">Very Good</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Attendance Summary */}
+                <div className="mt-4 p-4 rounded-xl border bg-muted/20">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">Attendance Summary (Term {selectedTerm})</p>
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="text-center p-2 rounded-lg bg-white border">
+                      <p className="text-[10px] text-muted-foreground uppercase">Total Days</p>
+                      <p className="text-lg font-bold text-emerald-700">68</p>
+                    </div>
+                    <div className="text-center p-2 rounded-lg bg-white border">
+                      <p className="text-[10px] text-muted-foreground uppercase">Present</p>
+                      <p className="text-lg font-bold text-emerald-700">62</p>
+                    </div>
+                    <div className="text-center p-2 rounded-lg bg-white border">
+                      <p className="text-[10px] text-muted-foreground uppercase">Absent</p>
+                      <p className="text-lg font-bold text-red-600">4</p>
+                    </div>
+                    <div className="text-center p-2 rounded-lg bg-white border">
+                      <p className="text-[10px] text-muted-foreground uppercase">Late</p>
+                      <p className="text-lg font-bold text-amber-600">2</p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Teacher Comments */}
                 <div className="mt-6 space-y-4">
                   <div className="p-4 rounded-xl border">
@@ -704,11 +766,17 @@ export default function ReportsModule() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center justify-end gap-2 p-3 rounded-xl bg-muted/30 text-xs text-muted-foreground">
-                    <Award className="h-4 w-4" />
-                    <span>Stamp:</span>
-                    <div className="h-12 w-12 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
-                      <span className="text-[8px] text-center">SCHOOL<br />STAMP</span>
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <Award className="h-4 w-4" />
+                      <span>Stamp:</span>
+                      <div className="h-12 w-12 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+                        <span className="text-[8px] text-center">SCHOOL<br />STAMP</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium text-muted-foreground">Next Term Opens: 8 September 2025</p>
+                      <p className="text-[10px] mt-0.5">Fees due before opening day</p>
                     </div>
                   </div>
                 </div>
@@ -994,6 +1062,24 @@ export default function ReportsModule() {
                 }}>
                   <Download className="mr-2 h-3.5 w-3.5" />
                   Export for EMIS
+                </Button>
+                <Button variant="outline" size="sm" className="bg-teal-50 text-teal-700 hover:bg-teal-100" disabled={exportingEmis} onClick={async () => {
+                  setExportingEmis(true)
+                  try {
+                    const url = `/api/reports/emis-export`
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `EMIS_Census_${new Date().getFullYear()}.xlsx`
+                    document.body.appendChild(a)
+                    a.click()
+                    document.body.removeChild(a)
+                  } catch {
+                    // fallback
+                  }
+                  setExportingEmis(false)
+                }}>
+                  {exportingEmis ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="mr-2 h-3.5 w-3.5" />}
+                  Export EMIS Excel
                 </Button>
               </div>
             </div>

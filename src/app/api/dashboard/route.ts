@@ -1,8 +1,11 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { validateAuth } from '@/lib/api-auth'
 
 export async function GET() {
   try {
+    const authResult = await validateAuth()
+    if ('error' in authResult) return authResult.error
     // Enrollment stats
     const totalStudents = await db.student.count()
     const activeStudents = await db.student.count({

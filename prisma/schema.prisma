@@ -70,6 +70,17 @@ model School {
   events                SchoolEvent[]
   clubs                 Club[]
   sportsCodes           SportsCode[]
+  users                 User[]
+  canteenItems           CanteenItem[]
+  canteenTransactions    CanteenTransaction[]
+  purchaseOrders         PurchaseOrder[]
+  requisitions           Requisition[]
+  documents              Document[]
+  alumni                 Alumni[]
+  visitors               Visitor[]
+  securityIncidents      SecurityIncident[]
+  courses                Course[]
+  timetableEntries       TimetableEntry[]
 }
 
 model AcademicYear {
@@ -251,6 +262,7 @@ model Student {
   boardingAssignment    BoardingAssignment?
   reportCards           ReportCard[]
   zimsecCandidate       ZimsecCandidate?
+  user                  User?
 
   @@index([schoolId])
   @@index([enrollmentStatus])
@@ -366,6 +378,7 @@ model Staff {
   payslips              Payslip[]
   appraisalRecords      AppraisalRecord[]
   disciplinaryRecords   StaffDiscipline[]
+  user                  User?
 }
 
 // ============================================
@@ -1001,10 +1014,38 @@ model Supplier {
   createdAt             DateTime @default(now())
 
   school                School   @relation(fields: [schoolId], references: [id])
+  purchaseOrders        PurchaseOrder[]
 }
 
 // ============================================
-// 19. AUDIT LOG
+// 19. USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          String    @default("ADMIN") // ADMIN, TEACHER, PARENT, STUDENT, BURSAR
+  staffId       String?   @unique
+  studentId     String?   @unique
+  parentId      String?
+  schoolId      String
+  isActive      Boolean   @default(true)
+  lastLogin     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  staff         Staff?    @relation(fields: [staffId], references: [id])
+  student       Student?  @relation(fields: [studentId], references: [id])
+  school        School    @relation(fields: [schoolId], references: [id])
+
+  @@index([email])
+  @@index([role])
+}
+
+// ============================================
+// 20. AUDIT LOG
 // ============================================
 
 model AuditLog {
@@ -1021,4 +1062,277 @@ model AuditLog {
   @@index([entity])
   @@index([action])
   @@index([createdAt])
+}
+
+// ============================================
+// 20. CANTEEN / TUCKSHOP
+// ============================================
+
+model CanteenItem {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  name                  String
+  category              String   @default("FOOD")
+  price                 Float    @default(0)
+  costPrice             Float    @default(0)
+  stockQuantity         Int      @default(0)
+  reorderLevel          Int      @default(5)
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  school                School   @relation(fields: [schoolId], references: [id])
+  transactionItems      CanteenTransactionItem[]
+}
+
+model CanteenTransaction {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  transactionNumber     String   @unique
+  buyerType             String   @default("STUDENT")
+  buyerId               String?
+  buyerName             String
+  totalAmount           Float    @default(0)
+  paymentMethod         String   @default("CASH")
+  status                String   @default("COMPLETED")
+  createdAt             DateTime @default(now())
+
+  school                School   @relation(fields: [schoolId], references: [id])
+  items                 CanteenTransactionItem[]
+}
+
+model CanteenTransactionItem {
+  id                    String   @id @default(cuid())
+  transactionId         String
+  itemId                String
+  quantity              Int      @default(1)
+  unitPrice             Float
+  totalPrice            Float
+
+  transaction           CanteenTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  item                  CanteenItem       @relation(fields: [itemId], references: [id])
+}
+
+// ============================================
+// 21. PROCUREMENT
+// ============================================
+
+model PurchaseOrder {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  orderNumber           String   @unique
+  supplierId            String?
+  title                 String
+  description           String?
+  totalAmount           Float    @default(0)
+  status                String   @default("DRAFT")
+  requestedBy           String?
+  approvedBy            String?
+  orderDate             DateTime @default(now())
+  expectedDate          DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  school                School   @relation(fields: [schoolId], references: [id])
+  supplier              Supplier? @relation(fields: [supplierId], references: [id])
+  items                 PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id                    String   @id @default(cuid())
+  purchaseOrderId       String
+  description           String
+  quantity              Int      @default(1)
+  unitPrice             Float    @default(0)
+  totalPrice            Float    @default(0)
+
+  purchaseOrder         PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+}
+
+model Requisition {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  title                 String
+  description           String?
+  requestedBy           String?
+  department            String?
+  estimatedCost         Float?
+  status                String   @default("PENDING")
+  priority              String   @default("MEDIUM")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  school                School   @relation(fields: [schoolId], references: [id])
+}
+
+// ============================================
+// 22. DOCUMENTS
+// ============================================
+
+model Document {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  title                 String
+  category              String   @default("GENERAL")
+  description           String?
+  fileName              String
+  fileType              String   @default("PDF")
+  fileSize              Int      @default(0)
+  uploadedBy            String?
+  tags                  String?
+  isTemplate            Boolean  @default(false)
+  version               Int      @default(1)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  school                School   @relation(fields: [schoolId], references: [id])
+}
+
+// ============================================
+// 23. ALUMNI
+// ============================================
+
+model Alumni {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  firstName             String
+  lastName              String
+  graduationYear        Int
+  email                 String?
+  phone                 String?
+  occupation            String?
+  company               String?
+  location              String?
+  isNotable             Boolean  @default(false)
+  totalContributions    Float    @default(0)
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  school                School   @relation(fields: [schoolId], references: [id])
+  contributions         AlumniContribution[]
+}
+
+model AlumniContribution {
+  id                    String   @id @default(cuid())
+  alumniId              String
+  amount                Float
+  contributionType      String   @default("DONATION")
+  description           String?
+  campaign              String?
+  date                  DateTime @default(now())
+  createdAt             DateTime @default(now())
+
+  alumni                Alumni   @relation(fields: [alumniId], references: [id])
+}
+
+// ============================================
+// 24. SECURITY & VISITORS
+// ============================================
+
+model Visitor {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  name                  String
+  idNumber              String?
+  purpose               String
+  hostPerson            String?
+  vehicleReg            String?
+  phone                 String?
+  checkInTime           DateTime @default(now())
+  checkOutTime          DateTime?
+  status                String   @default("ON_CAMPUS")
+  createdAt             DateTime @default(now())
+
+  school                School   @relation(fields: [schoolId], references: [id])
+}
+
+model SecurityIncident {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  incidentType          String
+  location              String?
+  severity              String   @default("LOW")
+  description           String
+  reporter              String?
+  status                String   @default("OPEN")
+  resolution            String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  school                School   @relation(fields: [schoolId], references: [id])
+}
+
+// ============================================
+// 25. E-LEARNING
+// ============================================
+
+model Course {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  subjectId             String?
+  name                  String
+  description           String?
+  instructor            String?
+  enrollmentCount       Int      @default(0)
+  syllabusCompletion    Float    @default(0)
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  school                School   @relation(fields: [schoolId], references: [id])
+  resources             CourseResource[]
+  assignments           CourseAssignment[]
+}
+
+model CourseResource {
+  id                    String   @id @default(cuid())
+  courseId              String
+  title                 String
+  resourceType          String   @default("NOTES")
+  url                   String?
+  fileSize              Int      @default(0)
+  downloads             Int      @default(0)
+  uploadedBy            String?
+  createdAt             DateTime @default(now())
+
+  course                Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+model CourseAssignment {
+  id                    String   @id @default(cuid())
+  courseId              String
+  title                 String
+  description           String?
+  maxMarks              Float    @default(100)
+  dueDate               DateTime?
+  status                String   @default("OPEN")
+  submissionsCount      Int      @default(0)
+  avgScore              Float?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  course                Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// 26. TIMETABLE
+// ============================================
+
+model TimetableEntry {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  classId               String
+  subjectId             String
+  staffId               String?
+  dayOfWeek             Int      @default(1)
+  period                Int      @default(1)
+  room                  String?
+  startTime             String?
+  endTime               String?
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  school                School   @relation(fields: [schoolId], references: [id])
 }

@@ -1,8 +1,11 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { validateAuth, validateRole } from '@/lib/api-auth'
 
 export async function GET(request: Request) {
   try {
+    const authResult = await validateAuth()
+    if ('error' in authResult) return authResult.error
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
     const staffType = searchParams.get('staffType') || ''
@@ -57,6 +60,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const authResult = await validateRole(['ADMIN'])
+    if ('error' in authResult) return authResult.error
     const body = await request.json()
 
     const currentYear = new Date().getFullYear()

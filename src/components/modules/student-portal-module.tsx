@@ -28,6 +28,9 @@ import {
   Timer,
   Home,
   Flame,
+  CalendarCheck,
+  XCircle as XCircleIcon,
+  Monitor,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -369,11 +372,13 @@ export default function StudentPortalModule() {
       </motion.div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="schedule">My Schedule</TabsTrigger>
-          <TabsTrigger value="grades">Grades & Reports</TabsTrigger>
+          <TabsTrigger value="grades">Grades</TabsTrigger>
+          <TabsTrigger value="schedule">Timetable</TabsTrigger>
           <TabsTrigger value="assignments">Assignments</TabsTrigger>
+          <TabsTrigger value="attendance">Attendance</TabsTrigger>
+          <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="library">Library</TabsTrigger>
         </TabsList>
 
@@ -1021,6 +1026,201 @@ export default function StudentPortalModule() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ─── Attendance Tab ───────────────────────────────────────────────── */}
+        <TabsContent value="attendance" className="space-y-4">
+          {/* Attendance Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Attendance Rate</p>
+                    <p className="text-2xl font-bold">94%</p>
+                    <span className="text-xs text-emerald-600">+2% this term</span>
+                  </div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
+                    <CalendarCheck className="h-5 w-5 text-emerald-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Days Present</p>
+                    <p className="text-2xl font-bold">47</p>
+                    <span className="text-xs text-muted-foreground">of 50 school days</span>
+                  </div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50">
+                    <CheckCircle2 className="h-5 w-5 text-teal-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Absences</p>
+                    <p className="text-2xl font-bold">3</p>
+                    <span className="text-xs text-amber-600">1 unexcused</span>
+                  </div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
+                    <XCircle className="h-5 w-5 text-amber-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Late Arrivals</p>
+                    <p className="text-2xl font-bold">2</p>
+                    <span className="text-xs text-muted-foreground">this term</span>
+                  </div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-50">
+                    <Clock className="h-5 w-5 text-violet-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Monthly Calendar View */}
+          <Card className="border-0 shadow-md">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-emerald-600" /> This Month&apos;s Attendance
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-7 gap-1">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
+                  <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2">{d}</div>
+                ))}
+                {Array.from({ length: 31 }, (_, i) => {
+                  const day = i + 1
+                  const isWeekend = (day % 7 === 5) || (day % 7 === 6)
+                  const isAbsent = [5, 14, 22].includes(day)
+                  const isLate = [10, 19].includes(day)
+                  const isFuture = day > 5 // Simulating current date as March 5
+                  return (
+                    <div key={day} className={cn(
+                      'text-center py-2 rounded-lg text-xs font-medium transition-all',
+                      isFuture ? 'bg-muted/20 text-muted-foreground/40' :
+                      isAbsent ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
+                      isLate ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' :
+                      isWeekend ? 'bg-muted/10 text-muted-foreground/40' :
+                      'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                    )}>
+                      <div>{day}</div>
+                      {!isFuture && !isWeekend && (
+                        <div className="text-[8px] mt-0.5">
+                          {isAbsent ? 'ABS' : isLate ? 'LATE' : '✓'}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-emerald-100" /> Present</div>
+                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-amber-100" /> Late</div>
+                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-red-100" /> Absent</div>
+                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-muted/20" /> Future/Weekend</div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Absence Record */}
+          <Card className="border-0 shadow-md">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold">Absence Record</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {[
+                  { date: 'Mar 5, 2026', type: 'Excused', reason: 'Medical appointment - doctor\'s note provided', status: 'Approved' },
+                  { date: 'Feb 14, 2026', type: 'Unexcused', reason: 'No notification received', status: 'Flagged' },
+                  { date: 'Jan 22, 2026', type: 'Excused', reason: 'Family emergency - parent notified school', status: 'Approved' },
+                ].map((absence, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                    <div className="flex items-center gap-3">
+                      <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold',
+                        absence.type === 'Excused' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                      )}>
+                        {absence.type === 'Excused' ? 'E' : 'U'}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{absence.date}</p>
+                        <p className="text-xs text-muted-foreground">{absence.reason}</p>
+                      </div>
+                    </div>
+                    <Badge className={cn('text-xs', absence.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>{absence.status}</Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ─── Resources Tab ───────────────────────────────────────────────── */}
+        <TabsContent value="resources" className="space-y-4">
+          <Card className="border-0 shadow-md overflow-hidden">
+            <div className="bg-gradient-to-r from-teal-500 to-emerald-600 p-6 text-white">
+              <h3 className="text-lg font-bold flex items-center gap-2"><Monitor className="h-5 w-5" /> E-Learning Resources</h3>
+              <p className="text-teal-100 text-sm mt-1">Access notes, past exam papers, and study materials</p>
+            </div>
+          </Card>
+
+          {/* Subject Filter */}
+          <div className="flex flex-wrap gap-2">
+            {['All', 'Mathematics', 'English', 'Physics', 'Chemistry', 'Biology', 'History', 'Geography', 'Shona'].map(s => (
+              <Button key={s} variant="outline" size="sm" className={cn('text-xs', s === 'All' && 'bg-emerald-50 border-emerald-200 text-emerald-700')}>{s}</Button>
+            ))}
+          </div>
+
+          {/* Resources Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              ...digitalResources,
+              { id: '9', title: 'ZIMSEC 2024 Shona Paper 1', subject: 'Shona', type: 'Past Paper' as const, size: '1.9 MB', downloads: 98 },
+              { id: '10', title: 'Forces & Energy Notes', subject: 'Physics', type: 'Notes' as const, size: '3.8 MB', downloads: 62 },
+              { id: '11', title: 'Zimbabwe Geography Study Guide', subject: 'Geography', type: 'Notes' as const, size: '6.2 MB', downloads: 34 },
+              { id: '12', title: 'Chemical Bonding Worksheet', subject: 'Chemistry', type: 'Worksheet' as const, size: '0.5 MB', downloads: 28 },
+            ].map(resource => (
+              <Card key={resource.id} className="border-0 shadow-sm hover:shadow-md transition-all">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg shrink-0',
+                      resource.type === 'Notes' ? 'bg-emerald-100' :
+                      resource.type === 'Past Paper' ? 'bg-amber-100' :
+                      resource.type === 'Video' ? 'bg-red-100' :
+                      'bg-teal-100'
+                    )}>
+                      {resourceTypeIcon(resource.type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{resource.title}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className={cn('text-[9px]', resourceTypeColor(resource.type))}>{resource.type}</Badge>
+                        <span className="text-[10px] text-muted-foreground">{resource.subject}</span>
+                        <span className="text-[10px] text-muted-foreground">{resource.size}</span>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="sm" className="text-xs gap-1 shrink-0" onClick={() => toast.success(`Downloading ${resource.title}...`)}>
+                      <Download className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
       </Tabs>
 
       {/* Submit Assignment Dialog */}

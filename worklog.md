@@ -818,3 +818,270 @@ Work Log:
 Stage Summary:
 - Runtime error fixed - Staff Module Position filter no longer crashes
 - No other instances of empty SelectItem values found in the codebase
+
+---
+Task ID: 3+4
+Agent: Subagent (full-stack-developer)
+Task: Implement Bulk Operations, Report Card PDF Generation, and EMIS Excel Export
+
+Work Log:
+- Installed ExcelJS package (exceljs@4.4.0)
+- Created 6 new API route files:
+  1. /src/app/api/bulk/promote/route.ts - POST endpoint for mass student promotion (fromGrade, toGrade, academicYear, optional studentIds)
+  2. /src/app/api/bulk/fees/route.ts - POST endpoint for bulk fee assignment (gradeId/classId, feeStructureId, dueDate)
+  3. /src/app/api/bulk/attendance/route.ts - POST endpoint for bulk attendance marking (classId, date, records array)
+  4. /src/app/api/reports/report-card/route.ts - GET endpoint generating full Zimbabwe-format report card HTML with print/PDF capability
+  5. /src/app/api/reports/emis-export/route.ts - GET endpoint generating EMIS-formatted Excel workbook (5 sheets) with ExcelJS
+  6. /src/app/api/examinations/bulk-import/route.ts - POST endpoint for ZIMSEC results CSV upload and validation
+
+- Created BulkOperationsModule (/src/components/modules/bulk-operations-module.tsx) with 4 tabs:
+  - Student Promotion: select from/to grade, preview affected students, confirm promotion
+  - Fee Assignment: select grade/class, fee structure, due date, preview, confirm
+  - Bulk Attendance: select class, date, mark all present/absent/late with individual overrides and remarks
+  - Bulk Import: CSV upload for students/staff with field mapping, template download, file preview
+
+- Enhanced Reports Module (/src/components/modules/reports-module.tsx):
+  - Added "Download PDF" button that opens the report card API in a new window for printing/saving as PDF
+  - Added "Export EMIS Excel" button that triggers download of the EMIS .xlsx file
+  - Added Behavioral Assessment section (conduct, effort, neatness ratings) to report card preview
+  - Added Attendance Summary section (total days, present, absent, late) to report card preview
+  - Added Next Term Opening Date and fees info to report card footer
+  - Added Loader2 spinners for PDF/Excel export operations
+
+- Enhanced Report Card API with Zimbabwe school format:
+  - School crest area with gradient, school motto, EMIS number, district, province
+  - Student details grid (name, student #, class, gender, DOB, position, parent/guardian)
+  - Subject grades table with Mid-Term (30%), Test (20%), Exam (50%) and letter grades
+  - Behavioral assessment (conduct, effort, neatness)
+  - Attendance summary for the term (total days, present, absent, late)
+  - Class teacher comments with signature line
+  - Headmaster comments with signature line
+  - Official school stamp area
+  - Next term opening date and fees information
+  - Print/Save as PDF button for browser print dialog
+
+- Created EMIS Export Excel workbook (5 sheets following MoPSE EMIS census format):
+  - Sheet 1: School Information (18 fields with school data from DB)
+  - Sheet 2: Enrollment by Grade & Gender (boys/girls/total/BEAM per grade, calculated from live student data)
+  - Sheet 3: Staffing (9 categories by male/female/total, pupil:teacher ratio)
+  - Sheet 4: Infrastructure (15 facility types with count and condition)
+  - Sheet 5: Finance Summary (10 categories with amounts from live invoice data)
+  - Proper formatting: dark green headers, borders, number formatting, title rows
+
+- Enhanced ZIMSEC Results Import in Examinations Module:
+  - Added functional file upload input that calls /api/examinations/bulk-import
+  - Updated expected format display with all 5 required columns
+  - Added sample CSV format example with header and data rows
+  - Import validates candidateNumber, subject, grade, year, level columns
+  - Creates/updates ZimsecCandidate records in the database
+
+- Registered BulkOperationsModule in page.tsx:
+  - Added ArrowRightLeft icon import from lucide-react
+  - Added BulkOperationsModule component import
+  - Added 'bulk-operations' to Academics nav group with ArrowRightLeft icon
+  - Added moduleInfo entry with gradient
+  - Added conditional rendering in module switch
+
+- Lint check passed with 3 pre-existing errors (none from new code)
+- Dev server running successfully on port 3000
+
+Stage Summary:
+- Complete Bulk Operations module with 4 tabs (Promotion, Fee Assignment, Attendance, Import)
+- Full Report Card PDF generation with Zimbabwe school format including behavioral assessment and attendance
+- EMIS Excel export with 5 properly formatted sheets following MoPSE census format
+- ZIMSEC results CSV bulk import with validation and database record creation
+- All 3 new API routes functional (bulk promote, bulk fees, bulk attendance)
+- Report Card API generates print-ready HTML for PDF save
+- EMIS Export API generates downloadable .xlsx with ExcelJS
+- ZIMSEC Bulk Import API processes CSV uploads with validation
+
+---
+Task ID: 5+6+7
+Agent: Subagent (full-stack-developer)
+Task: Build full Parent/Student/Teacher portals, Paynow payment gateway, Africa's Talking SMS, Multi-School Setup Wizard, and ZIMSEC Bulk Import UI
+
+Work Log:
+- Enhanced Parent Portal (parent-portal-module.tsx):
+  - Added Reports tab (6th tab) with report card download, term results, subject grades table, teacher/headmaster comments
+  - Integrated Paynow payment dialog - "Pay Now" button in Fee Payments tab opens PaynowDialog
+  - Integrated SMS dialog for parent communications
+  - Tab layout expanded from 5 to 6 tabs
+- Enhanced Student Portal (student-portal-module.tsx):
+  - Added Attendance tab with attendance stats (rate, present, absences, late), monthly calendar view with color-coded days, absence record
+  - Added Resources tab with e-learning resources, subject filter, download buttons, past exam papers
+  - Tab layout expanded from 5 to 7 tabs (Overview, Grades, Timetable, Assignments, Attendance, Resources, Library)
+- Enhanced Teacher Portal (teacher-portal-module.tsx):
+  - Added Resources tab with teaching resources management, upload functionality, resource list with class sharing
+  - Tab layout expanded from 5 to 6 tabs (Overview, My Classes, Marks Entry, Assignments, Resources, Attendance & Schedule)
+- Created Paynow Payment Gateway Integration:
+  - API route: /src/app/api/payments/paynow/route.ts (POST: initiate payment, GET: check status)
+  - Supports EcoCash, OneMoney, Bank Card payment methods
+  - USD/ZiG currency toggle with exchange rate
+  - Production-ready structure with real Paynow API integration when env vars configured
+  - Mock/demo mode with simulated payment completion
+  - PaynowDialog component with 4-step flow: Details → Processing → Success → Failed
+  - Mobile money instructions for EcoCash (*153#) and OneMoney (*111#)
+  - Security notice, phone number validation, polling for payment status
+- Created Africa's Talking SMS Integration:
+  - API route: /src/app/api/communication/sms/route.ts (POST: send SMS, GET: delivery reports)
+  - Support for bulk SMS up to 1000 recipients
+  - Zimbabwe phone number format validation (0XX → +263XX)
+  - 8 SMS templates (Fee Reminder, Meeting Notice, Exam Schedule, Attendance Alert, School Closure, Sports Event, PT Conference, Results Available)
+  - SmsDialog component with recipient groups (All Parents, Class Parents, Grade Parents, Individual)
+  - Character counter with SMS segment calculation (160 chars/segment, max 5 segments)
+  - Cost estimation, delivery tracking, template selector
+- Created Multi-School Setup Wizard:
+  - Module: /src/components/modules/setup-wizard-module.tsx
+  - API route: /src/app/api/setup/route.ts (POST: complete setup, GET: provinces/districts data)
+  - 6-step wizard: School Info → Academic Setup → Fee Structure → Staff Setup → Infrastructure → Review & Complete
+  - Step 1: School name, code, type, level, province/district, EMIS, motto, contact info
+  - Step 2: Academic year, 3 terms, grades (auto-generated for Primary/Secondary/Combined), subjects, classes (auto-generate)
+  - Step 3: Fee structure with auto-generate defaults (Tuition/Activity/Levy per grade)
+  - Step 4: Headmaster, Deputy, Bursar, Senior Teachers (add/remove)
+  - Step 5: Hostels, classrooms, facilities (16 options)
+  - Step 6: Review all details, summary cards, validation check
+  - Creates School, AcademicYear, Terms, Grades, Subjects, Classes, FeeStructures, Staff, Hostels, Dormitories, AuditLog via API
+  - Completion screen with summary statistics
+- Created ZIMSEC Bulk Import UI:
+  - Module: /src/components/modules/zimsec-bulk-import-module.tsx
+  - 4-step import workflow: Upload → Preview → Validate → Complete
+  - Upload step: exam config (year/level/centre), file upload area, template download
+  - Preview step: candidate table with validation status, add/remove candidates
+  - Validation step: valid/invalid candidate summary, error details
+  - Complete step: registration confirmation, download report
+  - 10 mock candidates with realistic ZIMSEC data (O-Level and A-Level)
+  - Validation for missing National ID, outstanding fees, minimum subjects
+  - Add candidate dialog for manual entry
+- Registered new modules in page.tsx:
+  - Added SetupWizardModule and ZimsecBulkImportModule imports
+  - Added 'zimsec-import' to Academics nav group
+  - Added 'setup-wizard' to Admin nav group
+  - Added moduleInfo entries for both modules
+  - Added conditional rendering in module switch
+- Lint check passed with zero errors
+- Dev server running successfully
+
+Stage Summary:
+- **3 enhanced portal modules** with new tabs (Parent: +Reports, Student: +Attendance+Resources, Teacher: +Resources)
+- **2 new API routes** (Paynow payment gateway, Africa's Talking SMS)
+- **1 setup API route** for multi-school configuration
+- **4 new UI components** (PaynowDialog, SmsDialog, SetupWizardModule, ZimsecBulkImportModule)
+- **Paynow integration** supporting EcoCash, OneMoney, Bank Card with USD/ZiG
+- **Africa's Talking SMS** with bulk messaging, templates, delivery tracking
+- **Multi-School Setup Wizard** with 6-step flow and full database creation
+- **ZIMSEC Bulk Import** with upload/preview/validate/complete workflow
+- All new UI uses emerald/teal color scheme, shadcn/ui, framer-motion animations
+- Production-ready API structures with mock/demo responses when env vars not configured
+
+---
+Task ID: 8+9
+Agent: Subagent (full-stack-developer)
+Task: Implement PWA/Offline Support, Real-time WebSocket Notifications, RBAC, and Multi-Currency Accounting
+
+Work Log:
+
+**Part A: PWA/Offline Support**
+- Created `/public/manifest.json` with ZimSchool Pro app config (standalone display, emerald theme #059669, icons placeholder paths, en-ZW locale)
+- Created `/public/sw.js` Service Worker with:
+  - Cache-first strategy for static assets
+  - Network-first strategy for API calls
+  - Offline fallback page (`/offline.html`)
+  - Cache versioning (zimschool-v2) with automatic cleanup of old caches
+  - Background sync support for POST/PUT requests
+  - Push notification handling with action buttons
+  - Notification click handler to open relevant URL
+- Created `/public/offline.html` - Styled offline fallback page with retry button and ZimSchool Pro branding
+- Created `/src/hooks/use-online-status.ts` - React hook detecting online/offline status with toast notifications on connectivity changes
+- Created `/src/components/offline-indicator.tsx` - Banner component shown at top of page when offline
+- Updated `/src/app/layout.tsx`:
+  - Added Viewport export with PWA settings (user-scalable=no, theme-color)
+  - Added manifest link in metadata
+  - Added apple-mobile-web-app-capable and related meta tags in <head>
+  - Added apple-touch-icon link
+
+**Part B: Real-time WebSocket Notifications**
+- Created `/mini-services/notification-service/` as independent bun project:
+  - package.json with socket.io dependency
+  - index.ts entry point on port 3003
+  - Handles connections, rooms (by school ID, by user role, personal rooms)
+  - Events: new-notification, fee-payment, attendance-alert, exam-result, message-received
+  - Demo notifications every 45 seconds with varied types and priorities
+  - Notification history (last 100 events)
+  - Graceful shutdown handling
+- Created `/src/hooks/use-notifications.ts`:
+  - Connects to WebSocket service via `io("/?XTransformPort=3003")`
+  - Listens for all 5 notification event types
+  - Auto-reconnect with exponential backoff
+  - Toast notifications based on priority (critical=error, high=warning, medium/low=info)
+  - Returns notifications list, unread count, connection status, and CRUD functions
+- Updated AppHeader with:
+  - WebSocket connection status indicator (green "Live" or red "Offline"/"Reconnecting")
+  - Exchange rate badge (1 USD = X ZiG)
+  - Role badge with color-coded display
+  - Real-time notification count combining static and WebSocket notifications
+
+**Part C: Role-Based Access Control (RBAC)**
+- Created `/src/lib/rbac.ts` with complete permission matrix:
+  - ADMIN: Full access to all modules
+  - TEACHER: Academics, Attendance, Examinations, E-Learning, Timetable, Communication, Library, Discipline, Health (view only), Reports (limited)
+  - BURSAR: Finance, Payroll, Canteen, Procurement, Reports (financial only), Settings (fee structure only)
+  - PARENT: Parent Portal only (fees, children's grades, communication)
+  - STUDENT: Student Portal only (grades, timetable, assignments, resources, library)
+  - Functions: hasPermission(), canPerformAction(), getAccessibleModules(), getRolePermissions(), hasFullAccess(), getRoleDisplayName(), getRoleColor(), getAllRoles(), getModuleDisplayName()
+- Created `/src/hooks/use-rbac.ts`:
+  - Wraps all RBAC functions with reactive state
+  - filterNavGroups() - filters sidebar navigation based on role
+  - filterNavItems() - filters individual item lists
+  - Returns currentRole, setCurrentRole, accessible modules, permission checks
+- Updated AppSidebar:
+  - Added role selector dropdown (ADMIN/TEACHER/BURSAR/PARENT/STUDENT)
+  - Navigation groups filtered by current role permissions
+  - Groups with no accessible items are automatically hidden
+- All RBAC works without real auth (demo mode with role selector)
+
+**Part D: Multi-Currency Accounting**
+- Created `/src/lib/currency.ts`:
+  - formatUSD() - format as USD with $ symbol
+  - formatZiG() - format as Zimbabwe Gold with ZiG symbol
+  - formatCurrency() - format in specified currency
+  - formatDualCurrency() - show both USD and ZiG values
+  - convertCurrency() - convert between USD and ZiG
+  - getDualCurrencyAmount() - get breakdown object
+  - getCurrentRate()/fetchExchangeRate()/updateCachedRate() - rate management
+  - formatSalaryComponent()/formatStatutoryDeduction() - payroll-specific formatting
+- Created `/src/app/api/finance/exchange-rate/route.ts`:
+  - GET: Returns current USD/ZiG rate (default 26.5)
+  - PUT: Update exchange rate (admin only)
+- Updated Finance Module:
+  - Exchange rate display in header (1 USD = X ZiG)
+  - Currency toggle button to switch between USD/ZiG primary
+  - All stat cards show dual currency (primary large, secondary small)
+  - Total Invoiced, Total Collected, Total Outstanding all show both values
+- Updated Payroll Module:
+  - Exchange rate display in header
+  - Total Payroll and Net Pay stat cards show ZiG equivalents
+  - Payslip dialog shows ZiG equivalents for all earnings components
+  - Net Pay section shows both USD and ZiG
+  - Statutory deductions (PAYE, NSSA, ZIMDEF, AIDS Levy) all show dual currency
+- Installed socket.io-client in main project
+
+**Bug Fixes:**
+- Fixed duplicate Upload/Download imports in teacher-portal-module.tsx
+- Added missing X import from lucide-react in teacher-portal-module.tsx
+- Fixed lint error in use-online-status.ts (setState in effect body)
+- All lint checks pass with zero errors
+- Dev server running successfully on port 3000
+- Notification service running on port 3003
+
+Stage Summary:
+- **PWA Support**: manifest.json, service worker, offline page, online status detection with toast notifications
+- **Real-time Notifications**: WebSocket mini-service on port 3003, useNotifications hook, header status indicators
+- **RBAC**: Complete 5-role permission matrix, sidebar filtering, role selector dropdown, works in demo mode
+- **Multi-Currency**: USD/ZiG dual display in Finance and Payroll modules, exchange rate API, currency toggle
+- All new UI uses shadcn/ui components with emerald/teal color scheme
+- 4 new files in /public (manifest, sw.js, offline.html)
+- 4 new hook files (/src/hooks/)
+- 2 new lib files (/src/lib/rbac.ts, /src/lib/currency.ts)
+- 1 new API route (/api/finance/exchange-rate)
+- 1 new mini-service (/mini-services/notification-service/)
+- 1 new component (/src/components/offline-indicator.tsx)

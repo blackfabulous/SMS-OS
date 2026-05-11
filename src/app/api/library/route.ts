@@ -1,12 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { NextResponse } from 'next/server'
 
-// GET /api/library - Get books and transactions
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
     const category = searchParams.get('category') || ''
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '50')
 
     // Build book filter
     const bookFilter: Record<string, unknown> = { isActive: true }
@@ -22,39 +23,29 @@ export async function GET(request: NextRequest) {
       bookFilter.category = category
     }
 
-    const books = await db.libraryBook.findMany({
-      where: bookFilter,
-      include: {
-        transactions: {
-          where: { transactionType: 'ISSUE', returnDate: null },
-          include: {
-            student: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                studentNumber: true,
-              },
+    const [books, bookTotal] = await Promise.all([
+      db.libraryBook.findMany({
+        where: bookFilter,
+        include: {
+          transactions: {
+            where: { transactionType: 'ISSUE', returnDate: null },
+            include: {
+              student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } },
             },
+            orderBy: { issueDate: 'desc' },
           },
-          orderBy: { issueDate: 'desc' },
         },
-      },
-      orderBy: { title: 'asc' },
-    })
+        orderBy: { title: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      db.libraryBook.count({ where: bookFilter }),
+    ])
 
-    // All transactions (recent)
     const transactions = await db.libraryTransaction.findMany({
       include: {
         book: { select: { id: true, title: true, author: true, isbn: true } },
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            studentNumber: true,
-          },
-        },
+        student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 200,
@@ -69,38 +60,22 @@ export async function GET(request: NextRequest) {
     const availableCopies = totalCopies._sum.availableCopies || 0
     const issuedCount = (totalCopies._sum.totalCopies || 0) - availableCopies
 
-    // Overdue books
     const now = new Date()
     const overdueTransactions = await db.libraryTransaction.findMany({
-      where: {
-        transactionType: 'ISSUE',
-        returnDate: null,
-        dueDate: { lt: now },
-      },
+      where: { transactionType: 'ISSUE', returnDate: null, dueDate: { lt: now } },
       include: {
         book: { select: { id: true, title: true, author: true } },
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            studentNumber: true,
-          },
-        },
+        student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } },
       },
       orderBy: { dueDate: 'asc' },
     })
 
-    // Calculate fines for overdue
     const overdueWithFines = overdueTransactions.map((t) => {
-      const daysOverdue = Math.ceil(
-        (now.getTime() - new Date(t.dueDate!).getTime()) / (1000 * 60 * 60 * 24)
-      )
-      const fine = daysOverdue * 1 // $1 per day
+      const daysOverdue = Math.ceil((now.getTime() - new Date(t.dueDate!).getTime()) / (1000 * 60 * 60 * 24))
+      const fine = daysOverdue * 1
       return { ...t, daysOverdue, calculatedFine: fine }
     })
 
-    // Categories
     const categories = await db.libraryBook.groupBy({
       by: ['category'],
       where: { isActive: true, category: { not: null } },
@@ -109,19 +84,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       books,
+      bookTotal,
       transactions,
-      stats: {
-        totalBooks,
-        totalCopies: totalCopies._sum.totalCopies || 0,
-        availableCopies,
-        issuedCount,
-        overdueCount: overdueTransactions.length,
-      },
+      stats: { totalBooks, totalCopies: totalCopies._sum.totalCopies || 0, availableCopies, issuedCount, overdueCount: overdueTransactions.length },
       overdue: overdueWithFines,
-      categories: categories.map((c) => ({
-        category: c.category || 'Uncategorized',
-        count: c._count.id,
-      })),
+      categories: categories.map((c) => ({ category: c.category || 'Uncategorized', count: c._count.id })),
     })
   } catch (error) {
     console.error('Failed to fetch library data:', error)
@@ -129,8 +96,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/library - Issue/return book, add book
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { action } = body
@@ -142,104 +108,56 @@ export async function POST(request: NextRequest) {
       }
 
       const book = await db.libraryBook.findUnique({ where: { id: bookId } })
-      if (!book) {
-        return NextResponse.json({ error: 'Book not found' }, { status: 404 })
-      }
-      if (book.availableCopies <= 0) {
-        return NextResponse.json({ error: 'No copies available for issue' }, { status: 400 })
-      }
+      if (!book) return NextResponse.json({ error: 'Book not found' }, { status: 404 })
+      if (book.availableCopies <= 0) return NextResponse.json({ error: 'No copies available' }, { status: 400 })
 
       const transaction = await db.$transaction(async (tx) => {
         const newTransaction = await tx.libraryTransaction.create({
           data: {
-            bookId,
-            studentId,
-            transactionType: 'ISSUE',
-            issueDate: new Date(),
+            bookId, studentId, transactionType: 'ISSUE', issueDate: new Date(),
             dueDate: dueDate ? new Date(dueDate) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
           },
-          include: {
-            book: { select: { title: true, author: true } },
-            student: { select: { firstName: true, lastName: true, studentNumber: true } },
-          },
+          include: { book: { select: { title: true, author: true } }, student: { select: { firstName: true, lastName: true, studentNumber: true } } },
         })
-
-        await tx.libraryBook.update({
-          where: { id: bookId },
-          data: { availableCopies: { decrement: 1 } },
-        })
-
+        await tx.libraryBook.update({ where: { id: bookId }, data: { availableCopies: { decrement: 1 } } })
         return newTransaction
       })
-
       return NextResponse.json(transaction, { status: 201 })
     }
 
     if (action === 'return') {
       const { transactionId, conditionOnReturn, fine } = body
-      if (!transactionId) {
-        return NextResponse.json({ error: 'transactionId is required' }, { status: 400 })
-      }
+      if (!transactionId) return NextResponse.json({ error: 'transactionId is required' }, { status: 400 })
 
       const transaction = await db.$transaction(async (tx) => {
-        const existing = await tx.libraryTransaction.findUnique({
-          where: { id: transactionId },
-        })
-        if (!existing || existing.returnDate) {
-          throw new Error('Transaction not found or already returned')
-        }
+        const existing = await tx.libraryTransaction.findUnique({ where: { id: transactionId } })
+        if (!existing || existing.returnDate) throw new Error('Transaction not found or already returned')
 
         const updated = await tx.libraryTransaction.update({
           where: { id: transactionId },
-          data: {
-            returnDate: new Date(),
-            conditionOnReturn: conditionOnReturn || null,
-            fine: fine || 0,
-          },
-          include: {
-            book: { select: { title: true, author: true } },
-            student: { select: { firstName: true, lastName: true } },
-          },
+          data: { returnDate: new Date(), conditionOnReturn: conditionOnReturn || null, fine: fine || 0 },
+          include: { book: { select: { title: true, author: true } }, student: { select: { firstName: true, lastName: true } } },
         })
-
-        await tx.libraryBook.update({
-          where: { id: existing.bookId },
-          data: { availableCopies: { increment: 1 } },
-        })
-
+        await tx.libraryBook.update({ where: { id: existing.bookId }, data: { availableCopies: { increment: 1 } } })
         return updated
       })
-
       return NextResponse.json(transaction)
     }
 
     if (action === 'addBook') {
       const { isbn, title, author, publisher, category, shelfLocation, totalCopies, schoolId } = body
-      if (!title) {
-        return NextResponse.json({ error: 'Title is required' }, { status: 400 })
-      }
+      if (!title) return NextResponse.json({ error: 'Title is required' }, { status: 400 })
 
-      // Find or use provided schoolId
       let sid = schoolId
-      if (!sid) {
-        const school = await db.school.findFirst()
-        sid = school?.id
-      }
+      if (!sid) { const school = await db.school.findFirst(); sid = school?.id }
 
       const book = await db.libraryBook.create({
         data: {
-          schoolId: sid || 'default',
-          isbn: isbn || null,
-          title,
-          author: author || null,
-          publisher: publisher || null,
-          category: category || null,
-          shelfLocation: shelfLocation || null,
-          totalCopies: totalCopies || 1,
-          availableCopies: totalCopies || 1,
+          schoolId: sid || 'default', isbn: isbn || null, title,
+          author: author || null, publisher: publisher || null, category: category || null,
+          shelfLocation: shelfLocation || null, totalCopies: totalCopies || 1, availableCopies: totalCopies || 1,
         },
       })
-
       return NextResponse.json(book, { status: 201 })
     }
 
@@ -247,5 +165,64 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Failed to process library request:', error)
     return NextResponse.json({ error: 'Failed to process library request' }, { status: 500 })
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json()
+    const { id, ...updates } = body
+
+    if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+
+    // Update book
+    if (updates.title || updates.author || updates.category !== undefined) {
+      const book = await db.libraryBook.update({
+        where: { id },
+        data: {
+          title: updates.title,
+          author: updates.author,
+          publisher: updates.publisher,
+          category: updates.category,
+          shelfLocation: updates.shelfLocation,
+          isbn: updates.isbn,
+          totalCopies: updates.totalCopies,
+          availableCopies: updates.availableCopies,
+          isActive: updates.isActive,
+        },
+      })
+      return NextResponse.json(book)
+    }
+
+    // Update transaction
+    const transaction = await db.libraryTransaction.update({
+      where: { id },
+      data: { fine: updates.fine, conditionOnReturn: updates.conditionOnReturn },
+    })
+    return NextResponse.json(transaction)
+  } catch (error) {
+    console.error('Failed to update library record:', error)
+    return NextResponse.json({ error: 'Failed to update library record' }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    const type = searchParams.get('type')
+
+    if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+
+    if (type === 'book') {
+      await db.libraryBook.update({ where: { id }, data: { isActive: false } })
+    } else {
+      await db.libraryTransaction.delete({ where: { id } })
+    }
+
+    return NextResponse.json({ message: 'Deleted successfully' })
+  } catch (error) {
+    console.error('Failed to delete library record:', error)
+    return NextResponse.json({ error: 'Failed to delete library record' }, { status: 500 })
   }
 }

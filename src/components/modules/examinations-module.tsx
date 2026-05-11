@@ -1103,37 +1103,74 @@ export default function ExaminationsModule() {
               >
                 <Card className="border-0 shadow-md">
                   <CardContent className="p-6">
-                    <div className="text-center max-w-md mx-auto">
+                    <div className="text-center max-w-lg mx-auto">
                       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 mx-auto mb-4">
                         <Upload className="h-8 w-8 text-emerald-600" />
                       </div>
                       <h3 className="text-lg font-semibold mb-2">Import ZIMSEC Results</h3>
                       <p className="text-sm text-muted-foreground mb-6">
-                        Upload ZIMSEC results file (CSV or Excel format) to import candidate results into the system.
+                        Upload ZIMSEC results CSV file to import candidate results into the system.
                       </p>
 
-                      <div className="border-2 border-dashed border-emerald-200 rounded-xl p-8 mb-4 hover:border-emerald-400 transition-colors cursor-pointer">
+                      <div
+                        className="border-2 border-dashed border-emerald-200 rounded-xl p-8 mb-4 hover:border-emerald-400 transition-colors cursor-pointer relative"
+                        onClick={() => document.getElementById('zimsec-file-input')?.click()}
+                      >
                         <Upload className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
                         <p className="text-sm font-medium">Click to upload or drag and drop</p>
-                        <p className="text-xs text-muted-foreground mt-1">CSV, XLSX (Max 5MB)</p>
+                        <p className="text-xs text-muted-foreground mt-1">CSV format (Max 5MB)</p>
+                        <input
+                          id="zimsec-file-input"
+                          type="file"
+                          accept=".csv"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+                            const formData = new FormData()
+                            formData.append('file', file)
+                            try {
+                              const res = await fetch('/api/examinations/bulk-import', {
+                                method: 'POST',
+                                body: formData,
+                              })
+                              const data = await res.json()
+                              if (res.ok && data.success) {
+                                alert(data.message)
+                              } else {
+                                alert(data.error || 'Import failed')
+                              }
+                            } catch {
+                              alert('Failed to upload file')
+                            }
+                            e.target.value = ''
+                          }}
+                        />
                       </div>
 
                       <div className="text-left space-y-3 bg-muted/30 rounded-lg p-4">
-                        <p className="text-sm font-semibold">Expected format:</p>
+                        <p className="text-sm font-semibold">Expected CSV format:</p>
                         <div className="text-xs text-muted-foreground space-y-1">
-                          <p>• Candidate Number</p>
-                          <p>• Subject Code</p>
-                          <p>• Marks Obtained</p>
-                          <p>• Grade (A-U)</p>
+                          <p>• candidateNumber - ZIMSEC candidate number</p>
+                          <p>• subject - Subject name (e.g. Mathematics)</p>
+                          <p>• grade - Grade achieved (A*, A, B, C, D, E, U)</p>
+                          <p>• year - Exam year (e.g. 2024)</p>
+                          <p>• level - Exam level (O-Level, A-Level, Grade 7)</p>
+                        </div>
+                        <div className="mt-2 p-2 rounded bg-white border font-mono text-[10px]">
+                          candidateNumber,subject,grade,year,level<br/>
+                          C2024001,Mathematics,B,2024,O-Level<br/>
+                          C2024001,English,A,2024,O-Level
                         </div>
                       </div>
 
                       <Button
                         variant="outline"
                         className="mt-4 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                        onClick={() => document.getElementById('zimsec-file-input')?.click()}
                       >
                         <Upload className="mr-2 h-4 w-4" />
-                        Select File to Upload
+                        Select CSV File to Upload
                       </Button>
                     </div>
                   </CardContent>

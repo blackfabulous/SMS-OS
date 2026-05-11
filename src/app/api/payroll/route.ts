@@ -5,18 +5,10 @@ import { NextResponse } from 'next/server'
 function calculatePAYE(taxableIncome: number): number {
   if (taxableIncome <= 0) return 0
   const brackets = [
-    { limit: 300, rate: 0 },
-    { limit: 1500, rate: 0.2 },
-    { limit: 5000, rate: 0.25 },
-    { limit: 10000, rate: 0.3 },
-    { limit: 20000, rate: 0.35 },
-    { limit: Infinity, rate: 0.4 },
+    { limit: 300, rate: 0 }, { limit: 1500, rate: 0.2 }, { limit: 5000, rate: 0.25 },
+    { limit: 10000, rate: 0.3 }, { limit: 20000, rate: 0.35 }, { limit: Infinity, rate: 0.4 },
   ]
-
-  let paye = 0
-  let remaining = taxableIncome
-  let prevLimit = 0
-
+  let paye = 0; let remaining = taxableIncome; let prevLimit = 0
   for (const bracket of brackets) {
     const taxableInBracket = Math.min(remaining, bracket.limit - prevLimit)
     if (taxableInBracket <= 0) break
@@ -24,7 +16,6 @@ function calculatePAYE(taxableIncome: number): number {
     remaining -= taxableInBracket
     prevLimit = bracket.limit
   }
-
   return Math.round(paye * 100) / 100
 }
 
@@ -34,18 +25,9 @@ export async function GET(request: Request) {
     const month = parseInt(searchParams.get('month') || String(new Date().getMonth() + 1))
     const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()))
 
-    // Get all active staff with payroll info
     const staff = await db.staff.findMany({
-      where: {
-        isActive: true,
-        payrollStatus: 'ACTIVE',
-        payType: 'SCHOOL_PAID',
-      },
-      include: {
-        payslips: {
-          where: { periodMonth: month, periodYear: year },
-        },
-      },
+      where: { isActive: true, payrollStatus: 'ACTIVE', payType: 'SCHOOL_PAID' },
+      include: { payslips: { where: { periodMonth: month, periodYear: year } } },
       orderBy: { lastName: 'asc' },
     })
 
@@ -53,85 +35,41 @@ export async function GET(request: Request) {
     const totalDeductions = staff.reduce((sum, s) => {
       const gross = s.basicSalary + s.housingAllowance + s.transportAllowance + s.responsibilityAllowance
       const paye = calculatePAYE(gross)
-      const nssa = Math.min(gross * 0.045, 339) // 4.5% employee contribution, capped
-      const aidsLevy = paye * 0.06 // 6% of PAYE
+      const nssa = Math.min(gross * 0.045, 339)
+      const aidsLevy = paye * 0.06
       return sum + paye + nssa + aidsLevy
     }, 0)
-    const totalNetPay = totalPayroll - totalDeductions
 
-    // Get existing payslips for the period
     const payslips = await db.payslip.findMany({
       where: { periodMonth: month, periodYear: year },
       include: { staff: true },
       orderBy: { createdAt: 'desc' },
     })
 
-    // PAYE summary
-    const payeSummary = staff.reduce((acc, s) => {
-      const gross = s.basicSalary + s.housingAllowance + s.transportAllowance + s.responsibilityAllowance
-      const paye = calculatePAYE(gross)
-      return acc + paye
-    }, 0)
-
-    // NSSA summary
-    const nssaEmployee = staff.reduce((acc, s) => {
-      const gross = s.basicSalary + s.housingAllowance + s.transportAllowance + s.responsibilityAllowance
-      return acc + Math.min(gross * 0.045, 339)
-    }, 0)
-
-    const nssaEmployer = staff.reduce((acc, s) => {
-      const gross = s.basicSalary + s.housingAllowance + s.transportAllowance + s.responsibilityAllowance
-      return acc + Math.min(gross * 0.045, 339)
-    }, 0)
-
-    // Salary distribution data
-    const salaryRanges = [
-      { range: '$0-500', min: 0, max: 500 },
-      { range: '$501-1000', min: 501, max: 1000 },
-      { range: '$1001-2000', min: 1001, max: 2000 },
-      { range: '$2001-3000', min: 2001, max: 3000 },
-      { range: '$3001-5000', min: 3001, max: 5000 },
-      { range: '$5000+', min: 5001, max: Infinity },
-    ]
-
-    const distribution = salaryRanges.map((range) => ({
-      range: range.range,
-      count: staff.filter((s) => {
-        const gross = s.basicSalary + s.housingAllowance + s.transportAllowance + s.responsibilityAllowance
-        return gross >= range.min && gross <= range.max
-      }).length,
-    }))
+    const payeSummary = staff.reduce((acc, s) => acc + calculatePAYE(s.basicSalary + s.housingAllowance + s.transportAllowance + s.responsibilityAllowance), 0)
+    const nssaEmployee = staff.reduce((acc, s) => acc + Math.min((s.basicSalary + s.housingAllowance + s.transportAllowance + s.responsibilityAllowance) * 0.045, 339), 0)
+    const nssaEmployer = nssaEmployee
 
     return NextResponse.json({
       staff: staff.map((s) => ({
-        id: s.id,
-        staffNumber: s.staffNumber,
-        firstName: s.firstName,
-        lastName: s.lastName,
-        position: s.position,
-        department: s.department,
-        staffType: s.staffType,
-        basicSalary: s.basicSalary,
-        housingAllowance: s.housingAllowance,
-        transportAllowance: s.transportAllowance,
+        id: s.id, staffNumber: s.staffNumber, firstName: s.firstName, lastName: s.lastName,
+        position: s.position, department: s.department, staffType: s.staffType,
+        basicSalary: s.basicSalary, housingAllowance: s.housingAllowance, transportAllowance: s.transportAllowance,
         responsibilityAllowance: s.responsibilityAllowance,
         grossPay: s.basicSalary + s.housingAllowance + s.transportAllowance + s.responsibilityAllowance,
         hasPayslip: s.payslips.length > 0,
       })),
       payslips,
       stats: {
-        totalStaff: staff.length,
-        totalPayroll,
-        totalDeductions: Math.round(totalDeductions * 100) / 100,
-        totalNetPay: Math.round(totalNetPay * 100) / 100,
+        totalStaff: staff.length, totalPayroll, totalDeductions: Math.round(totalDeductions * 100) / 100,
+        totalNetPay: Math.round((totalPayroll - totalDeductions) * 100) / 100,
         payeTotal: Math.round(payeSummary * 100) / 100,
         nssaEmployee: Math.round(nssaEmployee * 100) / 100,
         nssaEmployer: Math.round(nssaEmployer * 100) / 100,
         aidsLevy: Math.round(payeSummary * 0.06 * 100) / 100,
-        zimdef: Math.round(totalPayroll * 0.01 * 100) / 100, // 1% of payroll
+        zimdef: Math.round(totalPayroll * 0.01 * 100) / 100,
         payslipsGenerated: payslips.length,
       },
-      distribution,
       period: { month, year },
     })
   } catch (error) {
@@ -145,80 +83,83 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { month, year } = body
 
-    if (!month || !year) {
-      return NextResponse.json({ error: 'Month and year are required' }, { status: 400 })
-    }
+    if (!month || !year) return NextResponse.json({ error: 'Month and year are required' }, { status: 400 })
 
-    // Get all active school-paid staff
-    const staffMembers = await db.staff.findMany({
-      where: { isActive: true, payrollStatus: 'ACTIVE', payType: 'SCHOOL_PAID' },
-    })
-
+    const staffMembers = await db.staff.findMany({ where: { isActive: true, payrollStatus: 'ACTIVE', payType: 'SCHOOL_PAID' } })
     const results = []
 
     for (const staff of staffMembers) {
-      // Check if payslip already exists
       const existing = await db.payslip.findUnique({
-        where: {
-          staffId_periodMonth_periodYear: {
-            staffId: staff.id,
-            periodMonth: month,
-            periodYear: year,
-          },
-        },
+        where: { staffId_periodMonth_periodYear: { staffId: staff.id, periodMonth: month, periodYear: year } },
       })
-
-      if (existing) {
-        results.push({ staffId: staff.id, status: 'already_exists' })
-        continue
-      }
+      if (existing) { results.push({ staffId: staff.id, status: 'already_exists' }); continue }
 
       const grossPay = staff.basicSalary + staff.housingAllowance + staff.transportAllowance + staff.responsibilityAllowance
       const paye = calculatePAYE(grossPay)
-      const nssaEmployee = Math.min(grossPay * 0.045, 339)
-      const nssaEmployer = Math.min(grossPay * 0.045, 339)
+      const nssaEmp = Math.min(grossPay * 0.045, 339)
+      const nssaEmpr = Math.min(grossPay * 0.045, 339)
       const aidsLevy = paye * 0.06
       const zimdef = grossPay * 0.01
-
-      const totalDeductions = paye + nssaEmployee + aidsLevy + zimdef
+      const totalDeductions = paye + nssaEmp + aidsLevy + zimdef
       const netPay = grossPay - totalDeductions
 
       await db.payslip.create({
         data: {
-          staffId: staff.id,
-          periodMonth: month,
-          periodYear: year,
-          basicSalary: staff.basicSalary,
-          housingAllowance: staff.housingAllowance,
-          transportAllowance: staff.transportAllowance,
-          responsibilityAllowance: staff.responsibilityAllowance,
-          overtime: 0,
-          grossPay,
-          paye: Math.round(paye * 100) / 100,
-          nssaEmployee: Math.round(nssaEmployee * 100) / 100,
-          nssaEmployer: Math.round(nssaEmployer * 100) / 100,
-          aidsLevy: Math.round(aidsLevy * 100) / 100,
-          zimdef: Math.round(zimdef * 100) / 100,
-          pension: 0,
-          medicalAid: 0,
-          funeralPolicy: 0,
-          otherDeductions: 0,
-          netPay: Math.round(netPay * 100) / 100,
-          status: 'APPROVED',
+          staffId: staff.id, periodMonth: month, periodYear: year,
+          basicSalary: staff.basicSalary, housingAllowance: staff.housingAllowance,
+          transportAllowance: staff.transportAllowance, responsibilityAllowance: staff.responsibilityAllowance,
+          overtime: 0, grossPay, paye: Math.round(paye * 100) / 100,
+          nssaEmployee: Math.round(nssaEmp * 100) / 100, nssaEmployer: Math.round(nssaEmpr * 100) / 100,
+          aidsLevy: Math.round(aidsLevy * 100) / 100, zimdef: Math.round(zimdef * 100) / 100,
+          pension: 0, medicalAid: 0, funeralPolicy: 0, otherDeductions: 0,
+          netPay: Math.round(netPay * 100) / 100, status: 'APPROVED',
         },
       })
-
       results.push({ staffId: staff.id, status: 'created', netPay: Math.round(netPay * 100) / 100 })
     }
 
     return NextResponse.json({
       message: `Payroll processed for ${month}/${year}`,
       processed: results.filter((r) => r.status === 'created').length,
-      skipped: results.filter((r) => r.status === 'already_exists').length,
-      results,
+      skipped: results.filter((r) => r.status === 'already_exists').length, results,
     }, { status: 201 })
   } catch (error) {
     console.error('Error processing payroll:', error)
     return NextResponse.json({ error: 'Failed to process payroll' }, { status: 500 })
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json()
+    const { id, ...updates } = body
+
+    if (!id) return NextResponse.json({ error: 'Payslip ID is required' }, { status: 400 })
+
+    const payslip = await db.payslip.update({
+      where: { id },
+      data: { status: updates.status },
+      include: { staff: true },
+    })
+
+    return NextResponse.json(payslip)
+  } catch (error) {
+    console.error('Error updating payslip:', error)
+    return NextResponse.json({ error: 'Failed to update payslip' }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+
+    if (!id) return NextResponse.json({ error: 'Payslip ID is required' }, { status: 400 })
+
+    await db.payslip.delete({ where: { id } })
+    return NextResponse.json({ message: 'Payslip deleted successfully' })
+  } catch (error) {
+    console.error('Error deleting payslip:', error)
+    return NextResponse.json({ error: 'Failed to delete payslip' }, { status: 500 })
   }
 }

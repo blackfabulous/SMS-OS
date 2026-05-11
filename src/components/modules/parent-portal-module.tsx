@@ -29,6 +29,7 @@ import {
   Star,
   Heart,
   Users,
+  Download,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -65,6 +66,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area } from 'rec
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { PaynowDialog } from '@/components/modules/paynow-dialog'
+import { SmsDialog } from '@/components/modules/sms-dialog'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Child {
@@ -425,6 +428,10 @@ export default function ParentPortalModule() {
   const [newMsgRecipient, setNewMsgRecipient] = useState('')
   const [newMsgSubject, setNewMsgSubject] = useState('')
   const [newMsgBody, setNewMsgBody] = useState('')
+  const [paynowOpen, setPaynowOpen] = useState(false)
+  const [smsOpen, setSmsOpen] = useState(false)
+  const [paynowStudent, setPaynowStudent] = useState('')
+  const [paynowAmount, setPaynowAmount] = useState(0)
 
   const totalOutstanding = mockChildren.reduce((s, c) => s + c.outstandingFees, 0) + 400 // include Kudzai extra
   const unreadCount = mockMessages.filter(m => !m.read).length
@@ -488,11 +495,12 @@ export default function ParentPortalModule() {
       </motion.div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="children">My Children</TabsTrigger>
           <TabsTrigger value="fees">Fee Payments</TabsTrigger>
           <TabsTrigger value="communications">Communications</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
         </TabsList>
 
@@ -835,7 +843,7 @@ export default function ParentPortalModule() {
                   <p className="text-3xl font-bold mt-1">{formatAmount(totalOutstanding)}</p>
                   <p className="text-amber-100 text-xs mt-2">Across {mockChildren.length} children • 2 invoices overdue</p>
                 </div>
-                <Button className="bg-white text-amber-700 hover:bg-white/90 gap-2" onClick={() => toast.success('Redirecting to payment gateway...')}>
+                <Button className="bg-white text-amber-700 hover:bg-white/90 gap-2" onClick={() => { setPaynowStudent(''); setPaynowAmount(totalOutstanding); setPaynowOpen(true) }}>
                   <CreditCard className="h-4 w-4" /> Pay Now
                 </Button>
               </div>
@@ -1138,7 +1146,98 @@ export default function ParentPortalModule() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ─── Reports Tab ────────────────────────────────────────────────── */}
+        <TabsContent value="reports" className="space-y-4">
+          <Card className="border-0 shadow-md overflow-hidden">
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 text-white">
+              <h3 className="text-lg font-bold flex items-center gap-2"><BookOpen className="h-5 w-5" /> Term Reports & Report Cards</h3>
+              <p className="text-emerald-100 text-sm mt-1">Download and view your children&apos;s academic reports</p>
+            </div>
+          </Card>
+
+          {mockChildren.map(child => (
+            <Card key={child.id} className="border-0 shadow-md">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-sm font-bold">{child.initials}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <CardTitle className="text-base">{child.name}</CardTitle>
+                      <p className="text-xs text-muted-foreground">{child.class}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => toast.success(`Report card for ${child.name} downloaded!`)}>
+                      <Download className="h-3 w-3" /> Download
+                    </Button>
+                    <Button size="sm" className="text-xs gap-1 bg-emerald-600 hover:bg-emerald-700" onClick={() => toast.info(`Opening report card preview for ${child.name}`)}>
+                      <BookOpen className="h-3 w-3" /> Preview
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* Term Summary */}
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Term Average</p>
+                    <p className="text-lg font-bold text-emerald-600">{Math.round(child.grades.reduce((s, g) => s + g.mark, 0) / child.grades.length)}%</p>
+                  </div>
+                  <div className="bg-teal-50 dark:bg-teal-950/20 rounded-lg p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Attendance</p>
+                    <p className="text-lg font-bold text-teal-600">{child.attendanceRate}%</p>
+                  </div>
+                  <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Outstanding</p>
+                    <p className="text-lg font-bold text-amber-600">{formatAmount(child.outstandingFees)}</p>
+                  </div>
+                </div>
+
+                {/* Subject Grades */}
+                <h4 className="text-sm font-semibold mb-2">Term 1, 2026 Results</h4>
+                <div className="space-y-1">
+                  <div className="grid grid-cols-4 gap-2 px-3 py-1 text-xs font-medium text-muted-foreground">
+                    <span>Subject</span><span className="text-center">Mark</span><span className="text-center">Grade</span><span className="text-center">Status</span>
+                  </div>
+                  {child.grades.map(g => (
+                    <div key={g.subject} className="grid grid-cols-4 gap-2 px-3 py-2 rounded-lg bg-muted/30 items-center">
+                      <span className="text-sm font-medium">{g.subject}</span>
+                      <span className={cn('text-sm text-center font-semibold', g.mark >= 80 ? 'text-emerald-600' : g.mark >= 60 ? 'text-amber-600' : 'text-red-600')}>{g.mark}%</span>
+                      <div className="flex justify-center"><Badge className={cn('text-xs', gradeColor(g.grade))}>{g.grade}</Badge></div>
+                      <span className="text-xs text-center text-muted-foreground">{g.mark >= 50 ? 'Pass' : 'Fail'}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Teacher Comments */}
+                <div className="mt-4 bg-muted/20 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold mb-2">Class Teacher Comment</h4>
+                  <p className="text-sm text-muted-foreground italic">{child.attendanceRate >= 90 ? 'A dedicated and hardworking student. Keep up the good work!' : child.attendanceRate >= 80 ? 'Good potential but needs to improve attendance to achieve better results.' : 'Attendance is a concern. Parents are urged to ensure regular school attendance.'}</p>
+                  <Separator className="my-3" />
+                  <h4 className="text-sm font-semibold mb-2">Headmaster Comment</h4>
+                  <p className="text-sm text-muted-foreground italic">Approved. {child.grades.reduce((s, g) => s + g.mark, 0) / child.grades.length >= 70 ? 'Commendable performance this term.' : 'More effort is expected next term.'}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </TabsContent>
+
       </Tabs>
+
+      {/* Paynow Payment Dialog */}
+      <PaynowDialog
+        open={paynowOpen}
+        onOpenChange={setPaynowOpen}
+        students={mockChildren.map(c => ({ id: c.id, name: c.name, outstandingFees: c.outstandingFees }))}
+        defaultStudentId={paynowStudent || undefined}
+        defaultAmount={paynowAmount || undefined}
+      />
+
+      {/* SMS Dialog */}
+      <SmsDialog open={smsOpen} onOpenChange={setSmsOpen} />
 
       {/* Compose Message Dialog */}
       <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
