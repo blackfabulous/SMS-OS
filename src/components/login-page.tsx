@@ -8,7 +8,7 @@ import {
   ChevronDown, ChevronUp, Copy, Check, User, Shield, UserCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { signIn } from 'next-auth/react'
+import { signIn, getSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -51,11 +51,16 @@ export default function LoginPage() {
         toast.success('Welcome back!', {
           description: 'Successfully signed in to ZimSchool Pro',
         })
-        // Force a full page reload to ensure session is refreshed
-        // This is needed because next-auth with redirect:false doesn't always update session immediately
+        // Wait for session to be available, then force a hard reload
+        try {
+          await getSession()
+        } catch {}
+        // Use router.push + hard reload to ensure session is picked up
+        router.push('/')
+        // Small delay then force full reload to ensure session cookie is read
         setTimeout(() => {
-          window.location.href = '/'
-        }, 500)
+          window.location.reload()
+        }, 300)
       }
     } catch {
       setShakeForm(true)

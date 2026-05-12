@@ -20,6 +20,7 @@ import {
   Download,
   Printer,
   FileSpreadsheet,
+  Settings,
 } from 'lucide-react'
 import {
   BarChart,
@@ -58,6 +59,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   DropdownMenu,
@@ -180,6 +182,15 @@ export default function AttendanceModule() {
     lastAttended: string | null
   }>>([])
   const [chronicLoading, setChronicLoading] = useState(false)
+
+  // Settings state
+  const [attendanceSettings, setAttendanceSettings] = useState({
+    defaultType: 'DAILY',
+    autoMarkPresent: true,
+    lateThreshold: '15',
+    chronicAbsenceThreshold: '20',
+    notifyParents: true,
+  })
 
   // ─── Data Fetching ─────────────────────────────────────────────────────
 
@@ -470,17 +481,21 @@ export default function AttendanceModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm">
             Overview
           </TabsTrigger>
-          <TabsTrigger value="take" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
+          <TabsTrigger value="take" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm">
             Take Attendance
           </TabsTrigger>
-          <TabsTrigger value="records" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
+          <TabsTrigger value="records" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm">
             Records
           </TabsTrigger>
-          <TabsTrigger value="chronic" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            Chronic Absenteeism
+          <TabsTrigger value="chronic" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm">
+            Chronic
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm">
+            <Settings className="h-3.5 w-3.5 mr-1" />
+            Settings
           </TabsTrigger>
         </TabsList>
 
@@ -489,17 +504,17 @@ export default function AttendanceModule() {
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
+              <CardContent className="p-3 sm:p-5">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-2">
+                  <div className="space-y-1 sm:space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Present Today</p>
-                    <p className="text-2xl font-bold tracking-tight">{summary?.present || 0}</p>
+                    <p className="text-lg sm:text-2xl font-bold tracking-tight">{summary?.present || 0}</p>
                     <div className="flex items-center gap-1.5">
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                       <span className="text-xs font-medium text-emerald-600">Checked in</span>
                     </div>
                   </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
+                  <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-emerald-50">
                     <Users className="h-5 w-5 text-emerald-600" />
                   </div>
                 </div>
@@ -508,17 +523,17 @@ export default function AttendanceModule() {
             </Card>
 
             <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
+              <CardContent className="p-3 sm:p-5">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-2">
+                  <div className="space-y-1 sm:space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Absent Today</p>
-                    <p className="text-2xl font-bold tracking-tight">{summary?.absent || 0}</p>
+                    <p className="text-lg sm:text-2xl font-bold tracking-tight">{summary?.absent || 0}</p>
                     <div className="flex items-center gap-1.5">
                       <XCircle className="h-3.5 w-3.5 text-red-500" />
                       <span className="text-xs font-medium text-red-500">Needs follow-up</span>
                     </div>
                   </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50">
+                  <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-red-50">
                     <UserX className="h-5 w-5 text-red-500" />
                   </div>
                 </div>
@@ -527,17 +542,17 @@ export default function AttendanceModule() {
             </Card>
 
             <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
+              <CardContent className="p-3 sm:p-5">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-2">
+                  <div className="space-y-1 sm:space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Late Today</p>
-                    <p className="text-2xl font-bold tracking-tight">{summary?.late || 0}</p>
+                    <p className="text-lg sm:text-2xl font-bold tracking-tight">{summary?.late || 0}</p>
                     <div className="flex items-center gap-1.5">
                       <Clock className="h-3.5 w-3.5 text-amber-600" />
                       <span className="text-xs font-medium text-amber-600">Arrived late</span>
                     </div>
                   </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
+                  <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-amber-50">
                     <Clock className="h-5 w-5 text-amber-600" />
                   </div>
                 </div>
@@ -546,11 +561,11 @@ export default function AttendanceModule() {
             </Card>
 
             <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
+              <CardContent className="p-3 sm:p-5">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-2">
+                  <div className="space-y-1 sm:space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Attendance Rate</p>
-                    <p className="text-2xl font-bold tracking-tight">{summary?.attendanceRate || '0'}%</p>
+                    <p className="text-lg sm:text-2xl font-bold tracking-tight">{summary?.attendanceRate || '0'}%</p>
                     <div className="flex items-center gap-1.5">
                       {parseFloat(summary?.attendanceRate || '0') >= 90 ? (
                         <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
@@ -562,7 +577,7 @@ export default function AttendanceModule() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50">
+                  <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-teal-50">
                     <CalendarCheck className="h-5 w-5 text-teal-600" />
                   </div>
                 </div>
@@ -634,7 +649,7 @@ export default function AttendanceModule() {
               <CardDescription>Detailed breakdown by class</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="max-h-96 overflow-y-auto">
+              <div className="overflow-x-auto max-h-96 overflow-y-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -696,20 +711,20 @@ export default function AttendanceModule() {
                   <CardTitle className="text-base font-semibold">Take Attendance</CardTitle>
                   <CardDescription>Record daily attendance for a class</CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="grid gap-1">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+                  <div className="grid gap-1 w-full sm:w-auto">
                     <Label className="text-xs">Date</Label>
                     <Input
                       type="date"
                       value={selectedDate}
                       onChange={(e) => setSelectedDate(e.target.value)}
-                      className="h-9 w-40"
+                      className="h-9 w-full sm:w-40"
                     />
                   </div>
-                  <div className="grid gap-1">
+                  <div className="grid gap-1 w-full sm:w-auto">
                     <Label className="text-xs">Class</Label>
                     <Select value={selectedClassId} onValueChange={setSelectedClassId}>
-                      <SelectTrigger className="h-9 w-48">
+                      <SelectTrigger className="h-9 w-full sm:w-48">
                         <SelectValue placeholder="Select class..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -848,20 +863,20 @@ export default function AttendanceModule() {
                   <CardTitle className="text-base font-semibold">Attendance Records</CardTitle>
                   <CardDescription>View and filter attendance history</CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="grid gap-1">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+                  <div className="grid gap-1 w-full sm:w-auto">
                     <Label className="text-xs">Date</Label>
                     <Input
                       type="date"
                       value={recordsDateFilter}
                       onChange={(e) => setRecordsDateFilter(e.target.value)}
-                      className="h-9 w-40"
+                      className="h-9 w-full sm:w-40"
                     />
                   </div>
-                  <div className="grid gap-1">
+                  <div className="grid gap-1 w-full sm:w-auto">
                     <Label className="text-xs">Class</Label>
                     <Select value={recordsClassFilter} onValueChange={setRecordsClassFilter}>
-                      <SelectTrigger className="h-9 w-40">
+                      <SelectTrigger className="h-9 w-full sm:w-40">
                         <SelectValue placeholder="All classes" />
                       </SelectTrigger>
                       <SelectContent>
@@ -874,10 +889,10 @@ export default function AttendanceModule() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid gap-1">
+                  <div className="grid gap-1 w-full sm:w-auto">
                     <Label className="text-xs">Status</Label>
                     <Select value={recordsStatusFilter} onValueChange={setRecordsStatusFilter}>
-                      <SelectTrigger className="h-9 w-32">
+                      <SelectTrigger className="h-9 w-full sm:w-32">
                         <SelectValue placeholder="All" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1077,6 +1092,97 @@ export default function AttendanceModule() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ─── Settings Tab ─────────────────────────────────────────────── */}
+        <TabsContent value="settings" className="space-y-4">
+          <div className="max-w-2xl space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold">Attendance Module Settings</h3>
+              <p className="text-sm text-muted-foreground">Configure attendance tracking preferences</p>
+            </div>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold">Attendance Preferences</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Default Attendance Type</Label>
+                    <p className="text-xs text-muted-foreground">Default type when taking attendance</p>
+                  </div>
+                  <Select value={attendanceSettings.defaultType} onValueChange={(v) => setAttendanceSettings((s) => ({ ...s, defaultType: v }))}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DAILY">Daily</SelectItem>
+                      <SelectItem value="PERIOD">Per Period</SelectItem>
+                      <SelectItem value="SUBJECT">Per Subject</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Auto-Mark Present</Label>
+                    <p className="text-xs text-muted-foreground">Automatically mark all students as present</p>
+                  </div>
+                  <Switch checked={attendanceSettings.autoMarkPresent} onCheckedChange={(v) => setAttendanceSettings((s) => ({ ...s, autoMarkPresent: v }))} />
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Late Threshold (minutes)</Label>
+                    <p className="text-xs text-muted-foreground">Minutes after start time to mark as late</p>
+                  </div>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={attendanceSettings.lateThreshold}
+                    onChange={(e) => setAttendanceSettings((s) => ({ ...s, lateThreshold: e.target.value }))}
+                    className="w-32"
+                  />
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Chronic Absence Threshold (%)</Label>
+                    <p className="text-xs text-muted-foreground">Absence rate above which a student is flagged chronic</p>
+                  </div>
+                  <div className="relative w-32">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={attendanceSettings.chronicAbsenceThreshold}
+                      onChange={(e) => setAttendanceSettings((s) => ({ ...s, chronicAbsenceThreshold: e.target.value }))}
+                      className="pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
+                  </div>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Notify Parents</Label>
+                    <p className="text-xs text-muted-foreground">Send SMS/email notification for absences</p>
+                  </div>
+                  <Switch checked={attendanceSettings.notifyParents} onCheckedChange={(v) => setAttendanceSettings((s) => ({ ...s, notifyParents: v }))} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex justify-end">
+              <Button
+                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
+                onClick={() => toast.success('Settings saved', { description: 'Attendance module settings have been updated' })}
+              >
+                Save Settings
+              </Button>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </motion.div>

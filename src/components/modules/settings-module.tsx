@@ -36,6 +36,15 @@ import {
   ChevronRight,
   Upload,
   X,
+  Flag,
+  Landmark,
+  Building2,
+  Info,
+  CircleDollarSign,
+  BadgeCheck,
+  FileSignature,
+  Scale,
+  UsersRound,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -65,6 +74,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 
 // ─── School Profile Interface ────────────────────────────────────────────────
 
@@ -379,6 +389,10 @@ export default function SettingsModule() {
             <Activity className="mr-1.5 h-3.5 w-3.5" />
             Audit Trail
           </TabsTrigger>
+          <TabsTrigger value="compliance" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <Flag className="mr-1.5 h-3.5 w-3.5" />
+            Compliance
+          </TabsTrigger>
           <TabsTrigger value="system" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <Database className="mr-1.5 h-3.5 w-3.5" />
             System
@@ -405,7 +419,12 @@ export default function SettingsModule() {
             {/* Basic Info */}
             <Card className="border-0 shadow-md">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold">Basic Information</CardTitle>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/30">
+                    <School className="h-3.5 w-3.5 text-emerald-600" />
+                  </div>
+                  <CardTitle className="text-base font-semibold">Basic Information</CardTitle>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -492,7 +511,12 @@ export default function SettingsModule() {
             {/* Leadership & Contact */}
             <Card className="border-0 shadow-md">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold">Leadership & Contact</CardTitle>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 dark:bg-teal-950/30">
+                    <Users className="h-3.5 w-3.5 text-teal-600" />
+                  </div>
+                  <CardTitle className="text-base font-semibold">Leadership & Contact</CardTitle>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -545,7 +569,12 @@ export default function SettingsModule() {
             {/* Banking Details */}
             <Card className="border-0 shadow-md">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold">Banking & Statutory</CardTitle>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-950/30">
+                    <DollarSign className="h-3.5 w-3.5 text-amber-600" />
+                  </div>
+                  <CardTitle className="text-base font-semibold">Banking & Statutory</CardTitle>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -579,10 +608,89 @@ export default function SettingsModule() {
               </CardContent>
             </Card>
 
+            {/* School Branding */}
+            <Card className="border-0 shadow-md">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50 dark:bg-purple-950/30">
+                    <Palette className="h-3.5 w-3.5 text-purple-600" />
+                  </div>
+                  <CardTitle className="text-base font-semibold">School Branding</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-lg shadow-emerald-200/50 dark:shadow-emerald-900/30">
+                    <School className="h-8 w-8" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <Button variant="outline" size="sm" className="h-8 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                      <Upload className="mr-1.5 h-3 w-3" /> Upload Logo
+                    </Button>
+                    <p className="text-[10px] text-muted-foreground">Recommended: 512x512px PNG with transparency</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label className="text-xs">Primary Color</Label>
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-lg bg-emerald-500 border-2 border-white shadow-sm" />
+                      <Input placeholder="#10b981" className="emerald-focus" />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label className="text-xs">Secondary Color</Label>
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-lg bg-teal-500 border-2 border-white shadow-sm" />
+                      <Input placeholder="#14b8a6" className="emerald-focus" />
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label className="text-xs">Font Style</Label>
+                    <Select defaultValue="sans">
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sans">Sans Serif</SelectItem>
+                        <SelectItem value="serif">Serif</SelectItem>
+                        <SelectItem value="mono">Monospace</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label className="text-xs">Report Header Style</Label>
+                    <Select defaultValue="centered">
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="centered">Centered Logo</SelectItem>
+                        <SelectItem value="left">Left Aligned</SelectItem>
+                        <SelectItem value="banner">Full Width Banner</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30">
+                  <div className="flex items-start gap-2">
+                    <Palette className="h-4 w-4 text-purple-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-purple-700 dark:text-purple-400">Brand Preview</p>
+                      <p className="text-[11px] text-purple-600/80 dark:text-purple-400/70 mt-0.5">Your school branding will be applied to all generated reports, receipts, invoices, and certificates.</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Registration Status */}
             <Card className="border-0 shadow-md">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold">Registration & SDC</CardTitle>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/30">
+                    <BadgeCheck className="h-3.5 w-3.5 text-emerald-600" />
+                  </div>
+                  <CardTitle className="text-base font-semibold">Registration & SDC</CardTitle>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-2">
@@ -1092,6 +1200,376 @@ export default function SettingsModule() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ─── Zimbabwe Compliance Tab ───────────────────────────────────────── */}
+        <TabsContent value="compliance" className="space-y-4">
+          {/* Compliance Overview Banner */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+<Card className="border-0 shadow-md overflow-hidden">
+              <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 p-4 text-white relative">
+                <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10" />
+                <div className="absolute -right-2 -bottom-8 h-32 w-32 rounded-full bg-white/5" />
+                <div className="relative z-10 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                    <Flag className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold">Zimbabwe Regulatory Compliance</h3>
+                    <p className="text-xs text-emerald-100 mt-0.5">Configure statutory compliance settings for ZIMRA, NSSA, ZIMDEF, and MoPSE</p>
+                  </div>
+                </div>
+                {/* Zimbabwe flag stripes */}
+                <div className="flex mt-3 gap-0.5 h-1 rounded-full overflow-hidden">
+                  <div className="flex-1 bg-green-400/60" />
+                  <div className="flex-1 bg-yellow-400/60" />
+                  <div className="flex-1 bg-red-400/60" />
+                  <div className="flex-1 bg-black/40" />
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* ZIMRA Tax Compliance */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+            >
+<Card className="border-0 shadow-md h-full">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-950/30">
+<Landmark className="h-4 w-4 text-amber-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base font-semibold">ZIMRA Tax Compliance</CardTitle>
+                      <CardDescription className="text-[11px]">Zimbabwe Revenue Authority</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-xs flex items-center gap-1"><CircleDollarSign className="h-3 w-3 text-muted-foreground" /> Tax Number (BPN)</Label>
+                      <Input value={form.taxNumber || ''} onChange={(e) => updateForm('taxNumber', e.target.value)} placeholder="e.g. 123456789" className="emerald-focus" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-xs flex items-center gap-1"><FileSignature className="h-3 w-3 text-muted-foreground" /> VAT Registration</Label>
+                      <Input placeholder="VAT number" className="emerald-focus" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-xs">Tax Filing Frequency</Label>
+                      <Select defaultValue="quarterly">
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="quarterly">Quarterly</SelectItem>
+                          <SelectItem value="annually">Annually</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-xs">Withholding Tax Rate (%)</Label>
+                      <Input type="number" placeholder="10" className="emerald-focus" />
+                    </div>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="h-4 w-4 text-amber-500" />
+                      <span className="text-sm font-medium">Auto-generate tax reports</span>
+                    </div>
+                    <Switch defaultChecked />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="h-4 w-4 text-amber-500" />
+                      <span className="text-sm font-medium">Withholding tax on payments</span>
+                    </div>
+                    <Switch defaultChecked />
+                  </div>
+                  <div className="p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30">
+                    <div className="flex items-start gap-2">
+                      <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-amber-700 dark:text-amber-400">ZIMRA Compliance Note</p>
+                        <p className="text-[11px] text-amber-600/80 dark:text-amber-400/70 mt-0.5">Schools must file tax returns quarterly. Ensure your Business Partner Number (BPN) is correctly configured.</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* NSSA Compliance */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.15 }}
+            >
+<Card className="border-0 shadow-md h-full">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/30">
+                      <Shield className="h-4 w-4 text-emerald-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base font-semibold">NSSA Compliance</CardTitle>
+                      <CardDescription className="text-[11px]">National Social Security Authority</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-xs flex items-center gap-1"><FileSignature className="h-3 w-3 text-muted-foreground" /> NSSA Employer Number</Label>
+                      <Input value={form.nssaNumber || ''} onChange={(e) => updateForm('nssaNumber', e.target.value)} placeholder="e.g. NSSA-001234" className="emerald-focus" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-xs flex items-center gap-1"><UsersRound className="h-3 w-3 text-muted-foreground" /> Registered Employees</Label>
+                      <Input type="number" placeholder="0" className="emerald-focus" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-xs">Employee Contribution (%)</Label>
+                      <Input type="number" placeholder="4.5" className="emerald-focus" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-xs">Employer Contribution (%)</Label>
+                      <Input type="number" placeholder="4.5" className="emerald-focus" />
+                    </div>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="h-4 w-4 text-emerald-500" />
+                      <span className="text-sm font-medium">Auto-deduct NSSA from payroll</span>
+                    </div>
+                    <Switch defaultChecked />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="h-4 w-4 text-emerald-500" />
+                      <span className="text-sm font-medium">Generate NSSA returns</span>
+                    </div>
+                    <Switch defaultChecked />
+                  </div>
+                  <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30">
+                    <div className="flex items-start gap-2">
+                      <Info className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">NSSA Compliance Note</p>
+                        <p className="text-[11px] text-emerald-600/80 dark:text-emerald-400/70 mt-0.5">Employers must remit NSSA contributions by the 15th of each month. Both employer and employee contribute 4.5% each.</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* ZIMDEF Compliance */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
+            >
+<Card className="border-0 shadow-md h-full">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50 dark:bg-teal-950/30">
+<BookOpen className="h-4 w-4 text-teal-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base font-semibold">ZIMDEF Compliance</CardTitle>
+                      <CardDescription className="text-[11px]">Zimbabwe Manpower Development Fund</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-xs flex items-center gap-1"><FileSignature className="h-3 w-3 text-muted-foreground" /> ZIMDEF Number</Label>
+                      <Input value={form.zimdefNumber || ''} onChange={(e) => updateForm('zimdefNumber', e.target.value)} placeholder="e.g. ZDF-001234" className="emerald-focus" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-xs flex items-center gap-1"><CircleDollarSign className="h-3 w-3 text-muted-foreground" /> Levy Rate (%)</Label>
+                      <Input type="number" placeholder="1" className="emerald-focus" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-xs">Levy Basis</Label>
+                      <Select defaultValue="payroll">
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="payroll">Payroll Amount</SelectItem>
+                          <SelectItem value="turnover">Annual Turnover</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-xs">Filing Frequency</Label>
+                      <Select defaultValue="quarterly">
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="quarterly">Quarterly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="h-4 w-4 text-teal-500" />
+                      <span className="text-sm font-medium">Auto-compute ZIMDEF levy</span>
+                    </div>
+                    <Switch defaultChecked />
+                  </div>
+                  <div className="p-3 rounded-xl bg-teal-50/60 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900/30">
+                    <div className="flex items-start gap-2">
+                      <Info className="h-4 w-4 text-teal-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-teal-700 dark:text-teal-400">ZIMDEF Compliance Note</p>
+                        <p className="text-[11px] text-teal-600/80 dark:text-teal-400/70 mt-0.5">Employers with 5+ employees must contribute 1% of payroll to ZIMDEF. Levy is payable quarterly to the Ministry of Higher Education.</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* MoPSE Compliance */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.25 }}
+            >
+<Card className="border-0 shadow-md h-full">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/30">
+                      <Building2 className="h-4 w-4 text-emerald-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base font-semibold">MoPSE Registration</CardTitle>
+                      <CardDescription className="text-[11px]">Ministry of Primary & Secondary Education</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-xs flex items-center gap-1"><FileSignature className="h-3 w-3 text-muted-foreground" /> EMIS Number</Label>
+                      <Input value={form.mopseDistrict || ''} onChange={(e) => updateForm('mopseDistrict', e.target.value)} placeholder="EMIS registration #" className="emerald-focus" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-xs flex items-center gap-1"><MapPin className="h-3 w-3 text-muted-foreground" /> MoPSE District</Label>
+                      <Input value={form.mopseDistrict || ''} onChange={(e) => updateForm('mopseDistrict', e.target.value)} placeholder="District name" className="emerald-focus" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-xs">Registration Status</Label>
+                      <Select value={form.registrationStatus || 'REGISTERED'} onValueChange={(v) => updateForm('registrationStatus', v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="REGISTERED">Registered</SelectItem>
+                          <SelectItem value="PROVISIONAL">Provisional</SelectItem>
+                          <SelectItem value="NOT_REGISTERED">Not Registered</SelectItem>
+                          <SelectItem value="DEREGISTERED">Deregistered</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-xs">School Category</Label>
+                      <Select defaultValue="secondary">
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="primary">Primary School</SelectItem>
+                          <SelectItem value="secondary">Secondary School</SelectItem>
+                          <SelectItem value="combined">Combined School</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="h-4 w-4 text-emerald-500" />
+                      <span className="text-sm font-medium">Submit termly returns to MoPSE</span>
+                    </div>
+                    <Switch defaultChecked />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck className="h-4 w-4 text-emerald-500" />
+                      <span className="text-sm font-medium">Sync enrollment data to EMIS</span>
+                    </div>
+                    <Switch />
+                  </div>
+                  <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30">
+                    <div className="flex items-start gap-2">
+                      <Info className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">MoPSE Compliance Note</p>
+                        <p className="text-[11px] text-emerald-600/80 dark:text-emerald-400/70 mt-0.5">All schools must be registered with MoPSE and submit termly statistical returns via the EMIS portal. Registration must be renewed as per ministry guidelines.</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+
+          {/* Compliance Status Summary */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.3 }}
+          >
+<Card className="border-0 shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Scale className="h-5 w-5 text-emerald-600" />
+                  Compliance Status Summary
+                </CardTitle>
+                <CardDescription>Overview of your school's regulatory compliance standing</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {[
+                    { name: 'ZIMRA Tax', icon: Landmark, status: 'Partially Configured', color: 'amber', configured: !!form.taxNumber },
+                    { name: 'NSSA', icon: Shield, status: 'Partially Configured', color: 'emerald', configured: !!form.nssaNumber },
+                    { name: 'ZIMDEF', icon: BookOpen, status: 'Partially Configured', color: 'teal', configured: !!form.zimdefNumber },
+                    { name: 'MoPSE', icon: Building2, status: form.registrationStatus === 'REGISTERED' ? 'Registered' : 'Not Verified', color: 'emerald', configured: form.registrationStatus === 'REGISTERED' },
+                  ].map((item) => (
+                    <div key={item.name} className="flex items-center gap-3 p-3 rounded-xl border hover:bg-muted/30 transition-colors">
+                      <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl shrink-0', item.color === 'amber' ? 'bg-amber-50 dark:bg-amber-950/30' : item.color === 'teal' ? 'bg-teal-50 dark:bg-teal-950/30' : 'bg-emerald-50 dark:bg-emerald-950/30')}>
+                        <item.icon className={cn('h-4 w-4', item.color === 'amber' ? 'text-amber-600' : item.color === 'teal' ? 'text-teal-600' : 'text-emerald-600')} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{item.name}</p>
+                        <div className="flex items-center gap-1">
+                          <div className={cn('h-1.5 w-1.5 rounded-full', item.configured ? 'bg-emerald-500' : 'bg-amber-400')} />
+                          <span className="text-[10px] text-muted-foreground">{item.status}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
         </TabsContent>
 
         {/* ─── System Tab ─────────────────────────────────────────────────── */}

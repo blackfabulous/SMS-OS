@@ -23,6 +23,7 @@ import {
   Printer,
   FileSpreadsheet,
   BarChart3,
+  Settings,
 } from 'lucide-react'
 import {
   PieChart,
@@ -74,6 +75,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -218,6 +220,16 @@ export default function FinanceModule() {
   const [paymentsLoading, setPaymentsLoading] = useState(false)
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('ALL')
   const [paymentSearch, setPaymentSearch] = useState('')
+
+  // Settings state
+  const [financeSettings, setFinanceSettings] = useState({
+    defaultCurrency: 'USD',
+    autoGenerateInvoices: false,
+    invoicePrefix: 'INV',
+    paymentTerms: '30',
+    lateFeePercentage: '5',
+    dualCurrency: true,
+  })
 
   // Dialogs
   const [recordPaymentOpen, setRecordPaymentOpen] = useState(false)
@@ -562,7 +574,7 @@ export default function FinanceModule() {
                 Record Payment
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="max-w-[95vw] sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <CreditCard className="h-5 w-5 text-emerald-600" />
@@ -703,7 +715,7 @@ export default function FinanceModule() {
                 Create Invoice
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
+            <DialogContent className="max-w-[95vw] sm:max-w-[600px]">
               <DialogHeader>
                 <DialogTitle>Create Invoice</DialogTitle>
                 <DialogDescription>Generate a new fee invoice for a student</DialogDescription>
@@ -756,7 +768,7 @@ export default function FinanceModule() {
                     </Button>
                   </div>
                   {invoiceForm.items.map((item, index) => (
-                    <div key={index} className="grid grid-cols-[1fr_100px_120fr_32px] gap-2 items-end">
+                    <div key={index} className="grid grid-cols-1 sm:grid-cols-[1fr_100px_120fr_32px] gap-2 items-end">
                       <div className="grid gap-1">
                         {index === 0 && <span className="text-xs text-muted-foreground">Description</span>}
                         <Input
@@ -849,6 +861,10 @@ export default function FinanceModule() {
             <CreditCard className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Payments</span>
           </TabsTrigger>
+          <TabsTrigger value="settings" className="gap-1.5 data-[state=active]:bg-gray-50 dark:data-[state=active]:bg-gray-800/50 data-[state=active]:text-gray-700 dark:data-[state=active]:text-gray-300 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-gray-200 dark:data-[state=active]:border-gray-700">
+            <Settings className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Settings</span>
+          </TabsTrigger>
         </TabsList>
 
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}
@@ -856,18 +872,18 @@ export default function FinanceModule() {
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
+              <CardContent className="p-3 sm:p-5">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-2">
+                  <div className="space-y-1 sm:space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Invoiced</p>
-                    <p className="text-2xl font-bold tracking-tight">{primaryCurrency === 'USD' ? formatCurrency(dashboard?.totalInvoiced || 0) : formatZiG((dashboard?.totalInvoiced || 0) * exchangeRate)}</p>
+                    <p className="text-lg sm:text-2xl font-bold tracking-tight">{primaryCurrency === 'USD' ? formatCurrency(dashboard?.totalInvoiced || 0) : formatZiG((dashboard?.totalInvoiced || 0) * exchangeRate)}</p>
                     <p className="text-[10px] text-muted-foreground">{primaryCurrency === 'USD' ? formatZiG((dashboard?.totalInvoiced || 0) * exchangeRate) : formatUSD((dashboard?.totalInvoiced || 0))}</p>
                     <div className="flex items-center gap-1.5">
                       <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
                       <span className="text-xs font-medium text-emerald-600">All time</span>
                     </div>
                   </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
+                  <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
                     <FileText className="h-5 w-5 text-emerald-600" />
                   </div>
                 </div>
@@ -876,18 +892,18 @@ export default function FinanceModule() {
             </Card>
 
             <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
+              <CardContent className="p-3 sm:p-5">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-2">
+                  <div className="space-y-1 sm:space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Collected</p>
-                    <p className="text-2xl font-bold tracking-tight">{primaryCurrency === 'USD' ? formatCurrency(dashboard?.totalCollected || 0) : formatZiG((dashboard?.totalCollected || 0) * exchangeRate)}</p>
+                    <p className="text-lg sm:text-2xl font-bold tracking-tight">{primaryCurrency === 'USD' ? formatCurrency(dashboard?.totalCollected || 0) : formatZiG((dashboard?.totalCollected || 0) * exchangeRate)}</p>
                     <p className="text-[10px] text-muted-foreground">{primaryCurrency === 'USD' ? formatZiG((dashboard?.totalCollected || 0) * exchangeRate) : formatUSD((dashboard?.totalCollected || 0))}</p>
                     <div className="flex items-center gap-1.5">
                       <CheckCircle2 className="h-3.5 w-3.5 text-teal-600" />
                       <span className="text-xs font-medium text-teal-600">{dashboard?.debtorCount || 0} debtors</span>
                     </div>
                   </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-950/40">
+                  <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-950/40">
                     <DollarSign className="h-5 w-5 text-teal-600" />
                   </div>
                 </div>
@@ -896,18 +912,18 @@ export default function FinanceModule() {
             </Card>
 
             <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
+              <CardContent className="p-3 sm:p-5">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-2">
+                  <div className="space-y-1 sm:space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Outstanding</p>
-                    <p className="text-2xl font-bold tracking-tight">{primaryCurrency === 'USD' ? formatCurrency(dashboard?.totalOutstanding || 0) : formatZiG((dashboard?.totalOutstanding || 0) * exchangeRate)}</p>
+                    <p className="text-lg sm:text-2xl font-bold tracking-tight">{primaryCurrency === 'USD' ? formatCurrency(dashboard?.totalOutstanding || 0) : formatZiG((dashboard?.totalOutstanding || 0) * exchangeRate)}</p>
                     <p className="text-[10px] text-muted-foreground">{primaryCurrency === 'USD' ? formatZiG((dashboard?.totalOutstanding || 0) * exchangeRate) : formatUSD((dashboard?.totalOutstanding || 0))}</p>
                     <div className="flex items-center gap-1.5">
                       <TrendingDown className="h-3.5 w-3.5 text-amber-600" />
                       <span className="text-xs font-medium text-amber-600">Needs attention</span>
                     </div>
                   </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/40">
+                  <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/40">
                     <AlertTriangle className="h-5 w-5 text-amber-600" />
                   </div>
                 </div>
@@ -916,11 +932,11 @@ export default function FinanceModule() {
             </Card>
 
             <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
+              <CardContent className="p-3 sm:p-5">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-2">
+                  <div className="space-y-1 sm:space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Collection Rate</p>
-                    <p className="text-2xl font-bold tracking-tight">{dashboard?.collectionRate || '0'}%</p>
+                    <p className="text-lg sm:text-2xl font-bold tracking-tight">{dashboard?.collectionRate || '0'}%</p>
                     <div className="flex items-center gap-1.5">
                       {collectionRate >= 80 ? (
                         <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
@@ -932,7 +948,7 @@ export default function FinanceModule() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-950/40">
+                  <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-950/40">
                     <CircleDollarSign className="h-5 w-5 text-rose-600" />
                   </div>
                 </div>
@@ -1476,6 +1492,113 @@ export default function FinanceModule() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ─── Settings Tab ──────────────────────────────────────────────── */}
+        <TabsContent value="settings" className="space-y-4">
+          <div className="max-w-2xl space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold">Finance Module Settings</h3>
+              <p className="text-sm text-muted-foreground">Configure billing, invoicing, and payment preferences</p>
+            </div>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold">Currency & Invoicing</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Default Currency</Label>
+                    <p className="text-xs text-muted-foreground">Primary currency for invoices and reports</p>
+                  </div>
+                  <Select value={financeSettings.defaultCurrency} onValueChange={(v) => setFinanceSettings((s) => ({ ...s, defaultCurrency: v }))}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USD">US Dollar (USD)</SelectItem>
+                      <SelectItem value="ZiG">Zimbabwe Gold (ZiG)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Auto-Generate Invoices</Label>
+                    <p className="text-xs text-muted-foreground">Automatically create invoices for new enrollments</p>
+                  </div>
+                  <Switch checked={financeSettings.autoGenerateInvoices} onCheckedChange={(v) => setFinanceSettings((s) => ({ ...s, autoGenerateInvoices: v }))} />
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Invoice Prefix</Label>
+                    <p className="text-xs text-muted-foreground">Prefix for auto-generated invoice numbers</p>
+                  </div>
+                  <Input
+                    value={financeSettings.invoicePrefix}
+                    onChange={(e) => setFinanceSettings((s) => ({ ...s, invoicePrefix: e.target.value }))}
+                    className="w-32"
+                  />
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Payment Terms (days)</Label>
+                    <p className="text-xs text-muted-foreground">Number of days before an invoice is overdue</p>
+                  </div>
+                  <Select value={financeSettings.paymentTerms} onValueChange={(v) => setFinanceSettings((s) => ({ ...s, paymentTerms: v }))}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="7">7 days</SelectItem>
+                      <SelectItem value="14">14 days</SelectItem>
+                      <SelectItem value="30">30 days</SelectItem>
+                      <SelectItem value="60">60 days</SelectItem>
+                      <SelectItem value="90">90 days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Late Fee Percentage</Label>
+                    <p className="text-xs text-muted-foreground">Percentage charged on overdue balances monthly</p>
+                  </div>
+                  <div className="relative w-32">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={financeSettings.lateFeePercentage}
+                      onChange={(e) => setFinanceSettings((s) => ({ ...s, lateFeePercentage: e.target.value }))}
+                      className="pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
+                  </div>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Dual Currency Display</Label>
+                    <p className="text-xs text-muted-foreground">Show both USD and ZiG amounts on invoices</p>
+                  </div>
+                  <Switch checked={financeSettings.dualCurrency} onCheckedChange={(v) => setFinanceSettings((s) => ({ ...s, dualCurrency: v }))} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex justify-end">
+              <Button
+                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
+                onClick={() => toast.success('Settings saved', { description: 'Finance module settings have been updated' })}
+              >
+                Save Settings
+              </Button>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </motion.div>

@@ -36,6 +36,7 @@ import {
   Download,
   Printer,
   FileSpreadsheet,
+  Settings,
 } from 'lucide-react'
 import {
   Card,
@@ -75,6 +76,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -296,14 +298,14 @@ function ModuleStatCard({
 }) {
   return (
     <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow duration-300">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', bgColor)}>
-            <Icon className="h-5 w-5 text-emerald-600" />
+      <CardContent className="p-3 sm:p-4">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className={cn('flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl', bgColor)}>
+            <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
           </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
-            <p className="text-xl font-bold tracking-tight">{value}</p>
+          <div className="min-w-0">
+            <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+            <p className="text-lg sm:text-xl font-bold tracking-tight">{value}</p>
           </div>
         </div>
       </CardContent>
@@ -574,7 +576,7 @@ function StudentListView({
             </div>
 
             {/* Table */}
-            <div className="rounded-xl border overflow-hidden">
+            <div className="rounded-xl border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/30 hover:bg-muted/30">
@@ -789,7 +791,7 @@ function AddStudentDialog({
           Add Student
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[540px] max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] sm:max-w-[540px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GraduationCap className="h-5 w-5 text-emerald-600" />
@@ -804,24 +806,24 @@ function AddStudentDialog({
               {error}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name *</Label>
-              <Input id="firstName" value={form.firstName} onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))} placeholder="Tendai" required />
+              <Input id="firstName" value={form.firstName} onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))} placeholder="Tendai" className="h-11" required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="lastName">Last Name *</Label>
-              <Input id="lastName" value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))} placeholder="Moyo" required />
+              <Input id="lastName" value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))} placeholder="Moyo" className="h-11" required />
             </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="middleName">Middle Name</Label>
             <Input id="middleName" value={form.middleName} onChange={e => setForm(f => ({ ...f, middleName: e.target.value }))} placeholder="Optional" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Date of Birth *</Label>
-              <Input type="date" value={form.dateOfBirth} onChange={e => setForm(f => ({ ...f, dateOfBirth: e.target.value }))} required />
+              <Input type="date" value={form.dateOfBirth} onChange={e => setForm(f => ({ ...f, dateOfBirth: e.target.value }))} className="h-11" required />
             </div>
             <div className="space-y-2">
               <Label>Gender *</Label>
@@ -834,10 +836,10 @@ function AddStudentDialog({
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="birthCert">Birth Certificate #</Label>
-              <Input id="birthCert" value={form.birthCertNumber} onChange={e => setForm(f => ({ ...f, birthCertNumber: e.target.value }))} placeholder="e.g. 08-123456A12" />
+              <Input id="birthCert" value={form.birthCertNumber} onChange={e => setForm(f => ({ ...f, birthCertNumber: e.target.value }))} placeholder="e.g. 08-123456A12" className="h-11" />
             </div>
             <div className="space-y-2">
               <Label>Boarding Status</Label>
@@ -878,6 +880,15 @@ function StudentDetailView({
   const [data, setData] = useState<StudentDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  // Settings state
+  const [settings, setSettings] = useState({
+    defaultView: 'list',
+    sortField: 'studentNumber',
+    showArchived: false,
+    photoDisplay: true,
+    studentNumberFormat: 'SCH-YYYY-NNNN',
+  })
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -931,25 +942,27 @@ function StudentDetailView({
       className="space-y-5"
     >
       {/* Back Button + Print Report Card */}
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground" onClick={onBack}>
+      <div className="flex items-center justify-between gap-2">
+        <Button variant="ghost" size="sm" className="gap-1 sm:gap-2 text-muted-foreground hover:text-foreground min-h-[44px]">
           <ChevronLeft className="h-4 w-4" />
-          Back to Student List
+          <span className="hidden sm:inline">Back to Student List</span>
+          <span className="sm:hidden">Back</span>
         </Button>
         <Button
           variant="outline"
           size="sm"
-          className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+          className="gap-1 sm:gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50 min-h-[44px]"
           onClick={() => window.open(`/api/reports/report-card-pdf?studentId=${studentId}`, '_blank')}
         >
           <Printer className="h-4 w-4" />
-          Print Report Card
+          <span className="hidden sm:inline">Print Report Card</span>
+          <span className="sm:hidden">Print</span>
         </Button>
       </div>
 
       {/* Profile Card */}
       <Card className="border-0 shadow-md overflow-hidden">
-        <div className="bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 px-6 py-5 relative">
+        <div className="bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 px-4 sm:px-6 py-4 sm:py-5 relative">
           <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/5" />
           <div className="absolute -right-4 -bottom-12 h-56 w-56 rounded-full bg-white/5" />
           <div className="flex items-center gap-4 relative z-10">
@@ -988,6 +1001,7 @@ function StudentDetailView({
                   { value: 'attendance', label: 'Attendance', icon: ClipboardCheck },
                   { value: 'discipline', label: 'Discipline', icon: Scale },
                   { value: 'health', label: 'Health', icon: Heart },
+                  { value: 'settings', label: 'Settings', icon: Settings },
                 ].map(tab => (
                   <TabsTrigger
                     key={tab.value}
@@ -1274,6 +1288,95 @@ function StudentDetailView({
               ) : (
                 <p className="text-sm text-muted-foreground py-8 text-center">No health records</p>
               )}
+            </TabsContent>
+
+            {/* Settings Tab */}
+            <TabsContent value="settings" className="p-6">
+              <div className="max-w-2xl space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold">Student Module Settings</h3>
+                  <p className="text-sm text-muted-foreground">Configure how the student module behaves</p>
+                </div>
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-semibold">Display Preferences</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-medium">Default View</Label>
+                        <p className="text-xs text-muted-foreground">Choose how students are displayed by default</p>
+                      </div>
+                      <Select value={settings.defaultView} onValueChange={(v) => setSettings((s) => ({ ...s, defaultView: v }))}>
+                        <SelectTrigger className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="list">List View</SelectItem>
+                          <SelectItem value="grid">Grid View</SelectItem>
+                          <SelectItem value="table">Table View</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-medium">Sort Field</Label>
+                        <p className="text-xs text-muted-foreground">Default field to sort students by</p>
+                      </div>
+                      <Select value={settings.sortField} onValueChange={(v) => setSettings((s) => ({ ...s, sortField: v }))}>
+                        <SelectTrigger className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="studentNumber">Student Number</SelectItem>
+                          <SelectItem value="name">Name</SelectItem>
+                          <SelectItem value="grade">Grade</SelectItem>
+                          <SelectItem value="enrollmentStatus">Status</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-medium">Show Archived Students</Label>
+                        <p className="text-xs text-muted-foreground">Include transferred and graduated students in lists</p>
+                      </div>
+                      <Switch checked={settings.showArchived} onCheckedChange={(v) => setSettings((s) => ({ ...s, showArchived: v }))} />
+                    </div>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-medium">Photo Display</Label>
+                        <p className="text-xs text-muted-foreground">Show student photos in the list view</p>
+                      </div>
+                      <Switch checked={settings.photoDisplay} onCheckedChange={(v) => setSettings((s) => ({ ...s, photoDisplay: v }))} />
+                    </div>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-medium">Student Number Format</Label>
+                        <p className="text-xs text-muted-foreground">Format pattern for auto-generated student numbers</p>
+                      </div>
+                      <Input
+                        value={settings.studentNumberFormat}
+                        onChange={(e) => setSettings((s) => ({ ...s, studentNumberFormat: e.target.value }))}
+                        className="w-48"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="flex justify-end">
+                  <Button
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => toast.success('Settings saved', { description: 'Student module settings have been updated' })}
+                  >
+                    Save Settings
+                  </Button>
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>

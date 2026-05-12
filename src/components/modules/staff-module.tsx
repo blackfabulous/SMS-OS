@@ -249,14 +249,14 @@ function ModuleStatCard({
 }) {
   return (
     <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow duration-300">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', bgColor)}>
-            <Icon className={cn('h-5 w-5', iconColor || 'text-teal-600')} />
+      <CardContent className="p-3 sm:p-4">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className={cn('flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl', bgColor)}>
+            <Icon className={cn('h-4 w-4 sm:h-5 sm:w-5', iconColor || 'text-teal-600')} />
           </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
-            <p className="text-xl font-bold tracking-tight">{value}</p>
+          <div className="min-w-0">
+            <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+            <p className="text-lg sm:text-xl font-bold tracking-tight">{value}</p>
           </div>
         </div>
       </CardContent>
@@ -454,30 +454,30 @@ function StaffListView({
             </div>
 
             {/* Table */}
-            <div className="rounded-xl border overflow-hidden">
+            <div className="rounded-xl border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/30 hover:bg-muted/30">
                     <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('staffNumber')}>
-                      <span className="flex items-center">Staff # <SortIcon field="staffNumber" /></span>
+                      <span className="flex items-center text-xs">Staff # <SortIcon field="staffNumber" /></span>
                     </TableHead>
                     <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('name')}>
-                      <span className="flex items-center">Name <SortIcon field="name" /></span>
+                      <span className="flex items-center text-xs">Name <SortIcon field="name" /></span>
                     </TableHead>
-                    <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('position')}>
-                      <span className="flex items-center">Position <SortIcon field="position" /></span>
+                    <TableHead className="cursor-pointer select-none h-10 hidden md:table-cell" onClick={() => handleSort('position')}>
+                      <span className="flex items-center text-xs">Position <SortIcon field="position" /></span>
                     </TableHead>
-                    <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('department')}>
-                      <span className="flex items-center">Department <SortIcon field="department" /></span>
+                    <TableHead className="cursor-pointer select-none h-10 hidden lg:table-cell" onClick={() => handleSort('department')}>
+                      <span className="flex items-center text-xs">Department <SortIcon field="department" /></span>
                     </TableHead>
-                    <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('staffType')}>
-                      <span className="flex items-center">Type <SortIcon field="staffType" /></span>
+                    <TableHead className="cursor-pointer select-none h-10 hidden sm:table-cell" onClick={() => handleSort('staffType')}>
+                      <span className="flex items-center text-xs">Type <SortIcon field="staffType" /></span>
                     </TableHead>
-                    <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('payType')}>
-                      <span className="flex items-center">Pay Type <SortIcon field="payType" /></span>
+                    <TableHead className="cursor-pointer select-none h-10 hidden lg:table-cell" onClick={() => handleSort('payType')}>
+                      <span className="flex items-center text-xs">Pay Type <SortIcon field="payType" /></span>
                     </TableHead>
                     <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('status')}>
-                      <span className="flex items-center">Status <SortIcon field="status" /></span>
+                      <span className="flex items-center text-xs">Status <SortIcon field="status" /></span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -507,27 +507,27 @@ function StaffListView({
                         className="cursor-pointer hover:bg-teal-50/50 transition-colors"
                         onClick={() => onSelectStaff(member.id)}
                       >
-                        <TableCell className="font-mono text-xs">{member.staffNumber}</TableCell>
-                        <TableCell>
+                        <TableCell className="font-mono text-xs py-2.5">{member.staffNumber}</TableCell>
+                        <TableCell className="py-2.5">
                           <div className="flex items-center gap-2">
                             <Avatar className="h-7 w-7">
                               <AvatarFallback className="bg-teal-100 text-teal-700 text-[10px] font-semibold">
                                 {member.firstName[0]}{member.lastName[0]}
                               </AvatarFallback>
                             </Avatar>
-                            <div>
+                            <div className="min-w-0">
                               <p className="text-sm font-medium">
                                 {member.title ? member.title + '. ' : ''}{member.firstName} {member.lastName}
                               </p>
-                              {member.email && <p className="text-[10px] text-muted-foreground">{member.email}</p>}
+                              {member.email && <p className="text-[10px] text-muted-foreground truncate">{member.email}</p>}
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm">{member.position}</TableCell>
-                        <TableCell className="text-sm">{member.department || '—'}</TableCell>
-                        <TableCell><StaffTypeBadge type={member.staffType} /></TableCell>
-                        <TableCell><PayTypeBadge type={member.payType} /></TableCell>
-                        <TableCell><ActiveBadge isActive={member.isActive} /></TableCell>
+                        <TableCell className="text-sm hidden md:table-cell py-2.5">{member.position}</TableCell>
+                        <TableCell className="text-sm hidden lg:table-cell py-2.5">{member.department || '—'}</TableCell>
+                        <TableCell className="hidden sm:table-cell py-2.5"><StaffTypeBadge type={member.staffType} /></TableCell>
+                        <TableCell className="hidden lg:table-cell py-2.5"><PayTypeBadge type={member.payType} /></TableCell>
+                        <TableCell className="py-2.5"><ActiveBadge isActive={member.isActive} /></TableCell>
                       </TableRow>
                     ))
                   )}
@@ -671,7 +671,7 @@ function AddStaffDialog({
           Add Staff
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[580px] max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] sm:max-w-[580px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5 text-teal-600" />
@@ -686,7 +686,7 @@ function AddStaffDialog({
               {error}
             </div>
           )}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Title</Label>
               <Select value={form.title} onValueChange={v => setForm(f => ({ ...f, title: v }))}>
@@ -894,14 +894,15 @@ function StaffDetailView({
       className="space-y-5"
     >
       {/* Back Button */}
-      <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground" onClick={onBack}>
+      <Button variant="ghost" size="sm" className="gap-1 sm:gap-2 text-muted-foreground hover:text-foreground min-h-[44px]" onClick={onBack}>
         <ChevronLeft className="h-4 w-4" />
-        Back to Staff List
+        <span className="hidden sm:inline">Back to Staff List</span>
+        <span className="sm:hidden">Back</span>
       </Button>
 
       {/* Profile Card */}
       <Card className="border-0 shadow-md overflow-hidden">
-        <div className="bg-gradient-to-br from-teal-600 via-cyan-600 to-teal-700 px-6 py-5 relative">
+        <div className="bg-gradient-to-br from-teal-600 via-cyan-600 to-teal-700 px-4 sm:px-6 py-4 sm:py-5 relative">
           <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/5" />
           <div className="absolute -right-4 -bottom-12 h-56 w-56 rounded-full bg-white/5" />
           <div className="flex items-center gap-4 relative z-10">

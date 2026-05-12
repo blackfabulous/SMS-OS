@@ -67,13 +67,13 @@ export function AppHeader({
   const { theme, setTheme } = useTheme()
 
   return (
-    <header className="sticky top-0 z-30 flex h-12 md:h-14 items-center gap-2 md:gap-3 border-b bg-background/80 backdrop-blur-xl px-3 md:px-6">
+    <header className="sticky top-0 z-30 flex h-12 md:h-14 items-center gap-1.5 sm:gap-2 md:gap-3 border-b bg-background/80 backdrop-blur-xl px-2 sm:px-3 md:px-6">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="h-6" />
 
       <GlobalSearch />
 
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex items-center gap-0.5 sm:gap-1">
         {/* Exchange Rate Badge */}
         <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-[10px] font-medium text-amber-700 dark:text-amber-400">
           <DollarSign className="h-3 w-3" />
@@ -98,7 +98,7 @@ export function AppHeader({
         </div>
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-9 w-9 relative">
+            <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 relative min-w-[44px] min-h-[44px]">
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-background">
@@ -161,7 +161,7 @@ export function AppHeader({
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9"
+          className="h-9 w-9 sm:h-10 sm:w-10 min-w-[44px] min-h-[44px]"
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         >
           <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
@@ -172,7 +172,7 @@ export function AppHeader({
         {/* User Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-9 gap-2 px-2">
+            <Button variant="ghost" className="h-9 gap-2 px-2 min-h-[44px]">
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-xs font-semibold">
                 {userInitials}
               </div>

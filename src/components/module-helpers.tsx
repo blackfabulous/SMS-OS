@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 
 // ─── Module Info ──────────────────────────────────────────────────────────────
 export const moduleInfo: Record<string, { title: string; description: string; icon: React.ElementType; gradient: string }> = {
@@ -113,30 +114,67 @@ export function ModuleHeader({ moduleId }: { moduleId: string }) {
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="mb-4"
+      className="mb-6"
     >
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+      {/* Breadcrumb Navigation */}
+      <motion.nav
+        initial={{ opacity: 0, x: -4 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.2, delay: 0.1 }}
+        className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3"
+        aria-label="Breadcrumb"
+      >
+        <div className="flex h-4 w-4 items-center justify-center rounded bg-muted/60">
+          <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        </div>
         {breadcrumb.path.map((segment, i) => (
           <React.Fragment key={i}>
-            {i > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground/40" />}
-            <span className={cn(
-              'transition-colors',
-              i === breadcrumb.path.length - 1 ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'hover:text-foreground cursor-default'
-            )}>
+            {i > 0 && (
+              <ChevronRight className="h-3 w-3 text-muted-foreground/30 mx-0.5" />
+            )}
+            <span
+              className={cn(
+                'transition-all duration-200 px-1.5 py-0.5 rounded',
+                i === breadcrumb.path.length - 1
+                  ? 'text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50/60 dark:bg-emerald-950/30'
+                  : 'hover:text-foreground hover:bg-muted/40 cursor-default'
+              )}
+            >
               {segment}
             </span>
           </React.Fragment>
         ))}
-      </div>
-      {/* Module Title with gradient underline */}
+      </motion.nav>
+
+      {/* Module Title with gradient accent */}
       <div className="flex items-center gap-3">
-        <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-white shadow-sm', info.gradient)}>
-          <info.icon className="h-4.5 w-4.5" />
-        </div>
-        <div>
-          <h2 className="text-lg font-bold tracking-tight gradient-underline">{info.title}</h2>
-          <p className="text-xs text-muted-foreground mt-1">{info.description}</p>
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.15 }}
+          className={cn(
+            'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-md relative overflow-hidden',
+            info.gradient
+          )}
+        >
+          <info.icon className="h-5 w-5 relative z-10" />
+          <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
+        </motion.div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold tracking-tight">{info.title}</h2>
+            <Badge variant="outline" className="text-[9px] h-4 px-1.5 shrink-0 bg-emerald-50/50 text-emerald-600 border-emerald-200/50 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50">
+              {breadcrumb.group}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">{info.description}</p>
+          {/* Gradient accent bar under title */}
+          <motion.div
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ duration: 0.5, delay: 0.2, ease: 'easeOut' }}
+            className={cn('mt-1.5 h-[2px] w-24 rounded-full origin-left bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400 bg-[length:200%_100%] animate-gradient-x', info.gradient)}
+          />
         </div>
       </div>
     </motion.div>

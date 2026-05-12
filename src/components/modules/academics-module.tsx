@@ -21,6 +21,7 @@ import {
   TrendingUp,
   Calendar,
   BarChart3,
+  Settings,
 } from 'lucide-react'
 import {
   BarChart,
@@ -36,6 +37,7 @@ import {
 } from 'recharts'
 
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -67,6 +69,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   ChartContainer,
@@ -242,6 +245,17 @@ export default function AcademicsModule() {
 
   // Expanded grades
   const [expandedGrades, setExpandedGrades] = useState<Set<string>>(new Set())
+
+  // Settings state
+  const [academicsSettings, setAcademicsSettings] = useState({
+    gradingScale: 'ZIMSEC',
+    passMark: '50',
+    testWeight: '25',
+    examWeight: '50',
+    assignmentWeight: '25',
+    autoCalculateGrades: true,
+    showClassRank: true,
+  })
 
   // ─── Data Fetching ─────────────────────────────────────────────────────
 
@@ -746,6 +760,10 @@ export default function AcademicsModule() {
           </TabsTrigger>
           <TabsTrigger value="assessments" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Assessments
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <Settings className="h-3.5 w-3.5 mr-1" />
+            Settings
           </TabsTrigger>
         </TabsList>
 
@@ -1279,6 +1297,151 @@ export default function AcademicsModule() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ─── Settings Tab ─────────────────────────────────────────────── */}
+        <TabsContent value="settings" className="space-y-4">
+          <div className="max-w-2xl space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold">Academics Module Settings</h3>
+              <p className="text-sm text-muted-foreground">Configure grading, assessments, and reporting preferences</p>
+            </div>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold">Grading Configuration</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Grading Scale</Label>
+                    <p className="text-xs text-muted-foreground">Select the grading scale for assessments</p>
+                  </div>
+                  <Select value={academicsSettings.gradingScale} onValueChange={(v) => setAcademicsSettings((s) => ({ ...s, gradingScale: v }))}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ZIMSEC">ZIMSEC (A-U)</SelectItem>
+                      <SelectItem value="CAMBRIDGE">Cambridge (A-G)</SelectItem>
+                      <SelectItem value="PERCENTAGE">Percentage Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Pass Mark (%)</Label>
+                    <p className="text-xs text-muted-foreground">Minimum percentage to pass a subject</p>
+                  </div>
+                  <div className="relative w-32">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={academicsSettings.passMark}
+                      onChange={(e) => setAcademicsSettings((s) => ({ ...s, passMark: e.target.value }))}
+                      className="pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold">Assessment Weightings</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Test Weight (%)</Label>
+                    <p className="text-xs text-muted-foreground">Weight of tests in final grade</p>
+                  </div>
+                  <div className="relative w-32">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={academicsSettings.testWeight}
+                      onChange={(e) => setAcademicsSettings((s) => ({ ...s, testWeight: e.target.value }))}
+                      className="pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
+                  </div>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Exam Weight (%)</Label>
+                    <p className="text-xs text-muted-foreground">Weight of exams in final grade</p>
+                  </div>
+                  <div className="relative w-32">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={academicsSettings.examWeight}
+                      onChange={(e) => setAcademicsSettings((s) => ({ ...s, examWeight: e.target.value }))}
+                      className="pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
+                  </div>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Assignment Weight (%)</Label>
+                    <p className="text-xs text-muted-foreground">Weight of assignments in final grade</p>
+                  </div>
+                  <div className="relative w-32">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={academicsSettings.assignmentWeight}
+                      onChange={(e) => setAcademicsSettings((s) => ({ ...s, assignmentWeight: e.target.value }))}
+                      className="pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold">Advanced Options</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Auto-Calculate Grades</Label>
+                    <p className="text-xs text-muted-foreground">Automatically compute grades from entered marks</p>
+                  </div>
+                  <Switch checked={academicsSettings.autoCalculateGrades} onCheckedChange={(v) => setAcademicsSettings((s) => ({ ...s, autoCalculateGrades: v }))} />
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Show Class Rank</Label>
+                    <p className="text-xs text-muted-foreground">Display student rank position in report cards</p>
+                  </div>
+                  <Switch checked={academicsSettings.showClassRank} onCheckedChange={(v) => setAcademicsSettings((s) => ({ ...s, showClassRank: v }))} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex justify-end">
+              <Button
+                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
+                onClick={() => toast.success('Settings saved', { description: 'Academics module settings have been updated' })}
+              >
+                Save Settings
+              </Button>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </motion.div>

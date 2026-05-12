@@ -294,7 +294,7 @@ export default function MobileBottomNav({ activeModule, onModuleChange, notifica
                           transition={{ duration: 0.2, ease: 'easeInOut' }}
                           className="overflow-hidden"
                         >
-                          <div className="grid grid-cols-3 gap-1.5 px-1 py-2">
+                          <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 px-1 py-2">
                             {category.items.map((item) => {
                               const isActive = activeModule === item.id
                               return (
@@ -305,7 +305,7 @@ export default function MobileBottomNav({ activeModule, onModuleChange, notifica
                                   transition={{ duration: 0.15 }}
                                   onClick={() => handleModuleSelect(item.id)}
                                   className={cn(
-                                    'flex flex-col items-center justify-center gap-1 p-2.5 rounded-xl transition-all duration-200 min-h-[68px]',
+                                    'flex flex-col items-center justify-center gap-1 p-2 sm:p-2.5 rounded-xl transition-all duration-200 min-h-[64px] sm:min-h-[68px]',
                                     isActive
                                       ? 'bg-emerald-100 dark:bg-emerald-900/40 ring-1 ring-emerald-300 dark:ring-emerald-700 shadow-sm'
                                       : 'hover:bg-muted/60 active:scale-95'
