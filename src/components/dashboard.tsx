@@ -46,11 +46,11 @@ function StatCard({
 
   return (
     <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 stat-card-accent premium-card group cursor-default">
-      <CardContent className="p-5">
+      <CardContent className="p-3 sm:p-4 md:p-5">
         <div className="flex items-start justify-between">
-          <div className="space-y-2">
+          <div className="space-y-1 sm:space-y-2 min-w-0">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
-            <p className="text-2xl font-bold tracking-tight count-up">{value}</p>
+            <p className="text-xl sm:text-2xl font-bold tracking-tight count-up">{value}</p>
             <div className={cn('flex items-center gap-1.5', trend === 'up' && 'trend-pulse')}>
               {trend === 'up' ? (
                 <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
@@ -62,7 +62,7 @@ function StatCard({
               </span>
             </div>
           </div>
-          <div className={cn('flex h-12 w-12 items-center justify-center rounded-xl transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-1 group-hover:rotate-3 shadow-sm', bgColor)}>
+          <div className={cn('flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-1 group-hover:rotate-3 shadow-sm shrink-0', bgColor)}>
             <Icon className={cn('h-5 w-5 transition-transform duration-300 group-hover:animate-bounce-subtle', accentColor)} />
           </div>
         </div>
@@ -79,14 +79,14 @@ function StatCard({
 function StatCardSkeleton() {
   return (
     <Card className="relative overflow-hidden border-0 shadow-md">
-      <CardContent className="p-5">
+      <CardContent className="p-3 sm:p-4 md:p-5">
         <div className="flex items-start justify-between">
           <div className="space-y-2 flex-1">
             <Skeleton className="h-3 w-20" />
             <Skeleton className="h-8 w-16" />
             <Skeleton className="h-3 w-24" />
           </div>
-          <Skeleton className="h-11 w-11 rounded-xl" />
+          <Skeleton className="h-10 w-10 sm:h-11 sm:w-11 rounded-xl" />
         </div>
       </CardContent>
     </Card>
@@ -442,7 +442,7 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 overflow-x-hidden">
       {/* Welcome Banner */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -450,7 +450,7 @@ export default function Dashboard() {
         transition={{ duration: 0.5 }}
       >
         <Card className="border-0 bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-lg shadow-emerald-200/50 overflow-hidden relative">
-          <CardContent className="p-6 md:p-8">
+          <CardContent className="p-4 sm:p-6 md:p-8">
             {/* Sparkle/particle effects */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
               <div className="absolute top-4 left-1/4 h-1.5 w-1.5 rounded-full bg-white/40 animate-sparkle" style={{ animationDelay: '0s' }} />
@@ -465,24 +465,24 @@ export default function Dashboard() {
                 <School className="h-5 w-5 text-emerald-200" />
                 <span className="text-sm font-medium text-emerald-100">{schoolName}</span>
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Welcome to <span className="text-white drop-shadow-sm">ZimSchool Pro</span></h1>
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Welcome to <span className="text-white drop-shadow-sm">ZimSchool Pro</span></h1>
               <p className="mt-1 text-emerald-100 text-sm md:text-base">Your comprehensive school management dashboard</p>
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2 rounded-lg bg-white/20 backdrop-blur-sm px-3 py-1.5 animate-pulse-glow shadow-sm shadow-emerald-900/10">
-                  <Calendar className="h-4 w-4 text-emerald-200" />
-                  <span className="text-sm font-medium">{today}</span>
+              <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-1.5 sm:gap-2 rounded-lg bg-white/20 backdrop-blur-sm px-2 sm:px-3 py-1 sm:py-1.5 animate-pulse-glow shadow-sm shadow-emerald-900/10">
+                  <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-200" />
+                  <span className="text-xs sm:text-sm font-medium">{today}</span>
                 </div>
-                <div className="flex items-center gap-2 rounded-lg bg-white/20 backdrop-blur-sm px-3 py-1.5 shadow-sm shadow-emerald-900/10">
-                  <Activity className="h-4 w-4 text-emerald-200" />
-                  <span className="text-sm font-medium animate-pulse-glow">Term 1, {new Date().getFullYear()}</span>
+                <div className="flex items-center gap-1.5 sm:gap-2 rounded-lg bg-white/20 backdrop-blur-sm px-2 sm:px-3 py-1 sm:py-1.5 shadow-sm shadow-emerald-900/10">
+                  <Activity className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-200" />
+                  <span className="text-xs sm:text-sm font-medium animate-pulse-glow">Term 1, {new Date().getFullYear()}</span>
                 </div>
-                <div className="flex items-center gap-2 rounded-lg bg-white/20 backdrop-blur-sm px-3 py-1.5 shadow-sm shadow-emerald-900/10">
-                  <Clock className="h-4 w-4 text-emerald-200" />
-                  <span className="text-sm font-medium">{activeStudents} Active Students</span>
+                <div className="flex items-center gap-1.5 sm:gap-2 rounded-lg bg-white/20 backdrop-blur-sm px-2 sm:px-3 py-1 sm:py-1.5 shadow-sm shadow-emerald-900/10">
+                  <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-200" />
+                  <span className="text-xs sm:text-sm font-medium">{activeStudents} Active Students</span>
                 </div>
-                <div className="flex items-center gap-2 rounded-lg bg-white/20 backdrop-blur-sm px-3 py-1.5 shadow-sm shadow-emerald-900/10">
-                  <School className="h-4 w-4 text-emerald-200" />
-                  <span className="text-sm font-medium">{schoolName || 'Mufakose High School'}</span>
+                <div className="flex items-center gap-1.5 sm:gap-2 rounded-lg bg-white/20 backdrop-blur-sm px-2 sm:px-3 py-1 sm:py-1.5 shadow-sm shadow-emerald-900/10">
+                  <School className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-200" />
+                  <span className="text-xs sm:text-sm font-medium">{schoolName || 'Mufakose High School'}</span>
                 </div>
               </div>
             </div>
@@ -522,7 +522,7 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
       >
         {loading ? (
           <>
@@ -578,13 +578,13 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
-        className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+        className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 min-w-0"
       >
         {/* Enrollment by Grade */}
         {loading ? (
           <ChartCardSkeleton title="Enrollment by Grade" />
         ) : (
-          <Card className="border-0 shadow-md">
+          <Card className="border-0 shadow-md min-w-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold">Enrollment by Grade</CardTitle>
               <CardDescription>Current term student distribution</CardDescription>
@@ -616,7 +616,7 @@ export default function Dashboard() {
         {loading ? (
           <ChartCardSkeleton title="Gender Distribution" />
         ) : (
-          <Card className="border-0 shadow-md">
+          <Card className="border-0 shadow-md min-w-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold">Gender Distribution</CardTitle>
               <CardDescription>Male vs Female student ratio</CardDescription>
@@ -669,14 +669,14 @@ export default function Dashboard() {
       </motion.div>
 
       {/* Fee Collection + Attendance Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 min-w-0">
         {/* Fee Collection Overview */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          <Card className="border-0 shadow-md h-full">
+          <Card className="border-0 shadow-md h-full min-w-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold">Fee Collection Trend</CardTitle>
               <CardDescription>Monthly collection vs target (USD)</CardDescription>
@@ -726,10 +726,10 @@ export default function Dashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.35 }}
         >
-          <Card className="border-0 shadow-md h-full">
+          <Card className="border-0 shadow-md h-full min-w-0">
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
                   <CardTitle className="text-base font-semibold">Attendance Overview</CardTitle>
                   <CardDescription>Weekly attendance trend</CardDescription>
                 </div>
@@ -774,17 +774,17 @@ export default function Dashboard() {
       </div>
 
       {/* Recent Activity + Upcoming Events & Holidays */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 min-w-0">
         {/* Recent Activity */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
         >
-          <Card className="border-0 shadow-md h-full">
+          <Card className="border-0 shadow-md h-full min-w-0">
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold">Recent Activity</CardTitle>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-base font-semibold truncate">Recent Activity</CardTitle>
                 <Button variant="ghost" size="sm" className="h-7 text-xs text-emerald-600 hover:text-emerald-700">
                   View All <ArrowUpRight className="ml-1 h-3 w-3" />
                 </Button>
@@ -839,10 +839,10 @@ export default function Dashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.45 }}
         >
-          <Card className="border-0 shadow-md h-full">
+          <Card className="border-0 shadow-md h-full min-w-0">
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold">Upcoming Events & Holidays</CardTitle>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-base font-semibold truncate">Upcoming Events & Holidays</CardTitle>
                 <Button variant="ghost" size="sm" className="h-7 text-xs text-emerald-600 hover:text-emerald-700" onClick={() => setActiveModule('events')}>
                   View Calendar <ArrowUpRight className="ml-1 h-3 w-3" />
                 </Button>
@@ -906,7 +906,7 @@ export default function Dashboard() {
             <CardTitle className="text-base font-semibold">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
               <QuickAction icon={Plus} label="Add Student" color="bg-emerald-50 text-emerald-600" onClick={() => setActiveModule('students')} />
               <QuickAction icon={CreditCard} label="Record Payment" color="bg-amber-50 text-amber-600" onClick={() => setActiveModule('finance')} />
               <QuickAction icon={ClipboardCheck} label="Take Attendance" color="bg-teal-50 text-teal-600" onClick={() => setActiveModule('attendance')} />
@@ -924,7 +924,7 @@ export default function Dashboard() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.55 }}
       >
-        <Card className="border-0 shadow-md overflow-hidden">
+        <Card className="border-0 shadow-md overflow-hidden min-w-0">
           {/* Header with gradient accent */}
           <div className="h-1 bg-gradient-to-r from-red-400 via-amber-400 to-teal-400" />
           <CardHeader className="pb-2">
@@ -941,7 +941,7 @@ export default function Dashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
               {alertsData.map((alert, index) => {
                 const severityStyles: Record<string, { icon: React.ElementType; border: string; bg: string; iconBg: string; iconColor: string; badge: string; accentLine: string }> = {
                   critical: { icon: AlertTriangle, border: 'border-l-red-500 dark:border-l-red-400', bg: 'bg-red-50/50 dark:bg-red-950/30', iconBg: 'bg-red-100 dark:bg-red-900/40', iconColor: 'text-red-600 dark:text-red-400', badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400', accentLine: 'from-red-400 to-rose-500' },
@@ -1001,7 +1001,7 @@ export default function Dashboard() {
           {/* Premium gradient background with subtle pattern */}
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/80 via-teal-50/60 to-cyan-50/80 dark:from-emerald-950/50 dark:via-teal-950/40 dark:to-cyan-950/50" />
           <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]" style={{ backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
-          <CardContent className="p-5 relative z-10">
+          <CardContent className="p-3 sm:p-4 md:p-5 relative z-10">
             <div className="flex items-center gap-2 mb-4">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/40">
                 <BarChart3 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />

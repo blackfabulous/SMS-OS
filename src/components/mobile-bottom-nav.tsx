@@ -10,7 +10,7 @@ import {
   Clock, Trophy, Coffee, ShoppingCart, Shield, Monitor,
   Calculator, FileText, UsersRound, BellRing, School,
   ClipboardCheck, ArrowRightLeft, X, ChevronDown, ChevronUp,
-  Home,
+  Home, ShoppingBag, Globe, Palette, Printer,
 } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
@@ -72,7 +72,7 @@ const allCategories = [
       { id: 'fee-calculator', label: 'Fee Calc', icon: Calculator },
       { id: 'payroll', label: 'Payroll', icon: Banknote },
       { id: 'procurement', label: 'Procurement', icon: ShoppingCart },
-      { id: 'premium-templates', label: 'Print Templates', icon: FileText },
+      { id: 'premium-templates', label: 'Templates', icon: Printer },
     ],
   },
   {
@@ -83,6 +83,7 @@ const allCategories = [
       { id: 'library', label: 'Library', icon: Library },
       { id: 'inventory', label: 'Inventory', icon: Package },
       { id: 'canteen', label: 'Canteen', icon: Coffee },
+      { id: 'school-shop', label: 'Shop', icon: ShoppingBag },
     ],
   },
   {
@@ -108,6 +109,8 @@ const allCategories = [
       { id: 'communication', label: 'Communication', icon: MessageSquare },
       { id: 'documents', label: 'Documents', icon: FileText },
       { id: 'security', label: 'Security', icon: Shield },
+      { id: 'website-cms', label: 'Website', icon: Globe },
+      { id: 'admin-cms', label: 'Admin CMS', icon: Palette },
       { id: 'settings', label: 'Settings', icon: Settings },
       { id: 'setup-wizard', label: 'Setup', icon: School },
     ],
@@ -130,11 +133,11 @@ export default function MobileBottomNav({ activeModule, onModuleChange, notifica
   return (
     <>
       {/* Bottom Navigation Bar - Mobile Only */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden safe-area-inset-bottom">
         {/* Glass-morphism background */}
         <div className="relative">
           <div className="absolute inset-0 bg-background/70 backdrop-blur-xl border-t border-border/50" />
-          <div className="relative flex items-center justify-around px-2 pt-1 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+          <div className="relative flex items-center justify-around px-1 sm:px-2 pt-1 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
             {quickNavItems.map((item) => {
               const isActive = activeModule === item.id
               return (

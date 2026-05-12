@@ -67,7 +67,7 @@ export function AppHeader({
   const { theme, setTheme } = useTheme()
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/80 backdrop-blur-xl px-4 md:px-6">
+    <header className="sticky top-0 z-30 flex h-12 md:h-14 items-center gap-2 md:gap-3 border-b bg-background/80 backdrop-blur-xl px-3 md:px-6">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="h-6" />
 
@@ -108,7 +108,7 @@ export function AppHeader({
               <span className="sr-only">Notifications</span>
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-80 p-0" align="end" sideOffset={8}>
+          <PopoverContent className="w-[calc(100vw-2rem)] sm:w-80 p-0" align="end" sideOffset={8}>
             <div className="flex items-center justify-between border-b px-4 py-3">
               <div className="flex items-center gap-2">
                 <BellRing className="h-4 w-4 text-emerald-600" />

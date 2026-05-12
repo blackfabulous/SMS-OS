@@ -208,7 +208,7 @@ export default function Home() {
           currentRole={rbac.currentRole}
           unreadCount={totalUnreadCount}
         />
-        <main className="flex-1 overflow-auto p-4 md:p-6 pb-20 md:pb-6 bg-gradient-to-br from-gray-50/50 to-emerald-50/20 dark:from-background dark:to-background dot-pattern">
+        <main className="flex-1 overflow-auto p-3 md:p-6 pb-20 md:pb-6 bg-gradient-to-br from-gray-50/50 to-emerald-50/20 dark:from-background dark:to-background dot-pattern overflow-x-hidden">
           <div className="module-enter">
             <ModuleHeader moduleId={activeModule} />
             <AnimatePresence mode="wait">

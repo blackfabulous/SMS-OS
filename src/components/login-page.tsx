@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { signIn } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,6 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [email, setEmail] = useState('admin@zimschool.co.zw')
   const [password, setPassword] = useState('password123')
   const [rememberMe, setRememberMe] = useState(true)
@@ -49,6 +51,11 @@ export default function LoginPage() {
         toast.success('Welcome back!', {
           description: 'Successfully signed in to ZimSchool Pro',
         })
+        // Force a full page reload to ensure session is refreshed
+        // This is needed because next-auth with redirect:false doesn't always update session immediately
+        setTimeout(() => {
+          window.location.href = '/'
+        }, 500)
       }
     } catch {
       setShakeForm(true)
@@ -63,7 +70,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex overflow-x-hidden">
       {/* Left Side - Animated Gradient Branding */}
       <motion.div
         initial={{ opacity: 0, x: -40 }}
@@ -190,11 +197,11 @@ export default function LoginPage() {
         initial={{ opacity: 0, x: 40 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="flex-1 flex items-center justify-center p-6 md:p-12 bg-background"
+        className="flex-1 flex items-center justify-center p-4 sm:p-6 md:p-12 bg-background"
       >
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-md px-2 sm:px-0">
           {/* Mobile logo */}
-          <div className="flex items-center gap-3 mb-8 lg:hidden">
+          <div className="flex items-center gap-3 mb-6 sm:mb-8 lg:hidden">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md shadow-emerald-200 dark:shadow-emerald-900/30">
               <School className="h-6 w-6 text-white" />
             </div>
@@ -345,7 +352,7 @@ export default function LoginPage() {
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.25 }}
-                    className="overflow-hidden"
+                    className="overflow-hidden max-h-[40vh] overflow-y-auto"
                   >
                     <div className="mt-3 rounded-xl border border-emerald-100 dark:border-emerald-900/40 bg-gradient-to-br from-emerald-50/50 via-teal-50/30 to-cyan-50/50 dark:from-emerald-950/20 dark:via-teal-950/15 dark:to-cyan-950/20 p-3">
                       <div className="space-y-2">
