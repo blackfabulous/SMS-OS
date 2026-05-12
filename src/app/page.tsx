@@ -8,7 +8,7 @@ import {
   BedDouble, Bus, Library, Package, Heart, Scale, HeartPulse,
   Building, MessageSquare, Settings, Clock, Trophy, Coffee,
   ShoppingCart, Shield, Monitor, Calculator, FileText, UsersRound,
-  ClipboardCheck, School, BellRing, ArrowRightLeft, Bell,
+  ClipboardCheck, School, BellRing, ArrowRightLeft, Bell, ShoppingBag, Printer, Globe, Palette,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSession, signIn, signOut } from 'next-auth/react'
@@ -22,6 +22,7 @@ import { AppHeader, type Notification } from '@/components/app-header'
 import { ModuleHeader } from '@/components/module-helpers'
 import { ModuleRenderer } from '@/components/module-registry'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import MobileBottomNav from '@/components/mobile-bottom-nav'
 
 // ─── Navigation Config ────────────────────────────────────────────────────────
 const navGroups: NavGroup[] = [
@@ -62,6 +63,7 @@ const navGroups: NavGroup[] = [
       { id: 'fee-calculator', label: 'Fee Calculator', icon: Calculator },
       { id: 'payroll', label: 'Payroll', icon: Banknote },
       { id: 'procurement', label: 'Procurement', icon: ShoppingCart },
+      { id: 'premium-templates', label: 'Print Templates', icon: Printer },
     ],
   },
   {
@@ -72,6 +74,7 @@ const navGroups: NavGroup[] = [
       { id: 'library', label: 'Library', icon: Library },
       { id: 'inventory', label: 'Inventory', icon: Package },
       { id: 'canteen', label: 'Canteen', icon: Coffee },
+      { id: 'school-shop', label: 'School Shop', icon: ShoppingBag },
     ],
   },
   {
@@ -97,6 +100,8 @@ const navGroups: NavGroup[] = [
       { id: 'communication', label: 'Communication', icon: MessageSquare },
       { id: 'documents', label: 'Documents', icon: FileText },
       { id: 'security', label: 'Security', icon: Shield },
+      { id: 'website-cms', label: 'Website CMS', icon: Globe },
+      { id: 'admin-cms', label: 'Admin CMS', icon: Palette },
       { id: 'settings', label: 'Settings', icon: Settings },
       { id: 'setup-wizard', label: 'Setup Wizard', icon: School },
     ],
@@ -203,7 +208,7 @@ export default function Home() {
           currentRole={rbac.currentRole}
           unreadCount={totalUnreadCount}
         />
-        <main className="flex-1 overflow-auto p-4 md:p-6 bg-gradient-to-br from-gray-50/50 to-emerald-50/20 dark:from-background dark:to-background dot-pattern">
+        <main className="flex-1 overflow-auto p-4 md:p-6 pb-20 md:pb-6 bg-gradient-to-br from-gray-50/50 to-emerald-50/20 dark:from-background dark:to-background dot-pattern">
           <div className="module-enter">
             <ModuleHeader moduleId={activeModule} />
             <AnimatePresence mode="wait">
@@ -211,6 +216,11 @@ export default function Home() {
             </AnimatePresence>
           </div>
         </main>
+        <MobileBottomNav
+          activeModule={activeModule}
+          onModuleChange={useAppStore.getState().setActiveModule}
+          notificationCount={totalUnreadCount}
+        />
       </SidebarInset>
     </SidebarProvider>
   )

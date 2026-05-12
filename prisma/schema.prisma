@@ -81,6 +81,12 @@ model School {
   securityIncidents      SecurityIncident[]
   courses                Course[]
   timetableEntries       TimetableEntry[]
+  websitePages           WebsitePage[]
+  newsArticles           NewsArticle[]
+  galleryImages          GalleryImage[]
+  shopItems              SchoolShopItem[]
+  shopOrders             SchoolShopOrder[]
+  seoSettings            SEOSetting[]
 }
 
 model AcademicYear {
@@ -1335,4 +1341,127 @@ model TimetableEntry {
   updatedAt             DateTime @updatedAt
 
   school                School   @relation(fields: [schoolId], references: [id])
+}
+
+// ============================================
+// 27. WEBSITE CMS
+// ============================================
+
+model WebsitePage {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  slug                  String
+  title                 String
+  content               String
+  heroImage             String?
+  metaTitle             String?
+  metaDescription       String?
+  metaKeywords          String?
+  schemaMarkup          String?
+  isPublished           Boolean  @default(false)
+  showInNavigation      Boolean  @default(true)
+  sortOrder             Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  school                School   @relation(fields: [schoolId], references: [id])
+
+  @@unique([schoolId, slug])
+}
+
+model NewsArticle {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  title                 String
+  slug                  String
+  excerpt               String?
+  content               String
+  featuredImage         String?
+  category              String   @default("GENERAL")
+  authorName            String?
+  isPublished           Boolean  @default(false)
+  isFeatured            Boolean  @default(false)
+  publishedAt           DateTime?
+  metaTitle             String?
+  metaDescription       String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  school                School   @relation(fields: [schoolId], references: [id])
+
+  @@unique([schoolId, slug])
+}
+
+model GalleryImage {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  title                 String?
+  description           String?
+  imageUrl              String
+  category              String   @default("GENERAL")
+  isFeatured            Boolean  @default(false)
+  sortOrder             Int      @default(0)
+  createdAt             DateTime @default(now())
+
+  school                School   @relation(fields: [schoolId], references: [id])
+}
+
+model SchoolShopItem {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  name                  String
+  description           String?
+  category              String   @default("UNIFORM")
+  price                 Float    @default(0)
+  currency              String   @default("USD")
+  imageUrl              String?
+  sizes                 String?
+  colors                String?
+  stockQuantity         Int      @default(0)
+  isActive              Boolean  @default(true)
+  sortOrder             Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  school                School   @relation(fields: [schoolId], references: [id])
+}
+
+model SchoolShopOrder {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  orderNumber           String   @unique
+  studentId             String?
+  parentName            String?
+  parentPhone           String?
+  parentEmail           String?
+  items                 String
+  totalAmount           Float    @default(0)
+  currency              String   @default("USD")
+  status                String   @default("PENDING")
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  school                School   @relation(fields: [schoolId], references: [id])
+}
+
+model SEOSetting {
+  id                    String   @id @default(cuid())
+  schoolId              String
+  pageSlug              String
+  metaTitle             String?
+  metaDescription       String?
+  metaKeywords          String?
+  ogTitle               String?
+  ogDescription         String?
+  ogImage               String?
+  schemaMarkup          String?
+  canonicalUrl          String?
+  robotsDirective       String   @default("index, follow")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  school                School   @relation(fields: [schoolId], references: [id])
+
+  @@unique([schoolId, pageSlug])
 }

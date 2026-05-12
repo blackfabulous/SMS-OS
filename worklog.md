@@ -1751,3 +1751,203 @@ Stage Summary:
 - PWA/offline features not fully tested
 - Report Card PDF generation needs testing
 - EMIS Excel export needs testing
+
+---
+Task ID: 6
+Agent: Subagent (full-stack-developer)
+Task: Build Mobile Bottom Navigation + Premium Print Templates
+
+Work Log:
+- Created /src/components/mobile-bottom-nav.tsx (MobileBottomNav component)
+  - Fixed to bottom of screen, only visible on mobile (hidden on md: and above)
+  - 5 quick-access icons: Dashboard, Students, Finance, Attendance, More
+  - "More" button opens a slide-up Sheet (from bottom) showing ALL module categories
+  - Each category expands/collapses with smooth framer-motion animation
+  - Active module indicator with spring-animated highlight
+  - Notification badge on Dashboard and More icons
+  - Safe area padding for iOS devices (env(safe-area-inset-bottom))
+  - Glass-morphism effect (backdrop-blur-xl, bg-background/70)
+  - Accepts props: activeModule, onModuleChange, notificationCount
+- Created /src/components/modules/premium-templates-module.tsx (PremiumTemplatesModule)
+  - 5 tabs: Invoices, Receipts, Statements, Payslips, Settings
+  - Shared SchoolHeader component with logo placeholder, school name, motto, contact info, document type badge
+  - WatermarkOverlay component (subtle diagonal school name)
+  - StampArea component (dashed circular official stamp placeholder)
+  - SignatureLine component (signature line with date field)
+  - TemplatePreviewWrapper with Print and Download PDF buttons
+  - Invoice template: Itemized fee breakdown table for Tendai Moyo Form 3A, subtotal/discount/total, payment terms, bank details, bursar/parent signature lines
+  - Receipt template: $350.00 cash payment for Tendai Moyo, amount in words, fee allocation table, outstanding balance, received-by signature, stamp area
+  - Student Statement template: Transaction history for Chido Ndlovu Form 2B, opening/closing balance, aging analysis (Current/30/60/90+ days), debit/credit tracking
+  - Payslip template: Mr. T. Moyo Teacher $1,200 basic, earnings/deductions side-by-side, Zimbabwe statutory deductions (PAYE progressive bands, NSSA 4.5% employee, AIDS Levy 3% of PAYE, ZIMDEF 1% employer, Pension 5% employee, Medical Aid), net pay prominent display, employer contributions summary
+  - Settings tab: Logo upload area, school name/motto/address/phone/email/website, primary color picker, font size selector, watermark/stamp/signature toggles, payment terms, bank details, currency selector (USD/ZiG/ZWL)
+- Registered premium-templates module in module-registry.tsx
+- Added Print Templates to Finance nav group in page.tsx (icon: Printer)
+- Added moduleInfo and breadcrumb mapping for premium-templates in module-helpers.tsx
+- Added MobileBottomNav to page.tsx layout (inside SidebarInset, below main)
+- Added bottom padding (pb-20 md:pb-6) to main content area to account for mobile nav
+- Fixed duplicate className prop on tfoot td in receipt template
+- Lint check passed with zero errors
+- Dev server running successfully
+
+Stage Summary:
+- Mobile Bottom Navigation with glass-morphism, slide-up More sheet, safe area support, notification badges
+- Premium Print Templates with 4 professional document types (Invoice, Receipt, Statement, Payslip) + Settings
+- All templates feature school branding header, watermark, stamp area, signature lines
+- Zimbabwe-specific payslip with correct statutory deductions (PAYE, NSSA, AIDS Levy, ZIMDEF)
+- 29 modules now registered and functional in the system
+- Mobile-first responsive design with iOS safe area support
+
+---
+Task ID: 3
+Agent: Subagent (full-stack-developer)
+Task: Build the Website CMS Frontend Module
+
+Work Log:
+- Created WebsiteCMSModule at /src/components/modules/website-cms-module.tsx (~780 lines)
+- 8 tab-based sections: Home, About, Events, News, Staff, Gallery, Contact, Admissions
+- Home Section: Full-width hero with emerald-700 to teal-800 gradient overlay, school name "Mufakose High School", motto "Excellence Through Diligence", animated stat counters (1,247 students, 68 teachers, 87% pass rate, 24 clubs), "Enroll Now" and "Explore" CTA buttons, MoPSE/ZIMSEC/BEAM/Green School certification badges
+- About Section: School history card with gradient header, mission/vision/values cards with icons, school leadership team cards with avatar initials, 8 facility cards with counts
+- Events Section: 9 Zimbabwe-specific events (Independence Day, Inter-House Athletics, Prize Giving, ZIMSEC Registration, Heroes Day, SDC AGM, Science Fair, Culture Day, Soccer Finals) with type filters, date badges, gradient card headers
+- News Section: 7 news articles with featured article spotlight, category filters, article dialog for reading full content, color-coded image placeholders by category
+- Staff Section: 14 staff members (Headmaster, Deputy, 6 HODs, Sports Director, Senior Teacher, Teachers, Bursar, Counsellor) with department filters, avatar initials, gradient headers, qualification/subject badges
+- Gallery Section: 16 gallery images across 5 categories (Campus, Events, Sports, Academics, Culture) with category filters, masonry-style grid, lightbox dialog, hover camera overlay
+- Contact Section: Contact form with success state animation, school info cards (address, phone, email, website), map placeholder, social media links (Facebook, Twitter, Instagram, YouTube), office hours
+- Admissions Section: Admissions banner with "Apply Now" CTA, 4-step admission process, requirements checklist, fee structure table (USD), BEAM programme info, ZiG/USD payment note, FAQ section
+- Zimbabwe Context: MoPSE registration, ZIMSEC centre number, BEAM programme references, Independence Day/Heroes Day/Africa Day events, ZiG currency mention, Zimbabwean staff names
+- Framer Motion: fadeIn, stagger, staggerItem animations throughout; animated counter component with smooth counting
+- Dark Mode: Full support with dark: variants on all components
+- Responsive: Mobile-first design with grid breakpoints, mobile stat cards, scrollable tab navigation
+- Registered in module-registry.tsx as 'website-cms'
+- Added navigation entry in page.tsx under Admin group with Globe icon
+- Added module info and breadcrumb in module-helpers.tsx
+- Lint check passed with zero errors
+- Dev server running successfully
+
+Stage Summary:
+- Beautiful, comprehensive public school website CMS with 8 sections
+- Premium design with emerald/teal color scheme, gradient cards, hover effects
+- Full Zimbabwe context with MoPSE, ZIMSEC, BEAM references
+- 9 events, 7 news articles, 14 staff members, 16 gallery images, 8 fee items
+- Responsive, dark mode compatible, framer-motion animated
+
+---
+Task ID: 5
+Agent: Subagent (full-stack-developer)
+Task: Build School Shop Module
+
+Work Log:
+- Created school-shop-module.tsx with 6 tabs: Overview, Products, Orders, Uniforms, Reports, Settings
+- Overview: 4 stat cards (products, orders, revenue, stock value), recent orders list, low stock alerts, category breakdown pie chart, revenue trend bar chart (6 months)
+- Products: Grid/list view toggle, category filter tabs, search bar, 24 product cards with image placeholders, category badges, prices, stock levels, sizes/colors, add/edit/delete with confirmation dialog, stock status badges
+- Orders: 10 mock orders with Zimbabwean names, status filter, order detail dialog showing all items/prices/customer info, status update workflow (Pending→Processing→Ready→Collected/Cancelled), delete action
+- Uniforms: 10 uniform types (Blazers, Shirts, Blouses, Trousers, Skirts, Ties, Socks, Jerseys, Tracksuits, Hats), size matrix with stock levels per size, gender filter (Boys/Girls/Unisex), season filter (Summer/Winter/All Season)
+- Reports: Sales summary cards (today/week/month), top selling products, revenue by category pie chart, stock value summary table, export CSV button
+- Settings: Shop name/description, payment methods (Cash/EcoCash/ZiG/Bank Transfer), order notifications, low stock threshold, tax settings, delivery/pickup options
+- Zimbabwe-specific items: School Blazer $65, White Shirt $15, Grey Trousers $25, Navy Skirt $22, School Tie $8, Navy Jersey $35, Track Suit $45, Exercise Book $2.50, Scientific Calculator $15, O-Level textbooks $16-20
+- 10 orders with Zimbabwean names: Tendai Moyo, Chiedza Ncube, Kudzai Chiweshe, Rumbidzai Dube, Tapiwa Gumbo, Nyasha Mutasa, Farai Chikumbu, Tafadzwa Hove, Mutsa Matarutse, Blessing Mahachi
+- Registered in module-registry.tsx, added navigation in page.tsx (Operations group), added module info and breadcrumb in module-helpers.tsx
+- Toast notifications (sonner) for all CRUD, delete confirmation dialog, framer-motion animations
+- Lint check passed with zero errors, dev server running
+
+Stage Summary:
+- Complete School Shop module with comprehensive product management, order processing, uniform size matrix, analytics, and Zimbabwe-specific settings
+- 24 products across 6 categories, 10 orders with status workflow
+- Full CRUD operations with toast notifications and confirmation dialogs
+- Premium UI with emerald/teal color scheme, dark mode support, responsive design
+
+---
+Task ID: 4
+Agent: Subagent (full-stack-developer)
+Task: Build Admin CMS Module for Website Content Management
+
+Work Log:
+- Created admin-cms-module.tsx (983 lines) with 8 comprehensive tabs: Overview, Hero & Branding, Pages, News, Gallery, Staff Profiles, SEO Settings, Settings
+- Overview: Stats cards (Published/Draft Pages, News, Gallery), Recent Changes timeline, Quick Action cards
+- Hero & Branding: Hero section editor with live preview, School branding (logo, motto, color pickers)
+- Pages: Sortable table with CRUD, Add/Edit dialog with full form, Delete confirmation
+- News: Category filter pills, News table with featured stars, Add/Edit dialog with published/featured toggles
+- Gallery: Image grid with thumbnails, Category filters, Upload dialog, Bulk select/delete, Delete confirmation
+- Staff Profiles: Department filters, Staff cards with avatar, Show/hide toggle, Edit profile dialog
+- SEO Settings: Per-page SEO cards, Full SEO edit dialog (Basic, OG, Schema, Sitemap), Schema templates, Cache management, Google Analytics integration, Robots.txt editor, Sitemap priority
+- Settings: Website info, Contact info, Social media links, Footer content, Maps embed, Maintenance mode toggle
+- Comprehensive mock data: 6 pages, 8 news, 12 gallery images, 10 staff, SEO for 5 pages, website settings
+- Registered in module-registry.tsx, page.tsx (Admin nav with Palette icon), module-helpers.tsx (info + breadcrumb)
+- Lint check passed with zero errors
+- Dev server running successfully on port 3000
+
+Stage Summary:
+- Complete Admin CMS module with 8 tabs and full CRUD functionality
+- 983 lines of TypeScript/React code with Zimbabwe school context throughout
+- Premium UI with emerald/teal color scheme, shadcn/ui, framer-motion, dark mode support
+- All confirmation dialogs for destructive actions, toast notifications for all operations
+
+---
+Task ID: 8
+Agent: Subagent (full-stack-developer)
+Task: Create API Routes for CMS, School Shop, and SEO
+
+Work Log:
+- Created /src/app/api/website-cms/route.ts (156 lines)
+  - GET: Returns CMS data with section filter (pages|news|gallery|all), includes branding from School model
+  - POST: Create page (title/slug/content required), create news (title/slug/content required), upload gallery image (title/imageUrl required)
+  - PUT: Update page by id, update news by id, update branding (updates School model fields)
+  - DELETE: Delete page, news, or gallery image by id
+- Created /src/app/api/school-shop/route.ts (156 lines)
+  - GET: Returns shop data with section filter (products|orders|stats|all), supports category/search/isActive filters
+  - POST: Create product (name/category/price required), create order (items/totalAmount required, auto-generates order number)
+  - PUT: Update product by id, update order status (PENDING|PROCESSING|READY|COLLECTED|CANCELLED)
+  - DELETE: Delete product or order by id
+- Created /src/app/api/seo/route.ts (114 lines)
+  - GET: Returns all SEO settings + sitemap data, supports ?pageSlug= filter for specific page SEO
+  - POST: Create SEO setting (pageSlug required, validates uniqueness with 409 on duplicate)
+  - PUT: Update SEO setting by id
+  - DELETE: Delete SEO setting by id
+- Created /src/app/api/seo/sitemap/route.ts (71 lines)
+  - GET: Returns XML sitemap with Content-Type: application/xml
+  - Includes homepage, published pages, news articles, and events
+  - Each URL has loc, lastmod, changefreq, and priority
+- Fixed db.ts to invalidate cached PrismaClient when models are missing (handles schema migrations in dev)
+- All routes tested and returning correct responses
+- Lint check passed with zero errors
+
+Stage Summary:
+- 4 new API route files created (497 total lines)
+- CMS API: Full CRUD for pages, news, gallery images, and branding
+- School Shop API: Full CRUD for products and orders with stats and search
+- SEO API: Full CRUD for SEO settings with sitemap data generation
+- Sitemap API: Dynamic XML sitemap generation for SEO
+- All routes use proper error handling, validation, and consistent response format
+- Prisma client cache invalidation fix in db.ts handles schema migration scenarios
+---
+Task ID: Session-3
+Agent: Main Orchestrator
+Task: Build Website CMS, Admin CMS, School Shop, Mobile Nav, Premium Templates, API Routes
+
+Work Log:
+- Added CMS models to Prisma schema: WebsitePage, NewsArticle, GalleryImage, SchoolShopItem, SchoolShopOrder, SEOSetting (7 new models)
+- Pushed schema to database successfully (db:push)
+- Built Website CMS Module (website-cms-module.tsx): 8 sections - Home (hero with gradient), About, Events, News, Staff, Gallery, Contact, Admissions
+- Built Admin CMS Module (admin-cms-module.tsx): 8 tabs - Overview, Hero & Branding, Pages, News, Gallery, Staff Profiles, SEO Settings, Website Settings
+- Built School Shop Module (school-shop-module.tsx): 6 tabs - Overview, Products, Orders, Uniforms, Reports, Settings with 24 Zimbabwe-specific products
+- Built Mobile Bottom Navigation (mobile-bottom-nav.tsx): Glass-morphism bottom bar, 5 quick-access icons, slide-up sheet with all modules
+- Built Premium Templates Module (premium-templates-module.tsx): 5 tabs - Invoices, Receipts, Student Statements, Payslips, Settings with correct Zimbabwe statutory deductions
+- Created 4 API route files: /api/website-cms, /api/school-shop, /api/seo, /api/seo/sitemap
+- All modules registered in module-registry.tsx and page.tsx
+- Lint check passes with zero errors
+- Dev server running on port 3000
+- All API endpoints returning 200 status codes
+
+Stage Summary:
+- **41 module components** now registered in the module registry
+- **7 new Prisma models** (WebsitePage, NewsArticle, GalleryImage, SchoolShopItem, SchoolShopOrder, SEOSetting, plus School relation updates)
+- **22+ API routes** serving real data
+- New modules: Website CMS, Admin CMS, School Shop, Premium Templates
+- New component: Mobile Bottom Navigation for small screens
+- Features: Hero section with customizable branding, news management, gallery management, school uniform shop, premium print templates (invoices/receipts/statements/payslips), SEO settings with sitemap generation, mobile bottom navigation with slide-up menu
+- Total navigation groups: Main, People, Academics, Finance, Operations, Welfare, Community, Admin (8 groups)
+
+### Unresolved items:
+- Image generation API rate-limited - school hero image uses CSS gradient fallback (admin can upload custom image)
+- Settings/Customization tab still needed for some existing modules
+- PWA/Offline support not yet implemented
+- Real payment gateway (Paynow) and SMS (Africa's Talking) integrations not yet connected

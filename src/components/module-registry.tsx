@@ -55,6 +55,10 @@ const moduleMap: Record<string, React.ComponentType> = {
   'zimsec-import': dynamic(() => import('@/components/modules/zimsec-bulk-import-module'), { loading: ModuleLoadingFallback, ssr: false }),
   'notification-center': dynamic(() => import('@/components/modules/notification-center-module'), { loading: ModuleLoadingFallback, ssr: false }),
   'bulk-operations': dynamic(() => import('@/components/modules/bulk-operations-module'), { loading: ModuleLoadingFallback, ssr: false }),
+  'premium-templates': dynamic(() => import('@/components/modules/premium-templates-module'), { loading: ModuleLoadingFallback, ssr: false }),
+  'website-cms': dynamic(() => import('@/components/modules/website-cms-module'), { loading: ModuleLoadingFallback, ssr: false }),
+  'school-shop': dynamic(() => import('@/components/modules/school-shop-module'), { loading: ModuleLoadingFallback, ssr: false }),
+  'admin-cms': dynamic(() => import('@/components/modules/admin-cms-module'), { loading: ModuleLoadingFallback, ssr: false }),
 }
 
 // Placeholder for unknown modules

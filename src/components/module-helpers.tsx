@@ -9,7 +9,7 @@ import {
   Building, MessageSquare, Settings, Clock, Trophy, Coffee,
   ShoppingCart, Shield, Monitor, Calculator, FileText, UsersRound,
   ClipboardCheck, School, BellRing, ArrowRightLeft, AlertCircle,
-  CheckCircle2, ChevronRight,
+  CheckCircle2, ChevronRight, Globe, Printer, ShoppingBag, Palette,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
@@ -52,6 +52,10 @@ export const moduleInfo: Record<string, { title: string; description: string; ic
   'zimsec-import': { title: 'ZIMSEC Bulk Import', description: 'Bulk register candidates for ZIMSEC exams', icon: FileCheck, gradient: 'from-amber-500 to-orange-600' },
   'notification-center': { title: 'Notification Center', description: 'SMS, WhatsApp, and email notification management', icon: BellRing, gradient: 'from-teal-500 to-cyan-600' },
   'bulk-operations': { title: 'Bulk Operations', description: 'Mass promotion, fee assignment, attendance, and data import', icon: ArrowRightLeft, gradient: 'from-emerald-500 to-teal-600' },
+  'premium-templates': { title: 'Print Templates', description: 'Professional invoices, receipts, statements, and payslips', icon: Printer, gradient: 'from-emerald-500 to-teal-600' },
+  'website-cms': { title: 'Website CMS', description: 'Manage your public school website content and pages', icon: Globe, gradient: 'from-emerald-500 to-teal-600' },
+  'school-shop': { title: 'School Shop', description: 'Uniforms, stationery, textbooks, and school supplies', icon: ShoppingBag, gradient: 'from-emerald-500 to-teal-600' },
+  'admin-cms': { title: 'Admin CMS', description: 'Comprehensive website content management, SEO, and branding', icon: Palette, gradient: 'from-teal-500 to-emerald-600' },
 }
 
 // ─── Module Breadcrumb Mapping ────────────────────────────────────────────────
@@ -72,11 +76,13 @@ const moduleGroupMap: Record<string, { group: string; path: string[] }> = {
   'fee-calculator': { group: 'Finance', path: ['Finance', 'Fee Calculator'] },
   payroll: { group: 'Finance', path: ['Finance', 'Payroll'] },
   procurement: { group: 'Finance', path: ['Finance', 'Procurement'] },
+  'premium-templates': { group: 'Finance', path: ['Finance', 'Print Templates'] },
   boarding: { group: 'Operations', path: ['Operations', 'Boarding'] },
   transport: { group: 'Operations', path: ['Operations', 'Transport'] },
   library: { group: 'Operations', path: ['Operations', 'Library'] },
   inventory: { group: 'Operations', path: ['Operations', 'Inventory'] },
   canteen: { group: 'Operations', path: ['Operations', 'Canteen'] },
+  'school-shop': { group: 'Operations', path: ['Operations', 'School Shop'] },
   welfare: { group: 'Welfare', path: ['Welfare', 'Support Programs'] },
   discipline: { group: 'Welfare', path: ['Welfare', 'Discipline'] },
   health: { group: 'Welfare', path: ['Welfare', 'Health'] },
@@ -92,6 +98,8 @@ const moduleGroupMap: Record<string, { group: string; path: string[] }> = {
   security: { group: 'Admin', path: ['Admin', 'Security'] },
   settings: { group: 'Admin', path: ['Admin', 'Settings'] },
   'setup-wizard': { group: 'Admin', path: ['Admin', 'Setup Wizard'] },
+  'website-cms': { group: 'Admin', path: ['Admin', 'Website CMS'] },
+  'admin-cms': { group: 'Admin', path: ['Admin', 'Admin CMS'] },
 }
 
 // ─── Module Header Component ──────────────────────────────────────────────────
