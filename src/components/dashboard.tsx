@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
   LayoutDashboard, GraduationCap, Users, UserPlus, BookOpen,
@@ -8,6 +8,7 @@ import {
   Bus, Library, Heart, HeartPulse, Building, Calendar, Flag,
   Star, Shield, AlertTriangle, AlertCircle, TrendingUp, TrendingDown,
   Home as HomeIcon, ArrowUpRight, School, Activity, Clock, RefreshCw, Megaphone,
+  Plus, CreditCard, ClipboardCheck, UsersRound, Wallet, FileText, Bell,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -222,6 +223,19 @@ function timeAgo(dateStr: string): string {
 }
 
 // ─── Dashboard Component ──────────────────────────────────────────────────────
+
+const activityIcons: Record<string, React.ElementType> = {
+  enrollment: UserPlus,
+  payment: DollarSign,
+  attendance: CalendarCheck,
+}
+
+const activityColors: Record<string, string> = {
+  enrollment: 'bg-emerald-100 text-emerald-600',
+  payment: 'bg-amber-100 text-amber-600',
+  attendance: 'bg-teal-100 text-teal-600',
+}
+
 export default function Dashboard() {
   const { schoolName, setActiveModule } = useAppStore()
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
@@ -362,6 +376,51 @@ export default function Dashboard() {
     return activities.slice(0, 8)
   }, [dashboardData, attendanceData])
 
+  // Upcoming events data (static fallback - no events API endpoint available)
+  const upcomingEventsData = useMemo(() => {
+    const now = new Date()
+    const events: Array<{
+      id: string
+      icon: React.ElementType
+      type: 'Holiday' | 'Event' | 'Exam' | 'Meeting'
+      name: string
+      dateObj: Date
+      daysUntil: number
+    }> = [
+      { id: 'evt-1', icon: Calendar, type: 'Holiday', name: 'Independence Day', dateObj: new Date(now.getFullYear(), 3, 18), daysUntil: 0 },
+      { id: 'evt-2', icon: Flag, type: 'Event', name: 'Sports Day', dateObj: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 5), daysUntil: 5 },
+      { id: 'evt-3', icon: FileCheck, type: 'Exam', name: 'Mid-Term Exams Begin', dateObj: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 10), daysUntil: 10 },
+      { id: 'evt-4', icon: Megaphone, type: 'Meeting', name: 'SDC Meeting', dateObj: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 3), daysUntil: 3 },
+    ]
+    // Recalculate daysUntil relative to today
+    return events.map(e => {
+      const diff = Math.ceil((e.dateObj.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      return { ...e, daysUntil: Math.max(0, diff) }
+    }).sort((a, b) => a.daysUntil - b.daysUntil)
+  }, [])
+
+  // Chart configs
+  const enrollmentChartConfig: ChartConfig = { students: { label: 'Students', color: '#10b981' } }
+  const genderChartConfig: ChartConfig = { male: { label: 'Male', color: '#10b981' }, female: { label: 'Female', color: '#f59e0b' } }
+  const feeChartConfig: ChartConfig = { collected: { label: 'Collected', color: '#10b981' }, target: { label: 'Target', color: '#d1d5db' } }
+  const attendanceTrendChartConfig: ChartConfig = { present: { label: 'Present %', color: '#10b981' } }
+
+  // Weekly attendance data (static fallback)
+  const weeklyAttendanceData = [
+    { day: 'Mon', present: 94 },
+    { day: 'Tue', present: 96 },
+    { day: 'Wed', present: 92 },
+    { day: 'Thu', present: 95 },
+    { day: 'Fri', present: 93 },
+  ]
+
+  // Alerts data (static fallback)
+  const alertsData = [
+    { id: 'alert-1', severity: 'critical', title: 'Overdue Fees', description: '15 students have fees overdue by more than 30 days', action: 'View Finance', module: 'finance' },
+    { id: 'alert-2', severity: 'warning', title: 'Low Attendance', description: 'Form 2B attendance dropped below 85% this week', action: 'Check Attendance', module: 'attendance' },
+    { id: 'alert-3', severity: 'info', title: 'ZIMSEC Registration', description: 'O-Level registration deadline is in 3 days', action: 'View Exams', module: 'examinations' },
+  ]
+
   // Derive stat values from API
   const totalStudents = dashboardData?.enrollment?.total ?? 0
   const activeStudents = dashboardData?.enrollment?.active ?? 0
@@ -371,6 +430,16 @@ export default function Dashboard() {
   const attendanceRate = dashboardData?.attendance?.rate ?? '0'
   const maleCount = dashboardData?.genderDistribution?.MALE ?? dashboardData?.genderDistribution?.Male ?? 0
   const femaleCount = dashboardData?.genderDistribution?.FEMALE ?? dashboardData?.genderDistribution?.Female ?? 0
+
+  // Quick stats data
+  const quickStatsData = [
+    { icon: GraduationCap, value: String(totalStudents), label: 'Total Students' },
+    { icon: Users, value: String(totalStaff), label: 'Total Staff' },
+    { icon: DollarSign, value: collectionRate + '%', label: 'Collection Rate' },
+    { icon: CalendarCheck, value: attendanceRate + '%', label: 'Attendance' },
+    { icon: Shield, value: '0', label: 'Open Issues' },
+    { icon: School, value: schoolName || 'MHS', label: 'School Code' },
+  ]
 
   return (
     <div className="space-y-6">
@@ -524,9 +593,9 @@ export default function Dashboard() {
               {enrollmentChartData.length > 0 ? (
                 <ChartContainer config={enrollmentChartConfig} className="h-[250px] w-full">
                   <BarChart data={enrollmentChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                    <XAxis dataKey="grade" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border/50" />
+                    <XAxis dataKey="grade" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} className="text-muted-foreground" />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} className="text-muted-foreground" />
                     <ChartTooltip content={<ChartTooltipContent />} />
                     <Bar dataKey="students" fill="var(--color-students)" radius={[6, 6, 0, 0]} maxBarSize={48} />
                   </BarChart>
@@ -618,11 +687,11 @@ export default function Dashboard() {
               ) : feeCollectionChartData.length > 0 ? (
                 <ChartContainer config={feeChartConfig} className="h-[220px] w-full">
                   <AreaChart data={feeCollectionChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                    <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border/50" />
+                    <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} className="text-muted-foreground" />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} className="text-muted-foreground" />
                     <ChartTooltip content={<ChartTooltipContent />} />
-                    <Area type="monotone" dataKey="target" stroke="#d1d5db" fill="#f9fafb" strokeWidth={2} strokeDasharray="4 4" />
+                    <Area type="monotone" dataKey="target" stroke="#d1d5db" fill="hsl(var(--muted))" strokeWidth={2} strokeDasharray="4 4" />
                     <Area type="monotone" dataKey="collected" stroke="var(--color-collected)" fill="var(--color-collected)" fillOpacity={0.15} strokeWidth={2} />
                   </AreaChart>
                 </ChartContainer>
@@ -679,9 +748,9 @@ export default function Dashboard() {
                 <>
                   <ChartContainer config={attendanceTrendChartConfig} className="h-[180px] w-full">
                     <LineChart data={weeklyAttendanceData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                      <YAxis domain={[80, 100]} tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border/50" />
+                      <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} className="text-muted-foreground" />
+                      <YAxis domain={[80, 100]} tickLine={false} axisLine={false} tick={{ fontSize: 12 }} className="text-muted-foreground" />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Line type="monotone" dataKey="present" stroke="var(--color-present)" strokeWidth={3} dot={{ fill: 'var(--color-present)', r: 5 }} activeDot={{ r: 7 }} />
                     </LineChart>
@@ -855,14 +924,18 @@ export default function Dashboard() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.55 }}
       >
-        <Card className="border-0 shadow-md">
+        <Card className="border-0 shadow-md overflow-hidden">
+          {/* Header with gradient accent */}
+          <div className="h-1 bg-gradient-to-r from-red-400 via-amber-400 to-teal-400" />
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Megaphone className="h-4 w-4 text-emerald-600" />
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-red-100 to-amber-100 dark:from-red-900/40 dark:to-amber-900/40">
+                  <Megaphone className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                </div>
                 <CardTitle className="text-base font-semibold">Alerts & Reminders</CardTitle>
               </div>
-              <Badge variant="secondary" className="text-[10px] px-2 bg-emerald-100 text-emerald-700">
+              <Badge variant="secondary" className="text-[10px] px-2.5 bg-gradient-to-r from-red-50 to-amber-50 dark:from-red-950/40 dark:to-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/40">
                 {alertsData.length} active
               </Badge>
             </div>
@@ -870,10 +943,10 @@ export default function Dashboard() {
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {alertsData.map((alert, index) => {
-                const severityStyles: Record<string, { icon: React.ElementType; border: string; bg: string; iconBg: string; iconColor: string; badge: string }> = {
-                  critical: { icon: AlertTriangle, border: 'border-l-red-400', bg: 'bg-red-50/50 dark:bg-red-950/30', iconBg: 'bg-red-100 dark:bg-red-900/40', iconColor: 'text-red-600', badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' },
-                  warning: { icon: AlertCircle, border: 'border-l-amber-400', bg: 'bg-amber-50/50 dark:bg-amber-950/30', iconBg: 'bg-amber-100 dark:bg-amber-900/40', iconColor: 'text-amber-600', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400' },
-                  info: { icon: Bell, border: 'border-l-teal-400', bg: 'bg-teal-50/50 dark:bg-teal-950/30', iconBg: 'bg-teal-100 dark:bg-teal-900/40', iconColor: 'text-teal-600', badge: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400' },
+                const severityStyles: Record<string, { icon: React.ElementType; border: string; bg: string; iconBg: string; iconColor: string; badge: string; accentLine: string }> = {
+                  critical: { icon: AlertTriangle, border: 'border-l-red-500 dark:border-l-red-400', bg: 'bg-red-50/50 dark:bg-red-950/30', iconBg: 'bg-red-100 dark:bg-red-900/40', iconColor: 'text-red-600 dark:text-red-400', badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400', accentLine: 'from-red-400 to-rose-500' },
+                  warning: { icon: AlertCircle, border: 'border-l-amber-500 dark:border-l-amber-400', bg: 'bg-amber-50/50 dark:bg-amber-950/30', iconBg: 'bg-amber-100 dark:bg-amber-900/40', iconColor: 'text-amber-600 dark:text-amber-400', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400', accentLine: 'from-amber-400 to-orange-500' },
+                  info: { icon: Bell, border: 'border-l-teal-500 dark:border-l-teal-400', bg: 'bg-teal-50/50 dark:bg-teal-950/30', iconBg: 'bg-teal-100 dark:bg-teal-900/40', iconColor: 'text-teal-600 dark:text-teal-400', badge: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400', accentLine: 'from-teal-400 to-cyan-500' },
                 }
                 const style = severityStyles[alert.severity]
                 const SeverityIcon = style.icon
@@ -884,9 +957,11 @@ export default function Dashboard() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: 0.6 + index * 0.05 }}
                   >
-                    <div className={cn('rounded-xl border border-l-4 p-4 transition-all hover:shadow-md', style.border, style.bg)}>
+                    <div className={cn('rounded-xl border border-l-4 p-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 cursor-default', style.border, style.bg)}>
+                      {/* Subtle top accent line */}
+                      <div className={cn('absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r rounded-t-xl', style.accentLine)} style={{ opacity: 0 }} />
                       <div className="flex items-start gap-3">
-                        <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', style.iconBg)}>
+                        <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', style.iconBg)}>
                           <SeverityIcon className={cn('h-4 w-4', style.iconColor)} />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -900,7 +975,7 @@ export default function Dashboard() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 mt-2 text-xs px-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                            className="h-7 mt-2 text-xs px-2.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors duration-200"
                             onClick={() => setActiveModule(alert.module)}
                           >
                             {alert.action} <ArrowUpRight className="ml-1 h-3 w-3" />
@@ -922,21 +997,47 @@ export default function Dashboard() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.65 }}
       >
-        <Card className="border-0 shadow-md bg-gradient-to-r from-emerald-50/50 via-teal-50/50 to-emerald-50/50">
-          <CardContent className="p-4">
+        <Card className="border-0 shadow-lg overflow-hidden relative">
+          {/* Premium gradient background with subtle pattern */}
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/80 via-teal-50/60 to-cyan-50/80 dark:from-emerald-950/50 dark:via-teal-950/40 dark:to-cyan-950/50" />
+          <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]" style={{ backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+          <CardContent className="p-5 relative z-10">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/40">
+                <BarChart3 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">Quick Stats</h3>
+              <div className="flex-1 h-px bg-gradient-to-r from-emerald-200 dark:from-emerald-800/50 to-transparent" />
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {quickStatsData.map((stat, index) => {
                 const StatIcon = stat.icon
+                const iconBgColors = [
+                  'bg-emerald-100 dark:bg-emerald-900/40',
+                  'bg-teal-100 dark:bg-teal-900/40',
+                  'bg-amber-100 dark:bg-amber-900/40',
+                  'bg-cyan-100 dark:bg-cyan-900/40',
+                  'bg-rose-100 dark:bg-rose-900/40',
+                  'bg-violet-100 dark:bg-violet-900/40',
+                ]
+                const iconTextColors = [
+                  'text-emerald-600 dark:text-emerald-400',
+                  'text-teal-600 dark:text-teal-400',
+                  'text-amber-600 dark:text-amber-400',
+                  'text-cyan-600 dark:text-cyan-400',
+                  'text-rose-600 dark:text-rose-400',
+                  'text-violet-600 dark:text-violet-400',
+                ]
                 return (
                   <motion.div
                     key={stat.label}
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.3, delay: 0.7 + index * 0.05 }}
-                    className="flex items-center gap-3 rounded-xl bg-background/80 p-3 shadow-sm border border-emerald-100/50 dark:border-emerald-900/30"
+                    className="flex items-center gap-3 rounded-xl bg-white/70 dark:bg-background/60 backdrop-blur-sm p-3 shadow-sm border border-emerald-100/60 dark:border-emerald-800/30 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
                   >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/40">
-                      <StatIcon className="h-4 w-4 text-emerald-600" />
+                    <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', iconBgColors[index])}>
+                      <StatIcon className={cn('h-4 w-4', iconTextColors[index])} />
                     </div>
                     <div>
                       <p className="text-lg font-bold tracking-tight leading-none">{stat.value}</p>

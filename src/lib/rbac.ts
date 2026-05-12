@@ -51,6 +51,9 @@ export const MODULES = [
   'parent-portal',
   'student-portal',
   'teacher-portal',
+  'setup-wizard',
+  'zimsec-import',
+  'bulk-operations',
 ] as const
 
 export type ModuleId = typeof MODULES[number]
@@ -237,6 +240,9 @@ export function getModuleDisplayName(moduleId: string): string {
     'parent-portal': 'Parent Portal',
     'student-portal': 'Student Portal',
     'teacher-portal': 'Teacher Portal',
+    'setup-wizard': 'Setup Wizard',
+    'zimsec-import': 'ZIMSEC Import',
+    'bulk-operations': 'Bulk Operations',
   }
   return names[moduleId] || moduleId
 }

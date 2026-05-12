@@ -1,10 +1,11 @@
 'use client'
 
 import React, { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   School, GraduationCap, DollarSign, FileCheck, BarChart3,
   Eye, EyeOff, Lock, Mail, Zap, AlertCircle,
+  ChevronDown, ChevronUp, Copy, Check, User, Shield, UserCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { signIn } from 'next-auth/react'
@@ -22,6 +23,8 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [shakeForm, setShakeForm] = useState(false)
   const [loginError, setLoginError] = useState('')
+  const [showDemo, setShowDemo] = useState(false)
+  const [copiedField, setCopiedField] = useState<string | null>(null)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -315,7 +318,89 @@ export default function LoginPage() {
               </motion.div>
             )}
 
-            <div className="mt-6 flex items-center justify-between">
+            {/* Demo Credentials Section */}
+            <div className="mt-5">
+              <button
+                type="button"
+                onClick={() => setShowDemo(!showDemo)}
+                className="flex items-center gap-2 w-full text-left group"
+              >
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-950/40 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/40 transition-colors">
+                  {showDemo ? (
+                    <ChevronUp className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  )}
+                </div>
+                <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+                  Demo Credentials
+                </span>
+                <div className="flex-1 h-px bg-border/50" />
+                <span className="text-[10px] text-muted-foreground/60">Click to expand</span>
+              </button>
+              <AnimatePresence>
+                {showDemo && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-3 rounded-xl border border-emerald-100 dark:border-emerald-900/40 bg-gradient-to-br from-emerald-50/50 via-teal-50/30 to-cyan-50/50 dark:from-emerald-950/20 dark:via-teal-950/15 dark:to-cyan-950/20 p-3">
+                      <div className="space-y-2">
+                        {[
+                          { email: 'admin@zimschool.co.zw', password: 'password123', role: 'Administrator', icon: Shield, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40' },
+                          { email: 'teacher@zimschool.co.zw', password: 'password123', role: 'Teacher', icon: UserCheck, color: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-100 dark:bg-teal-900/40' },
+                          { email: 'bursar@zimschool.co.zw', password: 'password123', role: 'Bursar', icon: DollarSign, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/40' },
+                        ].map((cred) => {
+                          const CredIcon = cred.icon
+                          const fieldId = `${cred.role}-email`
+                          return (
+                            <div
+                              key={cred.role}
+                              className="flex items-center gap-2.5 rounded-lg bg-white/70 dark:bg-background/50 backdrop-blur-sm p-2.5 border border-emerald-100/50 dark:border-emerald-800/30"
+                            >
+                              <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', cred.bg)}>
+                                <CredIcon className={cn('h-3.5 w-3.5', cred.color)} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">{cred.role}</p>
+                                <div className="flex items-center gap-1">
+                                  <code className="text-[11px] text-muted-foreground font-mono truncate">{cred.email}</code>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(cred.email)
+                                      setCopiedField(fieldId)
+                                      setEmail(cred.email)
+                                      setPassword(cred.password)
+                                      setTimeout(() => setCopiedField(null), 1500)
+                                    }}
+                                    className="shrink-0 p-0.5 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+                                  >
+                                    {copiedField === fieldId ? (
+                                      <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                                    ) : (
+                                      <Copy className="h-3 w-3 text-muted-foreground/60" />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground/70 mt-2 text-center">
+                        Click the copy icon to auto-fill credentials
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between">
               <p className="text-center text-xs text-muted-foreground">
                 &copy; {new Date().getFullYear()} ZimSchool Pro
               </p>

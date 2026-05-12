@@ -22,6 +22,7 @@ import {
   Download,
   Printer,
   FileSpreadsheet,
+  BarChart3,
 } from 'lucide-react'
 import {
   PieChart,
@@ -171,10 +172,10 @@ const formatDate = (dateStr: string) => {
 }
 
 const statusColors: Record<string, string> = {
-  PAID: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  PARTIAL: 'bg-amber-100 text-amber-700 border-amber-200',
-  PENDING: 'bg-gray-100 text-gray-700 border-gray-200',
-  OVERDUE: 'bg-red-100 text-red-700 border-red-200',
+  PAID: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/50',
+  PARTIAL: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/50',
+  PENDING: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800/50 dark:text-gray-300 dark:border-gray-700',
+  OVERDUE: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800/50',
 }
 
 const methodLabels: Record<string, string> = {
@@ -502,7 +503,7 @@ export default function FinanceModule() {
         <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+              <Button variant="outline" size="sm" className="gap-2 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40">
                 <Download className="h-4 w-4" />
                 Export
               </Button>
@@ -563,9 +564,22 @@ export default function FinanceModule() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
-                <DialogTitle>Record Payment</DialogTitle>
+                <DialogTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-emerald-600" />
+                  Record Payment
+                </DialogTitle>
                 <DialogDescription>Record a new fee payment for a student</DialogDescription>
               </DialogHeader>
+              {/* Currency indicator badge */}
+              <div className="flex items-center gap-2 -mt-1">
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50">
+                  <DollarSign className="h-3 w-3" /> USD
+                </span>
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">
+                  ZiG
+                </span>
+                <span className="text-[10px] text-muted-foreground">Multi-currency supported</span>
+              </div>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Label>Student</Label>
@@ -590,12 +604,28 @@ export default function FinanceModule() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label>Amount</Label>
-                    <Input
-                      type="number"
-                      placeholder="0.00"
-                      value={paymentForm.amount}
-                      onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))}
-                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
+                        {paymentForm.currency === 'USD' ? '$' : 'ZiG'}
+                      </span>
+                      <Input
+                        type="number"
+                        placeholder="0.00"
+                        value={paymentForm.amount}
+                        onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))}
+                        className="pl-8"
+                      />
+                    </div>
+                    {paymentForm.currency === 'ZiG' && paymentForm.amount && (
+                      <p className="text-[10px] text-muted-foreground">
+                        ≈ {formatCurrency(parseFloat(paymentForm.amount) / exchangeRate)} USD
+                      </p>
+                    )}
+                    {paymentForm.currency === 'USD' && paymentForm.amount && (
+                      <p className="text-[10px] text-muted-foreground">
+                        ≈ {formatZiG(parseFloat(paymentForm.amount) * exchangeRate)}
+                      </p>
+                    )}
                   </div>
                   <div className="grid gap-2">
                     <Label>Currency</Label>
@@ -607,8 +637,16 @@ export default function FinanceModule() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="USD">USD</SelectItem>
-                        <SelectItem value="ZiG">ZiG</SelectItem>
+                        <SelectItem value="USD">
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-emerald-600">$</span> US Dollar (USD)
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="ZiG">
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-amber-600">ZiG</span> Zimbabwe Gold (ZiG)
+                          </span>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -660,7 +698,7 @@ export default function FinanceModule() {
 
           <Dialog open={createInvoiceOpen} onOpenChange={setCreateInvoiceOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+              <Button variant="outline" className="border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40">
                 <Plus className="mr-2 h-4 w-4" />
                 Create Invoice
               </Button>
@@ -799,14 +837,17 @@ export default function FinanceModule() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            Overview
+          <TabsTrigger value="overview" className="gap-1.5 data-[state=active]:bg-emerald-50 dark:data-[state=active]:bg-emerald-950/40 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-emerald-200 dark:data-[state=active]:border-emerald-800/50">
+            <BarChart3 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Overview</span>
           </TabsTrigger>
-          <TabsTrigger value="invoices" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            Invoices
+          <TabsTrigger value="invoices" className="gap-1.5 data-[state=active]:bg-amber-50 dark:data-[state=active]:bg-amber-950/40 data-[state=active]:text-amber-700 dark:data-[state=active]:text-amber-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-amber-200 dark:data-[state=active]:border-amber-800/50">
+            <FileText className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Invoices</span>
           </TabsTrigger>
-          <TabsTrigger value="payments" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            Payments
+          <TabsTrigger value="payments" className="gap-1.5 data-[state=active]:bg-teal-50 dark:data-[state=active]:bg-teal-950/40 data-[state=active]:text-teal-700 dark:data-[state=active]:text-teal-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-teal-200 dark:data-[state=active]:border-teal-800/50">
+            <CreditCard className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Payments</span>
           </TabsTrigger>
         </TabsList>
 
@@ -826,7 +867,7 @@ export default function FinanceModule() {
                       <span className="text-xs font-medium text-emerald-600">All time</span>
                     </div>
                   </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
                     <FileText className="h-5 w-5 text-emerald-600" />
                   </div>
                 </div>
@@ -846,7 +887,7 @@ export default function FinanceModule() {
                       <span className="text-xs font-medium text-teal-600">{dashboard?.debtorCount || 0} debtors</span>
                     </div>
                   </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-950/40">
                     <DollarSign className="h-5 w-5 text-teal-600" />
                   </div>
                 </div>
@@ -866,7 +907,7 @@ export default function FinanceModule() {
                       <span className="text-xs font-medium text-amber-600">Needs attention</span>
                     </div>
                   </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/40">
                     <AlertTriangle className="h-5 w-5 text-amber-600" />
                   </div>
                 </div>
@@ -891,7 +932,7 @@ export default function FinanceModule() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-950/40">
                     <CircleDollarSign className="h-5 w-5 text-rose-600" />
                   </div>
                 </div>
@@ -1242,7 +1283,7 @@ export default function FinanceModule() {
                                         <h4 className="text-sm font-semibold mb-2">Payment History</h4>
                                         <div className="space-y-2">
                                           {invoice.payments.map((pay) => (
-                                            <div key={pay.id} className="flex items-center justify-between text-sm p-2 rounded-lg bg-white border">
+                                            <div key={pay.id} className="flex items-center justify-between text-sm p-2 rounded-lg bg-white dark:bg-background border">
                                               <span className="font-mono text-xs text-muted-foreground">{pay.receiptNumber}</span>
                                               <span className="text-emerald-600 font-semibold">{formatCurrency(pay.amount)}</span>
                                               <span className="text-xs text-muted-foreground">{formatDate(pay.createdAt)}</span>

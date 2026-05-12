@@ -1,58 +1,37 @@
 import { db } from '@/lib/db'
+import { hashPassword } from '@/lib/auth'
 import { NextResponse } from 'next/server'
 
 export async function POST() {
   try {
-    // Clear existing data in correct order (respecting foreign keys)
-    await db.maintenanceRequest.deleteMany()
-    await db.libraryTransaction.deleteMany()
-    await db.libraryBook.deleteMany()
-    await db.assessmentMark.deleteMany()
-    await db.assessment.deleteMany()
-    await db.reportCard.deleteMany()
-    await db.invoiceItem.deleteMany()
-    await db.feePayment.deleteMany()
-    await db.feeInvoice.deleteMany()
-    await db.feeStructure.deleteMany()
-    await db.bankAccount.deleteMany()
-    await db.scholarship.deleteMany()
-    await db.beamApplication.deleteMany()
-    await db.welfareRecord.deleteMany()
-    await db.disciplineRecord.deleteMany()
-    await db.healthRecord.deleteMany()
-    await db.boardingAssignment.deleteMany()
-    await db.dormitory.deleteMany()
-    await db.hostel.deleteMany()
-    await db.transportAssignment.deleteMany()
-    await db.vehicle.deleteMany()
-    await db.transportRoute.deleteMany()
-    await db.communication.deleteMany()
-    await db.sDCMember.deleteMany()
-    await db.staffDiscipline.deleteMany()
-    await db.appraisalRecord.deleteMany()
-    await db.leaveRecord.deleteMany()
-    await db.payslip.deleteMany()
-    await db.studentParent.deleteMany()
-    await db.studentEnrollment.deleteMany()
-    await db.attendance.deleteMany()
-    await db.gradeSubject.deleteMany()
-    await db.class.deleteMany()
-    await db.grade.deleteMany()
-    await db.subject.deleteMany()
-    await db.term.deleteMany()
-    await db.academicYear.deleteMany()
-    await db.department.deleteMany()
-    await db.asset.deleteMany()
-    await db.supplier.deleteMany()
-    await db.house.deleteMany()
-    await db.schoolEvent.deleteMany()
-    await db.club.deleteMany()
-    await db.sportsCode.deleteMany()
-    await db.zimsecCandidate.deleteMany()
-    await db.student.deleteMany()
-    await db.parent.deleteMany()
-    await db.staff.deleteMany()
-    await db.school.deleteMany()
+    // Disable foreign key checks for clean deletion (SQLite)
+    await db.$executeRawUnsafe('PRAGMA foreign_keys = OFF')
+
+    // Clear existing data
+    const deleteOps = [
+      'maintenanceRequest', 'libraryTransaction', 'libraryBook', 'assessmentMark',
+      'assessment', 'reportCard', 'invoiceItem', 'feePayment', 'feeInvoice',
+      'feeStructure', 'bankAccount', 'scholarship', 'beamApplication',
+      'welfareRecord', 'disciplineRecord', 'healthRecord', 'boardingAssignment',
+      'dormitory', 'hostel', 'transportAssignment', 'vehicle', 'transportRoute',
+      'communication', 'sDCMember', 'staffDiscipline', 'appraisalRecord',
+      'leaveRecord', 'payslip', 'studentParent', 'studentEnrollment',
+      'attendance', 'gradeSubject', 'class', 'grade', 'subject', 'term',
+      'academicYear', 'department', 'asset', 'supplier', 'house',
+      'schoolEvent', 'club', 'sportsCode', 'zimsecCandidate', 'student',
+      'parent', 'staff', 'user', 'auditLog', 'school',
+    ] as const
+
+    for (const model of deleteOps) {
+      try {
+        await (db as Record<string, { deleteMany: () => Promise<unknown> }>)[model].deleteMany()
+      } catch {
+        // Skip if model doesn't exist or already empty
+      }
+    }
+
+    // Re-enable foreign key checks
+    await db.$executeRawUnsafe('PRAGMA foreign_keys = ON')
 
     // ========= CREATE SCHOOL =========
     const school = await db.school.create({
@@ -333,6 +312,17 @@ export async function POST() {
       })
       staffMembers.push(staff)
     }
+
+    // ========= USERS (Auth) =========
+    const hashedPassword = await hashPassword('password123')
+    await db.user.createMany({
+      data: [
+        { email: 'admin@zimschool.co.zw', password: hashedPassword, name: 'Admin User', role: 'ADMIN', schoolId: school.id, staffId: staffMembers[0]?.id, isActive: true },
+        { email: 'headmaster@zimschool.co.zw', password: hashedPassword, name: 'Tawanda Moyo', role: 'ADMIN', schoolId: school.id, isActive: true },
+        { email: 'teacher@zimschool.co.zw', password: hashedPassword, name: 'Kudakwashe Chingono', role: 'TEACHER', schoolId: school.id, staffId: staffMembers[2]?.id, isActive: true },
+        { email: 'bursar@zimschool.co.zw', password: hashedPassword, name: 'Tasvinya Mukanganwi', role: 'BURSAR', schoolId: school.id, staffId: staffMembers[11]?.id, isActive: true },
+      ],
+    })
 
     // ========= STUDENTS =========
     const firstNamesMale = ['Tinotenda', 'Kudakwashe', 'Blessing', 'Farai', 'Tendai', 'Panashe', 'Munashe', 'Anesu', 'Nyasha', 'Tatenda', 'Takudzwa', 'Tanaka', 'Micheal', 'Simbarashe', 'Godwin', 'Tawanda', 'Shingirai', 'Rodwell', 'Lloyd', 'Kudzai', 'Dean', 'Shelton', 'Martin', 'Aaron', 'Noah']

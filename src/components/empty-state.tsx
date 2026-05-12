@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { motion } from 'framer-motion'
+import { Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
@@ -32,9 +33,9 @@ export function EmptyState({
         className
       )}
     >
-      {/* Icon in colored circle */}
+      {/* Icon in colored circle with subtle animation */}
       <div className="relative mb-5">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/40 ring-4 ring-emerald-100 dark:ring-emerald-900/30">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 ring-4 ring-emerald-100/80 dark:ring-emerald-900/30">
           <Icon className="h-9 w-9 text-emerald-500 dark:text-emerald-400" />
         </div>
         {/* Decorative dots */}
@@ -56,8 +57,9 @@ export function EmptyState({
       {actionLabel && onAction && (
         <Button
           onClick={onAction}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md gap-2"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md gap-2 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
         >
+          <Plus className="h-4 w-4" />
           {actionLabel}
         </Button>
       )}

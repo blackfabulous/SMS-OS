@@ -207,11 +207,11 @@ interface StudentsResponse {
 // ─── Status Badge Helper ──────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; className: string }> = {
-    ACTIVE: { label: 'Active', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-    TRANSFERRED: { label: 'Transferred', className: 'bg-amber-50 text-amber-700 border-amber-200' },
-    GRADUATED: { label: 'Graduated', className: 'bg-teal-50 text-teal-700 border-teal-200' },
-    DROPPED_OUT: { label: 'Dropped Out', className: 'bg-red-50 text-red-700 border-red-200' },
-    SUSPENDED: { label: 'Suspended', className: 'bg-orange-50 text-orange-700 border-orange-200' },
+    ACTIVE: { label: 'Active', className: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/50' },
+    TRANSFERRED: { label: 'Transferred', className: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/50' },
+    GRADUATED: { label: 'Graduated', className: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-800/50' },
+    DROPPED_OUT: { label: 'Dropped Out', className: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800/50' },
+    SUSPENDED: { label: 'Suspended', className: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800/50' },
   }
   const c = config[status] || { label: status, className: 'bg-gray-50 text-gray-700 border-gray-200' }
   return (
@@ -228,8 +228,8 @@ function BoardingBadge({ status }: { status: string | null }) {
     <Badge variant="outline" className={cn(
       'text-[11px] px-2 py-0.5 font-medium',
       isBoarder
-        ? 'bg-teal-50 text-teal-700 border-teal-200'
-        : 'bg-sky-50 text-sky-700 border-sky-200'
+        ? 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-800/50'
+        : 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-800/50'
     )}>
       {isBoarder ? 'Boarder' : 'Day Scholar'}
     </Badge>
@@ -241,8 +241,8 @@ function GenderBadge({ gender }: { gender: string }) {
     <Badge variant="outline" className={cn(
       'text-[11px] px-2 py-0.5 font-medium',
       gender === 'MALE'
-        ? 'bg-sky-50 text-sky-700 border-sky-200'
-        : 'bg-pink-50 text-pink-700 border-pink-200'
+        ? 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-800/50'
+        : 'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950/40 dark:text-pink-400 dark:border-pink-800/50'
     )}>
       {gender === 'MALE' ? 'Male' : 'Female'}
     </Badge>
@@ -579,23 +579,23 @@ function StudentListView({
                 <TableHeader>
                   <TableRow className="bg-muted/30 hover:bg-muted/30">
                     <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('studentNumber')}>
-                      <span className="flex items-center">Student # <SortIcon field="studentNumber" /></span>
+                      <span className="flex items-center text-xs">Student # <SortIcon field="studentNumber" /></span>
                     </TableHead>
                     <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('name')}>
-                      <span className="flex items-center">Name <SortIcon field="name" /></span>
+                      <span className="flex items-center text-xs">Name <SortIcon field="name" /></span>
                     </TableHead>
-                    <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('gender')}>
-                      <span className="flex items-center">Gender <SortIcon field="gender" /></span>
+                    <TableHead className="cursor-pointer select-none h-10 hidden sm:table-cell" onClick={() => handleSort('gender')}>
+                      <span className="flex items-center text-xs">Gender <SortIcon field="gender" /></span>
                     </TableHead>
-                    <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('grade')}>
-                      <span className="flex items-center">Grade <SortIcon field="grade" /></span>
+                    <TableHead className="cursor-pointer select-none h-10 hidden md:table-cell" onClick={() => handleSort('grade')}>
+                      <span className="flex items-center text-xs">Grade <SortIcon field="grade" /></span>
                     </TableHead>
-                    <TableHead>Class</TableHead>
-                    <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('boardingStatus')}>
-                      <span className="flex items-center">Boarding <SortIcon field="boardingStatus" /></span>
+                    <TableHead className="hidden lg:table-cell">Class</TableHead>
+                    <TableHead className="cursor-pointer select-none h-10 hidden md:table-cell" onClick={() => handleSort('boardingStatus')}>
+                      <span className="flex items-center text-xs">Boarding <SortIcon field="boardingStatus" /></span>
                     </TableHead>
                     <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('enrollmentStatus')}>
-                      <span className="flex items-center">Status <SortIcon field="enrollmentStatus" /></span>
+                      <span className="flex items-center text-xs">Status <SortIcon field="enrollmentStatus" /></span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -631,30 +631,30 @@ function StudentListView({
                           className="cursor-pointer hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-colors"
                           onClick={() => onSelectStudent(student.id)}
                         >
-                          <TableCell className="font-mono text-xs">{student.studentNumber}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-7 w-7">
+                          <TableCell className="font-mono text-xs py-2.5">{student.studentNumber}</TableCell>
+                          <TableCell className="py-2.5">
+                            <div className="flex items-center gap-2.5">
+                              <Avatar className="h-8 w-8 ring-1 ring-white/50 dark:ring-white/20">
                                 <AvatarFallback className={cn(
                                   'text-[10px] font-semibold',
                                   student.gender === 'MALE'
-                                    ? 'bg-sky-100 text-sky-700'
-                                    : 'bg-pink-100 text-pink-700'
+                                    ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300'
+                                    : 'bg-pink-100 text-pink-700 dark:bg-pink-900/50 dark:text-pink-300'
                                 )}>
                                   {student.firstName[0]}{student.lastName[0]}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
-                                <p className="text-sm font-medium">{student.firstName} {student.lastName}</p>
+                                <p className="text-sm font-medium leading-tight">{student.firstName} {student.lastName}</p>
                                 {student.middleName && <p className="text-[10px] text-muted-foreground">{student.middleName}</p>}
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell><GenderBadge gender={student.gender} /></TableCell>
-                          <TableCell className="text-sm">{gradeName}</TableCell>
-                          <TableCell className="text-sm">{className}</TableCell>
-                          <TableCell><BoardingBadge status={student.boardingStatus} /></TableCell>
-                          <TableCell><StatusBadge status={student.enrollmentStatus} /></TableCell>
+                          <TableCell className="hidden sm:table-cell py-2.5"><GenderBadge gender={student.gender} /></TableCell>
+                          <TableCell className="text-sm hidden md:table-cell py-2.5">{gradeName}</TableCell>
+                          <TableCell className="text-sm hidden lg:table-cell py-2.5">{className}</TableCell>
+                          <TableCell className="hidden md:table-cell py-2.5"><BoardingBadge status={student.boardingStatus} /></TableCell>
+                          <TableCell className="py-2.5"><StatusBadge status={student.enrollmentStatus} /></TableCell>
                         </TableRow>
                       )
                     })
@@ -992,7 +992,7 @@ function StudentDetailView({
                   <TabsTrigger
                     key={tab.value}
                     value={tab.value}
-                    className="h-12 px-4 data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-700 data-[state=active]:shadow-none rounded-none"
+                    className="relative flex items-center gap-1.5 h-12 px-4 data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-none rounded-none text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <tab.icon className="h-4 w-4 mr-1.5" />
                     <span className="hidden sm:inline">{tab.label}</span>
