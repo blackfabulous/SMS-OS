@@ -23,6 +23,7 @@ import { ModuleHeader } from '@/components/module-helpers'
 import { ModuleRenderer } from '@/components/module-registry'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import MobileBottomNav from '@/components/mobile-bottom-nav'
+import PublicWebsite from '@/components/public-website'
 
 // ─── Navigation Config ────────────────────────────────────────────────────────
 const navGroups: NavGroup[] = [
@@ -176,9 +177,9 @@ export default function Home() {
     )
   }
 
-  // Not authenticated - show login
+  // Not authenticated - show public website with login dialog
   if (!session) {
-    return <ModuleRenderer moduleId="login" />
+    return <PublicWebsite onLogin={() => {}} />
   }
 
   return (
