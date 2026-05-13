@@ -25,6 +25,7 @@ import {
   Package, Coffee, Scale, HeartPulse, MessageSquare, Settings,
   Quote, Camera, Play, ChevronUp, ExternalLink, PhoneCall,
   Clock4, GraduationCapIcon, UserCheck, ClipboardList,
+  ArrowLeft, Image, Newspaper, PhoneCallIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { signIn, getSession } from 'next-auth/react'
@@ -35,6 +36,9 @@ import { useAppStore } from '@/lib/store'
 interface PublicWebsiteProps {
   onLogin: () => void
 }
+
+// ─── Page Type ────────────────────────────────────────────────────────────────
+type PageName = 'home' | 'about' | 'academics' | 'admissions' | 'news' | 'events' | 'gallery' | 'contact' | 'news-detail' | 'event-detail'
 
 // ─── Animation Variants ──────────────────────────────────────────────────────
 const fadeInUp = {
@@ -68,6 +72,13 @@ const scaleIn = {
   initial: { opacity: 0, scale: 0.9 },
   animate: { opacity: 1, scale: 1 },
   transition: { duration: 0.5 },
+}
+
+const pageTransition = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -20 },
+  transition: { duration: 0.35 },
 }
 
 // ─── Mock Data ───────────────────────────────────────────────────────────────
@@ -104,13 +115,13 @@ const events = [
 ]
 
 const news = [
-  { id: 1, title: 'Outstanding ZIMSEC Results: 92% Pass Rate Achieved', excerpt: 'Mufakose High School celebrates its best O-Level results in a decade with a 92% pass rate, surpassing the national average by 24 points.', category: 'Academic', date: '2025-01-15', featured: true, image: 'academic' },
-  { id: 2, title: 'New Computer Lab Inaugurated by MoPSE Officials', excerpt: 'A state-of-the-art computer laboratory with 40 workstations was officially opened, bringing digital learning to every student.', category: 'Infrastructure', date: '2025-02-10', featured: false, image: 'campus' },
-  { id: 3, title: 'Athletics Team Wins Provincial Championship', excerpt: 'Our athletics team clinched the Harare Provincial Championship for the third consecutive year, qualifying for nationals.', category: 'Sports', date: '2025-03-05', featured: false, image: 'sports' },
-  { id: 4, title: 'BEAM Programme Supports 180 Students This Term', excerpt: 'The Basic Education Assistance Module has enabled 180 vulnerable students to continue their education without financial barriers.', category: 'Welfare', date: '2025-02-20', featured: false, image: 'culture' },
-  { id: 5, title: 'Partnership with University of Zimbabwe for Science Mentorship', excerpt: 'A new mentorship programme pairs UZ science students with our Form 5 and 6 learners for career guidance and lab sessions.', category: 'Partnership', date: '2025-01-28', featured: false, image: 'academic' },
-  { id: 6, title: 'Community Outreach: Mufakose Cleanup Campaign', excerpt: 'Over 200 students and staff participated in the Mufakose suburb cleanup campaign, promoting environmental stewardship.', category: 'Community', date: '2025-03-12', featured: false, image: 'events' },
-  { id: 7, title: 'Library Expansion: 2,000 New Books Donated', excerpt: 'The school library received a generous donation of 2,000 books from the Zimbabwe Book Development Council.', category: 'Infrastructure', date: '2025-02-05', featured: false, image: 'campus' },
+  { id: 1, title: 'Outstanding ZIMSEC Results: 92% Pass Rate Achieved', excerpt: 'Mufakose High School celebrates its best O-Level results in a decade with a 92% pass rate, surpassing the national average by 24 points.', category: 'Academic', date: '2025-01-15', featured: true, image: 'academic', fullContent: 'Mufakose High School is thrilled to announce the release of the 2024 ZIMSEC O-Level examination results, which have set a new record for the school. With an outstanding 92% pass rate, our students have surpassed the national average by an impressive 24 percentage points.\n\nHeadmaster Mr. Johannes M. Shumba attributed the success to the dedication of both teachers and students, as well as the school\'s robust exam preparation programme. "This result is a testament to the hard work and diligence that define our school culture. Our teachers went above and beyond, conducting extra revision sessions and mock examinations," he said.\n\nAmong the standout performers were Tendai Moyo, who scored 10 A grades, and Rufaro Chigumba, who achieved 9 A grades and 1 B. The science subjects—Physics, Chemistry, and Biology—saw particularly strong results, with pass rates exceeding 95% in each.\n\nThe Deputy Head, Mrs. Rumbidzai A. Moyo, praised the BEAM programme for ensuring no student was left behind. "We are grateful for the Basic Education Assistance Module, which allowed 180 vulnerable students to sit for their exams without financial barriers," she noted.\n\nThe school has already begun preparations for the 2025 examination cycle, with enhanced study materials and additional tutorial support for all candidates.' },
+  { id: 2, title: 'New Computer Lab Inaugurated by MoPSE Officials', excerpt: 'A state-of-the-art computer laboratory with 40 workstations was officially opened, bringing digital learning to every student.', category: 'Infrastructure', date: '2025-02-10', featured: false, image: 'campus', fullContent: 'The Ministry of Primary and Secondary Education (MoPSE) has officially inaugurated a state-of-the-art computer laboratory at Mufakose High School, marking a significant milestone in the school\'s journey towards digital transformation.\n\nThe new facility, equipped with 40 modern workstations, high-speed internet connectivity, and interactive smart boards, was funded through a partnership between MoPSE and the Zimbabwe ICT Authority. The lab will serve students across all forms, with dedicated sessions for Computer Science practicals and digital literacy programmes.\n\nDuring the inauguration ceremony, the MoPSE Provincial Education Director commended the school for its commitment to embracing technology. "In today\'s digital age, computer literacy is not a luxury—it is a necessity. This lab will empower students with the skills they need to compete in the global economy," the Director stated.\n\nThe lab also features a dedicated server room, a printing station, and assistive technology for students with disabilities. Plans are underway to introduce coding clubs and robotics programmes in the coming term, further enriching the school\'s STEM offerings.' },
+  { id: 3, title: 'Athletics Team Wins Provincial Championship', excerpt: 'Our athletics team clinched the Harare Provincial Championship for the third consecutive year, qualifying for nationals.', category: 'Sports', date: '2025-03-05', featured: false, image: 'sports', fullContent: 'Mufakose High School\'s athletics team has once again proven their dominance, clinching the Harare Provincial Athletics Championship for the third consecutive year. The team amassed an impressive total of 285 points, finishing 45 points ahead of their nearest rivals.\n\nStar athletes Tanaka Dube and Blessing Nhapi each secured three gold medals, with Dube setting a new provincial record in the 200m sprint with a time of 22.4 seconds. The relay teams also performed exceptionally, winning gold in both the 4x100m and 4x400m events.\n\nCoach Mr. Farai Mutsindikwa expressed pride in his team\'s achievement. "These athletes have trained relentlessly, often starting at 5:30 AM before school. Their discipline and determination have paid off," he said.\n\nThe team will now represent Harare Province at the National Athletics Championships in Gweru next month. The school community has rallied behind the team, with the SDC providing new competition kit and transportation support.' },
+  { id: 4, title: 'BEAM Programme Supports 180 Students This Term', excerpt: 'The Basic Education Assistance Module has enabled 180 vulnerable students to continue their education without financial barriers.', category: 'Welfare', date: '2025-02-20', featured: false, image: 'culture', fullContent: 'The Basic Education Assistance Module (BEAM) continues to be a lifeline for vulnerable students at Mufakose High School, with 180 learners receiving full financial support for the 2025 academic year.\n\nBEAM covers tuition fees, examination fees, and basic school supplies for children from disadvantaged backgrounds. The programme is administered by the Department of Social Welfare in collaboration with MoPSE and is funded by both the Government of Zimbabwe and international development partners.\n\nMrs. Sithembile Ncube, the school\'s Guidance Counsellor, highlighted the impact of the programme. "BEAM has transformed lives. Students who would otherwise have dropped out are now thriving academically and participating fully in school activities," she explained.\n\nThis year\'s allocation represents a 15% increase from 2024, thanks to additional funding from UNICEF. The school has also introduced a mentorship component, pairing BEAM beneficiaries with senior teachers who provide academic guidance and emotional support.' },
+  { id: 5, title: 'Partnership with University of Zimbabwe for Science Mentorship', excerpt: 'A new mentorship programme pairs UZ science students with our Form 5 and 6 learners for career guidance and lab sessions.', category: 'Partnership', date: '2025-01-28', featured: false, image: 'academic', fullContent: 'Mufakose High School has entered into an exciting partnership with the University of Zimbabwe (UZ) Faculty of Science, establishing a mentorship programme that pairs UZ undergraduate and postgraduate students with Form 5 and 6 learners.\n\nThe programme, officially launched in January 2025, involves 25 UZ students visiting the school twice a week to conduct laboratory sessions, career guidance workshops, and one-on-one mentoring. The focus areas include Physics, Chemistry, Biology, and Mathematics—subjects that are critical for university admission in STEM fields.\n\nProfessor Tapiwa Mashiri, Dean of the UZ Faculty of Science, described the partnership as "a bridge between secondary and tertiary education." He added, "By exposing learners to university-level science early, we are inspiring the next generation of Zimbabwean scientists and engineers."\n\nThe programme also includes quarterly career fairs at UZ, where Mufakose High students can tour laboratories, attend lectures, and interact with researchers. Early feedback from participating students has been overwhelmingly positive, with many expressing increased interest in pursuing science degrees.' },
+  { id: 6, title: 'Community Outreach: Mufakose Cleanup Campaign', excerpt: 'Over 200 students and staff participated in the Mufakose suburb cleanup campaign, promoting environmental stewardship.', category: 'Community', date: '2025-03-12', featured: false, image: 'events', fullContent: 'In a remarkable display of community spirit, over 200 students and staff from Mufakose High School participated in a comprehensive cleanup campaign of the Mufakose suburb, collecting over 3 tonnes of waste from streets, drains, and public spaces.\n\nThe campaign, organised in partnership with the Harare City Council and the Environmental Management Agency (EMA), targeted key areas including the Mufakose Shopping Centre, the bus terminus, and several residential streets. Participants were divided into 15 teams, each assigned to a specific zone.\n\nSchool Development Committee Chairperson Mr. Albert Mushoriwa praised the initiative. "As a school, we believe in nurturing responsible citizens. This cleanup campaign teaches our students the importance of environmental stewardship and community service," he said.\n\nThe event also featured an environmental awareness exhibition, where EMA officials educated residents on waste sorting, recycling, and the dangers of illegal dumping. The school plans to make this a quarterly activity, with the next campaign scheduled for June 2025.' },
+  { id: 7, title: 'Library Expansion: 2,000 New Books Donated', excerpt: 'The school library received a generous donation of 2,000 books from the Zimbabwe Book Development Council.', category: 'Infrastructure', date: '2025-02-05', featured: false, image: 'campus', fullContent: 'The Mufakose High School library has received a significant boost with the donation of 2,000 new books from the Zimbabwe Book Development Council (ZBDC), valued at approximately USD 15,000.\n\nThe donation includes textbooks for O-Level and A-Level subjects, reference materials, African literature, and a collection of science journals. Notable additions include complete sets of Cambridge and Longman textbooks for all science and commercial subjects, as well as an extensive collection of Shona and English literature.\n\nLibrarian Mrs. Nomatter Chigwanda expressed her excitement. "This donation has transformed our library. We now have over 10,000 volumes, making us one of the best-stocked school libraries in the Harare District," she said.\n\nThe ZBDC donation is part of a national initiative to improve library resources in government schools. The school has also secured funding from the SDC to install new shelving, upgrade the reading area, and introduce a digital catalogue system. Plans are underway to extend library operating hours to include Saturday morning sessions.' },
 ]
 
 const galleryImages = [
@@ -171,15 +182,15 @@ const whyChooseUs = [
   { title: 'Community Impact', description: 'Strong SDC partnerships, outreach programmes, and environmental stewardship initiatives.', icon: Leaf, gradient: 'from-green-500 to-emerald-600' },
 ]
 
-const navLinks = [
-  { label: 'Home', href: '#home' },
-  { label: 'About', href: '#about' },
-  { label: 'Academics', href: '#academics' },
-  { label: 'Admissions', href: '#admissions' },
-  { label: 'News', href: '#news' },
-  { label: 'Events', href: '#events' },
-  { label: 'Gallery', href: '#gallery' },
-  { label: 'Contact', href: '#contact' },
+const navLinks: { label: string; page: PageName }[] = [
+  { label: 'Home', page: 'home' },
+  { label: 'About', page: 'about' },
+  { label: 'Academics', page: 'academics' },
+  { label: 'Admissions', page: 'admissions' },
+  { label: 'News', page: 'news' },
+  { label: 'Events', page: 'events' },
+  { label: 'Gallery', page: 'gallery' },
+  { label: 'Contact', page: 'contact' },
 ]
 
 // ─── Animated Counter ────────────────────────────────────────────────────────
@@ -223,15 +234,31 @@ function Section({ id, children, className = '' }: { id: string; children: React
   )
 }
 
-// ─── Login Dialog ────────────────────────────────────────────────────────────
-function LoginDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+// ─── Full-Page Login ──────────────────────────────────────────────────────────
+function LoginPage({ onBack }: { onBack: () => void }) {
   const router = useRouter()
+  const { schoolName } = useAppStore()
   const [email, setEmail] = useState('admin@zimschool.co.zw')
   const [password, setPassword] = useState('password123')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [loginError, setLoginError] = useState('')
   const [shakeForm, setShakeForm] = useState(false)
+  const [selectedRole, setSelectedRole] = useState('admin')
+
+  const roles = [
+    { id: 'admin', label: 'Admin', icon: Shield, email: 'admin@zimschool.co.zw', gradient: 'from-emerald-500 to-teal-600' },
+    { id: 'teacher', label: 'Teacher', icon: UserCheck, email: 'teacher@zimschool.co.zw', gradient: 'from-teal-500 to-cyan-600' },
+    { id: 'bursar', label: 'Bursar', icon: DollarSign, email: 'bursar@zimschool.co.zw', gradient: 'from-amber-500 to-orange-600' },
+    { id: 'student', label: 'Student', icon: GraduationCap, email: 'student@zimschool.co.zw', gradient: 'from-cyan-500 to-blue-600' },
+    { id: 'parent', label: 'Parent', icon: Users, email: 'parent@zimschool.co.zw', gradient: 'from-rose-500 to-pink-600' },
+  ]
+
+  const handleRoleSelect = (roleId: string) => {
+    setSelectedRole(roleId)
+    const role = roles.find(r => r.id === roleId)
+    if (role) setEmail(role.email)
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -261,86 +288,265 @@ function LoginDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (ope
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md">
-              <School className="h-5 w-5 text-white" />
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.4 }}
+      className="min-h-screen flex flex-col lg:flex-row"
+    >
+      {/* Left Side - School Branding / Hero */}
+      <div className="relative lg:w-1/2 min-h-[240px] lg:min-h-screen bg-gradient-to-br from-emerald-800 via-teal-900 to-emerald-950 flex items-center justify-center overflow-hidden">
+        {/* Animated Background */}
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-60" />
+        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/5 rounded-full -translate-y-1/3 translate-x-1/3" />
+        <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/5 rounded-full translate-y-1/3 -translate-x-1/3" />
+        <div className="absolute top-20 right-20 w-36 h-36 bg-yellow-400/10 rounded-full blur-3xl" />
+
+        {/* Floating Elements */}
+        <motion.div
+          animate={{ y: [0, -15, 0], rotate: [0, 5, 0] }}
+          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute top-1/4 right-1/4 h-4 w-4 rounded-full bg-yellow-400/30"
+        />
+        <motion.div
+          animate={{ y: [0, 10, 0], rotate: [0, -3, 0] }}
+          transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+          className="absolute bottom-1/3 left-1/3 h-3 w-3 rounded-full bg-emerald-300/20"
+        />
+
+        {/* Content */}
+        <div className="relative z-10 text-center px-8 py-12">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+          >
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-2xl mx-auto mb-6">
+              <School className="h-10 w-10 text-white" />
             </div>
-            <div>
-              <DialogTitle className="text-xl">Staff Login</DialogTitle>
-              <DialogDescription className="text-sm text-muted-foreground">
-                Sign in to ZimSchool Pro
-              </DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
-        <form onSubmit={handleLogin} className={`space-y-4 ${shakeForm ? 'animate-shake' : ''}`}>
-          <div className="space-y-2">
-            <Label htmlFor="login-email">Email or Username</Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input id="login-email" type="email" placeholder="admin@zimschool.co.zw" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10 h-11" required />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="login-password">Password</Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input id="login-password" type={showPassword ? 'text' : 'password'} placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-10 pr-10 h-11" required />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-emerald-600 transition-colors">
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox id="remember" defaultChecked />
-            <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">Remember me</Label>
-          </div>
-          <Button type="submit" className="w-full h-11 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-lg shadow-emerald-200/50 transition-all" disabled={isLoading}>
-            {isLoading ? (
-              <div className="flex items-center gap-2">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                Signing in...
+          </motion.div>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.5 }}
+            className="text-3xl md:text-4xl font-extrabold text-white mb-3"
+          >
+            {schoolName || schoolInfo.name}
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+            className="text-emerald-200/80 text-lg italic mb-8"
+          >
+            &ldquo;{schoolInfo.motto}&rdquo;
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
+            className="grid grid-cols-2 gap-4 max-w-xs mx-auto"
+          >
+            {[
+              { label: 'Students', value: '1,247' },
+              { label: 'Pass Rate', value: '92%' },
+              { label: 'Teachers', value: '68' },
+              { label: 'Est.', value: '1985' },
+            ].map((stat) => (
+              <div key={stat.label} className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10">
+                <div className="text-lg font-bold text-white">{stat.value}</div>
+                <div className="text-xs text-emerald-200/70">{stat.label}</div>
               </div>
-            ) : (
-              <div className="flex items-center gap-2"><Zap className="h-4 w-4" /> Sign In</div>
-            )}
-          </Button>
-          {loginError && (
-            <div className="rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-red-500" />
-                <p className="text-sm text-red-700 dark:text-red-400">{loginError}</p>
-              </div>
+            ))}
+          </motion.div>
+
+          {/* Zimbabwe Flag Stripe */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6, duration: 0.5 }}
+            className="mt-8 flex justify-center"
+          >
+            <div className="flex h-1.5 w-32 overflow-hidden rounded-full">
+              <div className="flex-1 bg-green-500" />
+              <div className="flex-1 bg-yellow-400" />
+              <div className="flex-1 bg-red-500" />
+              <div className="flex-1 bg-black" />
             </div>
-          )}
-          <div className="rounded-xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20 p-3">
-            <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide mb-2">Demo Credentials</p>
-            <div className="space-y-1">
-              {[
-                { email: 'admin@zimschool.co.zw', role: 'Administrator', icon: Shield, color: 'text-emerald-600' },
-                { email: 'teacher@zimschool.co.zw', role: 'Teacher', icon: UserCheck, color: 'text-teal-600' },
-                { email: 'bursar@zimschool.co.zw', role: 'Bursar', icon: DollarSign, color: 'text-amber-600' },
-              ].map((cred) => (
-                <div key={cred.role} className="flex items-center gap-2 text-xs">
-                  <cred.icon className={`h-3 w-3 ${cred.color}`} />
-                  <span className="font-medium">{cred.role}:</span>
-                  <code className="text-muted-foreground font-mono">{cred.email}</code>
-                </div>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Right Side - Login Form */}
+      <div className="lg:w-1/2 flex items-center justify-center p-6 md:p-12 bg-white dark:bg-background">
+        <div className="w-full max-w-md">
+          {/* Back to Website */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Button
+              variant="ghost"
+              onClick={onBack}
+              className="text-muted-foreground hover:text-emerald-600 -ml-2 mb-6"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" /> Back to Website
+            </Button>
+          </motion.div>
+
+          {/* Form Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+          >
+            <h2 className="text-2xl md:text-3xl font-extrabold mb-2">Staff Login</h2>
+            <p className="text-muted-foreground mb-6">Sign in to ZimSchool Pro Management Portal</p>
+          </motion.div>
+
+          {/* Role Selector */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.5 }}
+            className="mb-6"
+          >
+            <Label className="text-sm font-medium mb-3 block">Select your role</Label>
+            <div className="grid grid-cols-5 gap-2">
+              {roles.map((role) => (
+                <button
+                  key={role.id}
+                  type="button"
+                  onClick={() => handleRoleSelect(role.id)}
+                  className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border-2 transition-all text-center ${
+                    selectedRole === role.id
+                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 shadow-md'
+                      : 'border-gray-200 dark:border-gray-800 hover:border-emerald-300 dark:hover:border-emerald-700'
+                  }`}
+                >
+                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center bg-gradient-to-br ${role.gradient} text-white`}>
+                    <role.icon className="h-4 w-4" />
+                  </div>
+                  <span className={`text-[10px] font-semibold ${selectedRole === role.id ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                    {role.label}
+                  </span>
+                </button>
               ))}
-              <p className="text-[10px] text-muted-foreground mt-1">Password: password123</p>
             </div>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+          </motion.div>
+
+          {/* Login Form */}
+          <motion.form
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+            onSubmit={handleLogin}
+            className={`space-y-4 ${shakeForm ? 'animate-shake' : ''}`}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="login-email">Email or Username</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input id="login-email" type="email" placeholder="admin@zimschool.co.zw" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10 h-11" required />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="login-password">Password</Label>
+                <button type="button" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                  Forgot password?
+                </button>
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input id="login-password" type={showPassword ? 'text' : 'password'} placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-10 pr-10 h-11" required />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-emerald-600 transition-colors">
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Checkbox id="remember" defaultChecked />
+              <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">Remember me on this device</Label>
+            </div>
+
+            <Button type="submit" className="w-full h-12 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-lg shadow-emerald-200/50 transition-all text-base" disabled={isLoading}>
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  Signing in...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2"><Zap className="h-4 w-4" /> Sign In to Dashboard</div>
+              )}
+            </Button>
+
+            {loginError && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3"
+              >
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-500" />
+                  <p className="text-sm text-red-700 dark:text-red-400">{loginError}</p>
+                </div>
+              </motion.div>
+            )}
+          </motion.form>
+
+          {/* Demo Credentials */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
+            className="mt-6"
+          >
+            <div className="rounded-xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20 p-4">
+              <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide mb-3">Demo Credentials</p>
+              <div className="space-y-2">
+                {roles.slice(0, 3).map((cred) => (
+                  <button
+                    key={cred.id}
+                    type="button"
+                    onClick={() => handleRoleSelect(cred.id)}
+                    className="flex items-center gap-2 text-xs w-full text-left hover:bg-emerald-100/50 dark:hover:bg-emerald-900/30 rounded-md p-1.5 transition-colors"
+                  >
+                    <cred.icon className="h-3.5 w-3.5 text-emerald-600" />
+                    <span className="font-medium">{cred.label}:</span>
+                    <code className="text-muted-foreground font-mono text-[11px]">{cred.email}</code>
+                  </button>
+                ))}
+                <p className="text-[10px] text-muted-foreground mt-2 pl-1">Password: <code className="font-mono">password123</code></p>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Security Note */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="mt-4 text-[10px] text-muted-foreground text-center"
+          >
+            <Shield className="h-3 w-3 inline mr-1" />
+            Secured by ZimSchool Pro &bull; MoPSE Registered &bull; {schoolInfo.registration}
+          </motion.p>
+        </div>
+      </div>
+    </motion.div>
   )
 }
 
 // ─── Navbar ──────────────────────────────────────────────────────────────────
-function Navbar({ onLogin }: { onLogin: () => void }) {
+function Navbar({ onLogin, currentPage, onNavigate }: { onLogin: () => void; currentPage: PageName; onNavigate: (page: PageName) => void }) {
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -350,11 +556,14 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  const handleNavClick = (href: string) => {
+  const handleNavClick = (page: PageName) => {
     setMobileOpen(false)
-    const el = document.querySelector(href)
-    if (el) el.scrollIntoView({ behavior: 'smooth' })
+    onNavigate(page)
   }
+
+  // Navbar should be scrolled-style when on a section page (not home hero)
+  const isSectionPage = currentPage !== 'home'
+  const shouldShowScrolledStyle = scrolled || isSectionPage
 
   return (
     <motion.nav
@@ -362,7 +571,7 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
       animate={{ y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
+        shouldShowScrolledStyle
           ? 'bg-white/95 dark:bg-gray-900/95 backdrop-blur-md shadow-lg border-b border-emerald-100/50 dark:border-emerald-900/50'
           : 'bg-transparent'
       }`}
@@ -370,15 +579,15 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md transition-transform hover:scale-105`}>
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => onNavigate('home')}>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md transition-transform hover:scale-105">
               <School className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className={`font-bold text-base md:text-lg leading-tight ${scrolled ? 'text-foreground' : 'text-white'}`}>
+              <h1 className={`font-bold text-base md:text-lg leading-tight ${shouldShowScrolledStyle ? 'text-foreground' : 'text-white'}`}>
                 {schoolInfo.name}
               </h1>
-              <p className={`text-[10px] ${scrolled ? 'text-emerald-600 dark:text-emerald-400' : 'text-emerald-200'}`}>
+              <p className={`text-[10px] ${shouldShowScrolledStyle ? 'text-emerald-600 dark:text-emerald-400' : 'text-emerald-200'}`}>
                 {schoolInfo.motto}
               </p>
             </div>
@@ -388,10 +597,14 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
           <div className="hidden lg:flex items-center gap-1">
             {navLinks.map((link) => (
               <button
-                key={link.href}
-                onClick={() => handleNavClick(link.href)}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-emerald-50 dark:hover:bg-emerald-950/50 ${
-                  scrolled ? 'text-foreground hover:text-emerald-600' : 'text-white/90 hover:text-white'
+                key={link.page}
+                onClick={() => handleNavClick(link.page)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  currentPage === link.page
+                    ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400'
+                    : shouldShowScrolledStyle
+                      ? 'text-foreground hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:text-emerald-600'
+                      : 'text-white/90 hover:text-white hover:bg-white/10'
                 }`}
               >
                 {link.label}
@@ -413,7 +626,7 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
             className={`lg:hidden p-2 rounded-lg transition-colors ${
-              scrolled ? 'text-foreground hover:bg-emerald-50' : 'text-white hover:bg-white/10'
+              shouldShowScrolledStyle ? 'text-foreground hover:bg-emerald-50' : 'text-white hover:bg-white/10'
             }`}
           >
             {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -434,9 +647,13 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
             <div className="px-4 py-4 space-y-1">
               {navLinks.map((link) => (
                 <button
-                  key={link.href}
-                  onClick={() => handleNavClick(link.href)}
-                  className="block w-full text-left px-4 py-3 rounded-lg text-sm font-medium text-foreground hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:text-emerald-600 transition-colors"
+                  key={link.page}
+                  onClick={() => handleNavClick(link.page)}
+                  className={`block w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    currentPage === link.page
+                      ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600'
+                      : 'text-foreground hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:text-emerald-600'
+                  }`}
                 >
                   {link.label}
                 </button>
@@ -457,7 +674,7 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
 }
 
 // ─── Hero Section ────────────────────────────────────────────────────────────
-function HeroSection({ onLogin }: { onLogin: () => void }) {
+function HeroSection({ onNavigate }: { onNavigate: (page: PageName) => void }) {
   const { schoolName } = useAppStore()
 
   return (
@@ -498,14 +715,14 @@ function HeroSection({ onLogin }: { onLogin: () => void }) {
               A leading centre of academic excellence in Harare, offering quality ZIMSEC O-Level and A-Level education rooted in Zimbabwean values.
             </p>
             <div className="flex flex-wrap gap-4">
-              <Button size="lg" className="bg-yellow-500 hover:bg-yellow-400 text-emerald-900 font-bold shadow-lg shadow-yellow-500/25 transition-all hover:scale-105 text-base px-8">
+              <Button size="lg" onClick={() => onNavigate('admissions')} className="bg-yellow-500 hover:bg-yellow-400 text-emerald-900 font-bold shadow-lg shadow-yellow-500/25 transition-all hover:scale-105 text-base px-8">
                 <GraduationCap className="h-5 w-5 mr-2" /> Enroll Now
               </Button>
               <Button
                 size="lg"
                 variant="outline"
                 className="border-white/30 text-white hover:bg-white/10 transition-all hover:scale-105 text-base px-8"
-                onClick={() => document.querySelector('#about')?.scrollIntoView({ behavior: 'smooth' })}
+                onClick={() => onNavigate('about')}
               >
                 Explore <ArrowRight className="h-5 w-5 ml-2" />
               </Button>
@@ -531,7 +748,7 @@ function HeroSection({ onLogin }: { onLogin: () => void }) {
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.5 + i * 0.15, duration: 0.4 }}
-                  className={`bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/10 text-center hover:bg-white/15 transition-all hover:scale-105`}
+                  className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/10 text-center hover:bg-white/15 transition-all hover:scale-105"
                 >
                   <stat.icon className="h-8 w-8 text-yellow-300 mx-auto mb-3" />
                   <div className="text-3xl font-bold text-white">
@@ -583,12 +800,235 @@ function HeroSection({ onLogin }: { onLogin: () => void }) {
   )
 }
 
+// ─── Preview Cards Section ───────────────────────────────────────────────────
+function PreviewCardsSection({ onNavigate }: { onNavigate: (page: PageName) => void }) {
+  const previewCards: { page: PageName; title: string; description: string; icon: React.ElementType; gradient: string; iconBg: string; cta: string }[] = [
+    {
+      page: 'about',
+      title: 'About Us',
+      description: 'Nearly four decades of educational excellence. Discover our history, mission, and values rooted in Zimbabwean heritage.',
+      icon: School,
+      gradient: 'from-emerald-500 to-teal-600',
+      iconBg: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400',
+      cta: 'Discover Our Story',
+    },
+    {
+      page: 'academics',
+      title: 'Academics',
+      description: '92% O-Level pass rate. ZIMSEC-accredited programmes with 19 O-Level and 14 A-Level subjects.',
+      icon: BookOpen,
+      gradient: 'from-teal-500 to-cyan-600',
+      iconBg: 'bg-teal-100 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400',
+      cta: 'View Programmes',
+    },
+    {
+      page: 'admissions',
+      title: 'Admissions',
+      description: '5 simple steps to enrollment. Applications open for 2025 with BEAM support available.',
+      icon: GraduationCap,
+      gradient: 'from-cyan-500 to-blue-600',
+      iconBg: 'bg-cyan-100 dark:bg-cyan-950/50 text-cyan-600 dark:text-cyan-400',
+      cta: 'Apply Now',
+    },
+    {
+      page: 'news',
+      title: 'Latest News',
+      description: 'Stay informed with school developments, achievements, and community updates.',
+      icon: Newspaper,
+      gradient: 'from-amber-500 to-orange-600',
+      iconBg: 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400',
+      cta: 'All News',
+    },
+    {
+      page: 'events',
+      title: 'Upcoming Events',
+      description: 'Independence Day, Athletics, Prize Giving, and more. Stay updated with our calendar.',
+      icon: Calendar,
+      gradient: 'from-rose-500 to-pink-600',
+      iconBg: 'bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400',
+      cta: 'All Events',
+    },
+    {
+      page: 'gallery',
+      title: 'Gallery',
+      description: 'A visual journey through campus life, sports, cultural events, and academic milestones.',
+      icon: Image,
+      gradient: 'from-purple-500 to-violet-600',
+      iconBg: 'bg-purple-100 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400',
+      cta: 'View Gallery',
+    },
+    {
+      page: 'contact',
+      title: 'Contact Us',
+      description: 'Get in touch with our administration. We are here to answer your questions.',
+      icon: Phone,
+      gradient: 'from-green-500 to-emerald-600',
+      iconBg: 'bg-green-100 dark:bg-green-950/50 text-green-600 dark:text-green-400',
+      cta: 'Get In Touch',
+    },
+  ]
+
+  // Mini content previews for some cards
+  const renderMiniContent = (page: PageName) => {
+    if (page === 'news') {
+      return (
+        <div className="space-y-2 mt-3">
+          {news.slice(0, 3).map((item) => (
+            <div key={item.id} className="flex items-start gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
+              <p className="text-xs text-muted-foreground line-clamp-1">{item.title}</p>
+            </div>
+          ))}
+        </div>
+      )
+    }
+    if (page === 'events') {
+      return (
+        <div className="space-y-2 mt-3">
+          {events.slice(0, 3).map((item) => (
+            <div key={item.id} className="flex items-center gap-2">
+              <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 rounded px-1.5 py-0.5 shrink-0">
+                {new Date(item.date).toLocaleDateString('en', { day: 'numeric', month: 'short' })}
+              </div>
+              <p className="text-xs text-muted-foreground line-clamp-1">{item.title}</p>
+            </div>
+          ))}
+        </div>
+      )
+    }
+    if (page === 'gallery') {
+      return (
+        <div className="grid grid-cols-3 gap-1.5 mt-3">
+          {galleryImages.slice(0, 6).map((img) => (
+            <div key={img.id} className={`h-12 rounded-md bg-gradient-to-br ${img.color}`} />
+          ))}
+        </div>
+      )
+    }
+    if (page === 'about') {
+      return (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {['Since 1985', '8,500+ Graduates', 'Harare District'].map((tag) => (
+            <Badge key={tag} variant="secondary" className="text-[10px]">{tag}</Badge>
+          ))}
+        </div>
+      )
+    }
+    if (page === 'academics') {
+      return (
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          <div className="text-center p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30">
+            <div className="text-lg font-bold text-emerald-600">92%</div>
+            <div className="text-[10px] text-muted-foreground">O-Level</div>
+          </div>
+          <div className="text-center p-2 rounded-lg bg-teal-50 dark:bg-teal-950/30">
+            <div className="text-lg font-bold text-teal-600">84%</div>
+            <div className="text-[10px] text-muted-foreground">A-Level</div>
+          </div>
+        </div>
+      )
+    }
+    if (page === 'admissions') {
+      return (
+        <div className="space-y-1.5 mt-3">
+          {admissionSteps.slice(0, 3).map((s) => (
+            <div key={s.step} className="flex items-center gap-2">
+              <div className="h-5 w-5 rounded-full bg-emerald-100 dark:bg-emerald-950/50 flex items-center justify-center text-[10px] font-bold text-emerald-600 shrink-0">{s.step}</div>
+              <p className="text-xs text-muted-foreground line-clamp-1">{s.title}</p>
+            </div>
+          ))}
+        </div>
+      )
+    }
+    if (page === 'contact') {
+      return (
+        <div className="space-y-1.5 mt-3">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Phone className="h-3 w-3 text-emerald-500" /> {schoolInfo.phone}
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Mail className="h-3 w-3 text-emerald-500" /> {schoolInfo.email}
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <MapPin className="h-3 w-3 text-emerald-500" /> Mufakose, Harare
+          </div>
+        </div>
+      )
+    }
+    return null
+  }
+
+  return (
+    <section className="py-20 md:py-28 bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-background">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div {...fadeInUp} className="text-center mb-16">
+          <Badge variant="outline" className="text-emerald-600 border-emerald-200 dark:border-emerald-800 mb-4 px-4 py-1.5">
+            <Sparkles className="h-3 w-3 mr-1" /> Explore Our School
+          </Badge>
+          <h2 className="text-3xl md:text-4xl font-extrabold mb-4">
+            Discover <span className="text-emerald-600">Mufakose High</span>
+          </h2>
+          <p className="text-muted-foreground max-w-2xl mx-auto text-base md:text-lg">
+            Everything you need to know about our school, from academics to events and admissions
+          </p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {previewCards.map((card, i) => (
+            <motion.div
+              key={card.page}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.08, duration: 0.5 }}
+            >
+              <Card
+                className="border-0 shadow-lg hover:shadow-xl transition-all group h-full cursor-pointer overflow-hidden hover:scale-[1.02]"
+                onClick={() => onNavigate(card.page)}
+              >
+                {/* Gradient accent bar */}
+                <div className={`h-1.5 bg-gradient-to-r ${card.gradient}`} />
+                <CardContent className="p-5 flex flex-col h-full">
+                  {/* Icon */}
+                  <div className={`h-12 w-12 rounded-xl ${card.iconBg} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                    <card.icon className="h-6 w-6" />
+                  </div>
+
+                  {/* Title */}
+                  <h3 className="text-lg font-bold mb-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                    {card.title}
+                  </h3>
+
+                  {/* Description */}
+                  <p className="text-sm text-muted-foreground leading-relaxed mb-1">
+                    {card.description}
+                  </p>
+
+                  {/* Mini content */}
+                  {renderMiniContent(card.page)}
+
+                  {/* CTA button */}
+                  <div className="mt-auto pt-4">
+                    <div className="flex items-center text-sm font-semibold text-emerald-600 dark:text-emerald-400 group-hover:gap-2 transition-all gap-1">
+                      {card.cta}
+                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // ─── About Section ───────────────────────────────────────────────────────────
 function AboutSectionComponent() {
   return (
     <Section id="about" className="py-20 md:py-28 bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
         <motion.div {...fadeInUp} className="text-center mb-16">
           <Badge variant="outline" className="text-emerald-600 border-emerald-200 dark:border-emerald-800 mb-4 px-4 py-1.5">
             <School className="h-3 w-3 mr-1" /> About Us
@@ -686,7 +1126,7 @@ function AboutSectionComponent() {
             ].map((leader, i) => (
               <motion.div
                 key={leader.name}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1, duration: 0.5 }}
@@ -786,7 +1226,6 @@ function AcademicsSection() {
           </p>
         </motion.div>
 
-        {/* Programme Tabs */}
         <motion.div {...fadeInUp} transition={{ delay: 0.1 }}>
           <Tabs defaultValue="olevel" className="w-full">
             <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8 h-12">
@@ -1141,7 +1580,7 @@ function AdmissionsSection() {
 }
 
 // ─── Events Section ──────────────────────────────────────────────────────────
-function EventsSectionComponent() {
+function EventsSectionComponent({ onViewDetail }: { onViewDetail: (id: number) => void }) {
   const [filter, setFilter] = useState('All')
   const types = ['All', ...Array.from(new Set(events.map(e => e.type)))]
   const filtered = filter === 'All' ? events : events.filter(e => e.type === filter)
@@ -1179,7 +1618,7 @@ function EventsSectionComponent() {
         <motion.div variants={stagger} initial="initial" animate="animate" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((event) => (
             <motion.div key={event.id} variants={staggerItem}>
-              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden">
+              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden cursor-pointer" onClick={() => onViewDetail(event.id)}>
                 <div className={`relative h-36 bg-gradient-to-br ${event.color} to-transparent`}>
                   <div className="absolute inset-0 bg-black/10" />
                   <div className="absolute top-4 left-4 bg-white/95 dark:bg-gray-900/95 rounded-xl p-2.5 text-center shadow-lg min-w-[56px]">
@@ -1194,9 +1633,14 @@ function EventsSectionComponent() {
                 <CardContent className="p-5">
                   <h3 className="font-bold text-base mb-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{event.title}</h3>
                   <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{event.description}</p>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {event.time}</span>
-                    <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {event.location}</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {event.time}</span>
+                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {event.location}</span>
+                    </div>
+                    <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      Details <ChevronRight className="h-3 w-3" />
+                    </span>
                   </div>
                 </CardContent>
               </Card>
@@ -1209,12 +1653,11 @@ function EventsSectionComponent() {
 }
 
 // ─── News Section ────────────────────────────────────────────────────────────
-function NewsSectionComponent() {
+function NewsSectionComponent({ onViewDetail }: { onViewDetail: (id: number) => void }) {
   const [categoryFilter, setCategoryFilter] = useState('All')
   const categories = ['All', ...Array.from(new Set(news.map(n => n.category)))]
   const filtered = categoryFilter === 'All' ? news : news.filter(n => n.category === categoryFilter)
   const featured = news.find(n => n.featured)
-  const [selectedArticle, setSelectedArticle] = useState<typeof news[0] | null>(null)
 
   return (
     <Section id="news" className="py-20 md:py-28 bg-white dark:bg-background">
@@ -1249,7 +1692,7 @@ function NewsSectionComponent() {
         {/* Featured Article */}
         {featured && categoryFilter === 'All' && (
           <motion.div {...fadeInUp} transition={{ delay: 0.1 }} className="mb-8">
-            <Card className="border-0 shadow-xl overflow-hidden group cursor-pointer" onClick={() => setSelectedArticle(featured)}>
+            <Card className="border-0 shadow-xl overflow-hidden group cursor-pointer" onClick={() => onViewDetail(featured.id)}>
               <div className="grid grid-cols-1 md:grid-cols-2">
                 <div className="h-56 md:h-auto bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-700 relative">
                   <div className="absolute inset-0 flex items-center justify-center">
@@ -1283,10 +1726,10 @@ function NewsSectionComponent() {
             <motion.div key={article.id} variants={staggerItem}>
               <Card
                 className="border-0 shadow-lg hover:shadow-xl transition-all group overflow-hidden cursor-pointer h-full flex flex-col"
-                onClick={() => setSelectedArticle(article)}
+                onClick={() => onViewDetail(article.id)}
               >
                 <div className={`h-40 bg-gradient-to-br ${
-                  article.image === 'academic' ? 'from-blue-400 to-indigo-500' :
+                  article.image === 'academic' ? 'from-blue-400 to-cyan-500' :
                   article.image === 'sports' ? 'from-amber-400 to-orange-500' :
                   article.image === 'campus' ? 'from-emerald-400 to-teal-500' :
                   article.image === 'culture' ? 'from-rose-400 to-pink-500' :
@@ -1309,32 +1752,6 @@ function NewsSectionComponent() {
             </motion.div>
           ))}
         </motion.div>
-
-        {/* Article Dialog */}
-        <Dialog open={!!selectedArticle} onOpenChange={() => setSelectedArticle(null)}>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-            {selectedArticle && (
-              <>
-                <DialogHeader>
-                  <Badge variant="secondary" className="w-fit mb-2">{selectedArticle.category}</Badge>
-                  <DialogTitle className="text-xl">{selectedArticle.title}</DialogTitle>
-                  <p className="text-xs text-muted-foreground flex items-center gap-2">
-                    <Calendar className="h-3 w-3" /> {new Date(selectedArticle.date).toLocaleDateString('en-ZW', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  </p>
-                </DialogHeader>
-                <div className="mt-4">
-                  <p className="text-muted-foreground leading-relaxed">{selectedArticle.excerpt}</p>
-                  <p className="text-muted-foreground leading-relaxed mt-4">
-                    This development marks another milestone in the school&apos;s ongoing commitment to providing quality education under the Ministry of Primary and Secondary Education framework. The school continues to work closely with MoPSE, ZIMSEC, and the local community to ensure all learners have access to the resources they need to succeed.
-                  </p>
-                  <p className="text-muted-foreground leading-relaxed mt-4">
-                    For more information, please contact the school administration office at {schoolInfo.phone} or email {schoolInfo.email}.
-                  </p>
-                </div>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
       </div>
     </Section>
   )
@@ -1564,7 +1981,7 @@ function ContactSection() {
                     { icon: Clock4, label: 'Office Hours', value: 'Mon-Fri: 07:30 - 16:30', color: 'text-amber-500' },
                   ].map((item) => (
                     <div key={item.label} className="flex items-start gap-4">
-                      <div className={`h-10 w-10 rounded-xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center shrink-0`}>
+                      <div className="h-10 w-10 rounded-xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center shrink-0">
                         <item.icon className={`h-5 w-5 ${item.color}`} />
                       </div>
                       <div>
@@ -1588,29 +2005,6 @@ function ContactSection() {
                 </div>
               </div>
             </Card>
-
-            {/* Social Media */}
-            <Card className="border-0 shadow-xl">
-              <CardContent className="p-6">
-                <h4 className="font-semibold mb-4">Follow Us</h4>
-                <div className="flex items-center gap-3">
-                  {[
-                    { icon: Facebook, label: 'Facebook', color: 'hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950/30' },
-                    { icon: Twitter, label: 'Twitter', color: 'hover:bg-sky-50 hover:text-sky-500 dark:hover:bg-sky-950/30' },
-                    { icon: Instagram, label: 'Instagram', color: 'hover:bg-pink-50 hover:text-pink-600 dark:hover:bg-pink-950/30' },
-                    { icon: Youtube, label: 'YouTube', color: 'hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30' },
-                  ].map((social) => (
-                    <button
-                      key={social.label}
-                      className={`h-10 w-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center transition-all hover:scale-110 ${social.color}`}
-                      aria-label={social.label}
-                    >
-                      <social.icon className="h-5 w-5" />
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
           </motion.div>
         </div>
       </div>
@@ -1619,7 +2013,7 @@ function ContactSection() {
 }
 
 // ─── Footer ──────────────────────────────────────────────────────────────────
-function Footer() {
+function Footer({ onNavigate }: { onNavigate: (page: PageName) => void }) {
   return (
     <footer className="bg-gradient-to-b from-gray-900 to-gray-950 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -1661,9 +2055,9 @@ function Footer() {
             <h4 className="font-bold text-sm mb-4 text-emerald-400 uppercase tracking-wider">Quick Links</h4>
             <ul className="space-y-2">
               {navLinks.map((link) => (
-                <li key={link.href}>
+                <li key={link.page}>
                   <button
-                    onClick={() => document.querySelector(link.href)?.scrollIntoView({ behavior: 'smooth' })}
+                    onClick={() => onNavigate(link.page)}
                     className="text-sm text-gray-400 hover:text-emerald-400 transition-colors"
                   >
                     {link.label}
@@ -1737,32 +2131,405 @@ function Footer() {
   )
 }
 
-// ─── Main Component ──────────────────────────────────────────────────────────
-export default function PublicWebsite({ onLogin }: PublicWebsiteProps) {
-  const [loginOpen, setLoginOpen] = useState(false)
+// ─── Section Page Wrapper ────────────────────────────────────────────────────
+function SectionPageWrapper({ title, badge, badgeIcon, children, onBack }: {
+  title: string
+  badge: string
+  badgeIcon: React.ElementType
+  children: React.ReactNode
+  onBack: () => void
+}) {
+  return (
+    <div className="pt-20 md:pt-24">
+      {/* Sticky Back Button */}
+      <div className="sticky top-16 md:top-20 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-emerald-100/50 dark:border-emerald-900/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBack}
+            className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 -ml-2"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Home
+          </Button>
+        </div>
+      </div>
 
-  const handleLoginClick = () => {
-    setLoginOpen(true)
+      {/* Section Content */}
+      {children}
+    </div>
+  )
+}
+
+// ─── News Detail Page ────────────────────────────────────────────────────────
+function NewsDetailPage({ articleId, onBack, onViewNews }: { articleId: number; onBack: () => void; onViewNews: (id: number) => void }) {
+  const article = news.find(n => n.id === articleId)
+  const relatedNews = news.filter(n => n.id !== articleId).slice(0, 3)
+
+  if (!article) {
+    return (
+      <div className="pt-20 md:pt-24 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Newspaper className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
+          <h2 className="text-xl font-bold mb-2">Article Not Found</h2>
+          <p className="text-muted-foreground mb-4">The article you are looking for does not exist.</p>
+          <Button onClick={onBack} variant="outline" className="text-emerald-600">
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back to News
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-background">
-      <Navbar onLogin={handleLoginClick} />
-      <HeroSection onLogin={handleLoginClick} />
-      <AboutSectionComponent />
-      <WhyChooseUsSection />
-      <AcademicsSection />
-      <AdmissionsSection />
-      <TestimonialsSection />
-      <EventsSectionComponent />
-      <NewsSectionComponent />
-      <GallerySection />
-      <ContactSection />
-      <Footer />
-      <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
+    <div className="pt-20 md:pt-24 bg-white dark:bg-background">
+      {/* Sticky Back Button */}
+      <div className="sticky top-16 md:top-20 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-emerald-100/50 dark:border-emerald-900/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <Button variant="ghost" size="sm" onClick={onBack} className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 -ml-2">
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back to News
+          </Button>
+        </div>
+      </div>
 
-      {/* Scroll to top */}
-      <ScrollToTop />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="lg:col-span-2"
+          >
+            {/* Hero Image */}
+            <div className={`h-48 md:h-72 rounded-2xl bg-gradient-to-br ${
+              article.image === 'academic' ? 'from-emerald-500 via-teal-600 to-emerald-700' :
+              article.image === 'sports' ? 'from-amber-400 via-orange-500 to-amber-600' :
+              article.image === 'campus' ? 'from-teal-400 via-emerald-500 to-teal-600' :
+              article.image === 'culture' ? 'from-rose-400 via-pink-500 to-rose-600' :
+              'from-purple-400 via-violet-500 to-purple-600'
+            } relative overflow-hidden mb-6`}>
+              <div className="absolute inset-0 bg-black/10" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Newspaper className="h-20 w-20 text-white/10" />
+              </div>
+              {article.featured && (
+                <Badge className="absolute top-4 left-4 bg-yellow-400 text-emerald-900 font-bold">
+                  <Star className="h-3 w-3 mr-1" /> Featured
+                </Badge>
+              )}
+            </div>
+
+            {/* Article Meta */}
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <Badge variant="secondary" className="text-sm">{article.category}</Badge>
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" />
+                {new Date(article.date).toLocaleDateString('en-ZW', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </span>
+            </div>
+
+            {/* Title */}
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold mb-6 leading-tight">
+              {article.title}
+            </h1>
+
+            {/* Excerpt */}
+            <div className="text-lg text-emerald-700 dark:text-emerald-400 font-medium mb-6 p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-xl border-l-4 border-emerald-500">
+              {article.excerpt}
+            </div>
+
+            {/* Full Content */}
+            <div className="prose prose-gray dark:prose-invert max-w-none">
+              {article.fullContent.split('\n\n').map((paragraph, i) => (
+                <p key={i} className="text-muted-foreground leading-relaxed mb-4">{paragraph}</p>
+              ))}
+            </div>
+
+            {/* Contact CTA */}
+            <Card className="mt-8 border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/20">
+              <CardContent className="p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0">
+                  <Phone className="h-5 w-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold mb-1">Want to know more?</h4>
+                  <p className="text-sm text-muted-foreground">Contact our school administration for further details.</p>
+                </div>
+                <Button variant="outline" className="border-emerald-300 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 shrink-0">
+                  <PhoneCall className="h-4 w-4 mr-2" /> {schoolInfo.phone}
+                </Button>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Sidebar */}
+          <motion.aside
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="space-y-6"
+          >
+            {/* Related News */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Newspaper className="h-5 w-5 text-emerald-600" /> Related News
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {relatedNews.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => onViewNews(item.id)}
+                    className="w-full text-left p-3 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors group"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`h-12 w-12 rounded-lg bg-gradient-to-br ${
+                        item.image === 'academic' ? 'from-blue-400 to-cyan-500' :
+                        item.image === 'sports' ? 'from-amber-400 to-orange-500' :
+                        item.image === 'campus' ? 'from-emerald-400 to-teal-500' :
+                        'from-rose-400 to-pink-500'
+                      } shrink-0 flex items-center justify-center`}>
+                        <Newspaper className="h-5 w-5 text-white/50" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium line-clamp-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{item.title}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(item.date).toLocaleDateString('en-ZW', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* School Info Card */}
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-emerald-600 to-teal-700 text-white">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center">
+                    <School className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm">{schoolInfo.name}</h4>
+                    <p className="text-emerald-200/80 text-xs">{schoolInfo.motto}</p>
+                  </div>
+                </div>
+                <div className="space-y-2 text-xs text-emerald-100/90">
+                  <p className="flex items-center gap-2"><Mail className="h-3 w-3" /> {schoolInfo.email}</p>
+                  <p className="flex items-center gap-2"><Phone className="h-3 w-3" /> {schoolInfo.phone}</p>
+                  <p className="flex items-center gap-2"><MapPin className="h-3 w-3" /> {schoolInfo.address}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.aside>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Event Detail Page ───────────────────────────────────────────────────────
+function EventDetailPage({ eventId, onBack, onViewEvent }: { eventId: number; onBack: () => void; onViewEvent: (id: number) => void }) {
+  const event = events.find(e => e.id === eventId)
+  const relatedEvents = events.filter(e => e.id !== eventId && (event ? e.type === event.type : true)).slice(0, 3)
+  const fallbackRelated = relatedEvents.length > 0 ? relatedEvents : events.filter(e => e.id !== eventId).slice(0, 3)
+
+  if (!event) {
+    return (
+      <div className="pt-20 md:pt-24 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Calendar className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
+          <h2 className="text-xl font-bold mb-2">Event Not Found</h2>
+          <p className="text-muted-foreground mb-4">The event you are looking for does not exist.</p>
+          <Button onClick={onBack} variant="outline" className="text-emerald-600">
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Events
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const typeColors: Record<string, string> = {
+    Holiday: 'from-red-500 to-orange-500',
+    Sports: 'from-emerald-500 to-teal-500',
+    Ceremony: 'from-amber-500 to-yellow-500',
+    Academic: 'from-blue-500 to-cyan-500',
+    Meeting: 'from-purple-500 to-violet-500',
+    Cultural: 'from-orange-500 to-rose-500',
+  }
+
+  return (
+    <div className="pt-20 md:pt-24 bg-white dark:bg-background">
+      {/* Sticky Back Button */}
+      <div className="sticky top-16 md:top-20 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-emerald-100/50 dark:border-emerald-900/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <Button variant="ghost" size="sm" onClick={onBack} className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 -ml-2">
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Events
+          </Button>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="lg:col-span-2"
+          >
+            {/* Hero */}
+            <div className={`h-48 md:h-72 rounded-2xl bg-gradient-to-br ${typeColors[event.type] || 'from-emerald-500 to-teal-600'} relative overflow-hidden mb-6`}>
+              <div className="absolute inset-0 bg-black/10" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Calendar className="h-20 w-20 text-white/10" />
+              </div>
+              <div className="absolute top-4 right-4">
+                <Badge className="bg-white/90 dark:bg-gray-900/90 text-foreground shadow text-sm">{event.type}</Badge>
+              </div>
+              <div className="absolute bottom-4 left-4 bg-white/95 dark:bg-gray-900/95 rounded-xl p-3 shadow-lg">
+                <div className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-400">{new Date(event.date).getDate()}</div>
+                <div className="text-xs uppercase font-semibold text-emerald-600/80 dark:text-emerald-400/80">{new Date(event.date).toLocaleString('en', { month: 'long' })}</div>
+                <div className="text-[10px] text-muted-foreground">{new Date(event.date).getFullYear()}</div>
+              </div>
+            </div>
+
+            {/* Event Meta */}
+            <div className="flex flex-wrap items-center gap-4 mb-6">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Clock className="h-4 w-4 text-emerald-600" />
+                <span>{event.time}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <MapPin className="h-4 w-4 text-emerald-600" />
+                <span>{event.location}</span>
+              </div>
+              <Badge variant="secondary" className="text-sm">{event.type}</Badge>
+            </div>
+
+            {/* Title */}
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold mb-6 leading-tight">
+              {event.title}
+            </h1>
+
+            {/* Description */}
+            <div className="prose prose-gray dark:prose-invert max-w-none">
+              <p className="text-lg text-emerald-700 dark:text-emerald-400 font-medium mb-6 p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-xl border-l-4 border-emerald-500">
+                {event.description}
+              </p>
+              <p className="text-muted-foreground leading-relaxed mb-4">
+                This event is part of {schoolInfo.name}&apos;s calendar of activities for the {new Date(event.date).getFullYear()} academic year. All members of the school community—students, staff, parents, and guardians—are encouraged to participate and support this important occasion.
+              </p>
+              <p className="text-muted-foreground leading-relaxed mb-4">
+                The event will take place at the {event.location}, beginning at {event.time}. Please ensure you arrive at least 15 minutes before the scheduled start time. For any enquiries, please contact the school administration office.
+              </p>
+              <p className="text-muted-foreground leading-relaxed mb-4">
+                As a MoPSE-registered institution ({schoolInfo.registration}), {schoolInfo.name} is committed to providing enriching experiences that complement our academic programme. Events like these foster community spirit, cultural appreciation, and holistic development among our learners.
+              </p>
+            </div>
+
+            {/* Event Details Card */}
+            <Card className="mt-8 border-0 shadow-lg">
+              <CardContent className="p-6">
+                <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5 text-emerald-600" /> Event Details
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900">
+                    <Calendar className="h-5 w-5 text-emerald-600 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Date</p>
+                      <p className="font-semibold">{new Date(event.date).toLocaleDateString('en-ZW', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900">
+                    <Clock className="h-5 w-5 text-emerald-600 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Time</p>
+                      <p className="font-semibold">{event.time}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900">
+                    <MapPin className="h-5 w-5 text-emerald-600 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Location</p>
+                      <p className="font-semibold">{event.location}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900">
+                    <Landmark className="h-5 w-5 text-emerald-600 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Organiser</p>
+                      <p className="font-semibold">{schoolInfo.name}</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Sidebar */}
+          <motion.aside
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="space-y-6"
+          >
+            {/* Related Events */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-emerald-600" /> Upcoming Events
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {fallbackRelated.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => onViewEvent(item.id)}
+                    className="w-full text-left p-3 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors group"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`h-12 w-12 rounded-lg bg-gradient-to-br ${typeColors[item.type] || 'from-emerald-500 to-teal-600'} shrink-0 flex items-center justify-center`}>
+                        <div className="text-center text-white">
+                          <div className="text-sm font-extrabold leading-none">{new Date(item.date).getDate()}</div>
+                          <div className="text-[8px] uppercase">{new Date(item.date).toLocaleString('en', { month: 'short' })}</div>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium line-clamp-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{item.title}</p>
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <MapPin className="h-3 w-3" /> {item.location}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Contact Card */}
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-emerald-600 to-teal-700 text-white">
+              <CardContent className="p-6">
+                <h4 className="font-bold mb-3 flex items-center gap-2">
+                  <Phone className="h-4 w-4" /> Event Enquiries
+                </h4>
+                <div className="space-y-2 text-xs text-emerald-100/90">
+                  <p className="flex items-center gap-2"><Phone className="h-3 w-3" /> {schoolInfo.phone}</p>
+                  <p className="flex items-center gap-2"><Mail className="h-3 w-3" /> {schoolInfo.email}</p>
+                  <p className="flex items-center gap-2"><MapPin className="h-3 w-3" /> {schoolInfo.address}</p>
+                </div>
+                <Button variant="secondary" size="sm" className="mt-4 w-full bg-white/20 hover:bg-white/30 text-white border-0">
+                  <PhoneCall className="h-4 w-4 mr-2" /> Contact Us
+                </Button>
+              </CardContent>
+            </Card>
+          </motion.aside>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1792,5 +2559,120 @@ function ScrollToTop() {
         </motion.button>
       )}
     </AnimatePresence>
+  )
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────────
+export default function PublicWebsite({ onLogin }: PublicWebsiteProps) {
+  const [showLogin, setShowLogin] = useState(false)
+  const [currentPage, setCurrentPage] = useState<PageName>('home')
+  const [selectedNewsId, setSelectedNewsId] = useState<number | null>(null)
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null)
+
+  const handleLoginClick = () => {
+    setShowLogin(true)
+  }
+
+  const handleNavigate = (page: PageName) => {
+    setCurrentPage(page)
+    setSelectedNewsId(null)
+    setSelectedEventId(null)
+  }
+
+  const handleViewNews = (id: number) => {
+    setSelectedNewsId(id)
+    setCurrentPage('news-detail')
+  }
+
+  const handleViewEvent = (id: number) => {
+    setSelectedEventId(id)
+    setCurrentPage('event-detail')
+  }
+
+  // Scroll to top when page changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [currentPage])
+
+  // If login page is shown, render it full-screen
+  if (showLogin) {
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div key="login" {...pageTransition}>
+          <LoginPage onBack={() => setShowLogin(false)} />
+        </motion.div>
+      </AnimatePresence>
+    )
+  }
+
+  const renderSectionPage = () => {
+    const sectionMap: Record<Exclude<PageName, 'home' | 'news-detail' | 'event-detail'>, { title: string; badge: string; badgeIcon: React.ElementType; component: React.ReactNode }> = {
+      about: { title: 'About Us', badge: 'About Us', badgeIcon: School, component: <AboutSectionComponent /> },
+      academics: { title: 'Academics', badge: 'Academics', badgeIcon: BookOpen, component: <><AcademicsSection /><WhyChooseUsSection /></> },
+      admissions: { title: 'Admissions', badge: 'Admissions', badgeIcon: GraduationCap, component: <AdmissionsSection /> },
+      news: { title: 'News', badge: 'News', badgeIcon: MessageSquare, component: <NewsSectionComponent onViewDetail={handleViewNews} /> },
+      events: { title: 'Events', badge: 'Events', badgeIcon: Calendar, component: <EventsSectionComponent onViewDetail={handleViewEvent} /> },
+      gallery: { title: 'Gallery', badge: 'Gallery', badgeIcon: Camera, component: <GallerySection /> },
+      contact: { title: 'Contact', badge: 'Contact', badgeIcon: Mail, component: <ContactSection /> },
+    }
+
+    if (currentPage === 'home') return null
+
+    if (currentPage === 'news-detail' && selectedNewsId) {
+      return (
+        <NewsDetailPage
+          articleId={selectedNewsId}
+          onBack={() => handleNavigate('news')}
+          onViewNews={handleViewNews}
+        />
+      )
+    }
+
+    if (currentPage === 'event-detail' && selectedEventId) {
+      return (
+        <EventDetailPage
+          eventId={selectedEventId}
+          onBack={() => handleNavigate('events')}
+          onViewEvent={handleViewEvent}
+        />
+      )
+    }
+
+    const section = sectionMap[currentPage as Exclude<PageName, 'home' | 'news-detail' | 'event-detail'>]
+    if (!section) return null
+
+    return (
+      <SectionPageWrapper
+        title={section.title}
+        badge={section.badge}
+        badgeIcon={section.badgeIcon}
+        onBack={() => setCurrentPage('home')}
+      >
+        {section.component}
+      </SectionPageWrapper>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-white dark:bg-background">
+      <Navbar onLogin={handleLoginClick} currentPage={currentPage} onNavigate={handleNavigate} />
+
+      <AnimatePresence mode="wait">
+        {currentPage === 'home' ? (
+          <motion.div key="home" {...pageTransition}>
+            <HeroSection onNavigate={handleNavigate} />
+            <PreviewCardsSection onNavigate={handleNavigate} />
+            <TestimonialsSection />
+          </motion.div>
+        ) : (
+          <motion.div key={currentPage} {...pageTransition}>
+            {renderSectionPage()}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <Footer onNavigate={handleNavigate} />
+      <ScrollToTop />
+    </div>
   )
 }

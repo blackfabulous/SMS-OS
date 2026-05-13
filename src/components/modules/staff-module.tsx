@@ -30,6 +30,21 @@ import {
   BadgeCheck,
   FileText,
   Plane,
+  Settings,
+  Save,
+  Download,
+  Printer,
+  FileSpreadsheet,
+  Pencil,
+  Ban,
+  FileBarChart,
+  Eye,
+  EyeOff,
+  Bell,
+  Columns3,
+  Hash,
+  ToggleLeft,
+  Sliders,
 } from 'lucide-react'
 import {
   Card,
@@ -44,6 +59,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Table,
   TableBody,
@@ -53,15 +69,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -69,9 +76,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+
+// ─── View Mode Type ──────────────────────────────────────────────────────────
+type ViewMode = 'list' | 'add' | 'edit' | 'detail' | 'settings'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface StaffMember {
@@ -156,6 +168,55 @@ interface StaffResponse {
   total: number
   page: number
   totalPages: number
+}
+
+// ─── Staff Settings Type ─────────────────────────────────────────────────────
+interface StaffSettings {
+  defaultView: 'table' | 'cards'
+  staffNumberFormat: string
+  autoGenerateStaffNumber: boolean
+  defaultContractType: string
+  defaultPayType: string
+  requiredFirstName: boolean
+  requiredLastName: boolean
+  requiredPhone: boolean
+  requiredEmail: boolean
+  requiredDepartment: boolean
+  showStaffNumber: boolean
+  showPosition: boolean
+  showDepartment: boolean
+  showStaffType: boolean
+  showPayType: boolean
+  showStatus: boolean
+  emailOnNewStaff: boolean
+  emailOnContractExpiry: boolean
+  emailOnLeaveRequest: boolean
+  exportIncludeSalary: boolean
+  exportFormat: string
+}
+
+const defaultStaffSettings: StaffSettings = {
+  defaultView: 'table',
+  staffNumberFormat: 'SCH-STAFF-YYYY-NNN',
+  autoGenerateStaffNumber: true,
+  defaultContractType: 'PERMANENT',
+  defaultPayType: 'SCHOOL_PAID',
+  requiredFirstName: true,
+  requiredLastName: true,
+  requiredPhone: false,
+  requiredEmail: false,
+  requiredDepartment: false,
+  showStaffNumber: true,
+  showPosition: true,
+  showDepartment: true,
+  showStaffType: true,
+  showPayType: true,
+  showStatus: true,
+  emailOnNewStaff: true,
+  emailOnContractExpiry: false,
+  emailOnLeaveRequest: true,
+  exportIncludeSalary: false,
+  exportFormat: 'csv',
 }
 
 // ─── Status Badge Helpers ─────────────────────────────────────────────────────
@@ -268,8 +329,12 @@ function ModuleStatCard({
 // ─── Staff List View ──────────────────────────────────────────────────────────
 function StaffListView({
   onSelectStaff,
+  onAddStaff,
+  onOpenSettings,
 }: {
   onSelectStaff: (id: string) => void
+  onAddStaff: () => void
+  onOpenSettings: () => void
 }) {
   const [staff, setStaff] = useState<StaffMember[]>([])
   const [loading, setLoading] = useState(true)
@@ -281,7 +346,6 @@ function StaffListView({
   const [total, setTotal] = useState(0)
   const [sortField, setSortField] = useState<string>('staffNumber')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
-  const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [stats, setStats] = useState({
     total: 0, teaching: 0, nonTeaching: 0, onLeave: 0,
   })
@@ -320,7 +384,7 @@ function StaffListView({
           total: json.total,
           teaching: allStaff.filter(s => s.staffType === 'TEACHING').length,
           nonTeaching: allStaff.filter(s => s.staffType !== 'TEACHING').length,
-          onLeave: 0, // Would need leave data for this
+          onLeave: 0,
         })
       }
     } catch {
@@ -393,11 +457,16 @@ function StaffListView({
                 <CardTitle className="text-lg font-semibold">Staff Directory</CardTitle>
                 <CardDescription>{total} staff member{total !== 1 ? 's' : ''} found</CardDescription>
               </div>
-              <AddStaffDialog
-                open={addDialogOpen}
-                onOpenChange={setAddDialogOpen}
-                onSuccess={() => { fetchStaff(); fetchStats() }}
-              />
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="gap-2" onClick={onOpenSettings}>
+                  <Settings className="h-4 w-4" />
+                  <span className="hidden sm:inline">Settings</span>
+                </Button>
+                <Button className="bg-teal-600 hover:bg-teal-700 text-white gap-2" onClick={onAddStaff}>
+                  <UserPlus className="h-4 w-4" />
+                  Add Staff
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -413,7 +482,6 @@ function StaffListView({
                 />
               </div>
               <div className="flex flex-wrap gap-2">
-                {/* Staff Type Filter */}
                 <div className="flex items-center gap-1">
                   {(['ALL', 'TEACHING', 'NON_TEACHING', 'ADMIN', 'SUPPORT'] as const).map((s) => (
                     <Button
@@ -432,7 +500,6 @@ function StaffListView({
                     </Button>
                   ))}
                 </div>
-                {/* Position Filter */}
                 <Select value={positionFilter} onValueChange={setPositionFilter}>
                   <SelectTrigger className="h-7 w-[150px] text-xs">
                     <SelectValue placeholder="Position" />
@@ -582,14 +649,12 @@ function StaffListView({
   )
 }
 
-// ─── Add Staff Dialog ─────────────────────────────────────────────────────────
-function AddStaffDialog({
-  open,
-  onOpenChange,
+// ─── Add Staff Inline Form ───────────────────────────────────────────────────
+function AddStaffInlineForm({
+  onBack,
   onSuccess,
 }: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  onBack: () => void
   onSuccess: () => void
 }) {
   const [submitting, setSubmitting] = useState(false)
@@ -598,6 +663,7 @@ function AddStaffDialog({
     title: '',
     firstName: '',
     lastName: '',
+    middleName: '',
     position: '',
     department: '',
     staffType: 'TEACHING',
@@ -608,14 +674,24 @@ function AddStaffDialog({
     contractType: 'PERMANENT',
     gender: '',
     dateOfBirth: '',
+    employmentDate: '',
     qualifications: '',
+    subjectSpecialisation: '',
+    nationalId: '',
+    address: '',
+    nextOfKin: '',
+    nextOfKinPhone: '',
+    bankName: '',
+    bankAccountNumber: '',
   })
 
   const resetForm = () => {
     setForm({
-      title: '', firstName: '', lastName: '', position: '', department: '',
+      title: '', firstName: '', lastName: '', middleName: '', position: '', department: '',
       staffType: 'TEACHING', payType: 'SCHOOL_PAID', phone: '', email: '',
-      basicSalary: '', contractType: 'PERMANENT', gender: '', dateOfBirth: '', qualifications: '',
+      basicSalary: '', contractType: 'PERMANENT', gender: '', dateOfBirth: '', employmentDate: '',
+      qualifications: '', subjectSpecialisation: '', nationalId: '', address: '',
+      nextOfKin: '', nextOfKinPhone: '', bankName: '', bankAccountNumber: '',
     })
     setError('')
   }
@@ -635,6 +711,7 @@ function AddStaffDialog({
         body: JSON.stringify({
           firstName: form.firstName.trim(),
           lastName: form.lastName.trim(),
+          middleName: form.middleName.trim() || undefined,
           title: form.title || undefined,
           position: form.position,
           department: form.department || undefined,
@@ -646,7 +723,15 @@ function AddStaffDialog({
           contractType: form.contractType,
           gender: form.gender || undefined,
           dateOfBirth: form.dateOfBirth || undefined,
+          employmentDate: form.employmentDate || undefined,
           qualifications: form.qualifications.trim() || undefined,
+          subjectSpecialisation: form.subjectSpecialisation.trim() || undefined,
+          nationalId: form.nationalId.trim() || undefined,
+          address: form.address.trim() || undefined,
+          nextOfKin: form.nextOfKin.trim() || undefined,
+          nextOfKinPhone: form.nextOfKinPhone.trim() || undefined,
+          bankName: form.bankName.trim() || undefined,
+          bankAccountNumber: form.bankAccountNumber.trim() || undefined,
         }),
       })
       if (!res.ok) {
@@ -654,7 +739,7 @@ function AddStaffDialog({
         throw new Error(data.error || 'Failed to create staff member')
       }
       resetForm()
-      onOpenChange(false)
+      toast.success('Staff member created successfully')
       onSuccess()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -664,117 +749,418 @@ function AddStaffDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v) }}>
-      <DialogTrigger asChild>
-        <Button className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
-          <UserPlus className="h-4 w-4" />
-          Add Staff
+    <motion.div
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-5"
+    >
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="sm" className="gap-1 sm:gap-2 text-muted-foreground hover:text-foreground min-h-[44px]" onClick={onBack}>
+          <ChevronLeft className="h-4 w-4" />
+          <span className="hidden sm:inline">Back to Staff List</span>
+          <span className="sm:hidden">Back</span>
         </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-[95vw] sm:max-w-[580px] max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-teal-600" />
-            Add New Staff Member
-          </DialogTitle>
-          <DialogDescription>Enter staff details to register a new member.</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              {error}
+      </div>
+
+      <Card className="border-0 shadow-md">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50">
+              <UserPlus className="h-5 w-5 text-teal-600" />
             </div>
-          )}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Title</Label>
-              <Select value={form.title} onValueChange={v => setForm(f => ({ ...f, title: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Mr">Mr</SelectItem>
-                  <SelectItem value="Mrs">Mrs</SelectItem>
-                  <SelectItem value="Ms">Ms</SelectItem>
-                  <SelectItem value="Dr">Dr</SelectItem>
-                  <SelectItem value="Prof">Prof</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="firstName">First Name *</Label>
-              <Input id="firstName" value={form.firstName} onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))} placeholder="Chenai" required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name *</Label>
-              <Input id="lastName" value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))} placeholder="Dube" required />
+            <div>
+              <CardTitle className="text-lg font-semibold">Add New Staff Member</CardTitle>
+              <CardDescription>Enter staff details to register a new member. Fields marked with * are required.</CardDescription>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Position *</Label>
-              <Select value={form.position} onValueChange={v => setForm(f => ({ ...f, position: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select position" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Headmaster">Headmaster</SelectItem>
-                  <SelectItem value="Deputy Head">Deputy Head</SelectItem>
-                  <SelectItem value="Teacher">Teacher</SelectItem>
-                  <SelectItem value="Senior Teacher">Senior Teacher</SelectItem>
-                  <SelectItem value="School Bursar">Bursar</SelectItem>
-                  <SelectItem value="School Clerk">Clerk</SelectItem>
-                  <SelectItem value="Librarian">Librarian</SelectItem>
-                  <SelectItem value="Cleaner">Cleaner</SelectItem>
-                  <SelectItem value="Security Guard">Security</SelectItem>
-                  <SelectItem value="Groundsman">Groundsman</SelectItem>
-                </SelectContent>
-              </Select>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {error}
+              </div>
+            )}
+
+            {/* Personal Information */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <User className="h-4 w-4 text-teal-600" />
+                <h3 className="text-sm font-semibold text-foreground">Personal Information</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label>Title</Label>
+                  <Select value={form.title} onValueChange={v => setForm(f => ({ ...f, title: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Mr">Mr</SelectItem>
+                      <SelectItem value="Mrs">Mrs</SelectItem>
+                      <SelectItem value="Ms">Ms</SelectItem>
+                      <SelectItem value="Dr">Dr</SelectItem>
+                      <SelectItem value="Prof">Prof</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>First Name *</Label>
+                  <Input value={form.firstName} onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))} placeholder="Chenai" required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Last Name *</Label>
+                  <Input value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))} placeholder="Dube" required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Middle Name</Label>
+                  <Input value={form.middleName} onChange={e => setForm(f => ({ ...f, middleName: e.target.value }))} placeholder="Optional" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Gender</Label>
+                  <Select value={form.gender} onValueChange={v => setForm(f => ({ ...f, gender: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MALE">Male</SelectItem>
+                      <SelectItem value="FEMALE">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Date of Birth</Label>
+                  <Input type="date" value={form.dateOfBirth} onChange={e => setForm(f => ({ ...f, dateOfBirth: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>National ID</Label>
+                  <Input value={form.nationalId} onChange={e => setForm(f => ({ ...f, nationalId: e.target.value }))} placeholder="e.g. 63-123456A12" />
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Department</Label>
-              <Select value={form.department} onValueChange={v => setForm(f => ({ ...f, department: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Administration">Administration</SelectItem>
-                  <SelectItem value="Languages">Languages</SelectItem>
-                  <SelectItem value="Sciences">Sciences</SelectItem>
-                  <SelectItem value="Mathematics">Mathematics</SelectItem>
-                  <SelectItem value="Humanities">Humanities</SelectItem>
-                  <SelectItem value="Technical">Technical</SelectItem>
-                  <SelectItem value="Commercials">Commercials</SelectItem>
-                  <SelectItem value="Sports">Sports</SelectItem>
-                </SelectContent>
-              </Select>
+
+            <Separator />
+
+            {/* Employment Details */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Briefcase className="h-4 w-4 text-teal-600" />
+                <h3 className="text-sm font-semibold text-foreground">Employment Details</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Position *</Label>
+                  <Select value={form.position} onValueChange={v => setForm(f => ({ ...f, position: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select position" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Headmaster">Headmaster</SelectItem>
+                      <SelectItem value="Deputy Head">Deputy Head</SelectItem>
+                      <SelectItem value="Teacher">Teacher</SelectItem>
+                      <SelectItem value="Senior Teacher">Senior Teacher</SelectItem>
+                      <SelectItem value="School Bursar">Bursar</SelectItem>
+                      <SelectItem value="School Clerk">Clerk</SelectItem>
+                      <SelectItem value="Librarian">Librarian</SelectItem>
+                      <SelectItem value="Cleaner">Cleaner</SelectItem>
+                      <SelectItem value="Security Guard">Security</SelectItem>
+                      <SelectItem value="Groundsman">Groundsman</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Department</Label>
+                  <Select value={form.department} onValueChange={v => setForm(f => ({ ...f, department: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Administration">Administration</SelectItem>
+                      <SelectItem value="Languages">Languages</SelectItem>
+                      <SelectItem value="Sciences">Sciences</SelectItem>
+                      <SelectItem value="Mathematics">Mathematics</SelectItem>
+                      <SelectItem value="Humanities">Humanities</SelectItem>
+                      <SelectItem value="Technical">Technical</SelectItem>
+                      <SelectItem value="Commercials">Commercials</SelectItem>
+                      <SelectItem value="Sports">Sports</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Staff Type</Label>
+                  <Select value={form.staffType} onValueChange={v => setForm(f => ({ ...f, staffType: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TEACHING">Teaching</SelectItem>
+                      <SelectItem value="NON_TEACHING">Non-Teaching</SelectItem>
+                      <SelectItem value="ADMIN">Admin</SelectItem>
+                      <SelectItem value="SUPPORT">Support</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Pay Type</Label>
+                  <Select value={form.payType} onValueChange={v => setForm(f => ({ ...f, payType: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SCHOOL_PAID">School Paid</SelectItem>
+                      <SelectItem value="PSC">PSC</SelectItem>
+                      <SelectItem value="PART_TIME">Part-Time</SelectItem>
+                      <SelectItem value="VOLUNTEER">Volunteer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Contract Type</Label>
+                  <Select value={form.contractType} onValueChange={v => setForm(f => ({ ...f, contractType: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PERMANENT">Permanent</SelectItem>
+                      <SelectItem value="CONTRACT">Contract</SelectItem>
+                      <SelectItem value="TEMPORARY">Temporary</SelectItem>
+                      <SelectItem value="PART_TIME">Part-Time</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Employment Date</Label>
+                  <Input type="date" value={form.employmentDate} onChange={e => setForm(f => ({ ...f, employmentDate: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Basic Salary (USD)</Label>
+                  <Input type="number" step="0.01" value={form.basicSalary} onChange={e => setForm(f => ({ ...f, basicSalary: e.target.value }))} placeholder="0.00" />
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+
+            <Separator />
+
+            {/* Contact Information */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Phone className="h-4 w-4 text-teal-600" />
+                <h3 className="text-sm font-semibold text-foreground">Contact Information</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Phone</Label>
+                  <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+263 77 123 4567" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="name@school.zw" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Address</Label>
+                <Textarea value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="e.g. 12 Samora Machel Ave, Harare" rows={2} />
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Qualifications & Subject Specialisation */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <GraduationCap className="h-4 w-4 text-teal-600" />
+                <h3 className="text-sm font-semibold text-foreground">Qualifications & Subjects</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Qualifications</Label>
+                  <Input value={form.qualifications} onChange={e => setForm(f => ({ ...f, qualifications: e.target.value }))} placeholder="e.g. B.Ed, PGCE, MSc" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Subject Specialisation</Label>
+                  <Input value={form.subjectSpecialisation} onChange={e => setForm(f => ({ ...f, subjectSpecialisation: e.target.value }))} placeholder="e.g. Mathematics, Physics" />
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Next of Kin */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="h-4 w-4 text-teal-600" />
+                <h3 className="text-sm font-semibold text-foreground">Next of Kin</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Next of Kin Name</Label>
+                  <Input value={form.nextOfKin} onChange={e => setForm(f => ({ ...f, nextOfKin: e.target.value }))} placeholder="e.g. Tendai Dube" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Next of Kin Phone</Label>
+                  <Input value={form.nextOfKinPhone} onChange={e => setForm(f => ({ ...f, nextOfKinPhone: e.target.value }))} placeholder="+263 77 123 4567" />
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Bank Details */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="h-4 w-4 text-teal-600" />
+                <h3 className="text-sm font-semibold text-foreground">Bank Details</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Bank Name</Label>
+                  <Select value={form.bankName} onValueChange={v => setForm(f => ({ ...f, bankName: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select bank" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CBZ">CBZ Bank</SelectItem>
+                      <SelectItem value="Stanbic">Stanbic Bank</SelectItem>
+                      <SelectItem value="FBC">FBC Bank</SelectItem>
+                      <SelectItem value="EcoBank">EcoBank</SelectItem>
+                      <SelectItem value="BancABC">BancABC</SelectItem>
+                      <SelectItem value="Steward">Steward Bank</SelectItem>
+                      <SelectItem value="CABS">CABS</SelectItem>
+                      <SelectItem value="POSB">POSB</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Bank Account Number</Label>
+                  <Input value={form.bankAccountNumber} onChange={e => setForm(f => ({ ...f, bankAccountNumber: e.target.value }))} placeholder="e.g. 0123456789012" />
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-3 pt-4 border-t">
+              <Button type="button" variant="outline" onClick={() => { resetForm(); onBack() }}>Cancel</Button>
+              <Button type="submit" disabled={submitting} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
+                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {submitting ? 'Creating...' : 'Create Staff Member'}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
+}
+
+// ─── Staff Settings View ──────────────────────────────────────────────────────
+function StaffSettingsView({ onBack }: { onBack: () => void }) {
+  const [settings, setSettings] = useState<StaffSettings>(defaultStaffSettings)
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    setSaving(true)
+    // Simulate saving delay
+    await new Promise(r => setTimeout(r, 500))
+    setSaving(false)
+    toast.success('Staff settings saved successfully')
+  }
+
+  const updateSetting = <K extends keyof StaffSettings>(key: K, value: StaffSettings[K]) => {
+    setSettings(prev => ({ ...prev, [key]: value }))
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-5"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" className="gap-1 sm:gap-2 text-muted-foreground hover:text-foreground min-h-[44px]" onClick={onBack}>
+            <ChevronLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Back to Staff List</span>
+            <span className="sm:hidden">Back</span>
+          </Button>
+        </div>
+        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2" onClick={handleSave} disabled={saving}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Save Settings
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Display Settings */}
+        <Card className="border-0 shadow-md">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Columns3 className="h-4 w-4 text-teal-600" />
+              <CardTitle className="text-base">Display Settings</CardTitle>
+            </div>
+            <CardDescription>Configure how the staff directory is displayed.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Staff Type</Label>
-              <Select value={form.staffType} onValueChange={v => setForm(f => ({ ...f, staffType: v }))}>
+              <Label>Default View</Label>
+              <Select value={settings.defaultView} onValueChange={v => updateSetting('defaultView', v as 'table' | 'cards')}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="TEACHING">Teaching</SelectItem>
-                  <SelectItem value="NON_TEACHING">Non-Teaching</SelectItem>
-                  <SelectItem value="ADMIN">Admin</SelectItem>
-                  <SelectItem value="SUPPORT">Support</SelectItem>
+                  <SelectItem value="table">Table View</SelectItem>
+                  <SelectItem value="cards">Cards View</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Pay Type</Label>
-              <Select value={form.payType} onValueChange={v => setForm(f => ({ ...f, payType: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="SCHOOL_PAID">School Paid</SelectItem>
-                  <SelectItem value="PSC">PSC</SelectItem>
-                  <SelectItem value="PART_TIME">Part-Time</SelectItem>
-                  <SelectItem value="VOLUNTEER">Volunteer</SelectItem>
-                </SelectContent>
-              </Select>
+            <Separator />
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Visible Columns</Label>
+              {[
+                { key: 'showStaffNumber' as const, label: 'Staff Number' },
+                { key: 'showPosition' as const, label: 'Position' },
+                { key: 'showDepartment' as const, label: 'Department' },
+                { key: 'showStaffType' as const, label: 'Staff Type' },
+                { key: 'showPayType' as const, label: 'Pay Type' },
+                { key: 'showStatus' as const, label: 'Status' },
+              ].map(item => (
+                <div key={item.key} className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">{item.label}</span>
+                  <Switch
+                    checked={settings[item.key]}
+                    onCheckedChange={v => updateSetting(item.key, v)}
+                  />
+                </div>
+              ))}
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+          </CardContent>
+        </Card>
+
+        {/* Number Format Settings */}
+        <Card className="border-0 shadow-md">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Hash className="h-4 w-4 text-teal-600" />
+              <CardTitle className="text-base">Staff Number Format</CardTitle>
+            </div>
+            <CardDescription>Configure how staff numbers are generated.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Contract Type</Label>
-              <Select value={form.contractType} onValueChange={v => setForm(f => ({ ...f, contractType: v }))}>
+              <Label>Number Format</Label>
+              <Input
+                value={settings.staffNumberFormat}
+                onChange={e => updateSetting('staffNumberFormat', e.target.value)}
+                placeholder="SCH-STAFF-YYYY-NNN"
+              />
+              <p className="text-[11px] text-muted-foreground">Use YYYY for year, NNN for auto-increment number</p>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Auto-Generate Staff Numbers</p>
+                <p className="text-xs text-muted-foreground">Automatically assign staff numbers on creation</p>
+              </div>
+              <Switch
+                checked={settings.autoGenerateStaffNumber}
+                onCheckedChange={v => updateSetting('autoGenerateStaffNumber', v)}
+              />
+            </div>
+            <Separator />
+            <div className="space-y-2">
+              <Label>Default Contract Type</Label>
+              <Select value={settings.defaultContractType} onValueChange={v => updateSetting('defaultContractType', v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="PERMANENT">Permanent</SelectItem>
@@ -785,50 +1171,106 @@ function AddStaffDialog({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Gender</Label>
-              <Select value={form.gender} onValueChange={v => setForm(f => ({ ...f, gender: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+              <Label>Default Pay Type</Label>
+              <Select value={settings.defaultPayType} onValueChange={v => updateSetting('defaultPayType', v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="MALE">Male</SelectItem>
-                  <SelectItem value="FEMALE">Female</SelectItem>
+                  <SelectItem value="SCHOOL_PAID">School Paid</SelectItem>
+                  <SelectItem value="PSC">PSC</SelectItem>
+                  <SelectItem value="PART_TIME">Part-Time</SelectItem>
+                  <SelectItem value="VOLUNTEER">Volunteer</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+263 77 123 4567" />
+          </CardContent>
+        </Card>
+
+        {/* Required Fields */}
+        <Card className="border-0 shadow-md">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <ToggleLeft className="h-4 w-4 text-teal-600" />
+              <CardTitle className="text-base">Required Fields</CardTitle>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="name@school.zw" />
+            <CardDescription>Choose which fields are required when adding staff.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {[
+              { key: 'requiredFirstName' as const, label: 'First Name' },
+              { key: 'requiredLastName' as const, label: 'Last Name' },
+              { key: 'requiredPhone' as const, label: 'Phone Number' },
+              { key: 'requiredEmail' as const, label: 'Email Address' },
+              { key: 'requiredDepartment' as const, label: 'Department' },
+            ].map(item => (
+              <div key={item.key} className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">{item.label}</span>
+                <Switch
+                  checked={settings[item.key]}
+                  onCheckedChange={v => updateSetting(item.key, v)}
+                />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Notification & Export Settings */}
+        <Card className="border-0 shadow-md">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-teal-600" />
+              <CardTitle className="text-base">Notifications & Export</CardTitle>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Date of Birth</Label>
-              <Input type="date" value={form.dateOfBirth} onChange={e => setForm(f => ({ ...f, dateOfBirth: e.target.value }))} />
+            <CardDescription>Email notifications and data export preferences.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Email Notifications</Label>
+              {[
+                { key: 'emailOnNewStaff' as const, label: 'New staff added', desc: 'Notify admin when staff is added' },
+                { key: 'emailOnContractExpiry' as const, label: 'Contract expiry', desc: 'Alert before contract ends' },
+                { key: 'emailOnLeaveRequest' as const, label: 'Leave requests', desc: 'Notify on new leave requests' },
+              ].map(item => (
+                <div key={item.key} className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm">{item.label}</p>
+                    <p className="text-[11px] text-muted-foreground">{item.desc}</p>
+                  </div>
+                  <Switch
+                    checked={settings[item.key]}
+                    onCheckedChange={v => updateSetting(item.key, v)}
+                  />
+                </div>
+              ))}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="salary">Basic Salary (USD)</Label>
-              <Input id="salary" type="number" step="0.01" value={form.basicSalary} onChange={e => setForm(f => ({ ...f, basicSalary: e.target.value }))} placeholder="0.00" />
+            <Separator />
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Export Settings</Label>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm">Include Salary in Exports</p>
+                  <p className="text-[11px] text-muted-foreground">Include salary data when exporting</p>
+                </div>
+                <Switch
+                  checked={settings.exportIncludeSalary}
+                  onCheckedChange={v => updateSetting('exportIncludeSalary', v)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Default Export Format</Label>
+                <Select value={settings.exportFormat} onValueChange={v => updateSetting('exportFormat', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="csv">CSV</SelectItem>
+                    <SelectItem value="xlsx">Excel</SelectItem>
+                    <SelectItem value="pdf">PDF</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="qualifications">Qualifications</Label>
-            <Input id="qualifications" value={form.qualifications} onChange={e => setForm(f => ({ ...f, qualifications: e.target.value }))} placeholder="e.g. B.Ed, PGCE, MSc" />
-          </div>
-          <DialogFooter className="pt-2">
-            <Button type="button" variant="outline" onClick={() => { resetForm(); onOpenChange(false) }}>Cancel</Button>
-            <Button type="submit" disabled={submitting} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {submitting ? 'Creating...' : 'Create Staff'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          </CardContent>
+        </Card>
+      </div>
+    </motion.div>
   )
 }
 
@@ -836,9 +1278,11 @@ function AddStaffDialog({
 function StaffDetailView({
   staffId,
   onBack,
+  onEdit,
 }: {
   staffId: string
   onBack: () => void
+  onEdit: () => void
 }) {
   const [staff, setStaff] = useState<StaffDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -893,12 +1337,28 @@ function StaffDetailView({
       transition={{ duration: 0.3 }}
       className="space-y-5"
     >
-      {/* Back Button */}
-      <Button variant="ghost" size="sm" className="gap-1 sm:gap-2 text-muted-foreground hover:text-foreground min-h-[44px]" onClick={onBack}>
-        <ChevronLeft className="h-4 w-4" />
-        <span className="hidden sm:inline">Back to Staff List</span>
-        <span className="sm:hidden">Back</span>
-      </Button>
+      {/* Back Button + Actions */}
+      <div className="flex items-center justify-between gap-2">
+        <Button variant="ghost" size="sm" className="gap-1 sm:gap-2 text-muted-foreground hover:text-foreground min-h-[44px]" onClick={onBack}>
+          <ChevronLeft className="h-4 w-4" />
+          <span className="hidden sm:inline">Back to Staff List</span>
+          <span className="sm:hidden">Back</span>
+        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={onEdit}>
+            <Pencil className="h-4 w-4" />
+            <span className="hidden sm:inline">Edit</span>
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2 border-red-200 text-red-700 hover:bg-red-50">
+            <Ban className="h-4 w-4" />
+            <span className="hidden sm:inline">Deactivate</span>
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2 border-teal-200 text-teal-700 hover:bg-teal-50">
+            <FileBarChart className="h-4 w-4" />
+            <span className="hidden sm:inline">Report</span>
+          </Button>
+        </div>
+      </div>
 
       {/* Profile Card */}
       <Card className="border-0 shadow-md overflow-hidden">
@@ -941,11 +1401,13 @@ function StaffDetailView({
                   { value: 'payroll', label: 'Payroll', icon: DollarSign },
                   { value: 'leave', label: 'Leave', icon: Calendar },
                   { value: 'appraisals', label: 'Appraisals', icon: BadgeCheck },
+                  { value: 'documents', label: 'Documents', icon: FileText },
+                  { value: 'timeline', label: 'Timeline', icon: Clock },
                 ].map(tab => (
                   <TabsTrigger
                     key={tab.value}
                     value={tab.value}
-                    className="h-12 px-4 data-[state=active]:border-b-2 data-[state=active]:border-teal-500 data-[state=active]:text-teal-700 data-[state=active]:shadow-none rounded-none"
+                    className="h-12 px-3 sm:px-4 data-[state=active]:border-b-2 data-[state=active]:border-teal-500 data-[state=active]:text-teal-700 data-[state=active]:shadow-none rounded-none"
                   >
                     <tab.icon className="h-4 w-4 mr-1.5" />
                     <span className="hidden sm:inline">{tab.label}</span>
@@ -959,202 +1421,276 @@ function StaffDetailView({
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Personal Details */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
-                    <User className="h-4 w-4" /> Personal Details
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <User className="h-4 w-4 text-teal-600" />
+                    Personal Details
                   </h3>
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     {[
-                      { label: 'Gender', value: staff.gender === 'MALE' ? 'Male' : staff.gender === 'FEMALE' ? 'Female' : '—' },
-                      { label: 'Date of Birth', value: staff.dateOfBirth ? new Date(staff.dateOfBirth).toLocaleDateString('en-ZW', { year: 'numeric', month: 'long', day: 'numeric' }) : '—' },
+                      { label: 'Full Name', value: `${staff.title ? staff.title + '. ' : ''}${staff.firstName} ${staff.middleName ? staff.middleName + ' ' : ''}${staff.lastName}` },
+                      { label: 'Gender', value: staff.gender || '—' },
+                      { label: 'Date of Birth', value: staff.dateOfBirth ? new Date(staff.dateOfBirth).toLocaleDateString() : '—' },
                       { label: 'National ID', value: staff.nationalId || '—' },
-                      { label: 'Phone', value: staff.phone || '—' },
-                      { label: 'Email', value: staff.email || '—' },
                       { label: 'Address', value: staff.address || '—' },
-                      { label: 'Next of Kin', value: staff.nextOfKin || '—' },
-                      { label: 'Next of Kin Phone', value: staff.nextOfKinPhone || '—' },
                     ].map(item => (
-                      <div key={item.label} className="flex justify-between items-center py-1.5 border-b border-dashed last:border-0">
-                        <span className="text-sm text-muted-foreground">{item.label}</span>
-                        <span className="text-sm font-medium">{item.value}</span>
+                      <div key={item.label} className="flex justify-between py-1.5 border-b border-dashed last:border-0">
+                        <span className="text-xs text-muted-foreground">{item.label}</span>
+                        <span className="text-xs font-medium">{item.value}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Employment Info */}
+                {/* Contact & Employment */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
-                    <Briefcase className="h-4 w-4" /> Employment Info
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Briefcase className="h-4 w-4 text-teal-600" />
+                    Employment & Contact
                   </h3>
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     {[
+                      { label: 'Phone', value: staff.phone || '—' },
+                      { label: 'Email', value: staff.email || '—' },
                       { label: 'Position', value: staff.position },
                       { label: 'Department', value: staff.department || '—' },
-                      { label: 'Staff Type', value: staff.staffType },
-                      { label: 'Pay Type', value: staff.payType },
+                      { label: 'Employment Date', value: staff.employmentDate ? new Date(staff.employmentDate).toLocaleDateString() : '—' },
                       { label: 'Contract Type', value: staff.contractType },
-                      { label: 'Employment Date', value: staff.employmentDate ? new Date(staff.employmentDate).toLocaleDateString('en-ZW', { year: 'numeric', month: 'long', day: 'numeric' }) : '—' },
-                      { label: 'Payroll Status', value: staff.payrollStatus },
-                      { label: 'Basic Salary', value: `$${staff.basicSalary.toFixed(2)}` },
+                      { label: 'Next of Kin', value: staff.nextOfKin || '—' },
+                      { label: 'Next of Kin Phone', value: staff.nextOfKinPhone || '—' },
                     ].map(item => (
-                      <div key={item.label} className="flex justify-between items-center py-1.5 border-b border-dashed last:border-0">
-                        <span className="text-sm text-muted-foreground">{item.label}</span>
-                        <span className="text-sm font-medium">{item.value}</span>
+                      <div key={item.label} className="flex justify-between py-1.5 border-b border-dashed last:border-0">
+                        <span className="text-xs text-muted-foreground">{item.label}</span>
+                        <span className="text-xs font-medium">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Qualifications */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <GraduationCap className="h-4 w-4 text-teal-600" />
+                    Qualifications
+                  </h3>
+                  <div className="space-y-2">
+                    {[
+                      { label: 'Qualifications', value: staff.qualifications || '—' },
+                      { label: 'Subject Specialisation', value: staff.subjectSpecialisation || '—' },
+                    ].map(item => (
+                      <div key={item.label} className="flex justify-between py-1.5 border-b border-dashed last:border-0">
+                        <span className="text-xs text-muted-foreground">{item.label}</span>
+                        <span className="text-xs font-medium">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Bank Details */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-teal-600" />
+                    Bank Details
+                  </h3>
+                  <div className="space-y-2">
+                    {[
+                      { label: 'Bank Name', value: staff.bankName || '—' },
+                      { label: 'Account Number', value: staff.bankAccountNumber || '—' },
+                      { label: 'Payroll Status', value: staff.payrollStatus },
+                    ].map(item => (
+                      <div key={item.label} className="flex justify-between py-1.5 border-b border-dashed last:border-0">
+                        <span className="text-xs text-muted-foreground">{item.label}</span>
+                        <span className="text-xs font-medium">{item.value}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
-
-              {/* Qualifications */}
-              {(staff.qualifications || staff.subjectSpecialisation) && (
-                <>
-                  <Separator className="my-6" />
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2 mb-4">
-                    <GraduationCap className="h-4 w-4" /> Qualifications & Specialisation
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {staff.qualifications && (
-                      <div className="p-4 rounded-xl border bg-muted/20">
-                        <p className="text-xs text-muted-foreground mb-1">Qualifications</p>
-                        <p className="text-sm font-medium">{staff.qualifications}</p>
-                      </div>
-                    )}
-                    {staff.subjectSpecialisation && (
-                      <div className="p-4 rounded-xl border bg-muted/20">
-                        <p className="text-xs text-muted-foreground mb-1">Subject Specialisation</p>
-                        <p className="text-sm font-medium">{staff.subjectSpecialisation}</p>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
             </TabsContent>
 
             {/* Payroll Tab */}
             <TabsContent value="payroll" className="p-6">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-4">Recent Payslips</h3>
-              {staff.payslips.length > 0 ? (
-                <div className="space-y-3">
-                  {staff.payslips.map(payslip => (
-                    <div key={payslip.id} className="p-4 rounded-xl border hover:bg-muted/20 transition-colors">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <p className="text-sm font-medium">
-                            {monthNames[payslip.periodMonth - 1]} {payslip.periodYear}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{payslip.currency}</p>
-                        </div>
-                        <PayslipStatusBadge status={payslip.status} />
-                      </div>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase">Gross Pay</p>
-                          <p className="text-sm font-semibold">${payslip.grossPay.toFixed(2)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase">Deductions</p>
-                          <p className="text-sm font-semibold text-red-600">
-                            ${(payslip.grossPay - payslip.netPay).toFixed(2)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase">Net Pay</p>
-                          <p className="text-sm font-semibold text-emerald-600">${payslip.netPay.toFixed(2)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                  <div className="rounded-xl border p-3 text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase">Basic Salary</p>
+                    <p className="text-lg font-bold">${staff.basicSalary.toFixed(2)}</p>
+                  </div>
+                  <div className="rounded-xl border p-3 text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase">Housing</p>
+                    <p className="text-lg font-bold">${staff.housingAllowance.toFixed(2)}</p>
+                  </div>
+                  <div className="rounded-xl border p-3 text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase">Transport</p>
+                    <p className="text-lg font-bold">${staff.transportAllowance.toFixed(2)}</p>
+                  </div>
+                  <div className="rounded-xl border p-3 text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase">Responsibility</p>
+                    <p className="text-lg font-bold">${staff.responsibilityAllowance.toFixed(2)}</p>
+                  </div>
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground py-8 text-center">No payslips found</p>
-              )}
+                <h3 className="text-sm font-semibold">Payslip History</h3>
+                {staff.payslips.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <DollarSign className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">No payslips found</p>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/30">
+                          <TableHead className="text-xs">Period</TableHead>
+                          <TableHead className="text-xs">Basic</TableHead>
+                          <TableHead className="text-xs">Gross</TableHead>
+                          <TableHead className="text-xs">Net</TableHead>
+                          <TableHead className="text-xs">Currency</TableHead>
+                          <TableHead className="text-xs">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {staff.payslips.map(p => (
+                          <TableRow key={p.id}>
+                            <TableCell className="text-xs font-mono">{monthNames[p.periodMonth - 1]} {p.periodYear}</TableCell>
+                            <TableCell className="text-xs">${p.basicSalary.toFixed(2)}</TableCell>
+                            <TableCell className="text-xs">${p.grossPay.toFixed(2)}</TableCell>
+                            <TableCell className="text-xs font-medium">${p.netPay.toFixed(2)}</TableCell>
+                            <TableCell className="text-xs">{p.currency}</TableCell>
+                            <TableCell><PayslipStatusBadge status={p.status} /></TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
             </TabsContent>
 
             {/* Leave Tab */}
             <TabsContent value="leave" className="p-6">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-4">Leave Records</h3>
-              {staff.leaveRecords.length > 0 ? (
-                <div className="space-y-3">
-                  {staff.leaveRecords.map(leave => (
-                    <div key={leave.id} className="p-4 rounded-xl border">
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <Badge variant="outline" className="text-[11px] bg-cyan-50 text-cyan-700 border-cyan-200">
-                            {leave.leaveType}
-                          </Badge>
-                        </div>
-                        <LeaveStatusBadge status={leave.status} />
-                      </div>
-                      <div className="flex items-center gap-4 mt-2 text-sm">
-                        <span className="text-muted-foreground">
-                          {new Date(leave.startDate).toLocaleDateString('en-ZW', { year: 'numeric', month: 'short', day: 'numeric' })}
-                          {' — '}
-                          {new Date(leave.endDate).toLocaleDateString('en-ZW', { year: 'numeric', month: 'short', day: 'numeric' })}
-                        </span>
-                        <Badge variant="secondary" className="text-[10px]">{leave.days} day{leave.days !== 1 ? 's' : ''}</Badge>
-                      </div>
-                      {leave.reason && (
-                        <p className="text-xs text-muted-foreground mt-2">{leave.reason}</p>
-                      )}
-                    </div>
-                  ))}
+              {staff.leaveRecords.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Calendar className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">No leave records found</p>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground py-8 text-center">No leave records found</p>
+                <div className="rounded-xl border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/30">
+                        <TableHead className="text-xs">Type</TableHead>
+                        <TableHead className="text-xs">Start</TableHead>
+                        <TableHead className="text-xs">End</TableHead>
+                        <TableHead className="text-xs">Days</TableHead>
+                        <TableHead className="text-xs">Reason</TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {staff.leaveRecords.map(l => (
+                        <TableRow key={l.id}>
+                          <TableCell className="text-xs">{l.leaveType}</TableCell>
+                          <TableCell className="text-xs">{new Date(l.startDate).toLocaleDateString()}</TableCell>
+                          <TableCell className="text-xs">{new Date(l.endDate).toLocaleDateString()}</TableCell>
+                          <TableCell className="text-xs">{l.days}</TableCell>
+                          <TableCell className="text-xs max-w-[150px] truncate">{l.reason || '—'}</TableCell>
+                          <TableCell><LeaveStatusBadge status={l.status} /></TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </TabsContent>
 
             {/* Appraisals Tab */}
             <TabsContent value="appraisals" className="p-6">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-4">Appraisal Records</h3>
-              {staff.appraisalRecords.length > 0 ? (
-                <div className="space-y-3">
-                  {staff.appraisalRecords.map(appraisal => (
-                    <div key={appraisal.id} className="p-4 rounded-xl border">
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <p className="text-sm font-medium">{appraisal.period}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className={cn(
-                            'text-[11px]',
-                            appraisal.rating >= 4 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                            appraisal.rating >= 3 ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                            'bg-red-50 text-red-700 border-red-200'
-                          )}>
-                            Rating: {appraisal.rating}/5
-                          </Badge>
-                          <Badge variant="outline" className="text-[11px] bg-gray-50 text-gray-700 border-gray-200">
-                            {appraisal.status}
-                          </Badge>
-                        </div>
-                      </div>
-                      {appraisal.comments && (
-                        <p className="text-sm text-muted-foreground mt-1">{appraisal.comments}</p>
-                      )}
-                      {(appraisal.strengths || appraisal.areasForImprovement) && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                          {appraisal.strengths && (
-                            <div className="p-3 rounded-lg bg-emerald-50">
-                              <p className="text-[10px] text-emerald-600 uppercase font-semibold mb-1">Strengths</p>
-                              <p className="text-xs">{appraisal.strengths}</p>
-                            </div>
-                          )}
-                          {appraisal.areasForImprovement && (
-                            <div className="p-3 rounded-lg bg-amber-50">
-                              <p className="text-[10px] text-amber-600 uppercase font-semibold mb-1">Areas for Improvement</p>
-                              <p className="text-xs">{appraisal.areasForImprovement}</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+              {staff.appraisalRecords.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <BadgeCheck className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">No appraisal records found</p>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground py-8 text-center">No appraisal records found</p>
+                <div className="space-y-3">
+                  {staff.appraisalRecords.map(a => (
+                    <Card key={a.id} className="border shadow-sm">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">{a.period}</span>
+                          <Badge variant="outline" className="text-[11px]">{a.status}</Badge>
+                        </div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs text-muted-foreground">Rating:</span>
+                          <div className="flex gap-0.5">
+                            {Array.from({ length: 5 }, (_, i) => (
+                              <div key={i} className={cn('h-3 w-3 rounded-full', i < a.rating ? 'bg-teal-500' : 'bg-gray-200')} />
+                            ))}
+                          </div>
+                        </div>
+                        {a.strengths && <p className="text-xs text-muted-foreground"><strong>Strengths:</strong> {a.strengths}</p>}
+                        {a.areasForImprovement && <p className="text-xs text-muted-foreground"><strong>Areas for improvement:</strong> {a.areasForImprovement}</p>}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               )}
+            </TabsContent>
+
+            {/* Documents Tab */}
+            <TabsContent value="documents" className="p-6">
+              <div className="text-center py-12 text-muted-foreground">
+                <FileText className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                <p className="text-sm font-medium">Documents</p>
+                <p className="text-xs mt-1">Upload and manage staff documents here.</p>
+                <Button variant="outline" size="sm" className="mt-3 gap-2">
+                  <Plus className="h-4 w-4" />
+                  Upload Document
+                </Button>
+              </div>
+            </TabsContent>
+
+            {/* Timeline Tab */}
+            <TabsContent value="timeline" className="p-6">
+              <div className="space-y-4">
+                {staff.disciplinaryRecords.length === 0 && !staff.employmentDate ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Clock className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                    <p className="text-sm font-medium">Activity Timeline</p>
+                    <p className="text-xs mt-1">Staff activity will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {staff.employmentDate && (
+                      <div className="flex gap-3">
+                        <div className="flex flex-col items-center">
+                          <div className="h-8 w-8 rounded-full bg-teal-100 flex items-center justify-center">
+                            <Briefcase className="h-4 w-4 text-teal-600" />
+                          </div>
+                          <div className="w-px h-full bg-border" />
+                        </div>
+                        <div className="pb-4">
+                          <p className="text-sm font-medium">Employment Started</p>
+                          <p className="text-xs text-muted-foreground">{new Date(staff.employmentDate).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    )}
+                    {staff.disciplinaryRecords.map(d => (
+                      <div key={d.id} className="flex gap-3">
+                        <div className="flex flex-col items-center">
+                          <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center">
+                            <AlertCircle className="h-4 w-4 text-red-600" />
+                          </div>
+                          <div className="w-px h-full bg-border" />
+                        </div>
+                        <div className="pb-4">
+                          <p className="text-sm font-medium">{d.incidentType}</p>
+                          <p className="text-xs text-muted-foreground">{d.description}</p>
+                          <p className="text-[11px] text-muted-foreground mt-1">{new Date(d.date).toLocaleDateString()} &middot; {d.status}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -1165,25 +1701,69 @@ function StaffDetailView({
 
 // ─── Main Staff Module ────────────────────────────────────────────────────────
 export default function StaffModule() {
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null)
+
+  const handleSelectStaff = (id: string) => {
+    setSelectedStaffId(id)
+    setViewMode('detail')
+  }
+
+  const handleAddStaff = () => {
+    setViewMode('add')
+  }
+
+  const handleOpenSettings = () => {
+    setViewMode('settings')
+  }
+
+  const handleBackToList = () => {
+    setViewMode('list')
+    setSelectedStaffId(null)
+  }
+
+  const handleEditStaff = () => {
+    setViewMode('edit')
+  }
 
   return (
     <AnimatePresence mode="wait">
-      {selectedStaffId ? (
+      {viewMode === 'list' && (
+        <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <StaffListView
+            onSelectStaff={handleSelectStaff}
+            onAddStaff={handleAddStaff}
+            onOpenSettings={handleOpenSettings}
+          />
+        </motion.div>
+      )}
+      {viewMode === 'add' && (
+        <AddStaffInlineForm
+          key="add"
+          onBack={handleBackToList}
+          onSuccess={handleBackToList}
+        />
+      )}
+      {viewMode === 'detail' && selectedStaffId && (
         <StaffDetailView
           key="detail"
           staffId={selectedStaffId}
-          onBack={() => setSelectedStaffId(null)}
+          onBack={handleBackToList}
+          onEdit={handleEditStaff}
         />
-      ) : (
-        <motion.div
-          key="list"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <StaffListView onSelectStaff={setSelectedStaffId} />
-        </motion.div>
+      )}
+      {viewMode === 'edit' && selectedStaffId && (
+        <AddStaffInlineForm
+          key="edit"
+          onBack={() => setViewMode('detail')}
+          onSuccess={() => setViewMode('detail')}
+        />
+      )}
+      {viewMode === 'settings' && (
+        <StaffSettingsView
+          key="settings"
+          onBack={handleBackToList}
+        />
       )}
     </AnimatePresence>
   )

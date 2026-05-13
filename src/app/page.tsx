@@ -9,6 +9,7 @@ import {
   Building, MessageSquare, Settings, Clock, Trophy, Coffee,
   ShoppingCart, Shield, Monitor, Calculator, FileText, UsersRound,
   ClipboardCheck, School, BellRing, ArrowRightLeft, Bell, ShoppingBag, Printer, Globe, Palette,
+  Search, HandHeart,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSession, signIn, signOut } from 'next-auth/react'
@@ -90,6 +91,15 @@ const navGroups: NavGroup[] = [
     label: 'Community',
     items: [
       { id: 'alumni', label: 'Alumni', icon: UsersRound },
+      { id: 'partnerships', label: 'Partnerships', icon: HandHeart },
+    ],
+  },
+  {
+    label: 'Website',
+    items: [
+      { id: 'website-cms', label: 'Website CMS', icon: Globe },
+      { id: 'admin-cms', label: 'Admin CMS', icon: Palette },
+      { id: 'seo', label: 'SEO Settings', icon: Search },
     ],
   },
   {
@@ -101,8 +111,7 @@ const navGroups: NavGroup[] = [
       { id: 'communication', label: 'Communication', icon: MessageSquare },
       { id: 'documents', label: 'Documents', icon: FileText },
       { id: 'security', label: 'Security', icon: Shield },
-      { id: 'website-cms', label: 'Website CMS', icon: Globe },
-      { id: 'admin-cms', label: 'Admin CMS', icon: Palette },
+      { id: 'audit-log', label: 'Audit Log', icon: ClipboardCheck },
       { id: 'settings', label: 'Settings', icon: Settings },
       { id: 'setup-wizard', label: 'Setup Wizard', icon: School },
     ],

@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
-import { motion } from 'framer-motion'
+import React, { useState, useEffect, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Coffee,
   DollarSign,
@@ -22,25 +22,21 @@ import {
   BarChart3,
   Clock,
   CheckCircle2,
-  XCircle,
-  ChevronRight,
   Star,
   Utensils,
+  ArrowLeft,
+  Settings,
+  Save,
+  Bell,
+  Eye,
+  Loader2,
+  Receipt,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -67,114 +63,62 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
+import { useToast } from '@/hooks/use-toast'
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────
 
-interface MenuItem {
+type ViewMode = 'list' | 'add-item' | 'edit-item' | 'add-stock' | 'item-detail' | 'settings'
+
+interface CanteenItem {
   id: string
   name: string
   category: string
   price: number
-  stock: number
-  maxStock: number
-  status: 'Available' | 'Low Stock' | 'Out of Stock'
+  costPrice?: number
+  stockQuantity: number
+  reorderLevel: number
+  isActive: boolean
   image?: string
 }
 
-interface StockItem {
+interface CanteenTransaction {
+  id: string
+  transactionNumber: string
+  buyerType: string
+  buyerName: string
+  totalAmount: number
+  paymentMethod: string
+  status: string
+  createdAt: string
+  items: Array<{
+    id: string
+    itemId: string
+    quantity: number
+    unitPrice: number
+    totalPrice: number
+    item: { id: string; name: string; category: string }
+  }>
+}
+
+interface CartItem {
   id: string
   name: string
   category: string
-  quantity: number
-  unit: string
-  reorderLevel: number
-  unitCost: number
-  supplier: string
-  lastRestocked: string
-}
-
-interface CartItem extends MenuItem {
+  price: number
+  stockQuantity: number
   quantity: number
 }
 
-interface SaleRecord {
-  id: string
-  items: { name: string; qty: number; price: number }[]
-  total: number
-  paymentMethod: 'Cash' | 'ziG' | 'Card'
-  customerName: string
-  customerType: 'Student' | 'Staff'
-  timestamp: string
-  receiptNo: string
+interface CanteenStats {
+  totalItems: number
+  lowStockItems: number
+  todayRevenue: number
+  todayTransactions: number
+  categoryBreakdown: Array<{ category: string; count: number }>
 }
 
-const initialMenuItems: MenuItem[] = [
-  { id: '1', name: 'Sadza & Relish', category: 'Hot Meals', price: 1.50, stock: 45, maxStock: 60, status: 'Available' },
-  { id: '2', name: 'Sadza & Chicken', category: 'Hot Meals', price: 3.00, stock: 20, maxStock: 30, status: 'Available' },
-  { id: '3', name: 'Sadza & Beef Stew', category: 'Hot Meals', price: 2.50, stock: 15, maxStock: 30, status: 'Available' },
-  { id: '4', name: 'Rice & Chicken', category: 'Hot Meals', price: 3.00, stock: 18, maxStock: 25, status: 'Available' },
-  { id: '5', name: 'Maputi (Puffed Maize)', category: 'Snacks', price: 0.50, stock: 80, maxStock: 100, status: 'Available' },
-  { id: '6', name: 'Mahindi (Roasted Maize)', category: 'Snacks', price: 0.30, stock: 50, maxStock: 60, status: 'Available' },
-  { id: '7', name: 'Bread & Margarine', category: 'Snacks', price: 0.75, stock: 35, maxStock: 50, status: 'Available' },
-  { id: '8', name: 'Buns', category: 'Snacks', price: 0.50, stock: 40, maxStock: 50, status: 'Available' },
-  { id: '9', name: 'Chips (French Fries)', category: 'Snacks', price: 1.00, stock: 5, maxStock: 30, status: 'Low Stock' },
-  { id: '10', name: 'Mazoe Orange Drink', category: 'Beverages', price: 0.75, stock: 60, maxStock: 80, status: 'Available' },
-  { id: '11', name: 'Mazoe Mango Drink', category: 'Beverages', price: 0.75, stock: 55, maxStock: 80, status: 'Available' },
-  { id: '12', name: 'Tea & Sugar', category: 'Beverages', price: 0.30, stock: 70, maxStock: 100, status: 'Available' },
-  { id: '13', name: 'Coffee', category: 'Beverages', price: 0.50, stock: 30, maxStock: 50, status: 'Available' },
-  { id: '14', name: 'Maheu (Traditional Drink)', category: 'Beverages', price: 0.50, stock: 0, maxStock: 40, status: 'Out of Stock' },
-  { id: '15', name: 'Boiled Eggs', category: 'Snacks', price: 0.50, stock: 3, maxStock: 30, status: 'Low Stock' },
-  { id: '16', name: 'Kapenta & Sadza', category: 'Hot Meals', price: 2.00, stock: 12, maxStock: 20, status: 'Available' },
-  { id: '17', name: 'Peanut Butter Sandwich', category: 'Snacks', price: 0.60, stock: 25, maxStock: 40, status: 'Available' },
-  { id: '18', name: 'Muriwo (Vegetables) & Sadza', category: 'Hot Meals', price: 1.20, stock: 30, maxStock: 40, status: 'Available' },
-]
-
-const initialStockItems: StockItem[] = [
-  { id: '1', name: 'Mealie Meal (10kg)', category: 'Grains', quantity: 25, unit: 'bags', reorderLevel: 10, unitCost: 8.50, supplier: 'National Foods', lastRestocked: '2026-02-25' },
-  { id: '2', name: 'Rice (5kg)', category: 'Grains', quantity: 15, unit: 'bags', reorderLevel: 8, unitCost: 5.00, supplier: 'National Foods', lastRestocked: '2026-02-20' },
-  { id: '3', name: 'Chicken Portions (kg)', category: 'Proteins', quantity: 30, unit: 'kg', reorderLevel: 15, unitCost: 4.50, supplier: 'Irvine\'s Poultry', lastRestocked: '2026-02-28' },
-  { id: '4', name: 'Beef Stewing (kg)', category: 'Proteins', quantity: 20, unit: 'kg', reorderLevel: 10, unitCost: 6.00, supplier: 'Cold Storage', lastRestocked: '2026-02-27' },
-  { id: '5', name: 'Cooking Oil (2L)', category: 'Cooking', quantity: 12, unit: 'bottles', reorderLevel: 8, unitCost: 3.50, supplier: 'Olivine Industries', lastRestocked: '2026-02-22' },
-  { id: '6', name: 'Sugar (2kg)', category: 'Cooking', quantity: 18, unit: 'packs', reorderLevel: 10, unitCost: 3.00, supplier: 'Triangle Ltd', lastRestocked: '2026-02-24' },
-  { id: '7', name: 'Mazoe Concentrate (2L)', category: 'Beverages', quantity: 20, unit: 'bottles', reorderLevel: 8, unitCost: 4.50, supplier: 'Delta Corp', lastRestocked: '2026-02-26' },
-  { id: '8', name: 'Tea Bags (100pk)', category: 'Beverages', quantity: 8, unit: 'boxes', reorderLevel: 5, unitCost: 3.00, supplier: 'Tanganda Tea', lastRestocked: '2026-02-20' },
-  { id: '9', name: 'Bread Loaves', category: 'Bakery', quantity: 40, unit: 'loaves', reorderLevel: 20, unitCost: 0.90, supplier: 'Baker\'s Inn', lastRestocked: '2026-03-01' },
-  { id: '10', name: 'Buns (dozen)', category: 'Bakery', quantity: 15, unit: 'dozens', reorderLevel: 10, unitCost: 2.50, supplier: 'Baker\'s Inn', lastRestocked: '2026-03-01' },
-  { id: '11', name: 'Eggs (tray of 30)', category: 'Proteins', quantity: 5, unit: 'trays', reorderLevel: 8, unitCost: 4.00, supplier: 'Irvine\'s Poultry', lastRestocked: '2026-02-28' },
-  { id: '12', name: 'Kapenta (kg)', category: 'Proteins', quantity: 10, unit: 'kg', reorderLevel: 5, unitCost: 5.00, supplier: 'Lake Harvest', lastRestocked: '2026-02-25' },
-  { id: '13', name: 'Vegetables (bundle)', category: 'Produce', quantity: 25, unit: 'bundles', reorderLevel: 10, unitCost: 0.50, supplier: 'Mbare Musika', lastRestocked: '2026-03-01' },
-  { id: '14', name: 'Potatoes (pocket)', category: 'Produce', quantity: 8, unit: 'pockets', reorderLevel: 5, unitCost: 3.00, supplier: 'Mbare Musika', lastRestocked: '2026-02-27' },
-  { id: '15', name: 'Peanut Butter (500g)', category: 'Cooking', quantity: 12, unit: 'jars', reorderLevel: 6, unitCost: 2.00, supplier: 'Olivine Industries', lastRestocked: '2026-02-22' },
-  { id: '16', name: 'Coffee (200g)', category: 'Beverages', quantity: 6, unit: 'tins', reorderLevel: 4, unitCost: 3.50, supplier: 'Java Coffee', lastRestocked: '2026-02-18' },
-  { id: '17', name: 'Margarine (500g)', category: 'Cooking', quantity: 10, unit: 'tubs', reorderLevel: 5, unitCost: 2.50, supplier: 'Olivine Industries', lastRestocked: '2026-02-20' },
-  { id: '18', name: 'Maheu (case)', category: 'Beverages', quantity: 0, unit: 'cases', reorderLevel: 5, unitCost: 6.00, supplier: 'Delta Corp', lastRestocked: '2026-02-10' },
-]
-
-const mockSales: SaleRecord[] = [
-  { id: '1', items: [{ name: 'Sadza & Chicken', qty: 1, price: 3.00 }, { name: 'Mazoe Orange Drink', qty: 1, price: 0.75 }], total: 3.75, paymentMethod: 'Cash', customerName: 'Tendai Moyo', customerType: 'Student', timestamp: '2026-03-01T10:30:00', receiptNo: 'RCP-001' },
-  { id: '2', items: [{ name: 'Bread & Margarine', qty: 2, price: 0.75 }, { name: 'Tea & Sugar', qty: 1, price: 0.30 }], total: 1.80, paymentMethod: 'ziG', customerName: 'Chiedza Ncube', customerType: 'Student', timestamp: '2026-03-01T10:45:00', receiptNo: 'RCP-002' },
-  { id: '3', items: [{ name: 'Sadza & Beef Stew', qty: 1, price: 2.50 }, { name: 'Maheu (Traditional Drink)', qty: 1, price: 0.50 }], total: 3.00, paymentMethod: 'Card', customerName: 'Mr. Zvambe', customerType: 'Staff', timestamp: '2026-03-01T12:00:00', receiptNo: 'RCP-003' },
-  { id: '4', items: [{ name: 'Maputi (Puffed Maize)', qty: 3, price: 0.50 }, { name: 'Mazoe Mango Drink', qty: 1, price: 0.75 }], total: 2.25, paymentMethod: 'Cash', customerName: 'Rumbidzai Dube', customerType: 'Student', timestamp: '2026-03-01T12:15:00', receiptNo: 'RCP-004' },
-  { id: '5', items: [{ name: 'Chips (French Fries)', qty: 1, price: 1.00 }, { name: 'Boiled Eggs', qty: 2, price: 0.50 }], total: 2.00, paymentMethod: 'Cash', customerName: 'Kudzai Chiweshe', customerType: 'Student', timestamp: '2026-03-01T12:30:00', receiptNo: 'RCP-005' },
-  { id: '6', items: [{ name: 'Rice & Chicken', qty: 1, price: 3.00 }, { name: 'Mazoe Orange Drink', qty: 1, price: 0.75 }], total: 3.75, paymentMethod: 'ziG', customerName: 'Mrs. Chikumba', customerType: 'Staff', timestamp: '2026-03-01T12:45:00', receiptNo: 'RCP-006' },
-  { id: '7', items: [{ name: 'Sadza & Relish', qty: 2, price: 1.50 }], total: 3.00, paymentMethod: 'Cash', customerName: 'Tafara Gumbo', customerType: 'Student', timestamp: '2026-03-01T13:00:00', receiptNo: 'RCP-007' },
-  { id: '8', items: [{ name: 'Coffee', qty: 1, price: 0.50 }, { name: 'Buns', qty: 2, price: 0.50 }], total: 1.50, paymentMethod: 'Card', customerName: 'Mr. Hove', customerType: 'Staff', timestamp: '2026-03-01T07:30:00', receiptNo: 'RCP-008' },
-]
-
-const dailySalesData = [
-  { day: 'Mon', sales: 85.50, items: 68 },
-  { day: 'Tue', sales: 92.25, items: 74 },
-  { day: 'Wed', sales: 78.00, items: 62 },
-  { day: 'Thu', sales: 95.75, items: 79 },
-  { day: 'Fri', sales: 110.50, items: 88 },
-  { day: 'Sat', sales: 45.00, items: 35 },
-]
-
-const categoryChartData = [
-  { name: 'Hot Meals', value: 45, fill: '#10b981' },
-  { name: 'Snacks', value: 28, fill: '#f59e0b' },
-  { name: 'Beverages', value: 27, fill: '#06b6d4' },
-]
+// ─── Chart Config ─────────────────────────────────────────────────────────
 
 const salesChartConfig = {
   sales: { label: 'Sales (USD)', color: '#10b981' },
@@ -182,81 +126,133 @@ const salesChartConfig = {
 } satisfies ChartConfig
 
 const categoryChartConfig = {
-  'Hot Meals': { label: 'Hot Meals', color: '#10b981' },
-  'Snacks': { label: 'Snacks', color: '#f59e0b' },
-  'Beverages': { label: 'Beverages', color: '#06b6d4' },
+  count: { label: 'Items', color: '#10b981' },
 } satisfies ChartConfig
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Component ────────────────────────────────────────────────────────────
+
 export default function CanteenModule() {
   const [activeTab, setActiveTab] = useState('overview')
-  const [menuItems, setMenuItems] = useState<MenuItem[]>(initialMenuItems)
-  const [stockItems, setStockItems] = useState<StockItem[]>(initialStockItems)
-  const [sales] = useState<SaleRecord[]>(mockSales)
-  const [cart, setCart] = useState<CartItem[]>([])
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const { toast } = useToast()
+
+  // Data from API
+  const [menuItems, setMenuItems] = useState<CanteenItem[]>([])
+  const [transactions, setTransactions] = useState<CanteenTransaction[]>([])
+  const [stats, setStats] = useState<CanteenStats | null>(null)
+  const [selectedItem, setSelectedItem] = useState<CanteenItem | null>(null)
+
+  // Search & filters
   const [searchMenu, setSearchMenu] = useState('')
   const [searchStock, setSearchStock] = useState('')
-  const [addMenuOpen, setAddMenuOpen] = useState(false)
-  const [addStockOpen, setAddStockOpen] = useState(false)
   const [posSearch, setPosSearch] = useState('')
   const [posCategory, setPosCategory] = useState('All')
+
+  // POS state
+  const [cart, setCart] = useState<CartItem[]>([])
   const [customerName, setCustomerName] = useState('')
   const [customerType, setCustomerType] = useState<'Student' | 'Staff'>('Student')
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'ziG' | 'Card'>('Cash')
   const [showReceipt, setShowReceipt] = useState(false)
-  const [lastReceipt, setLastReceipt] = useState<SaleRecord | null>(null)
+  const [lastReceipt, setLastReceipt] = useState<CanteenTransaction | null>(null)
 
-  // New menu item form state
-  const [newItemName, setNewItemName] = useState('')
-  const [newItemCategory, setNewItemCategory] = useState('Hot Meals')
-  const [newItemPrice, setNewItemPrice] = useState('')
-  const [newItemStock, setNewItemStock] = useState('')
+  // Add Item form
+  const [itemForm, setItemForm] = useState({
+    name: '',
+    category: 'Hot Meals',
+    price: '',
+    costPrice: '',
+    stockQuantity: '',
+    reorderLevel: '5',
+    description: '',
+  })
 
-  // New stock item form state
-  const [newStockName, setNewStockName] = useState('')
-  const [newStockCategory, setNewStockCategory] = useState('Grains')
-  const [newStockQty, setNewStockQty] = useState('')
-  const [newStockUnit, setNewStockUnit] = useState('')
-  const [newStockReorder, setNewStockReorder] = useState('')
-  const [newStockCost, setNewStockCost] = useState('')
-  const [newStockSupplier, setNewStockSupplier] = useState('')
+  // Settings
+  const [settings, setSettings] = useState({
+    defaultCategory: 'Hot Meals',
+    priceDisplayTax: false,
+    lowStockThreshold: '5',
+    receiptFormat: 'Detailed',
+    cashEnabled: true,
+    zigEnabled: true,
+    cardEnabled: false,
+    emailReceipt: false,
+    autoDeductStock: true,
+    showCostPrice: false,
+  })
 
-  // Computed values
-  const todaySales = sales.reduce((sum, s) => sum + s.total, 0)
-  const todayItemsSold = sales.reduce((sum, s) => sum + s.items.reduce((i, item) => i + item.qty, 0), 0)
-  const lowStockItems = menuItems.filter(i => i.status === 'Low Stock' || i.status === 'Out of Stock')
-  const stockAlerts = stockItems.filter(s => s.quantity <= s.reorderLevel)
-  const popularItems = [...menuItems].sort((a, b) => (b.maxStock - b.stock) - (a.maxStock - a.stock)).slice(0, 5)
+  // ─── Data Fetching ─────────────────────────────────────────────────────
+
+  const fetchMenuItems = useCallback(async () => {
+    try {
+      setLoading(true)
+      const res = await fetch('/api/canteen')
+      if (res.ok) {
+        const d = await res.json()
+        setMenuItems(d.data || [])
+        setStats(d.stats || null)
+      }
+    } catch (err) {
+      console.error('Failed to fetch canteen items:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const fetchTransactions = useCallback(async () => {
+    try {
+      const res = await fetch('/api/canteen?type=sales&limit=50')
+      if (res.ok) {
+        const d = await res.json()
+        setTransactions(d.data || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch transactions:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchMenuItems()
+    fetchTransactions()
+  }, [fetchMenuItems, fetchTransactions])
+
+  // ─── Computed values ───────────────────────────────────────────────────
+
+  const lowStockItems = menuItems.filter(i => i.stockQuantity <= i.reorderLevel)
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const categories = ['All', ...Array.from(new Set(menuItems.map(i => i.category)))]
 
   const filteredMenuItems = menuItems.filter(item =>
     item.name.toLowerCase().includes(searchMenu.toLowerCase()) ||
     item.category.toLowerCase().includes(searchMenu.toLowerCase())
   )
 
-  const filteredStockItems = stockItems.filter(item =>
-    item.name.toLowerCase().includes(searchStock.toLowerCase()) ||
-    item.category.toLowerCase().includes(searchStock.toLowerCase())
-  )
-
   const posFilteredItems = menuItems.filter(item =>
-    item.status !== 'Out of Stock' &&
+    item.isActive &&
+    item.stockQuantity > 0 &&
     (posCategory === 'All' || item.category === posCategory) &&
     (item.name.toLowerCase().includes(posSearch.toLowerCase()) ||
      item.category.toLowerCase().includes(posSearch.toLowerCase()))
   )
 
-  const categories = ['All', ...Array.from(new Set(menuItems.map(i => i.category)))]
+  const categoryChartData = stats?.categoryBreakdown?.map((c, i) => ({
+    name: c.category,
+    value: c.count,
+    fill: ['#10b981', '#f59e0b', '#06b6d4', '#ef4444', '#8b5cf6'][i % 5],
+  })) || []
 
-  // Cart operations
-  const addToCart = (item: MenuItem) => {
+  // ─── Cart operations ───────────────────────────────────────────────────
+
+  const addToCart = (item: CanteenItem) => {
     setCart(prev => {
       const existing = prev.find(c => c.id === item.id)
       if (existing) {
-        if (existing.quantity >= item.stock) return prev
+        if (existing.quantity >= item.stockQuantity) return prev
         return prev.map(c => c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c)
       }
-      return [...prev, { ...item, quantity: 1 }]
+      return [...prev, { id: item.id, name: item.name, category: item.category, price: item.price, stockQuantity: item.stockQuantity, quantity: 1 }]
     })
   }
 
@@ -265,326 +261,409 @@ export default function CanteenModule() {
   }
 
   const updateCartQty = (itemId: string, delta: number) => {
-    setCart(prev => {
-      return prev.map(c => {
-        if (c.id === itemId) {
-          const newQty = c.quantity + delta
-          const maxQty = menuItems.find(m => m.id === itemId)?.stock ?? 0
-          if (newQty <= 0) return c
-          if (newQty > maxQty) return c
-          return { ...c, quantity: newQty }
-        }
-        return c
-      })
-    })
-  }
-
-  const processPayment = () => {
-    if (cart.length === 0) return
-    const receipt: SaleRecord = {
-      id: String(sales.length + 1),
-      items: cart.map(c => ({ name: c.name, qty: c.quantity, price: c.price })),
-      total: cartTotal,
-      paymentMethod,
-      customerName: customerName || 'Walk-in',
-      customerType,
-      timestamp: new Date().toISOString(),
-      receiptNo: `RCP-${String(sales.length + 1).padStart(3, '0')}`,
-    }
-    setLastReceipt(receipt)
-    setShowReceipt(true)
-
-    // Update stock
-    setMenuItems(prev => prev.map(item => {
-      const cartItem = cart.find(c => c.id === item.id)
-      if (cartItem) {
-        const newStock = item.stock - cartItem.quantity
-        return {
-          ...item,
-          stock: newStock,
-          status: newStock === 0 ? 'Out of Stock' : newStock <= 5 ? 'Low Stock' : 'Available',
-        }
+    setCart(prev => prev.map(c => {
+      if (c.id === itemId) {
+        const newQty = c.quantity + delta
+        const maxQty = menuItems.find(m => m.id === itemId)?.stockQuantity ?? 0
+        if (newQty <= 0) return c
+        if (newQty > maxQty) return c
+        return { ...c, quantity: newQty }
       }
-      return item
+      return c
     }))
-
-    setCart([])
-    setCustomerName('')
   }
 
-  // Add menu item
-  const handleAddMenuItem = () => {
-    if (!newItemName || !newItemPrice || !newItemStock) return
-    const stock = parseInt(newItemStock)
-    const price = parseFloat(newItemPrice)
-    const newItem: MenuItem = {
-      id: String(menuItems.length + 1),
-      name: newItemName,
-      category: newItemCategory,
-      price,
-      stock,
-      maxStock: stock,
-      status: stock === 0 ? 'Out of Stock' : stock <= 5 ? 'Low Stock' : 'Available',
+  const processPayment = async () => {
+    if (cart.length === 0) return
+    try {
+      setSubmitting(true)
+      const res = await fetch('/api/canteen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'transaction',
+          buyerType: customerType === 'Student' ? 'STUDENT' : 'STAFF',
+          buyerName: customerName || 'Walk-in',
+          paymentMethod: paymentMethod === 'Cash' ? 'CASH' : paymentMethod === 'ziG' ? 'ZIG' : 'CARD',
+          items: cart.map(c => ({ itemId: c.id, quantity: c.quantity, unitPrice: c.price })),
+        }),
+      })
+      if (res.ok) {
+        const tx = await res.json()
+        setLastReceipt(tx)
+        setShowReceipt(true)
+        toast({ title: 'Payment processed successfully' })
+        setCart([])
+        setCustomerName('')
+        fetchMenuItems()
+        fetchTransactions()
+      } else {
+        const err = await res.json()
+        toast({ title: 'Error', description: err.error || 'Failed to process payment', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to process payment', variant: 'destructive' })
+    } finally {
+      setSubmitting(false)
     }
-    setMenuItems(prev => [...prev, newItem])
-    setNewItemName('')
-    setNewItemPrice('')
-    setNewItemStock('')
-    setAddMenuOpen(false)
   }
 
-  // Add stock item
-  const handleAddStockItem = () => {
-    if (!newStockName || !newStockQty || !newStockUnit || !newStockCost || !newStockSupplier) return
-    const newStock: StockItem = {
-      id: String(stockItems.length + 1),
-      name: newStockName,
-      category: newStockCategory,
-      quantity: parseInt(newStockQty),
-      unit: newStockUnit,
-      reorderLevel: parseInt(newStockReorder || '5'),
-      unitCost: parseFloat(newStockCost),
-      supplier: newStockSupplier,
-      lastRestocked: new Date().toISOString().split('T')[0],
+  // ─── Item CRUD ─────────────────────────────────────────────────────────
+
+  const handleAddItem = async () => {
+    if (!itemForm.name || !itemForm.price) return
+    try {
+      setSubmitting(true)
+      const res = await fetch('/api/canteen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'addItem',
+          name: itemForm.name,
+          category: itemForm.category.toUpperCase().replace(/\s+/g, '_'),
+          price: parseFloat(itemForm.price),
+          costPrice: parseFloat(itemForm.costPrice) || 0,
+          stockQuantity: parseInt(itemForm.stockQuantity) || 0,
+          reorderLevel: parseInt(itemForm.reorderLevel) || 5,
+        }),
+      })
+      if (res.ok) {
+        toast({ title: 'Item added successfully' })
+        setItemForm({ name: '', category: 'Hot Meals', price: '', costPrice: '', stockQuantity: '', reorderLevel: '5', description: '' })
+        setViewMode('list')
+        fetchMenuItems()
+      } else {
+        const err = await res.json()
+        toast({ title: 'Error', description: err.error || 'Failed to add item', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to add item', variant: 'destructive' })
+    } finally {
+      setSubmitting(false)
     }
-    setStockItems(prev => [...prev, newStock])
-    setNewStockName('')
-    setNewStockQty('')
-    setNewStockUnit('')
-    setNewStockReorder('')
-    setNewStockCost('')
-    setNewStockSupplier('')
-    setAddStockOpen(false)
   }
 
-  const deleteMenuItem = (id: string) => {
-    setMenuItems(prev => prev.filter(i => i.id !== id))
+  const handleDeleteItem = async (id: string) => {
+    try {
+      const res = await fetch(`/api/canteen?id=${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        toast({ title: 'Item deleted' })
+        fetchMenuItems()
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to delete item', variant: 'destructive' })
+    }
   }
 
-  const deleteStockItem = (id: string) => {
-    setStockItems(prev => prev.filter(i => i.id !== id))
+  const handleSaveSettings = () => {
+    toast({ title: 'Settings saved', description: 'Canteen settings have been updated' })
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50">
-            <Coffee className="h-5 w-5 text-orange-600" />
+  // ─── Loading ───────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+          <div className="h-10 w-40 bg-muted animate-pulse rounded" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-32 bg-muted animate-pulse rounded-xl" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // ─── Inline Views ──────────────────────────────────────────────────────
+
+  const AddItemInlineForm = () => (
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </Button>
+        <Separator orientation="vertical" className="h-6" />
+        <h2 className="text-lg font-semibold">Add Menu Item</h2>
+      </div>
+      <Card className="border-0 shadow-md">
+        <CardContent className="p-6">
+          <div className="grid gap-6 max-w-2xl">
+            <div className="grid gap-2">
+              <Label className="text-sm font-medium">Item Name *</Label>
+              <Input placeholder="e.g. Sadza & Chicken" value={itemForm.name} onChange={e => setItemForm(p => ({ ...p, name: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label className="text-sm font-medium">Category</Label>
+                <Select value={itemForm.category} onValueChange={v => setItemForm(p => ({ ...p, category: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Hot Meals">Hot Meals</SelectItem>
+                    <SelectItem value="Snacks">Snacks</SelectItem>
+                    <SelectItem value="Beverages">Beverages</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label className="text-sm font-medium">Price (USD) *</Label>
+                <Input type="number" step="0.01" placeholder="0.00" value={itemForm.price} onChange={e => setItemForm(p => ({ ...p, price: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label className="text-sm font-medium">Cost Price (USD)</Label>
+                <Input type="number" step="0.01" placeholder="0.00" value={itemForm.costPrice} onChange={e => setItemForm(p => ({ ...p, costPrice: e.target.value }))} />
+              </div>
+              <div className="grid gap-2">
+                <Label className="text-sm font-medium">Initial Stock</Label>
+                <Input type="number" placeholder="0" value={itemForm.stockQuantity} onChange={e => setItemForm(p => ({ ...p, stockQuantity: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label className="text-sm font-medium">Reorder Level</Label>
+                <Input type="number" placeholder="5" value={itemForm.reorderLevel} onChange={e => setItemForm(p => ({ ...p, reorderLevel: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label className="text-sm font-medium">Description (optional)</Label>
+              <Textarea placeholder="Brief description..." rows={3} value={itemForm.description} onChange={e => setItemForm(p => ({ ...p, description: e.target.value }))} />
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <Button onClick={handleAddItem} disabled={submitting || !itemForm.name || !itemForm.price} className="bg-emerald-600 hover:bg-emerald-700">
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Add Item
+              </Button>
+              <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold tracking-tight">Canteen & POS</h2>
-            <p className="text-sm text-muted-foreground">Manage canteen menu, sales, and inventory</p>
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
+
+  const ItemDetailView = () => {
+    if (!selectedItem) return null
+    const isLow = selectedItem.stockQuantity <= selectedItem.reorderLevel
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => { setViewMode('list'); setSelectedItem(null) }} className="gap-1">
+            <ArrowLeft className="h-4 w-4" /> Back
+          </Button>
+          <Separator orientation="vertical" className="h-6" />
+          <h2 className="text-lg font-semibold">Item Details</h2>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 space-y-4">
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className={cn('flex h-16 w-16 items-center justify-center rounded-xl shrink-0',
+                    selectedItem.category === 'HOT_MEALS' || selectedItem.category === 'Hot Meals' ? 'bg-orange-50' :
+                    selectedItem.category === 'SNACKS' || selectedItem.category === 'Snacks' ? 'bg-amber-50' : 'bg-cyan-50'
+                  )}>
+                    <Utensils className={cn('h-8 w-8',
+                      selectedItem.category === 'HOT_MEALS' || selectedItem.category === 'Hot Meals' ? 'text-orange-600' :
+                      selectedItem.category === 'SNACKS' || selectedItem.category === 'Snacks' ? 'text-amber-600' : 'text-cyan-600'
+                    )} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-xl font-bold">{selectedItem.name}</h3>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <Badge variant="outline">{selectedItem.category.replace(/_/g, ' ')}</Badge>
+                      <Badge className={cn('text-xs border', isLow ? 'bg-red-100 text-red-700 border-red-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200')}>
+                        {isLow ? 'Low Stock' : 'In Stock'}
+                      </Badge>
+                      {!selectedItem.isActive && <Badge variant="destructive">Inactive</Badge>}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-md">
+              <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Item Information</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div><p className="text-xs text-muted-foreground">Selling Price</p><p className="text-sm font-semibold">${selectedItem.price.toFixed(2)}</p></div>
+                  {settings.showCostPrice && selectedItem.costPrice != null && <div><p className="text-xs text-muted-foreground">Cost Price</p><p className="text-sm font-semibold">${selectedItem.costPrice.toFixed(2)}</p></div>}
+                  <div><p className="text-xs text-muted-foreground">Stock Quantity</p><p className="text-sm font-semibold">{selectedItem.stockQuantity}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Reorder Level</p><p className="text-sm font-semibold">{selectedItem.reorderLevel}</p></div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          <div className="space-y-4">
+            <Card className="border-0 shadow-md">
+              <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Actions</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                <Button className="w-full justify-start gap-2" variant="outline" onClick={() => {
+                  setItemForm({ name: selectedItem.name, category: selectedItem.category.replace(/_/g, ' '), price: String(selectedItem.price), costPrice: String(selectedItem.costPrice || ''), stockQuantity: String(selectedItem.stockQuantity), reorderLevel: String(selectedItem.reorderLevel), description: '' })
+                  setViewMode('edit-item')
+                }}>
+                  <Edit className="h-4 w-4" /> Edit Item
+                </Button>
+                <Button className="w-full justify-start gap-2 text-red-600 hover:text-red-700" variant="outline" onClick={() => handleDeleteItem(selectedItem.id)}>
+                  <Trash2 className="h-4 w-4" /> Delete Item
+                </Button>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-md">
+              <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Stock Level</CardTitle></CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
+                    <div className={cn('h-full rounded-full', isLow ? 'bg-red-500' : 'bg-emerald-500')} style={{ width: `${Math.min((selectedItem.stockQuantity / Math.max(selectedItem.reorderLevel * 4, 1)) * 100, 100)}%` }} />
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{selectedItem.stockQuantity} in stock</span>
+                    <span className="text-muted-foreground">Reorder at {selectedItem.reorderLevel}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </motion.div>
+    )
+  }
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="menu">Menu Items</TabsTrigger>
-          <TabsTrigger value="pos">Point of Sale</TabsTrigger>
-          <TabsTrigger value="stock">Stock</TabsTrigger>
-          <TabsTrigger value="reports">Sales Reports</TabsTrigger>
-        </TabsList>
-
-        {/* ─── Overview Tab ─────────────────────────────────────────────────── */}
-        <TabsContent value="overview" className="space-y-4">
-          {/* Stats Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Today&apos;s Sales</p>
-                    <p className="text-2xl font-bold">${todaySales.toFixed(2)}</p>
-                    <div className="flex items-center gap-1">
-                      <TrendingUp className="h-3 w-3 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-600">+12% vs yesterday</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
-                    <DollarSign className="h-5 w-5 text-emerald-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Items Sold</p>
-                    <p className="text-2xl font-bold">{todayItemsSold}</p>
-                    <div className="flex items-center gap-1">
-                      <TrendingUp className="h-3 w-3 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-600">+8% vs yesterday</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50">
-                    <ShoppingCart className="h-5 w-5 text-teal-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Low Stock Alerts</p>
-                    <p className="text-2xl font-bold">{lowStockItems.length + stockAlerts.length}</p>
-                    <div className="flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3 text-amber-600" />
-                      <span className="text-xs font-medium text-amber-600">Needs attention</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
-                    <AlertTriangle className="h-5 w-5 text-amber-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Weekly Revenue</p>
-                    <p className="text-2xl font-bold">${dailySalesData.reduce((s, d) => s + d.sales, 0).toFixed(2)}</p>
-                    <div className="flex items-center gap-1">
-                      <TrendingUp className="h-3 w-3 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-600">+5% vs last week</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50">
-                    <BarChart3 className="h-5 w-5 text-cyan-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Popular Items + Stock Alerts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Star className="h-4 w-4 text-amber-500" />
-                  Popular Items Today
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {popularItems.map((item, idx) => (
-                  <div key={item.id} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white',
-                        idx === 0 ? 'bg-amber-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-orange-400' : 'bg-muted text-muted-foreground'
-                      )}>
-                        {idx + 1}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">{item.category}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold">${item.price.toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">{item.maxStock - item.stock} sold</p>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
-                  Stock Alerts
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 max-h-64 overflow-y-auto">
-                {lowStockItems.length === 0 && stockAlerts.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">All stock levels are healthy</p>
-                ) : (
-                  <>
-                    {lowStockItems.map(item => (
-                      <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-amber-50/60 dark:bg-amber-950/30">
-                        <div className="flex items-center gap-2">
-                          <Badge variant={item.status === 'Out of Stock' ? 'destructive' : 'secondary'} className="text-[10px]">
-                            {item.status}
-                          </Badge>
-                          <span className="text-sm">{item.name}</span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">{item.stock}/{item.maxStock}</span>
-                      </div>
-                    ))}
-                    {stockAlerts.filter(s => !lowStockItems.find(l => l.name.includes(s.name.split(' ')[0]))).slice(0, 3).map(item => (
-                      <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-orange-50/60 dark:bg-orange-950/30">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="text-[10px]">Reorder</Badge>
-                          <span className="text-sm">{item.name}</span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">{item.quantity}/{item.reorderLevel}</span>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Daily Sales Chart */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Daily Sales This Week</CardTitle>
-              <CardDescription>Revenue and item count by day</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={salesChartConfig} className="h-[280px] w-full">
-                <BarChart data={dailySalesData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                  <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="sales" fill="var(--color-sales)" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                </BarChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ─── Menu Items Tab ───────────────────────────────────────────────── */}
-        <TabsContent value="menu" className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search menu items..."
-                className="pl-9 h-9"
-                value={searchMenu}
-                onChange={e => setSearchMenu(e.target.value)}
-              />
+  const CanteenSettingsView = () => (
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </Button>
+        <Separator orientation="vertical" className="h-6" />
+        <h2 className="text-lg font-semibold">Canteen Settings</h2>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="border-0 shadow-md">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold flex items-center gap-2"><Eye className="h-4 w-4 text-emerald-600" /> Display Preferences</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-2">
+              <Label className="text-sm">Default Category</Label>
+              <Select value={settings.defaultCategory} onValueChange={v => setSettings(p => ({ ...p, defaultCategory: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Hot Meals">Hot Meals</SelectItem>
+                  <SelectItem value="Snacks">Snacks</SelectItem>
+                  <SelectItem value="Beverages">Beverages</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Dialog open={addMenuOpen} onOpenChange={setAddMenuOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-                  <Plus className="h-4 w-4" /> Add Item
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add Menu Item</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-2">
-                  <div className="space-y-2">
-                    <Label>Item Name</Label>
-                    <Input value={newItemName} onChange={e => setNewItemName(e.target.value)} placeholder="e.g. Sadza & Chicken" />
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">Show Cost Price</Label>
+              <Switch checked={settings.showCostPrice} onCheckedChange={v => setSettings(p => ({ ...p, showCostPrice: v }))} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">Price Includes Tax</Label>
+              <Switch checked={settings.priceDisplayTax} onCheckedChange={v => setSettings(p => ({ ...p, priceDisplayTax: v }))} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-md">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600" /> Stock Alerts</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-2">
+              <Label className="text-sm">Low Stock Alert Threshold</Label>
+              <Input type="number" min="1" value={settings.lowStockThreshold} onChange={e => setSettings(p => ({ ...p, lowStockThreshold: e.target.value }))} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm">Auto-Deduct Stock</Label>
+                <p className="text-xs text-muted-foreground">Reduce stock on sale</p>
+              </div>
+              <Switch checked={settings.autoDeductStock} onCheckedChange={v => setSettings(p => ({ ...p, autoDeductStock: v }))} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-md">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold flex items-center gap-2"><CreditCard className="h-4 w-4 text-teal-600" /> Payment Methods</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2"><Banknote className="h-4 w-4 text-emerald-600" /> <Label className="text-sm">Cash</Label></div>
+              <Switch checked={settings.cashEnabled} onCheckedChange={v => setSettings(p => ({ ...p, cashEnabled: v }))} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2"><Wallet className="h-4 w-4 text-amber-600" /> <Label className="text-sm">ZiG (Zimbabwe Gold)</Label></div>
+              <Switch checked={settings.zigEnabled} onCheckedChange={v => setSettings(p => ({ ...p, zigEnabled: v }))} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2"><CreditCard className="h-4 w-4 text-cyan-600" /> <Label className="text-sm">Card / EcoCash</Label></div>
+              <Switch checked={settings.cardEnabled} onCheckedChange={v => setSettings(p => ({ ...p, cardEnabled: v }))} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-md">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold flex items-center gap-2"><Receipt className="h-4 w-4 text-purple-600" /> Receipt Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-2">
+              <Label className="text-sm">Receipt Format</Label>
+              <Select value={settings.receiptFormat} onValueChange={v => setSettings(p => ({ ...p, receiptFormat: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Detailed">Detailed</SelectItem>
+                  <SelectItem value="Simple">Simple</SelectItem>
+                  <SelectItem value="Compact">Compact</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">Email Receipt</Label>
+              <Switch checked={settings.emailReceipt} onCheckedChange={v => setSettings(p => ({ ...p, emailReceipt: v }))} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="flex items-center gap-3">
+        <Button onClick={handleSaveSettings} className="bg-emerald-600 hover:bg-emerald-700">
+          <Save className="mr-2 h-4 w-4" /> Save Settings
+        </Button>
+      </div>
+    </motion.div>
+  )
+
+  // ─── Main Render ───────────────────────────────────────────────────────
+
+  return (
+    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+      <AnimatePresence mode="wait">
+        {viewMode === 'add-item' && <AddItemInlineForm key="add-item" />}
+        {viewMode === 'edit-item' && (
+          <motion.div key="edit-item" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1">
+                <ArrowLeft className="h-4 w-4" /> Back
+              </Button>
+              <Separator orientation="vertical" className="h-6" />
+              <h2 className="text-lg font-semibold">Edit Menu Item</h2>
+            </div>
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-6">
+                <div className="grid gap-6 max-w-2xl">
+                  <div className="grid gap-2">
+                    <Label className="text-sm font-medium">Item Name *</Label>
+                    <Input value={itemForm.name} onChange={e => setItemForm(p => ({ ...p, name: e.target.value }))} />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Category</Label>
-                      <Select value={newItemCategory} onValueChange={setNewItemCategory}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-sm font-medium">Category</Label>
+                      <Select value={itemForm.category} onValueChange={v => setItemForm(p => ({ ...p, category: v }))}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="Hot Meals">Hot Meals</SelectItem>
@@ -593,643 +672,532 @@ export default function CanteenModule() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Price (USD)</Label>
-                      <Input type="number" step="0.01" value={newItemPrice} onChange={e => setNewItemPrice(e.target.value)} placeholder="0.00" />
+                    <div className="grid gap-2">
+                      <Label className="text-sm font-medium">Price (USD) *</Label>
+                      <Input type="number" step="0.01" value={itemForm.price} onChange={e => setItemForm(p => ({ ...p, price: e.target.value }))} />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Initial Stock</Label>
-                    <Input type="number" value={newItemStock} onChange={e => setNewItemStock(e.target.value)} placeholder="0" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-sm font-medium">Stock Quantity</Label>
+                      <Input type="number" value={itemForm.stockQuantity} onChange={e => setItemForm(p => ({ ...p, stockQuantity: e.target.value }))} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-sm font-medium">Reorder Level</Label>
+                      <Input type="number" value={itemForm.reorderLevel} onChange={e => setItemForm(p => ({ ...p, reorderLevel: e.target.value }))} />
+                    </div>
                   </div>
-                </div>
-                <DialogFooter>
-                  <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-                  <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleAddMenuItem}>Add Item</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Price (USD)</TableHead>
-                    <TableHead>Stock</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredMenuItems.map(item => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">{item.category}</Badge>
-                      </TableCell>
-                      <TableCell>${item.price.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="w-16 bg-muted rounded-full h-2">
-                            <div
-                              className={cn(
-                                'h-2 rounded-full transition-all',
-                                item.stock / item.maxStock > 0.5 ? 'bg-emerald-500' :
-                                item.stock / item.maxStock > 0.2 ? 'bg-amber-500' : 'bg-red-500'
-                              )}
-                              style={{ width: `${Math.max((item.stock / item.maxStock) * 100, 2)}%` }}
-                            />
-                          </div>
-                          <span className="text-xs text-muted-foreground">{item.stock}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={item.status === 'Available' ? 'default' : item.status === 'Low Stock' ? 'secondary' : 'destructive'}
-                          className="text-[10px]"
-                        >
-                          {item.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Edit className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700" onClick={() => deleteMenuItem(item.id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ─── Point of Sale Tab ────────────────────────────────────────────── */}
-        <TabsContent value="pos" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Item Selection (2/3) */}
-            <div className="lg:col-span-2 space-y-4">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search items..."
-                    className="pl-9 h-9"
-                    value={posSearch}
-                    onChange={e => setPosSearch(e.target.value)}
-                  />
-                </div>
-                <div className="flex gap-1 flex-wrap">
-                  {categories.map(cat => (
-                    <Button
-                      key={cat}
-                      variant={posCategory === cat ? 'default' : 'outline'}
-                      size="sm"
-                      className={cn('h-9 text-xs', posCategory === cat && 'bg-emerald-600 hover:bg-emerald-700')}
-                      onClick={() => setPosCategory(cat)}
-                    >
-                      {cat}
+                  <div className="flex items-center gap-3 pt-2">
+                    <Button onClick={async () => {
+                      if (!selectedItem || !itemForm.name || !itemForm.price) return
+                      setSubmitting(true)
+                      try {
+                        const res = await fetch('/api/canteen', {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            id: selectedItem.id,
+                            name: itemForm.name,
+                            category: itemForm.category.toUpperCase().replace(/\s+/g, '_'),
+                            price: parseFloat(itemForm.price),
+                            costPrice: parseFloat(itemForm.costPrice) || 0,
+                            stockQuantity: parseInt(itemForm.stockQuantity) || 0,
+                            reorderLevel: parseInt(itemForm.reorderLevel) || 5,
+                          }),
+                        })
+                        if (res.ok) {
+                          toast({ title: 'Item updated successfully' })
+                          setViewMode('list')
+                          fetchMenuItems()
+                        }
+                      } catch { toast({ title: 'Error', description: 'Failed to update item', variant: 'destructive' }) }
+                      finally { setSubmitting(false) }
+                    }} disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700">
+                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Changes
                     </Button>
-                  ))}
+                    <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+                  </div>
                 </div>
-              </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+        {viewMode === 'item-detail' && <ItemDetailView key="item-detail" />}
+        {viewMode === 'settings' && <CanteenSettingsView key="settings" />}
+      </AnimatePresence>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {posFilteredItems.map(item => (
-                  <motion.button
-                    key={item.id}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="flex flex-col items-center gap-2 p-4 rounded-xl border bg-background hover:shadow-md transition-shadow text-center"
-                    onClick={() => addToCart(item)}
-                  >
-                    <div className={cn(
-                      'flex h-10 w-10 items-center justify-center rounded-lg',
-                      item.category === 'Hot Meals' ? 'bg-orange-50' :
-                      item.category === 'Snacks' ? 'bg-amber-50' : 'bg-cyan-50'
-                    )}>
-                      <Utensils className={cn(
-                        'h-5 w-5',
-                        item.category === 'Hot Meals' ? 'text-orange-600' :
-                        item.category === 'Snacks' ? 'text-amber-600' : 'text-cyan-600'
-                      )} />
-                    </div>
-                    <span className="text-xs font-medium line-clamp-2">{item.name}</span>
-                    <span className="text-sm font-bold text-emerald-600">${item.price.toFixed(2)}</span>
-                    {item.status === 'Low Stock' && (
-                      <Badge variant="secondary" className="text-[9px]">Low Stock</Badge>
-                    )}
-                  </motion.button>
-                ))}
+      {viewMode === 'list' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50">
+                <Coffee className="h-5 w-5 text-orange-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold tracking-tight">Canteen & POS</h2>
+                <p className="text-sm text-muted-foreground">Manage canteen menu, sales, and inventory</p>
               </div>
             </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setViewMode('settings')} className="gap-1">
+                <Settings className="h-4 w-4" /> Settings
+              </Button>
+              <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => {
+                setItemForm({ name: '', category: settings.defaultCategory, price: '', costPrice: '', stockQuantity: '', reorderLevel: settings.lowStockThreshold, description: '' })
+                setViewMode('add-item')
+              }}>
+                <Plus className="h-4 w-4" /> Add Item
+              </Button>
+            </div>
+          </div>
 
-            {/* Cart & Payment (1/3) */}
-            <div className="space-y-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="menu">Menu Items</TabsTrigger>
+              <TabsTrigger value="pos">Point of Sale</TabsTrigger>
+              <TabsTrigger value="stock">Stock</TabsTrigger>
+              <TabsTrigger value="reports">Sales</TabsTrigger>
+            </TabsList>
+
+            {/* ─── Overview Tab ─────────────────────────────────────────────── */}
+            <TabsContent value="overview" className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="border-0 shadow-md">
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Today&apos;s Sales</p>
+                        <p className="text-2xl font-bold">${(stats?.todayRevenue || 0).toFixed(2)}</p>
+                        <div className="flex items-center gap-1"><TrendingUp className="h-3 w-3 text-emerald-600" /><span className="text-xs font-medium text-emerald-600">{stats?.todayTransactions || 0} transactions</span></div>
+                      </div>
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50"><DollarSign className="h-5 w-5 text-emerald-600" /></div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-md">
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Menu Items</p>
+                        <p className="text-2xl font-bold">{stats?.totalItems || 0}</p>
+                        <div className="flex items-center gap-1"><Package className="h-3 w-3 text-teal-600" /><span className="text-xs font-medium text-teal-600">Active items</span></div>
+                      </div>
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50"><ShoppingCart className="h-5 w-5 text-teal-600" /></div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-md">
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Low Stock</p>
+                        <p className="text-2xl font-bold">{stats?.lowStockItems || 0}</p>
+                        <div className="flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-amber-600" /><span className="text-xs font-medium text-amber-600">Needs attention</span></div>
+                      </div>
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50"><AlertTriangle className="h-5 w-5 text-amber-600" /></div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-md">
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Categories</p>
+                        <p className="text-2xl font-bold">{stats?.categoryBreakdown?.length || 0}</p>
+                        <div className="flex items-center gap-1"><BarChart3 className="h-3 w-3 text-cyan-600" /><span className="text-xs font-medium text-cyan-600">Item groups</span></div>
+                      </div>
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50"><BarChart3 className="h-5 w-5 text-cyan-600" /></div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card className="border-0 shadow-md">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2"><Star className="h-4 w-4 text-amber-500" /> Low Stock Items</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 max-h-64 overflow-y-auto">
+                    {lowStockItems.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">All stock levels are healthy</p>
+                    ) : (
+                      lowStockItems.map(item => (
+                        <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-amber-50/60 dark:bg-amber-950/30">
+                          <div className="flex items-center gap-2">
+                            <Badge variant={item.stockQuantity === 0 ? 'destructive' : 'secondary'} className="text-[10px]">
+                              {item.stockQuantity === 0 ? 'Out of Stock' : 'Low Stock'}
+                            </Badge>
+                            <span className="text-sm">{item.name}</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">{item.stockQuantity}/{item.reorderLevel}</span>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-0 shadow-md">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-semibold">Items by Category</CardTitle>
+                    <CardDescription>Distribution across categories</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {categoryChartData.length > 0 ? (
+                      <ChartContainer config={categoryChartConfig} className="h-[220px] w-full">
+                        <PieChart>
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Pie data={categoryChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={4} strokeWidth={0}>
+                            {categoryChartData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.fill} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ChartContainer>
+                    ) : (
+                      <div className="h-[220px] flex items-center justify-center text-sm text-muted-foreground">No data available</div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
               <Card className="border-0 shadow-md">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <ShoppingCart className="h-4 w-4" /> Cart
-                    {cart.length > 0 && <Badge className="ml-auto">{cart.length}</Badge>}
-                  </CardTitle>
+                  <CardTitle className="text-base font-semibold">Recent Transactions</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  {cart.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-6">Cart is empty. Select items to add.</p>
-                  ) : (
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {cart.map(item => (
-                        <div key={item.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/40">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium truncate">{item.name}</p>
-                            <p className="text-xs text-muted-foreground">${item.price.toFixed(2)} each</p>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateCartQty(item.id, -1)}>
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <span className="text-sm font-semibold w-6 text-center">{item.quantity}</span>
-                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateCartQty(item.id, 1)}>
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => removeFromCart(item.id)}>
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
+                <CardContent>
+                  <div className="max-h-64 overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Receipt #</TableHead>
+                          <TableHead>Buyer</TableHead>
+                          <TableHead>Payment</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Time</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {transactions.slice(0, 10).map(tx => (
+                          <TableRow key={tx.id}>
+                            <TableCell className="font-mono text-xs">{tx.transactionNumber}</TableCell>
+                            <TableCell className="text-sm">{tx.buyerName}</TableCell>
+                            <TableCell><Badge variant="outline" className="text-[10px]">{tx.paymentMethod}</Badge></TableCell>
+                            <TableCell className="text-sm font-semibold">${tx.totalAmount.toFixed(2)}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleTimeString('en-ZW', { hour: '2-digit', minute: '2-digit' })}</TableCell>
+                          </TableRow>
+                        ))}
+                        {transactions.length === 0 && (
+                          <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-4">No transactions yet</TableCell></TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* ─── Menu Items Tab ───────────────────────────────────────────── */}
+            <TabsContent value="menu" className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input placeholder="Search menu items..." className="pl-9 h-9" value={searchMenu} onChange={e => setSearchMenu(e.target.value)} />
+                </div>
+              </div>
+              <Card className="border-0 shadow-md">
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Item Name</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Price (USD)</TableHead>
+                        <TableHead>Stock</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredMenuItems.map(item => (
+                        <TableRow key={item.id} className="cursor-pointer" onClick={() => { setSelectedItem(item); setViewMode('item-detail') }}>
+                          <TableCell className="font-medium">{item.name}</TableCell>
+                          <TableCell><Badge variant="outline" className="text-xs">{item.category.replace(/_/g, ' ')}</Badge></TableCell>
+                          <TableCell>${item.price.toFixed(2)}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 bg-muted rounded-full h-2">
+                                <div className={cn('h-2 rounded-full transition-all', item.stockQuantity > item.reorderLevel * 2 ? 'bg-emerald-500' : item.stockQuantity > item.reorderLevel ? 'bg-amber-500' : 'bg-red-500')} style={{ width: `${Math.max((item.stockQuantity / Math.max(item.reorderLevel * 4, 1)) * 100, 2)}%` }} />
+                              </div>
+                              <span className="text-xs text-muted-foreground">{item.stockQuantity}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={item.stockQuantity === 0 ? 'destructive' : item.stockQuantity <= item.reorderLevel ? 'secondary' : 'default'} className="text-[10px]">
+                              {item.stockQuantity === 0 ? 'Out of Stock' : item.stockQuantity <= item.reorderLevel ? 'Low Stock' : 'Available'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedItem(item); setViewMode('item-detail') }}><Eye className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                                setItemForm({ name: item.name, category: item.category.replace(/_/g, ' '), price: String(item.price), costPrice: String(item.costPrice || ''), stockQuantity: String(item.stockQuantity), reorderLevel: String(item.reorderLevel), description: '' })
+                                setSelectedItem(item)
+                                setViewMode('edit-item')
+                              }}><Edit className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700" onClick={() => handleDeleteItem(item.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {filteredMenuItems.length === 0 && (
+                        <TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">No items found</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* ─── Point of Sale Tab ────────────────────────────────────────── */}
+            <TabsContent value="pos" className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-2 space-y-4">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input placeholder="Search items..." className="pl-9 h-9" value={posSearch} onChange={e => setPosSearch(e.target.value)} />
+                    </div>
+                    <div className="flex gap-1 flex-wrap">
+                      {categories.map(cat => (
+                        <Button key={cat} variant={posCategory === cat ? 'default' : 'outline'} size="sm" className={cn('h-9 text-xs', posCategory === cat && 'bg-emerald-600 hover:bg-emerald-700')} onClick={() => setPosCategory(cat)}>{cat}</Button>
                       ))}
                     </div>
-                  )}
-
-                  {cart.length > 0 && (
-                    <>
-                      <Separator />
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Total</span>
-                        <span className="text-xl font-bold text-emerald-600">${cartTotal.toFixed(2)}</span>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold">Payment</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="space-y-2">
-                    <Label className="text-xs">Customer Name</Label>
-                    <Input
-                      placeholder="Student/Staff name"
-                      value={customerName}
-                      onChange={e => setCustomerName(e.target.value)}
-                      className="h-9"
-                    />
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Customer Type</Label>
-                    <Select value={customerType} onValueChange={v => setCustomerType(v as 'Student' | 'Staff')}>
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Student">Student</SelectItem>
-                        <SelectItem value="Staff">Staff</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Payment Method</Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <Button
-                        variant={paymentMethod === 'Cash' ? 'default' : 'outline'}
-                        size="sm"
-                        className={cn('gap-1 h-9 text-xs', paymentMethod === 'Cash' && 'bg-emerald-600 hover:bg-emerald-700')}
-                        onClick={() => setPaymentMethod('Cash')}
-                      >
-                        <Banknote className="h-3 w-3" /> Cash
-                      </Button>
-                      <Button
-                        variant={paymentMethod === 'ziG' ? 'default' : 'outline'}
-                        size="sm"
-                        className={cn('gap-1 h-9 text-xs', paymentMethod === 'ziG' && 'bg-emerald-600 hover:bg-emerald-700')}
-                        onClick={() => setPaymentMethod('ziG')}
-                      >
-                        <Wallet className="h-3 w-3" /> ziG
-                      </Button>
-                      <Button
-                        variant={paymentMethod === 'Card' ? 'default' : 'outline'}
-                        size="sm"
-                        className={cn('gap-1 h-9 text-xs', paymentMethod === 'Card' && 'bg-emerald-600 hover:bg-emerald-700')}
-                        onClick={() => setPaymentMethod('Card')}
-                      >
-                        <CreditCard className="h-3 w-3" /> Card
-                      </Button>
-                    </div>
-                  </div>
-                  <Button
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 gap-2"
-                    disabled={cart.length === 0}
-                    onClick={processPayment}
-                  >
-                    <CheckCircle2 className="h-4 w-4" /> Process Payment
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* Receipt Dialog */}
-          <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
-            <DialogContent className="max-w-sm">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Printer className="h-4 w-4" /> Receipt
-                </DialogTitle>
-              </DialogHeader>
-              {lastReceipt && (
-                <div className="space-y-4 py-2">
-                  <div className="text-center">
-                    <p className="font-bold text-lg">ZimSchool Canteen</p>
-                    <p className="text-xs text-muted-foreground">Receipt #{lastReceipt.receiptNo}</p>
-                    <p className="text-xs text-muted-foreground">{new Date(lastReceipt.timestamp).toLocaleString('en-ZW')}</p>
-                  </div>
-                  <Separator />
-                  <div className="space-y-2">
-                    {lastReceipt.items.map((item, idx) => (
-                      <div key={idx} className="flex justify-between text-sm">
-                        <span>{item.name} x{item.qty}</span>
-                        <span>${(item.price * item.qty).toFixed(2)}</span>
-                      </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {posFilteredItems.map(item => (
+                      <motion.button key={item.id} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex flex-col items-center gap-2 p-4 rounded-xl border bg-background hover:shadow-md transition-shadow text-center" onClick={() => addToCart(item)}>
+                        <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg',
+                          item.category === 'HOT_MEALS' || item.category === 'Hot Meals' ? 'bg-orange-50' :
+                          item.category === 'SNACKS' || item.category === 'Snacks' ? 'bg-amber-50' : 'bg-cyan-50'
+                        )}>
+                          <Utensils className={cn('h-5 w-5',
+                            item.category === 'HOT_MEALS' || item.category === 'Hot Meals' ? 'text-orange-600' :
+                            item.category === 'SNACKS' || item.category === 'Snacks' ? 'text-amber-600' : 'text-cyan-600'
+                          )} />
+                        </div>
+                        <span className="text-xs font-medium line-clamp-2">{item.name}</span>
+                        <span className="text-sm font-bold text-emerald-600">${item.price.toFixed(2)}</span>
+                        {item.stockQuantity <= item.reorderLevel && <Badge variant="secondary" className="text-[9px]">Low Stock</Badge>}
+                      </motion.button>
                     ))}
                   </div>
-                  <Separator />
-                  <div className="flex justify-between font-bold">
-                    <span>Total</span>
-                    <span>${lastReceipt.total.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Payment</span>
-                    <span>{lastReceipt.paymentMethod}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Customer</span>
-                    <span>{lastReceipt.customerName} ({lastReceipt.customerType})</span>
-                  </div>
-                  <Separator />
-                  <p className="text-center text-xs text-muted-foreground">Thank you for your purchase!</p>
                 </div>
-              )}
-              <DialogFooter>
-                <Button variant="outline" className="gap-2" onClick={() => setShowReceipt(false)}>
-                  <Printer className="h-4 w-4" /> Print
-                </Button>
-                <DialogClose asChild>
-                  <Button>Close</Button>
-                </DialogClose>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </TabsContent>
 
-        {/* ─── Stock Tab ────────────────────────────────────────────────────── */}
-        <TabsContent value="stock" className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search inventory..."
-                className="pl-9 h-9"
-                value={searchStock}
-                onChange={e => setSearchStock(e.target.value)}
-              />
-            </div>
-            <Dialog open={addStockOpen} onOpenChange={setAddStockOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-                  <Plus className="h-4 w-4" /> Add Stock
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add Stock Item</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-2">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Item Name</Label>
-                      <Input value={newStockName} onChange={e => setNewStockName(e.target.value)} placeholder="e.g. Mealie Meal" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Category</Label>
-                      <Select value={newStockCategory} onValueChange={setNewStockCategory}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Grains">Grains</SelectItem>
-                          <SelectItem value="Proteins">Proteins</SelectItem>
-                          <SelectItem value="Cooking">Cooking</SelectItem>
-                          <SelectItem value="Beverages">Beverages</SelectItem>
-                          <SelectItem value="Bakery">Bakery</SelectItem>
-                          <SelectItem value="Produce">Produce</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label>Quantity</Label>
-                      <Input type="number" value={newStockQty} onChange={e => setNewStockQty(e.target.value)} placeholder="0" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Unit</Label>
-                      <Input value={newStockUnit} onChange={e => setNewStockUnit(e.target.value)} placeholder="e.g. bags, kg" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Reorder Level</Label>
-                      <Input type="number" value={newStockReorder} onChange={e => setNewStockReorder(e.target.value)} placeholder="5" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Unit Cost (USD)</Label>
-                      <Input type="number" step="0.01" value={newStockCost} onChange={e => setNewStockCost(e.target.value)} placeholder="0.00" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Supplier</Label>
-                      <Input value={newStockSupplier} onChange={e => setNewStockSupplier(e.target.value)} placeholder="Supplier name" />
-                    </div>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-                  <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleAddStockItem}>Add Stock</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          {/* Reorder Alert Banner */}
-          {stockAlerts.length > 0 && (
-            <Card className="border-0 shadow-md border-l-4 border-l-amber-400 bg-amber-50/50">
-              <CardContent className="p-4 flex items-center gap-3">
-                <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-amber-800">{stockAlerts.length} items below reorder level</p>
-                  <p className="text-xs text-amber-600 mt-0.5">
-                    {stockAlerts.map(s => s.name).join(', ')}
-                  </p>
-                </div>
-                <Button variant="outline" size="sm" className="h-8 text-xs gap-1 border-amber-300 text-amber-700 hover:bg-amber-100">
-                  Generate Order <ChevronRight className="h-3 w-3" />
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Unit</TableHead>
-                    <TableHead>Reorder Level</TableHead>
-                    <TableHead>Unit Cost</TableHead>
-                    <TableHead>Supplier</TableHead>
-                    <TableHead>Last Restocked</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredStockItems.map(item => (
-                    <TableRow key={item.id} className={cn(item.quantity <= item.reorderLevel && 'bg-red-50/40')}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          {item.quantity <= item.reorderLevel && <AlertTriangle className="h-3.5 w-3.5 text-red-500" />}
-                          {item.name}
-                        </div>
-                      </TableCell>
-                      <TableCell><Badge variant="outline" className="text-xs">{item.category}</Badge></TableCell>
-                      <TableCell className={cn(item.quantity <= item.reorderLevel && 'font-bold text-red-600')}>
-                        {item.quantity}
-                      </TableCell>
-                      <TableCell>{item.unit}</TableCell>
-                      <TableCell>{item.reorderLevel}</TableCell>
-                      <TableCell>${item.unitCost.toFixed(2)}</TableCell>
-                      <TableCell className="text-sm">{item.supplier}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{item.lastRestocked}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Package className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700" onClick={() => deleteStockItem(item.id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ─── Sales Reports Tab ────────────────────────────────────────────── */}
-        <TabsContent value="reports" className="space-y-4">
-          {/* Revenue Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Today&apos;s Revenue</p>
-                <p className="text-2xl font-bold mt-1">${todaySales.toFixed(2)}</p>
-                <p className="text-xs text-emerald-600 mt-1">+12% vs yesterday</p>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Weekly Revenue</p>
-                <p className="text-2xl font-bold mt-1">${dailySalesData.reduce((s, d) => s + d.sales, 0).toFixed(2)}</p>
-                <p className="text-xs text-emerald-600 mt-1">+5% vs last week</p>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Avg Transaction</p>
-                <p className="text-2xl font-bold mt-1">${(todaySales / Math.max(sales.length, 1)).toFixed(2)}</p>
-                <p className="text-xs text-muted-foreground mt-1">{sales.length} transactions today</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Charts Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold">Daily Sales Trend</CardTitle>
-                <CardDescription>Revenue by day this week (USD)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer config={salesChartConfig} className="h-[280px] w-full">
-                  <BarChart data={dailySalesData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                    <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="sales" fill="var(--color-sales)" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                  </BarChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold">Revenue by Category</CardTitle>
-                <CardDescription>Sales breakdown by food category</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-center">
-                  <ChartContainer config={categoryChartConfig} className="h-[250px] w-full">
-                    <PieChart>
-                      <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
-                      <Pie
-                        data={categoryChartData}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={55}
-                        outerRadius={85}
-                        paddingAngle={4}
-                        strokeWidth={0}
-                      >
-                        {categoryChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ChartContainer>
-                </div>
-                <div className="flex items-center justify-center gap-6 mt-2">
-                  {categoryChartData.map((entry) => (
-                    <div key={entry.name} className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-full" style={{ backgroundColor: entry.fill }} />
-                      <span className="text-sm text-muted-foreground">{entry.name} ({entry.value}%)</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Top Sellers Table */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Top Sellers This Week</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Rank</TableHead>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Units Sold</TableHead>
-                    <TableHead>Revenue</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {popularItems.map((item, idx) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        <div className={cn(
-                          'flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold text-white',
-                          idx === 0 ? 'bg-amber-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-orange-400' : 'bg-muted text-muted-foreground'
-                        )}>
-                          {idx + 1}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-xs">{item.category}</Badge></TableCell>
-                      <TableCell>{item.maxStock - item.stock}</TableCell>
-                      <TableCell className="font-semibold">${((item.maxStock - item.stock) * item.price).toFixed(2)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          {/* Recent Transactions */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Recent Transactions</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Receipt</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Items</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Payment</TableHead>
-                    <TableHead>Time</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sales.map(sale => (
-                    <TableRow key={sale.id}>
-                      <TableCell className="font-mono text-xs">{sale.receiptNo}</TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="text-sm font-medium">{sale.customerName}</p>
-                          <Badge variant="outline" className="text-[9px]">{sale.customerType}</Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="max-w-48">
-                          {sale.items.map((item, idx) => (
-                            <span key={idx} className="text-xs text-muted-foreground">
-                              {item.name} x{item.qty}{idx < sale.items.length - 1 ? ', ' : ''}
-                            </span>
+                <div className="space-y-4">
+                  <Card className="border-0 shadow-md">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2">
+                        <ShoppingCart className="h-4 w-4" /> Cart
+                        {cart.length > 0 && <Badge className="ml-auto">{cart.length}</Badge>}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {cart.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-6">Cart is empty</p>
+                      ) : (
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                          {cart.map(item => (
+                            <div key={item.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/40">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">{item.name}</p>
+                                <p className="text-xs text-muted-foreground">${item.price.toFixed(2)} each</p>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateCartQty(item.id, -1)}><Minus className="h-3 w-3" /></Button>
+                                <span className="text-sm font-semibold w-6 text-center">{item.quantity}</span>
+                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateCartQty(item.id, 1)}><Plus className="h-3 w-3" /></Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => removeFromCart(item.id)}><X className="h-3 w-3" /></Button>
+                              </div>
+                            </div>
                           ))}
                         </div>
-                      </TableCell>
-                      <TableCell className="font-semibold">${sale.total.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={sale.paymentMethod === 'Cash' ? 'default' : sale.paymentMethod === 'ziG' ? 'secondary' : 'outline'}
-                          className="text-[10px]"
-                        >
-                          {sale.paymentMethod}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {new Date(sale.timestamp).toLocaleTimeString('en-ZW', { hour: '2-digit', minute: '2-digit' })}
+                      )}
+                      {cart.length > 0 && (
+                        <>
+                          <Separator />
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Total</span>
+                            <span className="text-xl font-bold text-emerald-600">${cartTotal.toFixed(2)}</span>
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-md">
+                    <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Payment</CardTitle></CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="space-y-2">
+                        <Label className="text-xs">Customer Name</Label>
+                        <Input placeholder="Student/Staff name" value={customerName} onChange={e => setCustomerName(e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Customer Type</Label>
+                        <Select value={customerType} onValueChange={v => setCustomerType(v as 'Student' | 'Staff')}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Student">Student</SelectItem>
+                            <SelectItem value="Staff">Staff</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Payment Method</Label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {settings.cashEnabled && (
+                            <Button variant={paymentMethod === 'Cash' ? 'default' : 'outline'} size="sm" className={cn('h-9 text-xs gap-1', paymentMethod === 'Cash' && 'bg-emerald-600 hover:bg-emerald-700')} onClick={() => setPaymentMethod('Cash')}>
+                              <Banknote className="h-3.5 w-3.5" /> Cash
+                            </Button>
+                          )}
+                          {settings.zigEnabled && (
+                            <Button variant={paymentMethod === 'ziG' ? 'default' : 'outline'} size="sm" className={cn('h-9 text-xs gap-1', paymentMethod === 'ziG' && 'bg-emerald-600 hover:bg-emerald-700')} onClick={() => setPaymentMethod('ziG')}>
+                              <Wallet className="h-3.5 w-3.5" /> ZiG
+                            </Button>
+                          )}
+                          {settings.cardEnabled && (
+                            <Button variant={paymentMethod === 'Card' ? 'default' : 'outline'} size="sm" className={cn('h-9 text-xs gap-1', paymentMethod === 'Card' && 'bg-emerald-600 hover:bg-emerald-700')} onClick={() => setPaymentMethod('Card')}>
+                              <CreditCard className="h-3.5 w-3.5" /> Card
+                            </Button>
+                          )}
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+                      </div>
+                      <Button className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={cart.length === 0 || submitting} onClick={processPayment}>
+                        {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                        Process Payment
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* ─── Stock Tab ─────────────────────────────────────────────────── */}
+            <TabsContent value="stock" className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input placeholder="Search stock..." className="pl-9 h-9" value={searchStock} onChange={e => setSearchStock(e.target.value)} />
+                </div>
+              </div>
+              <Card className="border-0 shadow-md">
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Item</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Stock Qty</TableHead>
+                        <TableHead>Reorder Level</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {menuItems.filter(item => item.name.toLowerCase().includes(searchStock.toLowerCase()) || item.category.toLowerCase().includes(searchStock.toLowerCase())).map(item => (
+                        <TableRow key={item.id} className="cursor-pointer" onClick={() => { setSelectedItem(item); setViewMode('item-detail') }}>
+                          <TableCell className="font-medium">{item.name}</TableCell>
+                          <TableCell><Badge variant="outline" className="text-xs">{item.category.replace(/_/g, ' ')}</Badge></TableCell>
+                          <TableCell className="text-sm">{item.stockQuantity}</TableCell>
+                          <TableCell className="text-sm">{item.reorderLevel}</TableCell>
+                          <TableCell>
+                            <Badge variant={item.stockQuantity === 0 ? 'destructive' : item.stockQuantity <= item.reorderLevel ? 'secondary' : 'default'} className="text-[10px]">
+                              {item.stockQuantity === 0 ? 'Out' : item.stockQuantity <= item.reorderLevel ? 'Low' : 'OK'}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* ─── Sales Reports Tab ─────────────────────────────────────────── */}
+            <TabsContent value="reports" className="space-y-4">
+              <Card className="border-0 shadow-md">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold">Sales Transactions</CardTitle>
+                  <CardDescription>{transactions.length} transactions recorded</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="max-h-[500px] overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Receipt #</TableHead>
+                          <TableHead>Buyer</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Payment</TableHead>
+                          <TableHead>Items</TableHead>
+                          <TableHead>Total</TableHead>
+                          <TableHead>Date</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {transactions.map(tx => (
+                          <TableRow key={tx.id}>
+                            <TableCell className="font-mono text-xs">{tx.transactionNumber}</TableCell>
+                            <TableCell className="text-sm">{tx.buyerName}</TableCell>
+                            <TableCell><Badge variant="outline" className="text-[10px]">{tx.buyerType}</Badge></TableCell>
+                            <TableCell><Badge variant="outline" className="text-[10px]">{tx.paymentMethod}</Badge></TableCell>
+                            <TableCell className="text-sm">{tx.items.length} item{tx.items.length !== 1 ? 's' : ''}</TableCell>
+                            <TableCell className="text-sm font-semibold">${tx.totalAmount.toFixed(2)}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleDateString('en-ZW')}</TableCell>
+                          </TableRow>
+                        ))}
+                        {transactions.length === 0 && (
+                          <TableRow><TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">No transactions recorded yet</TableCell></TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </motion.div>
+      )}
+
+      {/* Receipt Modal */}
+      {showReceipt && lastReceipt && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowReceipt(false)}>
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
+            <div className="text-center mb-4">
+              <Receipt className="h-8 w-8 mx-auto text-emerald-600 mb-2" />
+              <h3 className="text-lg font-bold">Payment Successful</h3>
+              <p className="text-xs text-muted-foreground">{lastReceipt.transactionNumber}</p>
+            </div>
+            <Separator className="mb-4" />
+            <div className="space-y-2 mb-4">
+              {lastReceipt.items.map((item, i) => (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span>{item.item.name} x{item.quantity}</span>
+                  <span className="font-medium">${item.totalPrice.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+            <Separator className="mb-3" />
+            <div className="flex items-center justify-between font-bold text-lg mb-1">
+              <span>Total</span>
+              <span className="text-emerald-600">${lastReceipt.totalAmount.toFixed(2)}</span>
+            </div>
+            <p className="text-xs text-muted-foreground text-center mb-4">Paid via {lastReceipt.paymentMethod}</p>
+            <Button className="w-full" onClick={() => setShowReceipt(false)}>Close</Button>
+          </motion.div>
+        </div>
+      )}
+    </motion.div>
   )
 }
