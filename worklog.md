@@ -336,13 +336,39 @@ Stage Summary:
 2. Browser testing sometimes fails - server dies during API route compilation
 3. NEXTAUTH_URL warning still appears intermittently
 4. Some module pages may still need responsive polish
+5. 10 modules still use Dialog components (need full-page refactor)
+6. ~17 modules still use mostly mock data (need real API connections)
+7. 13 modules missing Settings/Customization tabs
 
 ## Priority Recommendations
-1. Continue adding settings tabs to remaining modules
-2. Polish the Website CMS and Admin CMS modules with more features
-3. Add API routes for the school shop (orders, products)
-4. Improve error handling and loading states across modules
-5. Consider production build optimization for better performance
+1. **CRITICAL**: Refactor remaining 8 modules to remove Dialogs (notification-center, school-shop, procurement, bulk-operations, timetable, fee-calculator, setup-wizard, premium-templates)
+2. **HIGH**: Connect public website to real APIs (news, events, gallery)
+3. **HIGH**: Add Settings tabs to 13 modules missing them
+4. **MEDIUM**: Connect partially-connected modules to real APIs
+5. **MEDIUM**: Enhance Admin CMS / Website CMS for real content management
+6. **LOW**: Polish styling with more micro-animations
+7. **LOW**: Add SEO, real-time notifications, file uploads
+
+---
+
+## 📊 Progress Plan Created
+
+A comprehensive progress plan has been created at `/home/z/my-project/PROGRESS-PLAN.md` covering:
+
+### Overall Progress
+- **Admin Modules (Dialog→Full Page)**: 26/41 ✅ (63%)
+- **Admin Modules (Settings Tab)**: 26/39 ✅ (67%)
+- **Admin Modules (ViewMode Pattern)**: 26/39 ✅ (67%)
+- **Public Website**: 8/8 sections ✅ (100%)
+- **API Routes**: 61/61 ✅ (100%)
+- **Database Models**: 69/69 ✅ (100%)
+- **Mock Data → Real API**: ~12/39 ✅ (31%)
+- **Lint Status**: 0 errors ✅
+
+### 3-Phase Priority Plan
+- **Phase 1 (Critical)**: Refactor remaining 8 Dialog modules, connect public website to APIs, fix notification mock data
+- **Phase 2 (Important)**: Add Settings tabs to 13 modules, connect partial-API modules, enhance CMS
+- **Phase 3 (Enhancement)**: Styling polish, SEO, mobile admin, real-time, file uploads, advanced reporting
 
 ---
 Task ID: 2
@@ -490,3 +516,37 @@ Stage Summary:
 - Fixed API response handling (data.data instead of data.records for discipline and health APIs)
 - Settings use local state with Save button and toast notifications
 - All Dialog imports removed from all three modules
+
+---
+Task ID: 2-c
+Agent: portal-modules-refactor
+Task: Refactor Community/Portal modules - remove Dialogs, add inline forms, settings tabs, detail views
+
+Work Log:
+- Read all 6 module files to understand structure and Dialog usage patterns
+- alumni-module.tsx: 1 Dialog (Create Event) - replaced with inline ViewMode add form
+- welfare-module.tsx: 2 Dialogs (Add Welfare Record, Apply for BEAM) - replaced with inline ViewMode add forms
+- sdc-module.tsx: 2 Dialogs (Add Member, Schedule Meeting) - replaced with inline ViewMode add forms
+- parent-portal-module.tsx: 1 Dialog (Compose Message) + PaynowDialog + SmsDialog - replaced compose with inline form, kept external dialogs
+- student-portal-module.tsx: 3 Dialogs (Submit Assignment, Reserve Book, Report Card) - replaced with inline ViewMode forms
+- teacher-portal-module.tsx: 2 Dialogs (Create Assignment, Grade Submissions) - replaced with inline ViewMode forms
+- Removed all Dialog imports from all 6 files
+- Added ViewMode state pattern: type ViewMode = 'list' | 'add' | 'edit' | 'detail' | 'settings'
+- Added Settings view with Switch-based configuration for each module
+- Added inline add/edit forms with back navigation buttons
+- Added detail views (alumni profile detail, report card view)
+- Added Settings gear button in each module header
+- Added toast notifications for save/update actions via sonner
+- Fixed parsing errors (stray 'n' characters, extra quotes, missing Separator imports)
+- Resolved duplicate settings block issues in parent-portal and student-portal modules
+- All 6 target files now pass lint with zero errors
+
+Stage Summary:
+- Successfully refactored all 6 Community/Portal modules to remove Dialog/Modal usage
+- Implemented ViewMode state pattern across all modules for navigation between list/add/edit/detail/settings views
+- Added Settings tabs with relevant configuration options for each module context
+- Added full-page detail views for viewing individual records
+- Added inline add/edit forms with back navigation replacing dialog-based forms
+- Added toast notifications for user feedback on save/update/delete actions
+- All existing API connections preserved intact
+- Zero lint errors in all 6 refactored files

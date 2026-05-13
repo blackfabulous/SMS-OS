@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
   Globe, FileText, Image, Users, Search, Settings, Plus, Pencil, Trash2, Eye, Upload, Megaphone, Palette, BarChart3, Shield, Code, ExternalLink,
-  LayoutDashboard, Newspaper, Camera, UserCheck, CheckCircle2, Clock, ToggleLeft, Star, GripVertical, Save, X, ChevronRight, AlertCircle, Tag, Link2, Hash, FileCode, MapPin, Phone, Mail, Share2, Zap,
+  LayoutDashboard, Newspaper, Camera, UserCheck, CheckCircle2, Clock, ToggleLeft, Star, GripVertical, Save, X, ChevronRight, AlertCircle, Tag, Link2, Hash, FileCode, MapPin, Phone, Mail, Share2, Zap, ArrowLeft, AlertTriangle,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -12,9 +12,6 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose,
-} from '@/components/ui/dialog'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -47,6 +44,8 @@ interface WebsiteSettings {
   siteTitle: string; tagline: string; email: string; phone: string; address: string; facebook: string; twitter: string; instagram: string; youtube: string; footerContent: string; mapsEmbed: string; maintenanceMode: boolean
 }
 
+type ViewMode = 'list' | 'add-page' | 'edit-page' | 'detail-page' | 'add-news' | 'edit-news' | 'detail-news' | 'add-gallery' | 'detail-gallery' | 'edit-staff' | 'detail-staff' | 'edit-seo' | 'settings'
+
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 const mockPages: WebPage[] = [
   { id: '1', title: 'About Us', slug: 'about', content: 'Mufakose High School has been a beacon of academic excellence in Harare since 1985. Our mission is to develop well-rounded individuals who contribute positively to Zimbabwe\'s growth.', heroImage: '/images/about-hero.jpg', status: 'published', showInNav: true, sortOrder: 1, lastModified: '2025-03-10' },
@@ -58,14 +57,14 @@ const mockPages: WebPage[] = [
 ]
 
 const mockNews: NewsArticle[] = [
-  { id: '1', title: 'Mufakose High Tops ZIMSEC O-Level Results', excerpt: 'Our students achieved a 92% pass rate in the 2024 ZIMSEC O-Level examinations.', content: 'Full article content...', featuredImage: '/images/news/zimsec-results.jpg', category: 'Academic', author: 'Mr. T. Ndlovu', status: 'published', date: '2025-02-15', featured: true },
-  { id: '2', title: 'Inter-House Athletics Championship 2025', excerpt: 'Mhangura House clinched the 2025 Inter-House Athletics Championship trophy.', content: 'Full article content...', featuredImage: '/images/news/athletics.jpg', category: 'Sports', author: 'Mrs. S. Zhou', status: 'published', date: '2025-03-01', featured: true },
-  { id: '3', title: 'SDC Fundraiser Raises $12,000 for Science Lab', excerpt: 'The SDC fundraiser gala exceeded its target, raising funds for a new science laboratory.', content: 'Full article content...', featuredImage: '/images/news/fundraiser.jpg', category: 'Community', author: 'Mrs. R. Dube', status: 'published', date: '2025-02-20', featured: false },
-  { id: '4', title: 'Term 1 Examination Schedule Released', excerpt: 'The examination schedule for Term 1 2025 has been released.', content: 'Full article content...', featuredImage: '/images/news/exams.jpg', category: 'Academic', author: 'Mr. T. Ndlovu', status: 'published', date: '2025-03-05', featured: false },
-  { id: '5', title: 'Debate Team Wins Provincial Championship', excerpt: 'Our debate team has won the Harare Provincial Championship for the second year running.', content: 'Full article content...', featuredImage: '/images/news/debate.jpg', category: 'Achievement', author: 'Ms. P. Ncube', status: 'published', date: '2025-02-25', featured: true },
-  { id: '6', title: 'New Computer Lab Officially Opened', excerpt: 'The newly upgraded computer lab was officially opened by the District Schools Inspector.', content: 'Full article content...', featuredImage: '/images/news/computer-lab.jpg', category: 'General', author: 'Mrs. S. Zhou', status: 'published', date: '2025-01-30', featured: false },
-  { id: '7', title: 'Independence Day Celebrations at Mufakose High', excerpt: 'Students and staff celebrated Zimbabwe\'s 45th Independence Day with cultural performances.', content: 'Full article content...', featuredImage: '/images/news/independence.jpg', category: 'Community', author: 'Mr. K. Gumbo', status: 'draft', date: '2025-04-18', featured: false },
-  { id: '8', title: 'Netball Team Qualifies for Nationals', excerpt: 'Our girls\' netball team has qualified for the ZSSU National Championships.', content: 'Full article content...', featuredImage: '/images/news/netball.jpg', category: 'Sports', author: 'Mrs. R. Dube', status: 'draft', date: '2025-03-15', featured: false },
+  { id: '1', title: 'Mufakose High Tops ZIMSEC O-Level Results', excerpt: 'Our students achieved a 92% pass rate in the 2024 ZIMSEC O-Level examinations.', content: 'Full article content about the outstanding ZIMSEC results...', featuredImage: '/images/news/zimsec-results.jpg', category: 'Academic', author: 'Mr. T. Ndlovu', status: 'published', date: '2025-02-15', featured: true },
+  { id: '2', title: 'Inter-House Athletics Championship 2025', excerpt: 'Mhangura House clinched the 2025 Inter-House Athletics Championship trophy.', content: 'Full article about the athletics championship...', featuredImage: '/images/news/athletics.jpg', category: 'Sports', author: 'Mrs. S. Zhou', status: 'published', date: '2025-03-01', featured: true },
+  { id: '3', title: 'SDC Fundraiser Raises $12,000 for Science Lab', excerpt: 'The SDC fundraiser gala exceeded its target, raising funds for a new science laboratory.', content: 'Full article about the SDC fundraiser...', featuredImage: '/images/news/fundraiser.jpg', category: 'Community', author: 'Mrs. R. Dube', status: 'published', date: '2025-02-20', featured: false },
+  { id: '4', title: 'Term 1 Examination Schedule Released', excerpt: 'The examination schedule for Term 1 2025 has been released.', content: 'Full article about examination schedules...', featuredImage: '/images/news/exams.jpg', category: 'Academic', author: 'Mr. T. Ndlovu', status: 'published', date: '2025-03-05', featured: false },
+  { id: '5', title: 'Debate Team Wins Provincial Championship', excerpt: 'Our debate team has won the Harare Provincial Championship for the second year running.', content: 'Full article about the debate team victory...', featuredImage: '/images/news/debate.jpg', category: 'Achievement', author: 'Ms. P. Ncube', status: 'published', date: '2025-02-25', featured: true },
+  { id: '6', title: 'New Computer Lab Officially Opened', excerpt: 'The newly upgraded computer lab was officially opened by the District Schools Inspector.', content: 'Full article about the computer lab opening...', featuredImage: '/images/news/computer-lab.jpg', category: 'General', author: 'Mrs. S. Zhou', status: 'published', date: '2025-01-30', featured: false },
+  { id: '7', title: 'Independence Day Celebrations at Mufakose High', excerpt: 'Students and staff celebrated Zimbabwe\'s 45th Independence Day with cultural performances.', content: 'Full article about Independence Day celebrations...', featuredImage: '/images/news/independence.jpg', category: 'Community', author: 'Mr. K. Gumbo', status: 'draft', date: '2025-04-18', featured: false },
+  { id: '8', title: 'Netball Team Qualifies for Nationals', excerpt: 'Our girls\' netball team has qualified for the ZSSU National Championships.', content: 'Full article about the netball team...', featuredImage: '/images/news/netball.jpg', category: 'Sports', author: 'Mrs. R. Dube', status: 'draft', date: '2025-03-15', featured: false },
 ]
 
 const mockGallery: GalleryImage[] = [
@@ -97,38 +96,20 @@ const mockStaffProfiles: StaffProfile[] = [
 ]
 
 const mockSeoSettings: SeoSettings[] = [
-  { id: '1', pageSlug: 'home', pageTitle: 'Home', metaTitle: 'Mufakose High School | Excellence in Education', metaDescription: 'Mufakose High School is a leading secondary school in Harare, Zimbabwe offering ZIMSEC O-Level and A-Level education with a proud tradition of academic excellence.', keywords: ['mufakose high school', 'zimbabwe school', 'harare school', 'zimsec'], canonicalUrl: 'https://mufakosehigh.co.zw', ogTitle: 'Mufakose High School - Excellence in Education', ogDescription: 'Leading secondary school in Harare, Zimbabwe with a proud tradition of academic excellence since 1985.', ogImage: '/images/og-home.jpg', schemaMarkup: '{"@type":"EducationalOrganization","name":"Mufakose High School","address":{"@type":"PostalAddress","addressLocality":"Harare","addressCountry":"ZW"}}', sitemapEnabled: true, priority: '1.0' },
-  { id: '2', pageSlug: 'about', pageTitle: 'About Us', metaTitle: 'About Mufakose High School | Our History & Mission', metaDescription: 'Learn about Mufakose High School\'s history, mission, values and our commitment to developing well-rounded Zimbabwean citizens since 1985.', keywords: ['about mufakose', 'school history', 'school mission', 'zimbabwe education'], canonicalUrl: 'https://mufakosehigh.co.zw/about', ogTitle: 'About Mufakose High School', ogDescription: 'Our history, mission and values since 1985.', ogImage: '/images/og-about.jpg', schemaMarkup: '{"@type":"AboutPage","name":"About Mufakose High School"}', sitemapEnabled: true, priority: '0.8' },
-  { id: '3', pageSlug: 'admissions', pageTitle: 'Admissions', metaTitle: 'Admissions | Mufakose High School', metaDescription: 'Apply for admission to Mufakose High School. Information on enrollment requirements, application process, and important dates for 2026 intake.', keywords: ['admissions', 'enrollment', 'apply', 'zimbabwe school admissions'], canonicalUrl: 'https://mufakosehigh.co.zw/admissions', ogTitle: 'Admissions - Mufakose High School', ogDescription: 'Apply for admission. 2026 intake now open.', ogImage: '/images/og-admissions.jpg', schemaMarkup: '{"@type":"WebPage","name":"Admissions"}', sitemapEnabled: true, priority: '0.9' },
-  { id: '4', pageSlug: 'academics', pageTitle: 'Academics', metaTitle: 'Academics | Mufakose High School', metaDescription: 'Explore our academic programmes including ZIMSEC O-Level and A-Level subjects, curriculum, and our track record of academic excellence.', keywords: ['academics', 'zimsec', 'o-level', 'a-level', 'curriculum'], canonicalUrl: 'https://mufakosehigh.co.zw/academics', ogTitle: 'Academics - Mufakose High School', ogDescription: 'ZIMSEC O-Level and A-Level programmes.', ogImage: '/images/og-academics.jpg', schemaMarkup: '{"@type":"WebPage","name":"Academics"}', sitemapEnabled: true, priority: '0.8' },
-  { id: '5', pageSlug: 'contact', pageTitle: 'Contact', metaTitle: 'Contact Us | Mufakose High School', metaDescription: 'Get in touch with Mufakose High School. Find our address, phone numbers, email, and office hours. Located in Mufakose, Harare, Zimbabwe.', keywords: ['contact', 'phone', 'email', 'address', 'harare'], canonicalUrl: 'https://mufakosehigh.co.zw/contact', ogTitle: 'Contact Us - Mufakose High School', ogDescription: 'Get in touch with us today.', ogImage: '/images/og-contact.jpg', schemaMarkup: '{"@type":"ContactPage","name":"Contact Us"}', sitemapEnabled: true, priority: '0.7' },
+  { id: '1', pageSlug: 'home', pageTitle: 'Home', metaTitle: 'Mufakose High School | Excellence in Education', metaDescription: 'Mufakose High School is a leading secondary school in Harare, Zimbabwe offering ZIMSEC O-Level and A-Level education.', keywords: ['mufakose high school', 'zimbabwe school', 'harare school', 'zimsec'], canonicalUrl: 'https://mufakosehigh.co.zw', ogTitle: 'Mufakose High School - Excellence in Education', ogDescription: 'Leading secondary school in Harare, Zimbabwe.', ogImage: '/images/og-home.jpg', schemaMarkup: '{"@type":"EducationalOrganization","name":"Mufakose High School"}', sitemapEnabled: true, priority: '1.0' },
+  { id: '2', pageSlug: 'about', pageTitle: 'About Us', metaTitle: 'About Mufakose High School | Our History & Mission', metaDescription: 'Learn about Mufakose High School\'s history, mission, values.', keywords: ['about mufakose', 'school history'], canonicalUrl: 'https://mufakosehigh.co.zw/about', ogTitle: 'About Mufakose High School', ogDescription: 'Our history, mission and values since 1985.', ogImage: '/images/og-about.jpg', schemaMarkup: '{"@type":"AboutPage","name":"About Mufakose High School"}', sitemapEnabled: true, priority: '0.8' },
+  { id: '3', pageSlug: 'admissions', pageTitle: 'Admissions', metaTitle: 'Admissions | Mufakose High School', metaDescription: 'Apply for admission to Mufakose High School.', keywords: ['admissions', 'enrollment'], canonicalUrl: 'https://mufakosehigh.co.zw/admissions', ogTitle: 'Admissions - Mufakose High School', ogDescription: 'Apply for admission. 2026 intake now open.', ogImage: '/images/og-admissions.jpg', schemaMarkup: '{"@type":"WebPage","name":"Admissions"}', sitemapEnabled: true, priority: '0.9' },
+  { id: '4', pageSlug: 'academics', pageTitle: 'Academics', metaTitle: 'Academics | Mufakose High School', metaDescription: 'Explore our academic programmes.', keywords: ['academics', 'zimsec'], canonicalUrl: 'https://mufakosehigh.co.zw/academics', ogTitle: 'Academics - Mufakose High School', ogDescription: 'ZIMSEC O-Level and A-Level programmes.', ogImage: '/images/og-academics.jpg', schemaMarkup: '{"@type":"WebPage","name":"Academics"}', sitemapEnabled: true, priority: '0.8' },
+  { id: '5', pageSlug: 'contact', pageTitle: 'Contact', metaTitle: 'Contact Us | Mufakose High School', metaDescription: 'Get in touch with Mufakose High School.', keywords: ['contact', 'phone', 'email'], canonicalUrl: 'https://mufakosehigh.co.zw/contact', ogTitle: 'Contact Us - Mufakose High School', ogDescription: 'Get in touch with us today.', ogImage: '/images/og-contact.jpg', schemaMarkup: '{"@type":"ContactPage","name":"Contact Us"}', sitemapEnabled: true, priority: '0.7' },
 ]
 
 const mockWebsiteSettings: WebsiteSettings = {
-  siteTitle: 'Mufakose High School',
-  tagline: 'Excellence in Education Since 1985',
-  email: 'info@mufakosehigh.co.zw',
-  phone: '+263 4 667 891',
-  address: '45 Moyo Drive, Mufakose, Harare, Zimbabwe',
-  facebook: 'https://facebook.com/mufakosehigh',
-  twitter: 'https://twitter.com/mufakosehigh',
-  instagram: 'https://instagram.com/mufakosehigh',
-  youtube: 'https://youtube.com/@mufakosehigh',
-  footerContent: '© 2025 Mufakose High School. All rights reserved. A Ministry of Primary and Secondary Education registered institution.',
-  mapsEmbed: '<iframe src="https://maps.google.com/maps?q=-17.8,31.0&z=15&output=embed" width="100%" height="300" style="border:0" loading="lazy"></iframe>',
-  maintenanceMode: false,
+  siteTitle: 'Mufakose High School', tagline: 'Excellence in Education Since 1985', email: 'info@mufakosehigh.co.zw', phone: '+263 4 667 891', address: '45 Moyo Drive, Mufakose, Harare, Zimbabwe',
+  facebook: 'https://facebook.com/mufakosehigh', twitter: 'https://twitter.com/mufakosehigh', instagram: 'https://instagram.com/mufakosehigh', youtube: 'https://youtube.com/@mufakosehigh',
+  footerContent: '\u00a9 2025 Mufakose High School. All rights reserved.', mapsEmbed: '<iframe src="https://maps.google.com/maps?q=-17.8,31.0&z=15&output=embed" width="100%" height="300" style="border:0" loading="lazy"></iframe>', maintenanceMode: false,
 }
 
-const heroBranding = {
-  headline: 'Excellence in Education, Strength in Character',
-  subheadline: 'Building tomorrow\'s leaders through quality education since 1985',
-  ctaText: 'Apply for 2026 Intake',
-  bgImage: '/images/hero-bg.jpg',
-  logo: '/images/school-logo.png',
-  primaryColor: '#059669',
-  secondaryColor: '#0d9488',
-  motto: 'Simba Revedu / Our Strength',
-}
+const heroBranding = { headline: 'Excellence in Education, Strength in Character', subheadline: 'Building tomorrow\'s leaders through quality education since 1985', ctaText: 'Apply for 2026 Intake', bgImage: '/images/hero-bg.jpg', logo: '/images/school-logo.png', primaryColor: '#059669', secondaryColor: '#0d9488', motto: 'Simba Revedu / Our Strength' }
 
 const recentChanges = [
   { id: '1', action: 'Updated', item: 'Admissions page', user: 'Mr. T. Ndlovu', time: '2 hours ago', type: 'page' },
@@ -142,191 +123,510 @@ const recentChanges = [
 const newsCategories = ['All', 'General', 'Academic', 'Sports', 'Community', 'Achievement']
 const galleryCategories = ['All', 'Campus', 'Events', 'Sports', 'Academics', 'Culture', 'General']
 const staffDepartments = ['All', 'Administration', 'Sciences', 'Languages', 'Mathematics', 'Humanities', 'Commercial', 'Technical', 'Sports', 'Finance']
-
 const animProps = { initial: { opacity: 0, y: 15 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.35 } }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function AdminCMSModule() {
   const { schoolName } = useAppStore()
   const [activeTab, setActiveTab] = useState('overview')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  // Page state
+  // Data state
   const [pages, setPages] = useState(mockPages)
-  const [pageDialogOpen, setPageDialogOpen] = useState(false)
-  const [editingPage, setEditingPage] = useState<WebPage | null>(null)
-  const [pageForm, setPageForm] = useState({ title: '', slug: '', content: '', heroImage: '', status: 'draft' as 'published' | 'draft', showInNav: true, sortOrder: 0 })
-  const [deletePageDialogOpen, setDeletePageDialogOpen] = useState(false)
-  const [deletingPageId, setDeletingPageId] = useState<string | null>(null)
-
-  // News state
   const [news, setNews] = useState(mockNews)
-  const [newsCategoryFilter, setNewsCategoryFilter] = useState('All')
-  const [newsDialogOpen, setNewsDialogOpen] = useState(false)
-  const [editingNews, setEditingNews] = useState<NewsArticle | null>(null)
-  const [newsForm, setNewsForm] = useState({ title: '', excerpt: '', content: '', featuredImage: '', category: 'General', author: '', status: 'draft' as 'published' | 'draft', featured: false })
-
-  // Gallery state
   const [gallery, setGallery] = useState(mockGallery)
-  const [galleryCategoryFilter, setGalleryCategoryFilter] = useState('All')
-  const [galleryDialogOpen, setGalleryDialogOpen] = useState(false)
-  const [galleryForm, setGalleryForm] = useState({ title: '', description: '', imageUrl: '', category: 'Campus', featured: false })
-  const [selectedGalleryIds, setSelectedGalleryIds] = useState<string[]>([])
-  const [deleteGalleryDialogOpen, setDeleteGalleryDialogOpen] = useState(false)
-  const [deletingGalleryId, setDeletingGalleryId] = useState<string | null>(null)
-
-  // Staff state
   const [staffProfiles, setStaffProfiles] = useState(mockStaffProfiles)
-  const [staffDeptFilter, setStaffDeptFilter] = useState('All')
-  const [staffDialogOpen, setStaffDialogOpen] = useState(false)
-  const [editingStaff, setEditingStaff] = useState<StaffProfile | null>(null)
-  const [staffForm, setStaffForm] = useState({ bio: '', subjects: '', qualifications: '', showOnWebsite: true })
-
-  // SEO state
   const [seoSettings, setSeoSettings] = useState(mockSeoSettings)
-  const [seoEditOpen, setSeoEditOpen] = useState(false)
-  const [editingSeo, setEditingSeo] = useState<SeoSettings | null>(null)
-  const [seoForm, setSeoForm] = useState({ metaTitle: '', metaDescription: '', keywords: '', canonicalUrl: '', ogTitle: '', ogDescription: '', ogImage: '', schemaMarkup: '', sitemapEnabled: true, priority: '0.5' })
-
-  // Website settings
   const [websiteSettings, setWebsiteSettings] = useState(mockWebsiteSettings)
   const [heroData, setHeroData] = useState(heroBranding)
 
-  // ─── Computed values ──────────────────────────────────────────────────────
+  // Filter state
+  const [newsCategoryFilter, setNewsCategoryFilter] = useState('All')
+  const [galleryCategoryFilter, setGalleryCategoryFilter] = useState('All')
+  const [staffDeptFilter, setStaffDeptFilter] = useState('All')
+  const [selectedGalleryIds, setSelectedGalleryIds] = useState<string[]>([])
+
+  // Form state
+  const [pageForm, setPageForm] = useState({ title: '', slug: '', content: '', heroImage: '', status: 'draft' as 'published' | 'draft', showInNav: true, sortOrder: 0 })
+  const [newsForm, setNewsForm] = useState({ title: '', excerpt: '', content: '', featuredImage: '', category: 'General', author: '', status: 'draft' as 'published' | 'draft', featured: false })
+  const [galleryForm, setGalleryForm] = useState({ title: '', description: '', imageUrl: '', category: 'Campus', featured: false })
+  const [staffForm, setStaffForm] = useState({ bio: '', subjects: '', qualifications: '', showOnWebsite: true })
+  const [seoForm, setSeoForm] = useState({ metaTitle: '', metaDescription: '', keywords: '', canonicalUrl: '', ogTitle: '', ogDescription: '', ogImage: '', schemaMarkup: '', sitemapEnabled: true, priority: '0.5' })
+
+  // Settings state
+  const [cmsSettings, setCmsSettings] = useState({
+    contentModeration: true, approvalWorkflow: 'SINGLE', mediaMaxSize: '5', allowedTypes: 'jpg,png,pdf,doc', pageTemplates: 'STANDARD', seoDefaults: true, autoSave: true, autoSaveInterval: '30',
+  })
+
+  // Computed
   const publishedCount = pages.filter(p => p.status === 'published').length
   const draftCount = pages.filter(p => p.status === 'draft').length
-  const newsCount = news.length
-  const galleryCount = gallery.length
+  const filteredNews = useMemo(() => newsCategoryFilter === 'All' ? news : news.filter(n => n.category === newsCategoryFilter), [news, newsCategoryFilter])
+  const filteredGallery = useMemo(() => galleryCategoryFilter === 'All' ? gallery : gallery.filter(g => g.category === galleryCategoryFilter), [gallery, galleryCategoryFilter])
+  const filteredStaff = useMemo(() => staffDeptFilter === 'All' ? staffProfiles : staffProfiles.filter(s => s.department === staffDeptFilter), [staffProfiles, staffDeptFilter])
 
-  const filteredNews = useMemo(() => {
-    return newsCategoryFilter === 'All' ? news : news.filter(n => n.category === newsCategoryFilter)
-  }, [news, newsCategoryFilter])
+  // Helpers
+  const getSelectedPage = () => pages.find(p => p.id === selectedId) || null
+  const getSelectedNews = () => news.find(n => n.id === selectedId) || null
+  const getSelectedGallery = () => gallery.find(g => g.id === selectedId) || null
+  const getSelectedStaff = () => staffProfiles.find(s => s.id === selectedId) || null
+  const getSelectedSeo = () => seoSettings.find(s => s.id === selectedId) || null
 
-  const filteredGallery = useMemo(() => {
-    return galleryCategoryFilter === 'All' ? gallery : gallery.filter(g => g.category === galleryCategoryFilter)
-  }, [gallery, galleryCategoryFilter])
-
-  const filteredStaff = useMemo(() => {
-    return staffDeptFilter === 'All' ? staffProfiles : staffProfiles.filter(s => s.department === staffDeptFilter)
-  }, [staffProfiles, staffDeptFilter])
-
-  // ─── Page CRUD ────────────────────────────────────────────────────────────
-  const openNewPage = () => {
-    setEditingPage(null)
-    setPageForm({ title: '', slug: '', content: '', heroImage: '', status: 'draft', showInNav: true, sortOrder: pages.length + 1 })
-    setPageDialogOpen(true)
-  }
-  const openEditPage = (page: WebPage) => {
-    setEditingPage(page)
-    setPageForm({ title: page.title, slug: page.slug, content: page.content, heroImage: page.heroImage, status: page.status, showInNav: page.showInNav, sortOrder: page.sortOrder })
-    setPageDialogOpen(true)
-  }
+  // Page CRUD
+  const openAddPage = () => { setPageForm({ title: '', slug: '', content: '', heroImage: '', status: 'draft', showInNav: true, sortOrder: pages.length + 1 }); setViewMode('add-page') }
+  const openEditPage = (page: WebPage) => { setSelectedId(page.id); setPageForm({ title: page.title, slug: page.slug, content: page.content, heroImage: page.heroImage, status: page.status, showInNav: page.showInNav, sortOrder: page.sortOrder }); setViewMode('edit-page') }
+  const openDetailPage = (page: WebPage) => { setSelectedId(page.id); setViewMode('detail-page') }
   const savePage = () => {
     if (!pageForm.title) { toast.error('Title is required'); return }
-    if (editingPage) {
-      setPages(prev => prev.map(p => p.id === editingPage.id ? { ...p, ...pageForm, lastModified: new Date().toISOString().split('T')[0] } : p))
+    if (viewMode === 'edit-page' && selectedId) {
+      setPages(prev => prev.map(p => p.id === selectedId ? { ...p, ...pageForm, lastModified: new Date().toISOString().split('T')[0] } : p))
       toast.success('Page updated successfully')
     } else {
       setPages(prev => [...prev, { id: Date.now().toString(), ...pageForm, lastModified: new Date().toISOString().split('T')[0] }])
       toast.success('Page created successfully')
     }
-    setPageDialogOpen(false)
+    setViewMode('list')
   }
-  const confirmDeletePage = (id: string) => { setDeletingPageId(id); setDeletePageDialogOpen(true) }
-  const deletePage = () => {
-    setPages(prev => prev.filter(p => p.id !== deletingPageId))
-    setDeletePageDialogOpen(false)
-    toast.success('Page deleted')
-  }
+  const deletePage = (id: string) => { setPages(prev => prev.filter(p => p.id !== id)); toast.success('Page deleted'); setViewMode('list') }
 
-  // ─── News CRUD ────────────────────────────────────────────────────────────
-  const openNewNews = () => { setEditingNews(null); setNewsForm({ title: '', excerpt: '', content: '', featuredImage: '', category: 'General', author: '', status: 'draft', featured: false }); setNewsDialogOpen(true) }
-  const openEditNews = (article: NewsArticle) => { setEditingNews(article); setNewsForm({ title: article.title, excerpt: article.excerpt, content: article.content, featuredImage: article.featuredImage, category: article.category, author: article.author, status: article.status, featured: article.featured }); setNewsDialogOpen(true) }
+  // News CRUD
+  const openAddNews = () => { setNewsForm({ title: '', excerpt: '', content: '', featuredImage: '', category: 'General', author: '', status: 'draft', featured: false }); setViewMode('add-news') }
+  const openEditNews = (article: NewsArticle) => { setSelectedId(article.id); setNewsForm({ title: article.title, excerpt: article.excerpt, content: article.content, featuredImage: article.featuredImage, category: article.category, author: article.author, status: article.status, featured: article.featured }); setViewMode('edit-news') }
+  const openDetailNews = (article: NewsArticle) => { setSelectedId(article.id); setViewMode('detail-news') }
   const saveNews = () => {
     if (!newsForm.title) { toast.error('Title is required'); return }
-    if (editingNews) {
-      setNews(prev => prev.map(n => n.id === editingNews.id ? { ...n, ...newsForm } : n))
+    if (viewMode === 'edit-news' && selectedId) {
+      setNews(prev => prev.map(n => n.id === selectedId ? { ...n, ...newsForm } : n))
       toast.success('News article updated')
     } else {
       setNews(prev => [...prev, { id: Date.now().toString(), ...newsForm, date: new Date().toISOString().split('T')[0] }])
       toast.success('News article created')
     }
-    setNewsDialogOpen(false)
+    setViewMode('list')
   }
-  const deleteNews = (id: string) => { setNews(prev => prev.filter(n => n.id !== id)); toast.success('News article deleted') }
+  const deleteNews = (id: string) => { setNews(prev => prev.filter(n => n.id !== id)); toast.success('News article deleted'); setViewMode('list') }
 
-  // ─── Gallery CRUD ─────────────────────────────────────────────────────────
-  const openNewGallery = () => { setGalleryForm({ title: '', description: '', imageUrl: '', category: 'Campus', featured: false }); setGalleryDialogOpen(true) }
+  // Gallery CRUD
+  const openAddGallery = () => { setGalleryForm({ title: '', description: '', imageUrl: '', category: 'Campus', featured: false }); setViewMode('add-gallery') }
+  const openDetailGallery = (img: GalleryImage) => { setSelectedId(img.id); setViewMode('detail-gallery') }
   const saveGallery = () => {
     if (!galleryForm.title) { toast.error('Title is required'); return }
     setGallery(prev => [...prev, { id: Date.now().toString(), ...galleryForm, uploadedAt: new Date().toISOString().split('T')[0] }])
-    setGalleryDialogOpen(false)
     toast.success('Image added to gallery')
+    setViewMode('list')
   }
-  const confirmDeleteGallery = (id: string) => { setDeletingGalleryId(id); setDeleteGalleryDialogOpen(true) }
-  const deleteGallery = () => {
-    setGallery(prev => prev.filter(g => g.id !== deletingGalleryId))
-    setDeleteGalleryDialogOpen(false)
-    setSelectedGalleryIds(prev => prev.filter(id => id !== deletingGalleryId))
-    toast.success('Image deleted')
-  }
-  const toggleGallerySelect = (id: string) => {
-    setSelectedGalleryIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
-  }
-  const bulkDeleteGallery = () => {
-    setGallery(prev => prev.filter(g => !selectedGalleryIds.includes(g.id)))
-    toast.success(`${selectedGalleryIds.length} images deleted`)
-    setSelectedGalleryIds([])
-  }
+  const deleteGallery = (id: string) => { setGallery(prev => prev.filter(g => g.id !== id)); setSelectedGalleryIds(prev => prev.filter(i => i !== id)); toast.success('Image deleted'); setViewMode('list') }
+  const toggleGallerySelect = (id: string) => { setSelectedGalleryIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]) }
+  const bulkDeleteGallery = () => { setGallery(prev => prev.filter(g => !selectedGalleryIds.includes(g.id))); toast.success(`${selectedGalleryIds.length} images deleted`); setSelectedGalleryIds([]) }
 
-  // ─── Staff CRUD ───────────────────────────────────────────────────────────
-  const openEditStaff = (staff: StaffProfile) => {
-    setEditingStaff(staff)
-    setStaffForm({ bio: staff.bio, subjects: staff.subjects.join(', '), qualifications: staff.qualifications, showOnWebsite: staff.showOnWebsite })
-    setStaffDialogOpen(true)
-  }
+  // Staff CRUD
+  const openEditStaff = (staff: StaffProfile) => { setSelectedId(staff.id); setStaffForm({ bio: staff.bio, subjects: staff.subjects.join(', '), qualifications: staff.qualifications, showOnWebsite: staff.showOnWebsite }); setViewMode('edit-staff') }
+  const openDetailStaff = (staff: StaffProfile) => { setSelectedId(staff.id); setViewMode('detail-staff') }
   const saveStaff = () => {
-    if (editingStaff) {
-      setStaffProfiles(prev => prev.map(s => s.id === editingStaff.id ? { ...s, bio: staffForm.bio, subjects: staffForm.subjects.split(',').map(s => s.trim()).filter(Boolean), qualifications: staffForm.qualifications, showOnWebsite: staffForm.showOnWebsite } : s))
+    if (selectedId) {
+      setStaffProfiles(prev => prev.map(s => s.id === selectedId ? { ...s, bio: staffForm.bio, subjects: staffForm.subjects.split(',').map(s => s.trim()).filter(Boolean), qualifications: staffForm.qualifications, showOnWebsite: staffForm.showOnWebsite } : s))
       toast.success('Staff profile updated')
     }
-    setStaffDialogOpen(false)
+    setViewMode('list')
   }
-  const toggleStaffVisibility = (id: string) => {
-    setStaffProfiles(prev => prev.map(s => s.id === id ? { ...s, showOnWebsite: !s.showOnWebsite } : s))
-    toast.success('Staff visibility updated')
-  }
+  const toggleStaffVisibility = (id: string) => { setStaffProfiles(prev => prev.map(s => s.id === id ? { ...s, showOnWebsite: !s.showOnWebsite } : s)); toast.success('Staff visibility updated') }
 
-  // ─── SEO ──────────────────────────────────────────────────────────────────
-  const openEditSeo = (seo: SeoSettings) => {
-    setEditingSeo(seo)
-    setSeoForm({ metaTitle: seo.metaTitle, metaDescription: seo.metaDescription, keywords: seo.keywords.join(', '), canonicalUrl: seo.canonicalUrl, ogTitle: seo.ogTitle, ogDescription: seo.ogDescription, ogImage: seo.ogImage, schemaMarkup: seo.schemaMarkup, sitemapEnabled: seo.sitemapEnabled, priority: seo.priority })
-    setSeoEditOpen(true)
-  }
+  // SEO
+  const openEditSeo = (seo: SeoSettings) => { setSelectedId(seo.id); setSeoForm({ metaTitle: seo.metaTitle, metaDescription: seo.metaDescription, keywords: seo.keywords.join(', '), canonicalUrl: seo.canonicalUrl, ogTitle: seo.ogTitle, ogDescription: seo.ogDescription, ogImage: seo.ogImage, schemaMarkup: seo.schemaMarkup, sitemapEnabled: seo.sitemapEnabled, priority: seo.priority }); setViewMode('edit-seo') }
   const saveSeo = () => {
-    if (editingSeo) {
-      setSeoSettings(prev => prev.map(s => s.id === editingSeo.id ? { ...s, ...seoForm, keywords: seoForm.keywords.split(',').map(k => k.trim()).filter(Boolean) } : s))
+    if (selectedId) {
+      setSeoSettings(prev => prev.map(s => s.id === selectedId ? { ...s, ...seoForm, keywords: seoForm.keywords.split(',').map(k => k.trim()).filter(Boolean) } : s))
       toast.success('SEO settings saved')
     }
-    setSeoEditOpen(false)
+    setViewMode('list')
   }
 
+  // ─── Inline: Add/Edit Page ──────────────────────────────────────────────
+  if (viewMode === 'add-page' || viewMode === 'edit-page') {
+    const isEdit = viewMode === 'edit-page'
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button>
+        </div>
+        <div className="max-w-2xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><FileText className="h-5 w-5 text-emerald-600" />{isEdit ? 'Edit Page' : 'Add New Page'}</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2"><Label>Title</Label><Input value={pageForm.title} onChange={e => setPageForm(p => ({ ...p, title: e.target.value, slug: e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') }))} placeholder="Page title" /></div>
+              <div className="space-y-2"><Label>Slug</Label><Input value={pageForm.slug} onChange={e => setPageForm(p => ({ ...p, slug: e.target.value }))} placeholder="page-url-slug" /></div>
+              <div className="space-y-2"><Label>Content</Label><Textarea value={pageForm.content} onChange={e => setPageForm(p => ({ ...p, content: e.target.value }))} rows={6} placeholder="Page content..." /></div>
+              <div className="space-y-2"><Label>Hero Image URL</Label><Input value={pageForm.heroImage} onChange={e => setPageForm(p => ({ ...p, heroImage: e.target.value }))} placeholder="/images/page-hero.jpg" /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Status</Label><Select value={pageForm.status} onValueChange={v => setPageForm(p => ({ ...p, status: v as 'published' | 'draft' }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="published">Published</SelectItem><SelectItem value="draft">Draft</SelectItem></SelectContent></Select></div>
+                <div className="space-y-2"><Label>Sort Order</Label><Input type="number" value={pageForm.sortOrder} onChange={e => setPageForm(p => ({ ...p, sortOrder: parseInt(e.target.value) || 0 }))} /></div>
+              </div>
+              <div className="flex items-center gap-3"><Switch checked={pageForm.showInNav} onCheckedChange={v => setPageForm(p => ({ ...p, showInNav: v }))} /><Label>Show in Navigation</Label></div>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={savePage}>{isEdit ? 'Update' : 'Create'} Page</Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ─── Inline: Page Detail ────────────────────────────────────────────────
+  if (viewMode === 'detail-page') {
+    const page = getSelectedPage()
+    if (!page) return null
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button>
+        </div>
+        <div className="max-w-2xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl">{page.title}</CardTitle>
+                <Badge variant={page.status === 'published' ? 'default' : 'secondary'} className={page.status === 'published' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}>{page.status}</Badge>
+              </div>
+              <CardDescription>/{page.slug}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><span className="text-muted-foreground">Last Modified:</span> <span className="font-medium">{page.lastModified}</span></div>
+                <div><span className="text-muted-foreground">Sort Order:</span> <span className="font-medium">{page.sortOrder}</span></div>
+                <div><span className="text-muted-foreground">In Navigation:</span> <span className="font-medium">{page.showInNav ? 'Yes' : 'No'}</span></div>
+                <div><span className="text-muted-foreground">Hero Image:</span> <span className="font-medium truncate">{page.heroImage || 'None'}</span></div>
+              </div>
+              <Separator />
+              <div><p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Page Content</p><p className="text-sm leading-relaxed">{page.content}</p></div>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => { openEditPage(page) }}><Pencil className="h-4 w-4 mr-2" />Edit</Button>
+              <Button variant="destructive" onClick={() => deletePage(page.id)}><Trash2 className="h-4 w-4 mr-2" />Delete</Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ─── Inline: Add/Edit News ──────────────────────────────────────────────
+  if (viewMode === 'add-news' || viewMode === 'edit-news') {
+    const isEdit = viewMode === 'edit-news'
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button>
+        </div>
+        <div className="max-w-2xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><Newspaper className="h-5 w-5 text-emerald-600" />{isEdit ? 'Edit Article' : 'Add News Article'}</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2"><Label>Title</Label><Input value={newsForm.title} onChange={e => setNewsForm(n => ({ ...n, title: e.target.value }))} placeholder="Article title" /></div>
+              <div className="space-y-2"><Label>Excerpt</Label><Textarea value={newsForm.excerpt} onChange={e => setNewsForm(n => ({ ...n, excerpt: e.target.value }))} rows={2} placeholder="Brief summary..." /></div>
+              <div className="space-y-2"><Label>Content</Label><Textarea value={newsForm.content} onChange={e => setNewsForm(n => ({ ...n, content: e.target.value }))} rows={5} placeholder="Full article content..." /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Category</Label><Select value={newsForm.category} onValueChange={v => setNewsForm(n => ({ ...n, category: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{['General', 'Academic', 'Sports', 'Community', 'Achievement'].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-2"><Label>Author</Label><Input value={newsForm.author} onChange={e => setNewsForm(n => ({ ...n, author: e.target.value }))} placeholder="Author name" /></div>
+              </div>
+              <div className="space-y-2"><Label>Featured Image URL</Label><Input value={newsForm.featuredImage} onChange={e => setNewsForm(n => ({ ...n, featuredImage: e.target.value }))} placeholder="/images/news/image.jpg" /></div>
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2"><Switch checked={newsForm.status === 'published'} onCheckedChange={v => setNewsForm(n => ({ ...n, status: v ? 'published' : 'draft' }))} /><Label>Published</Label></div>
+                <div className="flex items-center gap-2"><Switch checked={newsForm.featured} onCheckedChange={v => setNewsForm(n => ({ ...n, featured: v }))} /><Label>Featured</Label></div>
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={saveNews}>{isEdit ? 'Update' : 'Create'}</Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ─── Inline: News Detail ────────────────────────────────────────────────
+  if (viewMode === 'detail-news') {
+    const article = getSelectedNews()
+    if (!article) return null
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button>
+        </div>
+        <div className="max-w-2xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl">{article.title}</CardTitle>
+                <Badge variant={article.status === 'published' ? 'default' : 'secondary'} className={article.status === 'published' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}>{article.status}</Badge>
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <Badge variant="outline" className="text-[10px]">{article.category}</Badge>
+                {article.featured && <Badge className="bg-amber-100 text-amber-700 text-[10px]"><Star className="h-2.5 w-2.5 mr-0.5" />Featured</Badge>}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><span className="text-muted-foreground">Author:</span> <span className="font-medium">{article.author}</span></div>
+                <div><span className="text-muted-foreground">Date:</span> <span className="font-medium">{article.date}</span></div>
+              </div>
+              <Separator />
+              <div><p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Excerpt</p><p className="text-sm">{article.excerpt}</p></div>
+              <div><p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Full Content</p><p className="text-sm leading-relaxed">{article.content}</p></div>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => openEditNews(article)}><Pencil className="h-4 w-4 mr-2" />Edit</Button>
+              <Button variant="destructive" onClick={() => deleteNews(article.id)}><Trash2 className="h-4 w-4 mr-2" />Delete</Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ─── Inline: Add Gallery ────────────────────────────────────────────────
+  if (viewMode === 'add-gallery') {
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button>
+        </div>
+        <div className="max-w-xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><Camera className="h-5 w-5 text-emerald-600" />Upload Image</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2"><Label>Title</Label><Input value={galleryForm.title} onChange={e => setGalleryForm(g => ({ ...g, title: e.target.value }))} placeholder="Image title" /></div>
+              <div className="space-y-2"><Label>Description</Label><Input value={galleryForm.description} onChange={e => setGalleryForm(g => ({ ...g, description: e.target.value }))} placeholder="Brief description" /></div>
+              <div className="space-y-2"><Label>Image URL</Label><Input value={galleryForm.imageUrl} onChange={e => setGalleryForm(g => ({ ...g, imageUrl: e.target.value }))} placeholder="https://example.com/image.jpg" /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Category</Label><Select value={galleryForm.category} onValueChange={v => setGalleryForm(g => ({ ...g, category: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{['Campus', 'Events', 'Sports', 'Academics', 'Culture', 'General'].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
+                <div className="flex items-end gap-2 pb-0.5"><Switch checked={galleryForm.featured} onCheckedChange={v => setGalleryForm(g => ({ ...g, featured: v }))} /><Label>Featured</Label></div>
+              </div>
+              <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center"><Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" /><p className="text-sm text-muted-foreground">Or drag and drop an image here</p><p className="text-xs text-muted-foreground/70 mt-1">JPG, PNG, WebP (Max 5MB)</p></div>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={saveGallery}>Upload</Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ─── Inline: Gallery Detail ─────────────────────────────────────────────
+  if (viewMode === 'detail-gallery') {
+    const img = getSelectedGallery()
+    if (!img) return null
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button>
+        </div>
+        <div className="max-w-2xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl">{img.title}</CardTitle>
+                {img.featured && <Badge className="bg-amber-100 text-amber-700"><Star className="h-3 w-3 mr-1" />Featured</Badge>}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-xl overflow-hidden bg-muted aspect-video"><img src={img.imageUrl} alt={img.title} className="w-full h-full object-cover" /></div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><span className="text-muted-foreground">Category:</span> <Badge variant="outline" className="text-[10px] ml-1">{img.category}</Badge></div>
+                <div><span className="text-muted-foreground">Uploaded:</span> <span className="font-medium">{img.uploadedAt}</span></div>
+              </div>
+              <div><p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Description</p><p className="text-sm">{img.description}</p></div>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-3">
+              <Button variant="destructive" onClick={() => deleteGallery(img.id)}><Trash2 className="h-4 w-4 mr-2" />Delete</Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ─── Inline: Edit Staff ─────────────────────────────────────────────────
+  if (viewMode === 'edit-staff') {
+    const staff = getSelectedStaff()
+    if (!staff) return null
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button>
+        </div>
+        <div className="max-w-xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><UserCheck className="h-5 w-5 text-emerald-600" />Edit Staff Profile</CardTitle><CardDescription>{staff.name}</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2"><Label>Bio</Label><Textarea value={staffForm.bio} onChange={e => setStaffForm(s => ({ ...s, bio: e.target.value }))} rows={4} placeholder="Staff biography for public display" /></div>
+              <div className="space-y-2"><Label>Subjects (comma separated)</Label><Input value={staffForm.subjects} onChange={e => setStaffForm(s => ({ ...s, subjects: e.target.value }))} placeholder="Physics, Chemistry" /></div>
+              <div className="space-y-2"><Label>Qualifications</Label><Input value={staffForm.qualifications} onChange={e => setStaffForm(s => ({ ...s, qualifications: e.target.value }))} placeholder="B.Ed, M.Sc" /></div>
+              <div className="flex items-center gap-2"><Switch checked={staffForm.showOnWebsite} onCheckedChange={v => setStaffForm(s => ({ ...s, showOnWebsite: v }))} /><Label>Show on Website</Label></div>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={saveStaff}>Save Profile</Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ─── Inline: Staff Detail ───────────────────────────────────────────────
+  if (viewMode === 'detail-staff') {
+    const staff = getSelectedStaff()
+    if (!staff) return null
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button>
+        </div>
+        <div className="max-w-xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardHeader>
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16 border-2 border-emerald-200"><AvatarFallback className="bg-emerald-50 text-emerald-700 font-semibold text-xl">{staff.name.split(' ').map(n => n[0]).join('').replace('.', '').slice(0, 2)}</AvatarFallback></Avatar>
+                <div>
+                  <CardTitle className="text-xl">{staff.name}</CardTitle>
+                  <CardDescription>{staff.role} &middot; {staff.department}</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><span className="text-muted-foreground">Email:</span> <span className="font-medium">{staff.email}</span></div>
+                <div><span className="text-muted-foreground">Visible:</span> <Badge variant={staff.showOnWebsite ? 'default' : 'secondary'} className="text-[10px]">{staff.showOnWebsite ? 'Public' : 'Hidden'}</Badge></div>
+              </div>
+              <div><span className="text-muted-foreground text-sm">Qualifications:</span> <span className="font-medium text-sm ml-1">{staff.qualifications}</span></div>
+              {staff.subjects.length > 0 && <div><p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Subjects</p><div className="flex flex-wrap gap-1">{staff.subjects.map(s => <Badge key={s} variant="secondary" className="text-[10px] bg-emerald-50 text-emerald-700">{s}</Badge>)}</div></div>}
+              <Separator />
+              <div><p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Biography</p><p className="text-sm leading-relaxed">{staff.bio}</p></div>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => openEditStaff(staff)}><Pencil className="h-4 w-4 mr-2" />Edit</Button>
+              <Button variant="outline" onClick={() => { toggleStaffVisibility(staff.id); setViewMode('list') }}>{staff.showOnWebsite ? 'Hide from Website' : 'Show on Website'}</Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ─── Inline: Edit SEO ───────────────────────────────────────────────────
+  if (viewMode === 'edit-seo') {
+    const seo = getSelectedSeo()
+    if (!seo) return null
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button>
+        </div>
+        <div className="max-w-2xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><Search className="h-5 w-5 text-emerald-600" />SEO Settings - {seo.pageTitle}</CardTitle><CardDescription>/{seo.pageSlug}</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs font-semibold uppercase text-emerald-600 tracking-wide">Basic SEO</p>
+              <div className="space-y-2"><Label>Meta Title</Label><Input value={seoForm.metaTitle} onChange={e => setSeoForm(s => ({ ...s, metaTitle: e.target.value }))} /><p className="text-xs text-muted-foreground">{seoForm.metaTitle.length}/60 characters</p></div>
+              <div className="space-y-2"><Label>Meta Description</Label><Textarea value={seoForm.metaDescription} onChange={e => setSeoForm(s => ({ ...s, metaDescription: e.target.value }))} rows={2} /><p className="text-xs text-muted-foreground">{seoForm.metaDescription.length}/160 characters</p></div>
+              <div className="space-y-2"><Label>Keywords (comma separated)</Label><Input value={seoForm.keywords} onChange={e => setSeoForm(s => ({ ...s, keywords: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>Canonical URL</Label><Input value={seoForm.canonicalUrl} onChange={e => setSeoForm(s => ({ ...s, canonicalUrl: e.target.value }))} /></div>
+              <Separator />
+              <p className="text-xs font-semibold uppercase text-emerald-600 tracking-wide">Open Graph</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>OG Title</Label><Input value={seoForm.ogTitle} onChange={e => setSeoForm(s => ({ ...s, ogTitle: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>OG Image URL</Label><Input value={seoForm.ogImage} onChange={e => setSeoForm(s => ({ ...s, ogImage: e.target.value }))} /></div>
+              </div>
+              <div className="space-y-2"><Label>OG Description</Label><Textarea value={seoForm.ogDescription} onChange={e => setSeoForm(s => ({ ...s, ogDescription: e.target.value }))} rows={2} /></div>
+              <Separator />
+              <p className="text-xs font-semibold uppercase text-emerald-600 tracking-wide">Advanced</p>
+              <div className="space-y-2"><Label>Schema Markup (JSON-LD)</Label><Textarea value={seoForm.schemaMarkup} onChange={e => setSeoForm(s => ({ ...s, schemaMarkup: e.target.value }))} rows={4} className="font-mono text-xs" /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Priority</Label><Select value={seoForm.priority} onValueChange={v => setSeoForm(s => ({ ...s, priority: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '1.0'].map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select></div>
+                <div className="flex items-end gap-2 pb-0.5"><Switch checked={seoForm.sitemapEnabled} onCheckedChange={v => setSeoForm(s => ({ ...s, sitemapEnabled: v }))} /><Label>Include in Sitemap</Label></div>
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={saveSeo}>Save SEO</Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ─── Inline: Settings ───────────────────────────────────────────────────
+  if (viewMode === 'settings') {
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button>
+        </div>
+        <div><h2 className="text-xl font-bold tracking-tight flex items-center gap-2"><Settings className="h-5 w-5 text-gray-500" />CMS Settings</h2><p className="text-sm text-muted-foreground mt-1">Configure content moderation, approval workflows, media settings, and page templates</p></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="border-0 shadow-md">
+            <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><Shield className="h-4 w-4 text-emerald-600" />Content Moderation</CardTitle><CardDescription>Control content publishing and approval</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between"><div><Label className="text-xs">Enable Content Moderation</Label><p className="text-[10px] text-muted-foreground">Require approval before publishing</p></div><Switch checked={cmsSettings.contentModeration} onCheckedChange={v => setCmsSettings(s => ({ ...s, contentModeration: v }))} /></div>
+              <div className="grid gap-2"><Label className="text-xs">Approval Workflow</Label><Select value={cmsSettings.approvalWorkflow} onValueChange={v => setCmsSettings(s => ({ ...s, approvalWorkflow: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="SINGLE">Single Approver (Headmaster)</SelectItem><SelectItem value="DUAL">Dual Approval (Deputy + Head)</SelectItem><SelectItem value="NONE">No Approval Required</SelectItem></SelectContent></Select></div>
+              <div className="flex items-center justify-between"><div><Label className="text-xs">Auto-Save Drafts</Label><p className="text-[10px] text-muted-foreground">Automatically save content while editing</p></div><Switch checked={cmsSettings.autoSave} onCheckedChange={v => setCmsSettings(s => ({ ...s, autoSave: v }))} /></div>
+              {cmsSettings.autoSave && <div className="grid gap-2"><Label className="text-xs">Auto-Save Interval (seconds)</Label><Select value={cmsSettings.autoSaveInterval} onValueChange={v => setCmsSettings(s => ({ ...s, autoSaveInterval: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="15">15 seconds</SelectItem><SelectItem value="30">30 seconds</SelectItem><SelectItem value="60">60 seconds</SelectItem></SelectContent></Select></div>}
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><Upload className="h-4 w-4 text-teal-600" />Media Library Settings</CardTitle><CardDescription>File upload and media management</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2"><Label className="text-xs">Max File Size (MB)</Label><Input type="number" value={cmsSettings.mediaMaxSize} onChange={e => setCmsSettings(s => ({ ...s, mediaMaxSize: e.target.value }))} /></div>
+              <div className="grid gap-2"><Label className="text-xs">Allowed File Types</Label><Input value={cmsSettings.allowedTypes} onChange={e => setCmsSettings(s => ({ ...s, allowedTypes: e.target.value }))} placeholder="jpg,png,pdf,doc" /></div>
+              <div className="p-3 rounded-lg bg-teal-50 dark:bg-teal-950/30 border border-teal-100 text-xs text-teal-700">Media files are stored in the school&apos;s cloud storage bucket. Ensure proper naming conventions for easy search.</div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><LayoutDashboard className="h-4 w-4 text-amber-600" />Page Templates</CardTitle><CardDescription>Default templates for new pages</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2"><Label className="text-xs">Default Page Template</Label><Select value={cmsSettings.pageTemplates} onValueChange={v => setCmsSettings(s => ({ ...s, pageTemplates: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="STANDARD">Standard (Hero + Content)</SelectItem><SelectItem value="MINIMAL">Minimal (Content Only)</SelectItem><SelectItem value="FEATURED">Featured (Hero + Cards + Content)</SelectItem></SelectContent></Select></div>
+              <div className="flex items-center justify-between"><div><Label className="text-xs">Apply SEO Defaults</Label><p className="text-[10px] text-muted-foreground">Auto-populate SEO fields from page content</p></div><Switch checked={cmsSettings.seoDefaults} onCheckedChange={v => setCmsSettings(s => ({ ...s, seoDefaults: v }))} /></div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><Globe className="h-4 w-4 text-violet-600" />Website Contact Defaults</CardTitle><CardDescription>School contact information displayed on website</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2"><Label className="text-xs">Site Title</Label><Input value={websiteSettings.siteTitle} onChange={e => setWebsiteSettings(s => ({ ...s, siteTitle: e.target.value }))} /></div>
+              <div className="grid gap-2"><Label className="text-xs">Tagline</Label><Input value={websiteSettings.tagline} onChange={e => setWebsiteSettings(s => ({ ...s, tagline: e.target.value }))} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-2"><Label className="text-xs">Email</Label><Input value={websiteSettings.email} onChange={e => setWebsiteSettings(s => ({ ...s, email: e.target.value }))} /></div>
+                <div className="grid gap-2"><Label className="text-xs">Phone</Label><Input value={websiteSettings.phone} onChange={e => setWebsiteSettings(s => ({ ...s, phone: e.target.value }))} /></div>
+              </div>
+              <div className="flex items-center justify-between"><div><Label className="text-xs">Maintenance Mode</Label><p className="text-[10px] text-muted-foreground">Show maintenance page to visitors</p></div><Switch checked={websiteSettings.maintenanceMode} onCheckedChange={v => setWebsiteSettings(s => ({ ...s, maintenanceMode: v }))} /></div>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="flex justify-end"><Button onClick={() => { toast.success('CMS settings saved successfully') }} className="bg-emerald-600 hover:bg-emerald-700 text-white"><Save className="h-4 w-4 mr-2" />Save Settings</Button></div>
+      </motion.div>
+    )
+  }
+
+  // ─── Main List View ─────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      {/* Header */}
       <motion.div {...animProps} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Globe className="h-6 w-6 text-emerald-600" />
-            Website CMS
-          </h2>
+          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2"><Globe className="h-6 w-6 text-emerald-600" />Website CMS</h2>
           <p className="text-muted-foreground text-sm mt-1">Manage your public school website content, branding, and SEO</p>
         </div>
-        <Badge variant="outline" className="w-fit gap-1.5 text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800">
-          <Globe className="h-3 w-3" /> mufakosehigh.co.zw
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setViewMode('settings')} className="gap-1.5"><Settings className="h-3.5 w-3.5" /><span className="hidden sm:inline">Settings</span></Button>
+          <Badge variant="outline" className="gap-1.5 text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800"><Globe className="h-3 w-3" />mufakosehigh.co.zw</Badge>
+        </div>
       </motion.div>
 
-      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <ScrollArea className="w-full">
           <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 min-w-[800px]">
@@ -341,99 +641,56 @@ export default function AdminCMSModule() {
           </TabsList>
         </ScrollArea>
 
-        {/* ═══════════ OVERVIEW TAB ═══════════ */}
+        {/* OVERVIEW TAB */}
         <TabsContent value="overview" className="space-y-6 mt-4">
-          {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               { icon: FileText, label: 'Published Pages', value: publishedCount, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
               { icon: FileText, label: 'Draft Pages', value: draftCount, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' },
-              { icon: Newspaper, label: 'News Articles', value: newsCount, color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-950/30' },
-              { icon: Camera, label: 'Gallery Images', value: galleryCount, color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-950/30' },
+              { icon: Newspaper, label: 'News Articles', value: news.length, color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-950/30' },
+              { icon: Camera, label: 'Gallery Images', value: gallery.length, color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-950/30' },
             ].map((stat) => (
               <motion.div key={stat.label} {...animProps}>
-                <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div><p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{stat.label}</p><p className="text-2xl font-bold mt-1">{stat.value}</p></div>
-                      <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', stat.bg)}><stat.icon className={cn('h-5 w-5', stat.color)} /></div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <Card className="border-0 shadow-md hover:shadow-lg transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div><p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{stat.label}</p><p className="text-2xl font-bold mt-1">{stat.value}</p></div><div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', stat.bg)}><stat.icon className={cn('h-5 w-5', stat.color)} /></div></div></CardContent></Card>
               </motion.div>
             ))}
           </div>
-
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Recent Changes */}
             <motion.div {...animProps} className="lg:col-span-2">
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-3"><CardTitle className="text-base">Recent Changes</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {recentChanges.map((change) => {
-                      const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
-                        page: { icon: FileText, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
-                        news: { icon: Newspaper, color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-950/30' },
-                        gallery: { icon: Camera, color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-950/30' },
-                        seo: { icon: Search, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/30' },
-                        staff: { icon: UserCheck, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' },
-                      }
-                      const cfg = typeConfig[change.type] || typeConfig.page
-                      return (
-                        <div key={change.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors">
-                          <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg shrink-0', cfg.bg)}><cfg.icon className={cn('h-4 w-4', cfg.color)} /></div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm"><span className="font-medium">{change.action}</span> {change.item}</p>
-                            <p className="text-xs text-muted-foreground">{change.user} &middot; {change.time}</p>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </CardContent>
+              <Card className="border-0 shadow-md"><CardHeader className="pb-3"><CardTitle className="text-base">Recent Changes</CardTitle></CardHeader>
+                <CardContent><div className="space-y-3">{recentChanges.map((change) => {
+                  const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: string }> = { page: { icon: FileText, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/30' }, news: { icon: Newspaper, color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-950/30' }, gallery: { icon: Camera, color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-950/30' }, seo: { icon: Search, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/30' }, staff: { icon: UserCheck, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' } }
+                  const cfg = typeConfig[change.type] || typeConfig.page
+                  return (<div key={change.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors"><div className={cn('flex h-8 w-8 items-center justify-center rounded-lg shrink-0', cfg.bg)}><cfg.icon className={cn('h-4 w-4', cfg.color)} /></div><div className="flex-1 min-w-0"><p className="text-sm"><span className="font-medium">{change.action}</span> {change.item}</p><p className="text-xs text-muted-foreground">{change.user} &middot; {change.time}</p></div></div>)
+                })}</div></CardContent>
               </Card>
             </motion.div>
-
-            {/* Quick Actions */}
             <motion.div {...animProps}>
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-3"><CardTitle className="text-base">Quick Actions</CardTitle></CardHeader>
-                <CardContent className="space-y-2">
-                  {[
-                    { icon: FileText, label: 'Add Page', desc: 'Create a new website page', action: () => { setActiveTab('pages'); setTimeout(openNewPage, 100) } },
-                    { icon: Newspaper, label: 'Add News', desc: 'Publish a news article', action: () => { setActiveTab('news'); setTimeout(openNewNews, 100) } },
-                    { icon: Camera, label: 'Upload Image', desc: 'Add to gallery', action: () => { setActiveTab('gallery'); setTimeout(openNewGallery, 100) } },
-                    { icon: Palette, label: 'Edit Hero', desc: 'Update hero section', action: () => setActiveTab('hero') },
-                  ].map((qa) => (
-                    <button key={qa.label} onClick={qa.action} className="flex items-center gap-3 w-full p-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-colors text-left group">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/30 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/40 transition-colors">
-                        <qa.icon className="h-4 w-4 text-emerald-600" />
-                      </div>
-                      <div><p className="text-sm font-medium">{qa.label}</p><p className="text-xs text-muted-foreground">{qa.desc}</p></div>
-                    </button>
-                  ))}
-                </CardContent>
+              <Card className="border-0 shadow-md"><CardHeader className="pb-3"><CardTitle className="text-base">Quick Actions</CardTitle></CardHeader>
+                <CardContent className="space-y-2">{[
+                  { icon: FileText, label: 'Add Page', desc: 'Create a new website page', action: () => { setActiveTab('pages'); setTimeout(openAddPage, 100) } },
+                  { icon: Newspaper, label: 'Add News', desc: 'Publish a news article', action: () => { setActiveTab('news'); setTimeout(openAddNews, 100) } },
+                  { icon: Camera, label: 'Upload Image', desc: 'Add to gallery', action: () => { setActiveTab('gallery'); setTimeout(openAddGallery, 100) } },
+                  { icon: Palette, label: 'Edit Hero', desc: 'Update hero section', action: () => setActiveTab('hero') },
+                ].map((qa) => (
+                  <button key={qa.label} onClick={qa.action} className="flex items-center gap-3 w-full p-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-colors text-left group">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/30 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/40 transition-colors"><qa.icon className="h-4 w-4 text-emerald-600" /></div>
+                    <div><p className="text-sm font-medium">{qa.label}</p><p className="text-xs text-muted-foreground">{qa.desc}</p></div>
+                  </button>
+                ))}</CardContent>
               </Card>
             </motion.div>
           </div>
         </TabsContent>
 
-        {/* ═══════════ HERO & BRANDING TAB ═══════════ */}
+        {/* HERO TAB */}
         <TabsContent value="hero" className="space-y-6 mt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Hero Section */}
             <motion.div {...animProps}>
               <Card className="border-0 shadow-md">
                 <CardHeader><CardTitle className="text-base flex items-center gap-2"><Palette className="h-4 w-4 text-emerald-600" /> Hero Section</CardTitle><CardDescription>Manage the main hero banner on your homepage</CardDescription></CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2"><Label>Background Image</Label>
-                    <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-emerald-400 transition-colors cursor-pointer">
-                      <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground">Click or drag to upload hero background</p>
-                      <p className="text-xs text-muted-foreground/70 mt-1">Recommended: 1920x1080px, JPG/PNG</p>
-                    </div>
-                  </div>
+                  <div className="space-y-2"><Label>Background Image</Label><div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-emerald-400 transition-colors cursor-pointer"><Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" /><p className="text-sm text-muted-foreground">Click or drag to upload hero background</p><p className="text-xs text-muted-foreground/70 mt-1">Recommended: 1920x1080px, JPG/PNG</p></div></div>
                   <div className="space-y-2"><Label>Headline</Label><Input value={heroData.headline} onChange={e => setHeroData(prev => ({ ...prev, headline: e.target.value }))} /></div>
                   <div className="space-y-2"><Label>Subheadline</Label><Textarea value={heroData.subheadline} onChange={e => setHeroData(prev => ({ ...prev, subheadline: e.target.value }))} rows={2} /></div>
                   <div className="space-y-2"><Label>CTA Button Text</Label><Input value={heroData.ctaText} onChange={e => setHeroData(prev => ({ ...prev, ctaText: e.target.value }))} /></div>
@@ -441,23 +698,11 @@ export default function AdminCMSModule() {
                 <CardFooter><Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => toast.success('Hero section updated')}><Save className="h-4 w-4 mr-2" />Save Hero</Button></CardFooter>
               </Card>
             </motion.div>
-
-            {/* School Branding */}
             <motion.div {...animProps} className="space-y-6">
               <Card className="border-0 shadow-md">
                 <CardHeader><CardTitle className="text-base flex items-center gap-2"><Shield className="h-4 w-4 text-emerald-600" /> School Branding</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2"><Label>School Logo</Label>
-                    <div className="flex items-center gap-4">
-                      <div className="h-20 w-20 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center border-2 border-dashed border-emerald-300">
-                        <Shield className="h-8 w-8 text-emerald-600" />
-                      </div>
-                      <div className="space-y-1">
-                        <Button variant="outline" size="sm"><Upload className="h-3.5 w-3.5 mr-1.5" />Upload Logo</Button>
-                        <p className="text-xs text-muted-foreground">PNG, SVG (min 200x200px)</p>
-                      </div>
-                    </div>
-                  </div>
+                  <div className="space-y-2"><Label>School Logo</Label><div className="flex items-center gap-4"><div className="h-20 w-20 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center border-2 border-dashed border-emerald-300"><Shield className="h-8 w-8 text-emerald-600" /></div><div className="space-y-1"><Button variant="outline" size="sm"><Upload className="h-3.5 w-3.5 mr-1.5" />Upload Logo</Button><p className="text-xs text-muted-foreground">PNG, SVG (min 200x200px)</p></div></div></div>
                   <div className="space-y-2"><Label>School Motto</Label><Input value={heroData.motto} onChange={e => setHeroData(prev => ({ ...prev, motto: e.target.value }))} /></div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2"><Label>Primary Color</Label><div className="flex gap-2"><Input value={heroData.primaryColor} onChange={e => setHeroData(prev => ({ ...prev, primaryColor: e.target.value }))} /><div className="h-9 w-9 rounded-md border" style={{ backgroundColor: heroData.primaryColor }} /></div></div>
@@ -466,516 +711,110 @@ export default function AdminCMSModule() {
                 </CardContent>
                 <CardFooter><Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => toast.success('Branding updated')}><Save className="h-4 w-4 mr-2" />Save Branding</Button></CardFooter>
               </Card>
-
-              {/* Hero Preview */}
-              <Card className="border-0 shadow-md overflow-hidden">
-                <CardHeader className="pb-2"><CardTitle className="text-base">Hero Preview</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="rounded-xl overflow-hidden relative" style={{ background: `linear-gradient(135deg, ${heroData.primaryColor}, ${heroData.secondaryColor})` }}>
-                    <div className="p-8 text-white text-center min-h-[200px] flex flex-col items-center justify-center">
-                      <Shield className="h-10 w-10 mb-3 opacity-80" />
-                      <h3 className="text-xl font-bold mb-2">{heroData.headline}</h3>
-                      <p className="text-sm opacity-80 mb-4 max-w-md">{heroData.subheadline}</p>
-                      <div className="inline-flex px-5 py-2 rounded-full bg-white/20 text-sm font-medium backdrop-blur-sm">{heroData.ctaText}</div>
-                      <p className="text-xs opacity-60 mt-3 italic">{heroData.motto}</p>
-                    </div>
-                  </div>
-                </CardContent>
+              <Card className="border-0 shadow-md overflow-hidden"><CardHeader className="pb-2"><CardTitle className="text-base">Hero Preview</CardTitle></CardHeader>
+                <CardContent><div className="rounded-xl overflow-hidden relative" style={{ background: `linear-gradient(135deg, ${heroData.primaryColor}, ${heroData.secondaryColor})` }}><div className="p-8 text-white text-center min-h-[200px] flex flex-col items-center justify-center"><Shield className="h-10 w-10 mb-3 opacity-80" /><h3 className="text-xl font-bold mb-2">{heroData.headline}</h3><p className="text-sm opacity-80 mb-4 max-w-md">{heroData.subheadline}</p><div className="inline-flex px-5 py-2 rounded-full bg-white/20 text-sm font-medium backdrop-blur-sm">{heroData.ctaText}</div><p className="text-xs opacity-60 mt-3 italic">{heroData.motto}</p></div></div></CardContent>
               </Card>
             </motion.div>
           </div>
         </TabsContent>
 
-        {/* ═══════════ PAGES TAB ═══════════ */}
+        {/* PAGES TAB */}
         <TabsContent value="pages" className="space-y-4 mt-4">
           <motion.div {...animProps} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">{publishedCount} published</Badge>
-              <Badge variant="secondary" className="bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">{draftCount} drafts</Badge>
-            </div>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={openNewPage}><Plus className="h-4 w-4 mr-2" />Add Page</Button>
+            <div className="flex items-center gap-2"><Badge variant="secondary" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">{publishedCount} published</Badge><Badge variant="secondary" className="bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">{draftCount} drafts</Badge></div>
+            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={openAddPage}><Plus className="h-4 w-4 mr-2" />Add Page</Button>
           </motion.div>
-
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead><tr className="border-b bg-muted/30">
-                    <th className="text-left text-xs font-medium text-muted-foreground p-3 w-8"></th>
-                    <th className="text-left text-xs font-medium text-muted-foreground p-3">Title</th>
-                    <th className="text-left text-xs font-medium text-muted-foreground p-3 hidden sm:table-cell">Slug</th>
-                    <th className="text-left text-xs font-medium text-muted-foreground p-3 hidden md:table-cell">Status</th>
-                    <th className="text-left text-xs font-medium text-muted-foreground p-3 hidden lg:table-cell">In Nav</th>
-                    <th className="text-left text-xs font-medium text-muted-foreground p-3 hidden lg:table-cell">Order</th>
-                    <th className="text-left text-xs font-medium text-muted-foreground p-3">Modified</th>
-                    <th className="text-right text-xs font-medium text-muted-foreground p-3">Actions</th>
-                  </tr></thead>
-                  <tbody>
-                    {pages.sort((a, b) => a.sortOrder - b.sortOrder).map((page) => (
-                      <tr key={page.id} className="border-b hover:bg-muted/30 transition-colors">
-                        <td className="p-3"><GripVertical className="h-4 w-4 text-muted-foreground/40" /></td>
-                        <td className="p-3"><div className="flex items-center gap-2"><FileText className="h-4 w-4 text-emerald-500 shrink-0" /><span className="text-sm font-medium">{page.title}</span></div></td>
-                        <td className="p-3 text-sm text-muted-foreground hidden sm:table-cell">/{page.slug}</td>
-                        <td className="p-3 hidden md:table-cell"><Badge variant={page.status === 'published' ? 'default' : 'secondary'} className={page.status === 'published' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'}>{page.status}</Badge></td>
-                        <td className="p-3 hidden lg:table-cell">{page.showInNav ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <X className="h-4 w-4 text-muted-foreground/40" />}</td>
-                        <td className="p-3 text-sm text-muted-foreground hidden lg:table-cell">{page.sortOrder}</td>
-                        <td className="p-3 text-sm text-muted-foreground">{page.lastModified}</td>
-                        <td className="p-3 text-right"><div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditPage(page)}><Pencil className="h-3.5 w-3.5" /></Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => confirmDeletePage(page.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                        </div></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Add/Edit Page Dialog */}
-          <Dialog open={pageDialogOpen} onOpenChange={setPageDialogOpen}>
-            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>{editingPage ? 'Edit Page' : 'Add New Page'}</DialogTitle></DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2"><Label>Title</Label><Input value={pageForm.title} onChange={e => setPageForm(p => ({ ...p, title: e.target.value, slug: e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') }))} placeholder="Page title" /></div>
-                <div className="space-y-2"><Label>Slug</Label><Input value={pageForm.slug} onChange={e => setPageForm(p => ({ ...p, slug: e.target.value }))} placeholder="page-url-slug" /></div>
-                <div className="space-y-2"><Label>Content</Label><Textarea value={pageForm.content} onChange={e => setPageForm(p => ({ ...p, content: e.target.value }))} rows={6} placeholder="Page content..." /></div>
-                <div className="space-y-2"><Label>Hero Image URL</Label><Input value={pageForm.heroImage} onChange={e => setPageForm(p => ({ ...p, heroImage: e.target.value }))} placeholder="/images/page-hero.jpg" /></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Status</Label><Select value={pageForm.status} onValueChange={v => setPageForm(p => ({ ...p, status: v as 'published' | 'draft' }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="published">Published</SelectItem><SelectItem value="draft">Draft</SelectItem></SelectContent></Select></div>
-                  <div className="space-y-2"><Label>Sort Order</Label><Input type="number" value={pageForm.sortOrder} onChange={e => setPageForm(p => ({ ...p, sortOrder: parseInt(e.target.value) || 0 }))} /></div>
-                </div>
-                <div className="flex items-center gap-3"><Switch checked={pageForm.showInNav} onCheckedChange={v => setPageForm(p => ({ ...p, showInNav: v }))} /><Label>Show in Navigation</Label></div>
-              </div>
-              <DialogFooter><Button variant="outline" onClick={() => setPageDialogOpen(false)}>Cancel</Button><Button className="bg-emerald-600 hover:bg-emerald-700" onClick={savePage}>{editingPage ? 'Update' : 'Create'} Page</Button></DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Delete Page Dialog */}
-          <Dialog open={deletePageDialogOpen} onOpenChange={setDeletePageDialogOpen}>
-            <DialogContent className="sm:max-w-[400px]">
-              <DialogHeader><DialogTitle>Delete Page</DialogTitle></DialogHeader>
-              <p className="text-sm text-muted-foreground">Are you sure you want to delete this page? This action cannot be undone.</p>
-              <DialogFooter><Button variant="outline" onClick={() => setDeletePageDialogOpen(false)}>Cancel</Button><Button variant="destructive" onClick={deletePage}>Delete</Button></DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Card className="border-0 shadow-md"><CardContent className="p-0"><div className="overflow-x-auto"><table className="w-full"><thead><tr className="border-b bg-muted/30"><th className="text-left text-xs font-medium text-muted-foreground p-3 w-8"></th><th className="text-left text-xs font-medium text-muted-foreground p-3">Title</th><th className="text-left text-xs font-medium text-muted-foreground p-3 hidden sm:table-cell">Slug</th><th className="text-left text-xs font-medium text-muted-foreground p-3 hidden md:table-cell">Status</th><th className="text-left text-xs font-medium text-muted-foreground p-3 hidden lg:table-cell">In Nav</th><th className="text-left text-xs font-medium text-muted-foreground p-3">Modified</th><th className="text-right text-xs font-medium text-muted-foreground p-3">Actions</th></tr></thead><tbody>
+            {[...pages].sort((a, b) => a.sortOrder - b.sortOrder).map((page) => (
+              <tr key={page.id} className="border-b hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => openDetailPage(page)}>
+                <td className="p-3"><GripVertical className="h-4 w-4 text-muted-foreground/40" /></td>
+                <td className="p-3"><div className="flex items-center gap-2"><FileText className="h-4 w-4 text-emerald-500 shrink-0" /><span className="text-sm font-medium">{page.title}</span></div></td>
+                <td className="p-3 text-sm text-muted-foreground hidden sm:table-cell">/{page.slug}</td>
+                <td className="p-3 hidden md:table-cell"><Badge variant={page.status === 'published' ? 'default' : 'secondary'} className={page.status === 'published' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'}>{page.status}</Badge></td>
+                <td className="p-3 hidden lg:table-cell">{page.showInNav ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <X className="h-4 w-4 text-muted-foreground/40" />}</td>
+                <td className="p-3 text-sm text-muted-foreground">{page.lastModified}</td>
+                <td className="p-3 text-right" onClick={e => e.stopPropagation()}><div className="flex items-center justify-end gap-1"><Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditPage(page)}><Pencil className="h-3.5 w-3.5" /></Button><Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => deletePage(page.id)}><Trash2 className="h-3.5 w-3.5" /></Button></div></td>
+              </tr>
+            ))}
+          </tbody></table></div></CardContent></Card>
         </TabsContent>
 
-        {/* ═══════════ NEWS TAB ═══════════ */}
+        {/* NEWS TAB */}
         <TabsContent value="news" className="space-y-4 mt-4">
           <motion.div {...animProps} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              {newsCategories.map(cat => (
-                <button key={cat} onClick={() => setNewsCategoryFilter(cat)} className={cn('px-3 py-1.5 rounded-full text-xs font-medium transition-colors', newsCategoryFilter === cat ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>{cat}</button>
-              ))}
-            </div>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={openNewNews}><Plus className="h-4 w-4 mr-2" />Add Article</Button>
+            <div className="flex items-center gap-2 flex-wrap">{newsCategories.map(cat => (<button key={cat} onClick={() => setNewsCategoryFilter(cat)} className={cn('px-3 py-1.5 rounded-full text-xs font-medium transition-colors', newsCategoryFilter === cat ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>{cat}</button>))}</div>
+            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={openAddNews}><Plus className="h-4 w-4 mr-2" />Add Article</Button>
           </motion.div>
-
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead><tr className="border-b bg-muted/30">
-                    <th className="text-left text-xs font-medium text-muted-foreground p-3">Title</th>
-                    <th className="text-left text-xs font-medium text-muted-foreground p-3 hidden sm:table-cell">Category</th>
-                    <th className="text-left text-xs font-medium text-muted-foreground p-3 hidden md:table-cell">Author</th>
-                    <th className="text-left text-xs font-medium text-muted-foreground p-3 hidden md:table-cell">Status</th>
-                    <th className="text-left text-xs font-medium text-muted-foreground p-3 hidden lg:table-cell">Date</th>
-                    <th className="text-right text-xs font-medium text-muted-foreground p-3">Actions</th>
-                  </tr></thead>
-                  <tbody>
-                    {filteredNews.map((article) => (
-                      <tr key={article.id} className="border-b hover:bg-muted/30 transition-colors">
-                        <td className="p-3"><div className="flex items-center gap-2">{article.featured && <Star className="h-3.5 w-3.5 text-amber-500 shrink-0" />}<span className="text-sm font-medium truncate max-w-[200px]">{article.title}</span></div><p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{article.excerpt}</p></td>
-                        <td className="p-3 hidden sm:table-cell"><Badge variant="outline" className="text-[10px]">{article.category}</Badge></td>
-                        <td className="p-3 text-sm text-muted-foreground hidden md:table-cell">{article.author}</td>
-                        <td className="p-3 hidden md:table-cell"><Badge variant={article.status === 'published' ? 'default' : 'secondary'} className={article.status === 'published' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'}>{article.status}</Badge></td>
-                        <td className="p-3 text-sm text-muted-foreground hidden lg:table-cell">{article.date}</td>
-                        <td className="p-3 text-right"><div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditNews(article)}><Pencil className="h-3.5 w-3.5" /></Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => deleteNews(article.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                        </div></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Add/Edit News Dialog */}
-          <Dialog open={newsDialogOpen} onOpenChange={setNewsDialogOpen}>
-            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>{editingNews ? 'Edit Article' : 'Add News Article'}</DialogTitle></DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2"><Label>Title</Label><Input value={newsForm.title} onChange={e => setNewsForm(n => ({ ...n, title: e.target.value }))} placeholder="Article title" /></div>
-                <div className="space-y-2"><Label>Excerpt</Label><Textarea value={newsForm.excerpt} onChange={e => setNewsForm(n => ({ ...n, excerpt: e.target.value }))} rows={2} placeholder="Brief summary..." /></div>
-                <div className="space-y-2"><Label>Content</Label><Textarea value={newsForm.content} onChange={e => setNewsForm(n => ({ ...n, content: e.target.value }))} rows={5} placeholder="Full article content..." /></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Category</Label><Select value={newsForm.category} onValueChange={v => setNewsForm(n => ({ ...n, category: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{['General', 'Academic', 'Sports', 'Community', 'Achievement'].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
-                  <div className="space-y-2"><Label>Author</Label><Input value={newsForm.author} onChange={e => setNewsForm(n => ({ ...n, author: e.target.value }))} placeholder="Author name" /></div>
-                </div>
-                <div className="space-y-2"><Label>Featured Image URL</Label><Input value={newsForm.featuredImage} onChange={e => setNewsForm(n => ({ ...n, featuredImage: e.target.value }))} placeholder="/images/news/image.jpg" /></div>
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2"><Switch checked={newsForm.status === 'published'} onCheckedChange={v => setNewsForm(n => ({ ...n, status: v ? 'published' : 'draft' }))} /><Label>Published</Label></div>
-                  <div className="flex items-center gap-2"><Switch checked={newsForm.featured} onCheckedChange={v => setNewsForm(n => ({ ...n, featured: v }))} /><Label>Featured</Label></div>
-                </div>
-              </div>
-              <DialogFooter><Button variant="outline" onClick={() => setNewsDialogOpen(false)}>Cancel</Button><Button className="bg-emerald-600 hover:bg-emerald-700" onClick={saveNews}>{editingNews ? 'Update' : 'Create'}</Button></DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Card className="border-0 shadow-md"><CardContent className="p-0"><div className="overflow-x-auto"><table className="w-full"><thead><tr className="border-b bg-muted/30"><th className="text-left text-xs font-medium text-muted-foreground p-3">Title</th><th className="text-left text-xs font-medium text-muted-foreground p-3 hidden sm:table-cell">Category</th><th className="text-left text-xs font-medium text-muted-foreground p-3 hidden md:table-cell">Author</th><th className="text-left text-xs font-medium text-muted-foreground p-3 hidden md:table-cell">Status</th><th className="text-left text-xs font-medium text-muted-foreground p-3 hidden lg:table-cell">Date</th><th className="text-right text-xs font-medium text-muted-foreground p-3">Actions</th></tr></thead><tbody>
+            {filteredNews.map((article) => (
+              <tr key={article.id} className="border-b hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => openDetailNews(article)}>
+                <td className="p-3"><div className="flex items-center gap-2">{article.featured && <Star className="h-3.5 w-3.5 text-amber-500 shrink-0" />}<span className="text-sm font-medium truncate max-w-[200px]">{article.title}</span></div><p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{article.excerpt}</p></td>
+                <td className="p-3 hidden sm:table-cell"><Badge variant="outline" className="text-[10px]">{article.category}</Badge></td>
+                <td className="p-3 text-sm text-muted-foreground hidden md:table-cell">{article.author}</td>
+                <td className="p-3 hidden md:table-cell"><Badge variant={article.status === 'published' ? 'default' : 'secondary'} className={article.status === 'published' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'}>{article.status}</Badge></td>
+                <td className="p-3 text-sm text-muted-foreground hidden lg:table-cell">{article.date}</td>
+                <td className="p-3 text-right" onClick={e => e.stopPropagation()}><div className="flex items-center justify-end gap-1"><Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditNews(article)}><Pencil className="h-3.5 w-3.5" /></Button><Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => deleteNews(article.id)}><Trash2 className="h-3.5 w-3.5" /></Button></div></td>
+              </tr>
+            ))}
+          </tbody></table></div></CardContent></Card>
         </TabsContent>
 
-        {/* ═══════════ GALLERY TAB ═══════════ */}
+        {/* GALLERY TAB */}
         <TabsContent value="gallery" className="space-y-4 mt-4">
           <motion.div {...animProps} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              {galleryCategories.map(cat => (
-                <button key={cat} onClick={() => setGalleryCategoryFilter(cat)} className={cn('px-3 py-1.5 rounded-full text-xs font-medium transition-colors', galleryCategoryFilter === cat ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>{cat}</button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              {selectedGalleryIds.length > 0 && <Button variant="destructive" size="sm" onClick={bulkDeleteGallery}><Trash2 className="h-3.5 w-3.5 mr-1.5" />Delete ({selectedGalleryIds.length})</Button>}
-              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={openNewGallery}><Plus className="h-4 w-4 mr-2" />Upload Image</Button>
-            </div>
+            <div className="flex items-center gap-2 flex-wrap">{galleryCategories.map(cat => (<button key={cat} onClick={() => setGalleryCategoryFilter(cat)} className={cn('px-3 py-1.5 rounded-full text-xs font-medium transition-colors', galleryCategoryFilter === cat ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>{cat}</button>))}</div>
+            <div className="flex items-center gap-2">{selectedGalleryIds.length > 0 && <Button variant="destructive" size="sm" onClick={bulkDeleteGallery}><Trash2 className="h-3.5 w-3.5 mr-1.5" />Delete ({selectedGalleryIds.length})</Button>}<Button className="bg-emerald-600 hover:bg-emerald-700" onClick={openAddGallery}><Plus className="h-4 w-4 mr-2" />Upload Image</Button></div>
           </motion.div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredGallery.map((img) => (
-              <motion.div key={img.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.2 }}>
-                <Card className={cn('border-0 shadow-md hover:shadow-lg transition-all overflow-hidden group cursor-pointer', selectedGalleryIds.includes(img.id) && 'ring-2 ring-emerald-500')}>
-                  <div className="relative aspect-[4/3] bg-muted">
-                    <img src={img.imageUrl} alt={img.title} className="w-full h-full object-cover" loading="lazy" />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                      <Button variant="secondary" size="icon" className="h-8 w-8" onClick={() => confirmDeleteGallery(img.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </div>
-                    {img.featured && <Badge className="absolute top-2 left-2 bg-amber-500 text-white text-[10px]"><Star className="h-2.5 w-2.5 mr-0.5" />Featured</Badge>}
-                    <button className="absolute top-2 right-2" onClick={() => toggleGallerySelect(img.id)}>
-                      <div className={cn('h-5 w-5 rounded border-2 flex items-center justify-center transition-colors', selectedGalleryIds.includes(img.id) ? 'bg-emerald-500 border-emerald-500' : 'bg-white/80 border-gray-300')} >
-                        {selectedGalleryIds.includes(img.id) && <CheckCircle2 className="h-3 w-3 text-white" />}
-                      </div>
-                    </button>
-                  </div>
-                  <CardContent className="p-3">
-                    <p className="text-sm font-medium truncate">{img.title}</p>
-                    <p className="text-xs text-muted-foreground line-clamp-1">{img.description}</p>
-                    <div className="flex items-center justify-between mt-2">
-                      <Badge variant="outline" className="text-[10px] h-5">{img.category}</Badge>
-                      <span className="text-[10px] text-muted-foreground">{img.uploadedAt}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Upload Image Dialog */}
-          <Dialog open={galleryDialogOpen} onOpenChange={setGalleryDialogOpen}>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader><DialogTitle>Upload Image</DialogTitle></DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2"><Label>Title</Label><Input value={galleryForm.title} onChange={e => setGalleryForm(g => ({ ...g, title: e.target.value }))} placeholder="Image title" /></div>
-                <div className="space-y-2"><Label>Description</Label><Input value={galleryForm.description} onChange={e => setGalleryForm(g => ({ ...g, description: e.target.value }))} placeholder="Brief description" /></div>
-                <div className="space-y-2"><Label>Image URL</Label><Input value={galleryForm.imageUrl} onChange={e => setGalleryForm(g => ({ ...g, imageUrl: e.target.value }))} placeholder="https://example.com/image.jpg" /></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Category</Label><Select value={galleryForm.category} onValueChange={v => setGalleryForm(g => ({ ...g, category: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{['Campus', 'Events', 'Sports', 'Academics', 'Culture', 'General'].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
-                  <div className="flex items-end gap-2 pb-0.5"><Switch checked={galleryForm.featured} onCheckedChange={v => setGalleryForm(g => ({ ...g, featured: v }))} /><Label>Featured</Label></div>
-                </div>
-                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
-                  <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">Or drag and drop an image here</p>
-                  <p className="text-xs text-muted-foreground/70 mt-1">JPG, PNG, WebP (Max 5MB)</p>
-                </div>
-              </div>
-              <DialogFooter><Button variant="outline" onClick={() => setGalleryDialogOpen(false)}>Cancel</Button><Button className="bg-emerald-600 hover:bg-emerald-700" onClick={saveGallery}>Upload</Button></DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Delete Gallery Dialog */}
-          <Dialog open={deleteGalleryDialogOpen} onOpenChange={setDeleteGalleryDialogOpen}>
-            <DialogContent className="sm:max-w-[400px]">
-              <DialogHeader><DialogTitle>Delete Image</DialogTitle></DialogHeader>
-              <p className="text-sm text-muted-foreground">Are you sure you want to delete this image? This action cannot be undone.</p>
-              <DialogFooter><Button variant="outline" onClick={() => setDeleteGalleryDialogOpen(false)}>Cancel</Button><Button variant="destructive" onClick={deleteGallery}>Delete</Button></DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">{filteredGallery.map((img) => (
+            <motion.div key={img.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.2 }}>
+              <Card className={cn('border-0 shadow-md hover:shadow-lg transition-all overflow-hidden group cursor-pointer', selectedGalleryIds.includes(img.id) && 'ring-2 ring-emerald-500')} onClick={() => openDetailGallery(img)}>
+                <div className="relative aspect-[4/3] bg-muted"><img src={img.imageUrl} alt={img.title} className="w-full h-full object-cover" loading="lazy" /><div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100"><Button variant="secondary" size="icon" className="h-8 w-8" onClick={e => { e.stopPropagation(); deleteGallery(img.id) }}><Trash2 className="h-3.5 w-3.5" /></Button></div>{img.featured && <Badge className="absolute top-2 left-2 bg-amber-500 text-white text-[10px]"><Star className="h-2.5 w-2.5 mr-0.5" />Featured</Badge>}<button className="absolute top-2 right-2" onClick={e => { e.stopPropagation(); toggleGallerySelect(img.id) }}><div className={cn('h-5 w-5 rounded border-2 flex items-center justify-center transition-colors', selectedGalleryIds.includes(img.id) ? 'bg-emerald-500 border-emerald-500' : 'bg-white/80 border-gray-300')}>{selectedGalleryIds.includes(img.id) && <CheckCircle2 className="h-3 w-3 text-white" />}</div></button></div>
+                <CardContent className="p-3"><p className="text-sm font-medium truncate">{img.title}</p><p className="text-xs text-muted-foreground line-clamp-1">{img.description}</p><div className="flex items-center justify-between mt-2"><Badge variant="outline" className="text-[10px] h-5">{img.category}</Badge><span className="text-[10px] text-muted-foreground">{img.uploadedAt}</span></div></CardContent>
+              </Card>
+            </motion.div>
+          ))}</div>
         </TabsContent>
 
-        {/* ═══════════ STAFF PROFILES TAB ═══════════ */}
+        {/* STAFF TAB */}
         <TabsContent value="staff" className="space-y-4 mt-4">
           <motion.div {...animProps} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              {staffDepartments.map(dept => (
-                <button key={dept} onClick={() => setStaffDeptFilter(dept)} className={cn('px-3 py-1.5 rounded-full text-xs font-medium transition-colors', staffDeptFilter === dept ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>{dept}</button>
-              ))}
-            </div>
-            <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800">
-              {staffProfiles.filter(s => s.showOnWebsite).length} shown on website
-            </Badge>
+            <div className="flex items-center gap-2 flex-wrap">{staffDepartments.map(dept => (<button key={dept} onClick={() => setStaffDeptFilter(dept)} className={cn('px-3 py-1.5 rounded-full text-xs font-medium transition-colors', staffDeptFilter === dept ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>{dept}</button>))}</div>
+            <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800">{staffProfiles.filter(s => s.showOnWebsite).length} shown on website</Badge>
           </motion.div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredStaff.map((staff) => (
-              <motion.div key={staff.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-                <Card className={cn('border-0 shadow-md hover:shadow-lg transition-shadow', !staff.showOnWebsite && 'opacity-60')}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <Avatar className="h-12 w-12 border-2 border-emerald-200 dark:border-emerald-800">
-                        <AvatarFallback className="bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 font-semibold">{staff.name.split(' ').map(n => n[0]).join('').replace('.', '').slice(0, 2)}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold truncate">{staff.name}</p>
-                          {staff.showOnWebsite && <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 text-[10px] h-5"><Eye className="h-2.5 w-2.5 mr-0.5" />Public</Badge>}
-                        </div>
-                        <p className="text-xs text-muted-foreground">{staff.role}</p>
-                        <Badge variant="outline" className="text-[10px] mt-1">{staff.department}</Badge>
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-3 line-clamp-2">{staff.bio}</p>
-                    {staff.subjects.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">{staff.subjects.map(s => <Badge key={s} variant="secondary" className="text-[10px] h-5 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">{s}</Badge>)}</div>
-                    )}
-                    <p className="text-[10px] text-muted-foreground mt-2">{staff.qualifications}</p>
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t">
-                      <div className="flex items-center gap-2">
-                        <Switch checked={staff.showOnWebsite} onCheckedChange={() => toggleStaffVisibility(staff.id)} className="scale-75" />
-                        <span className="text-xs text-muted-foreground">{staff.showOnWebsite ? 'Visible' : 'Hidden'}</span>
-                      </div>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openEditStaff(staff)}><Pencil className="h-3 w-3 mr-1" />Edit</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Edit Staff Dialog */}
-          <Dialog open={staffDialogOpen} onOpenChange={setStaffDialogOpen}>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader><DialogTitle>Edit Staff Profile - {editingStaff?.name}</DialogTitle></DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2"><Label>Bio</Label><Textarea value={staffForm.bio} onChange={e => setStaffForm(s => ({ ...s, bio: e.target.value }))} rows={4} placeholder="Staff biography for public display" /></div>
-                <div className="space-y-2"><Label>Subjects (comma separated)</Label><Input value={staffForm.subjects} onChange={e => setStaffForm(s => ({ ...s, subjects: e.target.value }))} placeholder="Physics, Chemistry" /></div>
-                <div className="space-y-2"><Label>Qualifications</Label><Input value={staffForm.qualifications} onChange={e => setStaffForm(s => ({ ...s, qualifications: e.target.value }))} placeholder="B.Ed, M.Sc" /></div>
-                <div className="flex items-center gap-2"><Switch checked={staffForm.showOnWebsite} onCheckedChange={v => setStaffForm(s => ({ ...s, showOnWebsite: v }))} /><Label>Show on Website</Label></div>
-              </div>
-              <DialogFooter><Button variant="outline" onClick={() => setStaffDialogOpen(false)}>Cancel</Button><Button className="bg-emerald-600 hover:bg-emerald-700" onClick={saveStaff}>Save Profile</Button></DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{filteredStaff.map((staff) => (
+            <motion.div key={staff.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+              <Card className={cn('border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer', !staff.showOnWebsite && 'opacity-60')} onClick={() => openDetailStaff(staff)}>
+                <CardContent className="p-4"><div className="flex items-start gap-3"><Avatar className="h-12 w-12 border-2 border-emerald-200 dark:border-emerald-800"><AvatarFallback className="bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 font-semibold">{staff.name.split(' ').map(n => n[0]).join('').replace('.', '').slice(0, 2)}</AvatarFallback></Avatar><div className="flex-1 min-w-0"><div className="flex items-center gap-2"><p className="text-sm font-semibold truncate">{staff.name}</p>{staff.showOnWebsite && <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 text-[10px] h-5"><Eye className="h-2.5 w-2.5 mr-0.5" />Public</Badge>}</div><p className="text-xs text-muted-foreground">{staff.role}</p><Badge variant="outline" className="text-[10px] mt-1">{staff.department}</Badge></div></div><p className="text-xs text-muted-foreground mt-3 line-clamp-2">{staff.bio}</p>{staff.subjects.length > 0 && <div className="flex flex-wrap gap-1 mt-2">{staff.subjects.map(s => <Badge key={s} variant="secondary" className="text-[10px] h-5 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">{s}</Badge>)}</div>}<p className="text-[10px] text-muted-foreground mt-2">{staff.qualifications}</p>
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t" onClick={e => e.stopPropagation()}><div className="flex items-center gap-2"><Switch checked={staff.showOnWebsite} onCheckedChange={() => toggleStaffVisibility(staff.id)} className="scale-75" /><span className="text-xs text-muted-foreground">{staff.showOnWebsite ? 'Visible' : 'Hidden'}</span></div><Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openEditStaff(staff)}><Pencil className="h-3 w-3 mr-1" />Edit</Button></div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}</div>
         </TabsContent>
 
-        {/* ═══════════ SEO SETTINGS TAB ═══════════ */}
+        {/* SEO TAB */}
         <TabsContent value="seo" className="space-y-6 mt-4">
-          <motion.div {...animProps}>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              {[
-                { icon: Search, label: 'Pages Optimized', value: seoSettings.filter(s => s.sitemapEnabled).length, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
-                { icon: FileCode, label: 'Schema Markups', value: seoSettings.length, color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-950/30' },
-                { icon: Hash, label: 'Total Keywords', value: seoSettings.reduce((a, s) => a + s.keywords.length, 0), color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' },
-                { icon: Link2, label: 'Canonical URLs', value: seoSettings.filter(s => s.canonicalUrl).length, color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-950/30' },
-              ].map((stat) => (
-                <Card key={stat.label} className="border-0 shadow-md"><CardContent className="p-4">
-                  <div className="flex items-start justify-between"><div><p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{stat.label}</p><p className="text-xl font-bold mt-1">{stat.value}</p></div>
-                    <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl', stat.bg)}><stat.icon className={cn('h-4 w-4', stat.color)} /></div>
-                  </div>
-                </CardContent></Card>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Per-Page SEO Cards */}
-          <div className="space-y-4">
-            {seoSettings.map((seo) => (
-              <motion.div key={seo.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-                <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-semibold">{seo.pageTitle}</h4>
-                          <Badge variant="outline" className="text-[10px]">/{seo.pageSlug}</Badge>
-                          {seo.sitemapEnabled && <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 text-[10px] h-5"><CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />Sitemap</Badge>}
-                        </div>
-                        <p className="text-xs text-muted-foreground truncate max-w-md">{seo.metaTitle}</p>
-                        <p className="text-xs text-muted-foreground/70 line-clamp-1">{seo.metaDescription}</p>
-                      </div>
-                      <Button variant="outline" size="sm" className="w-fit" onClick={() => openEditSeo(seo)}><Pencil className="h-3.5 w-3.5 mr-1.5" />Edit SEO</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Additional SEO Sections */}
+          <motion.div {...animProps}><div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">{[
+            { icon: Search, label: 'Pages Optimized', value: seoSettings.filter(s => s.sitemapEnabled).length, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
+            { icon: FileCode, label: 'Schema Markups', value: seoSettings.length, color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-950/30' },
+            { icon: Hash, label: 'Total Keywords', value: seoSettings.reduce((a, s) => a + s.keywords.length, 0), color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' },
+            { icon: Link2, label: 'Canonical URLs', value: seoSettings.filter(s => s.canonicalUrl).length, color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-950/30' },
+          ].map((stat) => (<Card key={stat.label} className="border-0 shadow-md"><CardContent className="p-4"><div className="flex items-start justify-between"><div><p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{stat.label}</p><p className="text-xl font-bold mt-1">{stat.value}</p></div><div className={cn('flex h-9 w-9 items-center justify-center rounded-xl', stat.bg)}><stat.icon className={cn('h-4 w-4', stat.color)} /></div></div></CardContent></Card>))}</div></motion.div>
+          <div className="space-y-4">{seoSettings.map((seo) => (
+            <motion.div key={seo.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+              <Card className="border-0 shadow-md hover:shadow-lg transition-shadow"><CardContent className="p-4"><div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"><div className="space-y-1"><div className="flex items-center gap-2"><h4 className="text-sm font-semibold">{seo.pageTitle}</h4><Badge variant="outline" className="text-[10px]">/{seo.pageSlug}</Badge>{seo.sitemapEnabled && <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 text-[10px] h-5"><CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />Sitemap</Badge>}</div><p className="text-xs text-muted-foreground truncate max-w-md">{seo.metaTitle}</p><p className="text-xs text-muted-foreground/70 line-clamp-1">{seo.metaDescription}</p></div><Button variant="outline" size="sm" className="w-fit" onClick={() => openEditSeo(seo)}><Pencil className="h-3.5 w-3.5 mr-1.5" />Edit SEO</Button></div></CardContent></Card>
+            </motion.div>
+          ))}</div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Schema Markup Editor */}
-            <Card className="border-0 shadow-md">
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><Code className="h-4 w-4 text-emerald-600" /> Schema Markup Templates</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                {[
-                  { type: 'EducationalOrganization', desc: 'School organization schema', status: 'Active' },
-                  { type: 'Event', desc: 'School events schema', status: 'Active' },
-                  { type: 'Article', desc: 'News articles schema', status: 'Active' },
-                  { type: 'BreadcrumbList', desc: 'Navigation breadcrumbs', status: 'Draft' },
-                ].map(schema => (
-                  <div key={schema.type} className="flex items-center justify-between p-3 rounded-lg bg-muted/40">
-                    <div><p className="text-sm font-medium">{schema.type}</p><p className="text-xs text-muted-foreground">{schema.desc}</p></div>
-                    <Badge variant={schema.status === 'Active' ? 'default' : 'secondary'} className={schema.status === 'Active' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 text-[10px]' : 'text-[10px]'}>{schema.status}</Badge>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Cache & Integration */}
-            <Card className="border-0 shadow-md">
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><Zap className="h-4 w-4 text-emerald-600" /> Cache & Integrations</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between"><div><p className="text-sm font-medium">Clear Page Cache</p><p className="text-xs text-muted-foreground">Regenerate all cached pages</p></div><Button variant="outline" size="sm" onClick={() => toast.success('Page cache cleared')}>Clear</Button></div>
-                  <Separator />
-                  <div className="flex items-center justify-between"><div><p className="text-sm font-medium">Clear Image Cache</p><p className="text-xs text-muted-foreground">Regenerate image thumbnails</p></div><Button variant="outline" size="sm" onClick={() => toast.success('Image cache cleared')}>Clear</Button></div>
-                  <Separator />
-                  <div className="space-y-2"><Label className="text-sm font-medium">Cache Duration</Label><Select defaultValue="3600"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1800">30 minutes</SelectItem><SelectItem value="3600">1 hour</SelectItem><SelectItem value="7200">2 hours</SelectItem><SelectItem value="86400">24 hours</SelectItem></SelectContent></Select></div>
-                </div>
-                <Separator />
-                <div className="space-y-3">
-                  <p className="text-sm font-medium">Google Integrations</p>
-                  <div className="space-y-2"><Label className="text-xs">Analytics Tracking ID</Label><Input placeholder="G-XXXXXXXXXX" /></div>
-                  <div className="space-y-2"><Label className="text-xs">Search Console Verification</Label><Input placeholder="Verification meta tag" /></div>
-                  <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => toast.success('Integration settings saved')}><Save className="h-4 w-4 mr-2" />Save Integration</Button>
-                </div>
-              </CardContent>
-            </Card>
+            <Card className="border-0 shadow-md"><CardHeader><CardTitle className="text-base flex items-center gap-2"><Code className="h-4 w-4 text-emerald-600" /> Schema Markup Templates</CardTitle></CardHeader><CardContent className="space-y-3">{[{ type: 'EducationalOrganization', desc: 'School organization schema', status: 'Active' }, { type: 'Event', desc: 'School events schema', status: 'Active' }, { type: 'Article', desc: 'News articles schema', status: 'Active' }, { type: 'BreadcrumbList', desc: 'Navigation breadcrumbs', status: 'Draft' }].map(schema => (<div key={schema.type} className="flex items-center justify-between p-3 rounded-lg bg-muted/40"><div><p className="text-sm font-medium">{schema.type}</p><p className="text-xs text-muted-foreground">{schema.desc}</p></div><Badge variant={schema.status === 'Active' ? 'default' : 'secondary'} className={schema.status === 'Active' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 text-[10px]' : 'text-[10px]'}>{schema.status}</Badge></div>))}</CardContent></Card>
+            <Card className="border-0 shadow-md"><CardHeader><CardTitle className="text-base flex items-center gap-2"><Zap className="h-4 w-4 text-emerald-600" /> Cache & Integrations</CardTitle></CardHeader><CardContent className="space-y-4"><div className="space-y-3"><div className="flex items-center justify-between"><div><p className="text-sm font-medium">Clear Page Cache</p><p className="text-xs text-muted-foreground">Regenerate all cached pages</p></div><Button variant="outline" size="sm" onClick={() => toast.success('Page cache cleared')}>Clear</Button></div><Separator /><div className="flex items-center justify-between"><div><p className="text-sm font-medium">Clear Image Cache</p><p className="text-xs text-muted-foreground">Regenerate image thumbnails</p></div><Button variant="outline" size="sm" onClick={() => toast.success('Image cache cleared')}>Clear</Button></div><Separator /><div className="space-y-2"><Label className="text-sm font-medium">Cache Duration</Label><Select defaultValue="3600"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1800">30 minutes</SelectItem><SelectItem value="3600">1 hour</SelectItem><SelectItem value="7200">2 hours</SelectItem><SelectItem value="86400">24 hours</SelectItem></SelectContent></Select></div></div><Separator /><div className="space-y-3"><p className="text-sm font-medium">Google Integrations</p><div className="space-y-2"><Label className="text-xs">Analytics Tracking ID</Label><Input placeholder="G-XXXXXXXXXX" /></div><div className="space-y-2"><Label className="text-xs">Search Console Verification</Label><Input placeholder="Verification meta tag" /></div><Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => toast.success('Integration settings saved')}><Save className="h-4 w-4 mr-2" />Save Integration</Button></div></CardContent></Card>
           </div>
-
-          {/* Robots.txt & Sitemap */}
-          <Card className="border-0 shadow-md">
-            <CardHeader><CardTitle className="text-base flex items-center gap-2"><FileCode className="h-4 w-4 text-emerald-600" /> Robots.txt & Sitemap Settings</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label>Robots.txt Directives</Label>
-                  <Textarea rows={8} defaultValue={`User-agent: *
-Allow: /
-Disallow: /admin/
-Disallow: /api/
-
-Sitemap: https://mufakosehigh.co.zw/sitemap.xml`} className="font-mono text-xs" />
-                  <Button variant="outline" size="sm" className="mt-2" onClick={() => toast.success('Robots.txt updated')}><Save className="h-3.5 w-3.5 mr-1.5" />Save robots.txt</Button>
-                </div>
-                <div className="space-y-3">
-                  <Label>Sitemap Page Priority</Label>
-                  {seoSettings.map(seo => (
-                    <div key={seo.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/40">
-                      <div className="flex items-center gap-2"><span className="text-sm">/{seo.pageSlug}</span></div>
-                      <div className="flex items-center gap-2"><Switch checked={seo.sitemapEnabled} onCheckedChange={() => { setSeoSettings(prev => prev.map(s => s.id === seo.id ? { ...s, sitemapEnabled: !s.sitemapEnabled } : s)); toast.success('Sitemap setting updated') }} className="scale-75" /><Badge variant="outline" className="text-[10px]">Priority: {seo.priority}</Badge></div>
-                    </div>
-                  ))}
-                  <Button variant="outline" size="sm" onClick={() => toast.success('Sitemap regenerated')}><Zap className="h-3.5 w-3.5 mr-1.5" />Regenerate Sitemap</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* SEO Edit Dialog */}
-          <Dialog open={seoEditOpen} onOpenChange={setSeoEditOpen}>
-            <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>SEO Settings - {editingSeo?.pageTitle}</DialogTitle></DialogHeader>
-              <div className="space-y-4 py-4">
-                <Separator className="mb-2" />
-                <p className="text-xs font-semibold uppercase text-emerald-600 tracking-wide">Basic SEO</p>
-                <div className="space-y-2"><Label>Meta Title</Label><Input value={seoForm.metaTitle} onChange={e => setSeoForm(s => ({ ...s, metaTitle: e.target.value }))} /><p className="text-xs text-muted-foreground">{seoForm.metaTitle.length}/60 characters</p></div>
-                <div className="space-y-2"><Label>Meta Description</Label><Textarea value={seoForm.metaDescription} onChange={e => setSeoForm(s => ({ ...s, metaDescription: e.target.value }))} rows={2} /><p className="text-xs text-muted-foreground">{seoForm.metaDescription.length}/160 characters</p></div>
-                <div className="space-y-2"><Label>Keywords (comma separated)</Label><Input value={seoForm.keywords} onChange={e => setSeoForm(s => ({ ...s, keywords: e.target.value }))} /></div>
-                <div className="space-y-2"><Label>Canonical URL</Label><Input value={seoForm.canonicalUrl} onChange={e => setSeoForm(s => ({ ...s, canonicalUrl: e.target.value }))} /></div>
-                <Separator />
-                <p className="text-xs font-semibold uppercase text-emerald-600 tracking-wide">Open Graph</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>OG Title</Label><Input value={seoForm.ogTitle} onChange={e => setSeoForm(s => ({ ...s, ogTitle: e.target.value }))} /></div>
-                  <div className="space-y-2"><Label>OG Image URL</Label><Input value={seoForm.ogImage} onChange={e => setSeoForm(s => ({ ...s, ogImage: e.target.value }))} /></div>
-                </div>
-                <div className="space-y-2"><Label>OG Description</Label><Textarea value={seoForm.ogDescription} onChange={e => setSeoForm(s => ({ ...s, ogDescription: e.target.value }))} rows={2} /></div>
-                <Separator />
-                <p className="text-xs font-semibold uppercase text-emerald-600 tracking-wide">Schema Markup (JSON-LD)</p>
-                <div className="space-y-2"><Textarea value={seoForm.schemaMarkup} onChange={e => setSeoForm(s => ({ ...s, schemaMarkup: e.target.value }))} rows={5} className="font-mono text-xs" /></div>
-                <Separator />
-                <p className="text-xs font-semibold uppercase text-emerald-600 tracking-wide">Sitemap</p>
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2"><Switch checked={seoForm.sitemapEnabled} onCheckedChange={v => setSeoForm(s => ({ ...s, sitemapEnabled: v }))} /><Label>Include in Sitemap</Label></div>
-                  <div className="space-y-1"><Label className="text-xs">Priority</Label><Select value={seoForm.priority} onValueChange={v => setSeoForm(s => ({ ...s, priority: v }))}><SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger><SelectContent>{['1.0', '0.9', '0.8', '0.7', '0.6', '0.5'].map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select></div>
-                </div>
-              </div>
-              <DialogFooter><Button variant="outline" onClick={() => setSeoEditOpen(false)}>Cancel</Button><Button className="bg-emerald-600 hover:bg-emerald-700" onClick={saveSeo}>Save SEO</Button></DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Card className="border-0 shadow-md"><CardHeader><CardTitle className="text-base flex items-center gap-2"><FileCode className="h-4 w-4 text-emerald-600" /> Robots.txt & Sitemap Settings</CardTitle></CardHeader><CardContent><div className="grid grid-cols-1 lg:grid-cols-2 gap-6"><div className="space-y-2"><Label>Robots.txt Directives</Label><Textarea rows={8} defaultValue={`User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\n\nSitemap: https://mufakosehigh.co.zw/sitemap.xml`} className="font-mono text-xs" /><Button variant="outline" size="sm" className="mt-2" onClick={() => toast.success('Robots.txt updated')}><Save className="h-3.5 w-3.5 mr-1.5" />Save robots.txt</Button></div><div className="space-y-3"><Label>Sitemap Page Priority</Label>{seoSettings.map(seo => (<div key={seo.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/40"><div className="flex items-center gap-2"><span className="text-sm">/{seo.pageSlug}</span></div><div className="flex items-center gap-2"><Switch checked={seo.sitemapEnabled} onCheckedChange={() => { setSeoSettings(prev => prev.map(s => s.id === seo.id ? { ...s, sitemapEnabled: !s.sitemapEnabled } : s)); toast.success('Sitemap setting updated') }} className="scale-75" /><Badge variant="outline" className="text-[10px]">Priority: {seo.priority}</Badge></div></div>))}<Button variant="outline" size="sm" onClick={() => toast.success('Sitemap regenerated')}><Zap className="h-3.5 w-3.5 mr-1.5" />Regenerate Sitemap</Button></div></div></CardContent></Card>
         </TabsContent>
 
-        {/* ═══════════ SETTINGS TAB ═══════════ */}
-        <TabsContent value="settings" className="space-y-6 mt-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Website Info */}
-            <motion.div {...animProps}>
-              <Card className="border-0 shadow-md">
-                <CardHeader><CardTitle className="text-base flex items-center gap-2"><Globe className="h-4 w-4 text-emerald-600" /> Website Information</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2"><Label>Website Title</Label><Input value={websiteSettings.siteTitle} onChange={e => setWebsiteSettings(s => ({ ...s, siteTitle: e.target.value }))} /></div>
-                  <div className="space-y-2"><Label>Tagline</Label><Input value={websiteSettings.tagline} onChange={e => setWebsiteSettings(s => ({ ...s, tagline: e.target.value }))} /></div>
-                  <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => toast.success('Website info updated')}><Save className="h-4 w-4 mr-2" />Save</Button>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* Contact Info */}
-            <motion.div {...animProps}>
-              <Card className="border-0 shadow-md">
-                <CardHeader><CardTitle className="text-base flex items-center gap-2"><Phone className="h-4 w-4 text-emerald-600" /> Contact Information</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2"><Label>Email</Label><Input value={websiteSettings.email} onChange={e => setWebsiteSettings(s => ({ ...s, email: e.target.value }))} /></div>
-                  <div className="space-y-2"><Label>Phone</Label><Input value={websiteSettings.phone} onChange={e => setWebsiteSettings(s => ({ ...s, phone: e.target.value }))} /></div>
-                  <div className="space-y-2"><Label>Address</Label><Textarea value={websiteSettings.address} onChange={e => setWebsiteSettings(s => ({ ...s, address: e.target.value }))} rows={2} /></div>
-                  <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => toast.success('Contact info updated')}><Save className="h-4 w-4 mr-2" />Save</Button>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* Social Media */}
-            <motion.div {...animProps}>
-              <Card className="border-0 shadow-md">
-                <CardHeader><CardTitle className="text-base flex items-center gap-2"><Share2 className="h-4 w-4 text-emerald-600" /> Social Media Links</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  {[
-                    { key: 'facebook' as const, label: 'Facebook', placeholder: 'https://facebook.com/...' },
-                    { key: 'twitter' as const, label: 'Twitter / X', placeholder: 'https://twitter.com/...' },
-                    { key: 'instagram' as const, label: 'Instagram', placeholder: 'https://instagram.com/...' },
-                    { key: 'youtube' as const, label: 'YouTube', placeholder: 'https://youtube.com/...' },
-                  ].map(social => (
-                    <div key={social.key} className="space-y-2"><Label>{social.label}</Label><Input value={websiteSettings[social.key]} onChange={e => setWebsiteSettings(s => ({ ...s, [social.key]: e.target.value }))} placeholder={social.placeholder} /></div>
-                  ))}
-                  <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => toast.success('Social media links updated')}><Save className="h-4 w-4 mr-2" />Save</Button>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* Footer & Maps & Maintenance */}
-            <motion.div {...animProps}>
-              <Card className="border-0 shadow-md">
-                <CardHeader><CardTitle className="text-base flex items-center gap-2"><Settings className="h-4 w-4 text-emerald-600" /> Footer & Advanced</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2"><Label>Footer Content</Label><Textarea value={websiteSettings.footerContent} onChange={e => setWebsiteSettings(s => ({ ...s, footerContent: e.target.value }))} rows={3} /></div>
-                  <div className="space-y-2"><Label>Google Maps Embed Code</Label><Textarea value={websiteSettings.mapsEmbed} onChange={e => setWebsiteSettings(s => ({ ...s, mapsEmbed: e.target.value }))} rows={3} className="font-mono text-xs" /></div>
-                  <Separator />
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
-                    <div><p className="text-sm font-medium">Maintenance Mode</p><p className="text-xs text-muted-foreground">Take the website offline for updates</p></div>
-                    <Switch checked={websiteSettings.maintenanceMode} onCheckedChange={v => { setWebsiteSettings(s => ({ ...s, maintenanceMode: v })); toast.success(v ? 'Maintenance mode enabled' : 'Maintenance mode disabled') }} />
-                  </div>
-                  <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => toast.success('Settings saved')}><Save className="h-4 w-4 mr-2" />Save All</Button>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </div>
+        {/* SETTINGS TAB */}
+        <TabsContent value="settings" className="space-y-4 mt-4">
+          <div className="flex items-center justify-center py-12"><Button onClick={() => setViewMode('settings')} className="bg-emerald-600 hover:bg-emerald-700"><Settings className="h-4 w-4 mr-2" />Open Full CMS Settings</Button></div>
         </TabsContent>
       </Tabs>
     </div>

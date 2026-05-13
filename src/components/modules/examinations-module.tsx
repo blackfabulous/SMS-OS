@@ -20,6 +20,8 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  Settings,
+  Save,
 } from 'lucide-react'
 import {
   BarChart,
@@ -35,6 +37,7 @@ import {
 } from 'recharts'
 
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -49,15 +52,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
+// Dialog removed - using ViewMode inline pattern
 import {
   Select,
   SelectContent,
@@ -68,6 +63,8 @@ import {
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Progress } from '@/components/ui/progress'
+import { Switch } from '@/components/ui/switch'
+import { Separator } from '@/components/ui/separator'
 import {
   ChartContainer,
   ChartTooltip,
@@ -228,8 +225,10 @@ export default function ExaminationsModule() {
   const [activeTab, setActiveTab] = useState('overview')
   const [examLevelFilter, setExamLevelFilter] = useState('ALL')
 
-  // Register dialog
-  const [registerDialogOpen, setRegisterDialogOpen] = useState(false)
+  // ViewMode state pattern
+  type ViewMode = 'list' | 'add' | 'edit' | 'detail' | 'settings'
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [registering, setRegistering] = useState(false)
   const [registerForm, setRegisterForm] = useState({
     studentId: '',
@@ -280,8 +279,8 @@ export default function ExaminationsModule() {
   }, [fetchCandidates])
 
   useEffect(() => {
-    if (registerDialogOpen) fetchStudents()
-  }, [registerDialogOpen, fetchStudents])
+    if (viewMode === 'add') fetchStudents()
+  }, [viewMode, fetchStudents])
 
   // ─── Handlers ─────────────────────────────────────────────────────────
 
@@ -301,8 +300,9 @@ export default function ExaminationsModule() {
         }),
       })
       if (res.ok) {
-        setRegisterDialogOpen(false)
+        setViewMode('list')
         setRegisterForm({ studentId: '', examLevel: 'O_LEVEL', examYear: new Date().getFullYear().toString(), subjects: [] })
+        toast.success('Candidate registered successfully')
         fetchCandidates()
       } else if (res.status === 409) {
         setDuplicateWarning(true)
@@ -367,6 +367,321 @@ export default function ExaminationsModule() {
     )
   }
 
+  // ─── Add/Register Inline View ────────────────────────────────────────────
+
+  if (viewMode === 'add') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3 }}
+        className="space-y-6"
+      >
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+            onClick={() => setViewMode('list')}
+          >
+            <ChevronLeft className="h-4 w-4" /> Back to Examinations
+          </Button>
+        </div>
+
+        <Card className="border-0 shadow-md overflow-hidden">
+n          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6">
+            <h2 className="text-xl font-bold">Register ZIMSEC Candidate</h2>
+            <p className="text-emerald-100 text-sm mt-1">Register a student for ZIMSEC examinations</p>
+          </div>
+          <CardContent className="p-6">
+            <div className="grid gap-4">
+              {duplicateWarning && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span className="text-sm text-amber-700">This student is already registered for this exam year.</span>
+                </div>
+              )}
+              <div className="grid gap-2">
+                <Label>Student *</Label>
+                <Select
+                  value={registerForm.studentId}
+                  onValueChange={(v) => {
+                    setRegisterForm((p) => ({ ...p, studentId: v }))
+                    setDuplicateWarning(false)
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Search and select student..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <ScrollArea className="h-48">
+                      {students.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.firstName} {s.lastName} ({s.studentNumber})
+                        </SelectItem>
+                      ))}
+                    </ScrollArea>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Exam Level *</Label>
+                  <Select
+                    value={registerForm.examLevel}
+                    onValueChange={(v) => setRegisterForm((p) => ({ ...p, examLevel: v, subjects: [] }))}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(examLevelLabels).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Exam Year</Label>
+                  <Input
+                    type="number"
+                    value={registerForm.examYear}
+                    onChange={(e) => setRegisterForm((p) => ({ ...p, examYear: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label>Subjects</Label>
+                <div className="flex flex-wrap gap-2 p-3 rounded-lg border bg-muted/20 min-h-[60px]">
+                  {zimsecSubjects[registerForm.examLevel]?.map((subject) => {
+                    const isSelected = registerForm.subjects.includes(subject)
+                    return (
+                      <button
+                        key={subject}
+                        type="button"
+                        onClick={() => toggleSubject(subject)}
+                        className={cn(
+                          'px-2.5 py-1 rounded-md text-xs font-medium transition-all border',
+                          isSelected
+                            ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                            : 'bg-white text-muted-foreground border-gray-200 hover:border-emerald-300 hover:text-emerald-600'
+                        )}
+                      >
+                        {subject}
+                      </button>
+                    )
+                  })}
+                  {registerForm.subjects.length === 0 && (
+                    <span className="text-xs text-muted-foreground py-1">Click subjects to select</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {registerForm.subjects.length} subject{registerForm.subjects.length !== 1 ? 's' : ''} selected
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t">
+              <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+              <Button
+                onClick={handleRegister}
+                disabled={registering || !registerForm.studentId || !registerForm.examLevel}
+                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
+              >
+                {registering && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Register Candidate
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    )
+  }
+
+  // ─── Settings View ──────────────────────────────────────────────────────
+
+  if (viewMode === 'settings') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3 }}
+        className="space-y-6"
+      >
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+            onClick={() => setViewMode('list')}
+          >
+            <ChevronLeft className="h-4 w-4" /> Back to Examinations
+          </Button>
+        </div>
+
+        <Card className="border-0 shadow-md overflow-hidden">
+          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6">
+            <h2 className="text-xl font-bold">Examinations Settings</h2>
+            <p className="text-emerald-100 text-sm mt-1">Configure ZIMSEC integration, grading, and result publication</p>
+          </div>
+          <CardContent className="p-6 space-y-6">
+            <Card className="border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">ZIMSEC Integration</CardTitle>
+                <CardDescription>Centre and registration settings</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Default Exam Level</Label>
+                    <Select defaultValue="O_LEVEL">
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="GRADE_7">Grade 7</SelectItem>
+                        <SelectItem value="O_LEVEL">O Level</SelectItem>
+                        <SelectItem value="A_LEVEL">A Level</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Registration Deadline</Label>
+                    <Input type="date" defaultValue="2026-03-31" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Auto-assign Candidate Numbers</p>
+                    <p className="text-xs text-muted-foreground">Automatically assign candidate numbers on registration</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Grading & Results</CardTitle>
+                <CardDescription>Automation settings for grading and publication</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Auto-calculate Grades</p>
+                    <p className="text-xs text-muted-foreground">Automatically compute grades from marks</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Auto-publish Results</p>
+                    <p className="text-xs text-muted-foreground">Publish results automatically after grading</p>
+                  </div>
+                  <Switch />
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Enable Certificate Generation</p>
+                    <p className="text-xs text-muted-foreground">Allow generation of ZIMSEC certificates</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+              <Button
+                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
+                onClick={() => { toast.success('Settings saved successfully'); setViewMode('list') }}
+              >
+                <Save className="mr-2 h-4 w-4" /> Save Settings
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    )
+  }
+
+  // ─── Detail View ────────────────────────────────────────────────────────
+
+  if (viewMode === 'detail' && selectedId) {
+    const candidate = candidates.find((c) => c.id === selectedId)
+    if (candidate) {
+      return (
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
+          className="space-y-6"
+        >
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+              onClick={() => { setViewMode('list'); setSelectedId(null) }}
+            >
+              <ChevronLeft className="h-4 w-4" /> Back to Examinations
+            </Button>
+          </div>
+
+          <Card className="border-0 shadow-md overflow-hidden">
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6">
+              <h2 className="text-xl font-bold">{candidate.student.lastName}, {candidate.student.firstName}</h2>
+              <div className="flex flex-wrap gap-4 mt-3">
+                <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-lg px-3 py-1.5">
+                  <span className="text-sm font-medium">#{candidate.candidateNumber || 'Pending'}</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-lg px-3 py-1.5">
+                  <span className="text-sm font-medium">{examLevelLabels[candidate.examLevel]}</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-lg px-3 py-1.5">
+                  <span className="text-sm font-medium">Year: {candidate.examYear}</span>
+                </div>
+              </div>
+            </div>
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <Card className="border">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground uppercase">Student Number</p>
+                    <p className="text-sm font-semibold mt-1">{candidate.student.studentNumber}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground uppercase">Registration Status</p>
+                    <Badge className={cn('mt-1 text-xs border', registrationStatusColors[candidate.registrationStatus])}>{registrationStatusLabels[candidate.registrationStatus]}</Badge>
+                  </CardContent>
+                </Card>
+                <Card className="border">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground uppercase">Fees</p>
+                    <p className="text-sm font-semibold mt-1">${candidate.feesPaid} / ${candidate.totalFees}</p>
+                  </CardContent>
+                </Card>
+              </div>
+              {candidate.student.enrollments?.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium mb-2">Class</p>
+                  <p className="text-sm text-muted-foreground">{candidate.student.enrollments[0].class.grade.name} - {candidate.student.enrollments[0].class.name}</p>
+                </div>
+              )}
+              {candidate.subjects && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium mb-2">Registered Subjects</p>
+                  <div className="flex flex-wrap gap-1.5">{(JSON.parse(candidate.subjects) as string[]).map((s: string) => (
+                    <Badge key={s} variant="outline" className="text-xs">{s}</Badge>
+                  ))}</div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )
+    }
+  }
+
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
@@ -383,123 +698,21 @@ export default function ExaminationsModule() {
           <p className="text-sm text-muted-foreground mt-1">Manage exam registrations, schedules and results</p>
         </div>
         <div className="flex items-center gap-2">
-          <Dialog open={registerDialogOpen} onOpenChange={setRegisterDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md">
-                <Plus className="mr-2 h-4 w-4" />
-                Register Candidate
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
-                <DialogTitle>Register ZIMSEC Candidate</DialogTitle>
-                <DialogDescription>Register a student for ZIMSEC examinations</DialogDescription>
-              </DialogHeader>
-              <ScrollArea className="max-h-[65vh]">
-                <div className="grid gap-4 py-4 pr-4">
-                  {duplicateWarning && (
-                    <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
-                      <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-                      <span className="text-sm text-amber-700">This student is already registered for this exam year.</span>
-                    </div>
-                  )}
-                  <div className="grid gap-2">
-                    <Label>Student *</Label>
-                    <Select
-                      value={registerForm.studentId}
-                      onValueChange={(v) => {
-                        setRegisterForm((p) => ({ ...p, studentId: v }))
-                        setDuplicateWarning(false)
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Search and select student..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <ScrollArea className="h-48">
-                          {students.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.firstName} {s.lastName} ({s.studentNumber})
-                            </SelectItem>
-                          ))}
-                        </ScrollArea>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label>Exam Level *</Label>
-                      <Select
-                        value={registerForm.examLevel}
-                        onValueChange={(v) => setRegisterForm((p) => ({ ...p, examLevel: v, subjects: [] }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(examLevelLabels).map(([key, label]) => (
-                            <SelectItem key={key} value={key}>{label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Exam Year</Label>
-                      <Input
-                        type="number"
-                        value={registerForm.examYear}
-                        onChange={(e) => setRegisterForm((p) => ({ ...p, examYear: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Subject Selection */}
-                  <div className="grid gap-2">
-                    <Label>Subjects</Label>
-                    <div className="flex flex-wrap gap-2 p-3 rounded-lg border bg-muted/20 min-h-[60px]">
-                      {zimsecSubjects[registerForm.examLevel]?.map((subject) => {
-                        const isSelected = registerForm.subjects.includes(subject)
-                        return (
-                          <button
-                            key={subject}
-                            type="button"
-                            onClick={() => toggleSubject(subject)}
-                            className={cn(
-                              'px-2.5 py-1 rounded-md text-xs font-medium transition-all border',
-                              isSelected
-                                ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                                : 'bg-white text-muted-foreground border-gray-200 hover:border-emerald-300 hover:text-emerald-600'
-                            )}
-                          >
-                            {subject}
-                          </button>
-                        )
-                      })}
-                      {registerForm.subjects.length === 0 && (
-                        <span className="text-xs text-muted-foreground py-1">Click subjects to select</span>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {registerForm.subjects.length} subject{registerForm.subjects.length !== 1 ? 's' : ''} selected
-                    </p>
-                  </div>
-                </div>
-              </ScrollArea>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setRegisterDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleRegister}
-                  disabled={registering || !registerForm.studentId || !registerForm.examLevel}
-                  className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
-                >
-                  {registering && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Register Candidate
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setViewMode('settings')}
+            className="h-9 w-9"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+          <Button
+            className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md"
+            onClick={() => setViewMode('add')}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Register Candidate
+          </Button>
         </div>
       </div>
 
@@ -814,7 +1027,7 @@ export default function ExaminationsModule() {
                   <p className="text-xs text-muted-foreground mt-1">Register candidates for ZIMSEC examinations</p>
                   <Button
                     className="mt-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
-                    onClick={() => setRegisterDialogOpen(true)}
+                    onClick={() => setViewMode('add')}
                   >
                     <Plus className="mr-2 h-4 w-4" /> Register First Candidate
                   </Button>

@@ -18,6 +18,9 @@ import {
   Trash2,
   Plus,
   X,
+  ArrowLeft,
+  Settings,
+  Eye,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -26,6 +29,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -33,13 +37,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
 import {
   Table,
   TableBody,
@@ -70,6 +67,7 @@ interface ZimsecCandidate {
 }
 
 type ImportStep = 'upload' | 'preview' | 'validation' | 'complete'
+type ViewMode = 'list' | 'add' | 'detail' | 'settings'
 
 // ─── Mock Candidates Data ────────────────────────────────────────────────────
 const mockCandidates: ZimsecCandidate[] = [
@@ -88,19 +86,30 @@ const mockCandidates: ZimsecCandidate[] = [
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ZimsecBulkImportModule() {
   const [step, setStep] = useState<ImportStep>('upload')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [candidates, setCandidates] = useState<ZimsecCandidate[]>(mockCandidates)
   const [examYear, setExamYear] = useState('2026')
   const [examLevel, setExamLevel] = useState<'O_LEVEL' | 'A_LEVEL'>('O_LEVEL')
   const [centreNumber, setCentreNumber] = useState('CN-001')
   const [isProcessing, setIsProcessing] = useState(false)
   const [processProgress, setProcessProgress] = useState(0)
-  const [addCandidateOpen, setAddCandidateOpen] = useState(false)
   const [newCandidate, setNewCandidate] = useState({ name: '', studentNumber: '', gender: 'Male', nationalId: '', subjects: '' })
+
+  // Settings state
+  const [importFormat, setImportFormat] = useState('csv')
+  const [autoValidate, setAutoValidate] = useState(true)
+  const [requireNationalId, setRequireNationalId] = useState(true)
+  const [minSubjects, setMinSubjects] = useState('7')
+  const [autoAssignCentre, setAutoAssignCentre] = useState(true)
+  const [defaultExamSession, setDefaultExamSession] = useState('June')
 
   const validCandidates = candidates.filter(c => c.errors.length === 0)
   const invalidCandidates = candidates.filter(c => c.errors.length > 0)
   const paidCandidates = candidates.filter(c => c.feesPaid >= c.feesTotal)
   const unpaidCandidates = candidates.filter(c => c.feesPaid < c.feesTotal)
+
+  const selectedCandidate = candidates.find(c => c.id === selectedId)
 
   const handleFileUpload = useCallback(() => {
     setIsProcessing(true)
@@ -146,12 +155,11 @@ export default function ZimsecBulkImportModule() {
     setIsProcessing(true)
     setProcessProgress(0)
 
-    // Build results payload for the bulk import API
     const results = validCandidates.flatMap(c =>
       c.subjects.map(subject => ({
         studentNumber: c.studentNumber,
         subject,
-        grade: 'C', // Default grade for registration, will be updated when results come in
+        grade: 'C',
         marks: 0,
         year: parseInt(examYear),
         level: c.examLevel === 'O_LEVEL' ? 'O-Level' : 'A-Level',
@@ -159,7 +167,6 @@ export default function ZimsecBulkImportModule() {
       }))
     )
 
-    // Simulate progress while API processes
     const progressInterval = setInterval(() => {
       setProcessProgress(prev => {
         if (prev >= 90) {
@@ -178,9 +185,7 @@ export default function ZimsecBulkImportModule() {
       })
 
       clearInterval(progressInterval)
-
       const data = await response.json()
-
       setProcessProgress(100)
       setIsProcessing(false)
 
@@ -203,8 +208,6 @@ export default function ZimsecBulkImportModule() {
       clearInterval(progressInterval)
       setProcessProgress(100)
       setIsProcessing(false)
-
-      // Fallback to local simulation
       setCandidates(prev => prev.map(c => ({
         ...c,
         registrationStatus: c.errors.length === 0 ? 'REGISTERED' as const : 'FAILED' as const
@@ -255,8 +258,8 @@ export default function ZimsecBulkImportModule() {
       errors: newCandidate.nationalId ? [] : ['Missing National ID'],
     }
     setCandidates(prev => [...prev, candidate])
-    setAddCandidateOpen(false)
     setNewCandidate({ name: '', studentNumber: '', gender: 'Male', nationalId: '', subjects: '' })
+    setViewMode('list')
     toast.success(`${candidate.studentName} added`)
   }
 
@@ -264,18 +267,309 @@ export default function ZimsecBulkImportModule() {
     setCandidates(prev => prev.filter(c => c.id !== id))
   }
 
+  const handleSaveSettings = () => {
+    toast.success('Import settings saved successfully')
+  }
+
+  // ─── Add Candidate View ──────────────────────────────────────────────────
+  if (viewMode === 'add') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1">
+            <ArrowLeft className="h-4 w-4" /> Back
+          </Button>
+        </div>
+        <Card className="border-0 shadow-md">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">Add ZIMSEC Candidate</CardTitle>
+            <CardDescription>Add a new candidate for ZIMSEC examination registration</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Full Name *</Label>
+                <Input value={newCandidate.name} onChange={e => setNewCandidate(p => ({ ...p, name: e.target.value }))} placeholder="Tendai Moyo" />
+              </div>
+              <div className="space-y-2">
+                <Label>Student Number *</Label>
+                <Input value={newCandidate.studentNumber} onChange={e => setNewCandidate(p => ({ ...p, studentNumber: e.target.value }))} placeholder="STD-2024-001" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Gender</Label>
+                <Select value={newCandidate.gender} onValueChange={v => setNewCandidate(p => ({ ...p, gender: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>National ID</Label>
+                <Input value={newCandidate.nationalId} onChange={e => setNewCandidate(p => ({ ...p, nationalId: e.target.value }))} placeholder="08-123456A08" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Subjects (comma-separated)</Label>
+              <Input value={newCandidate.subjects} onChange={e => setNewCandidate(p => ({ ...p, subjects: e.target.value }))} placeholder="Mathematics, English, Shona, Physics..." />
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <Button
+                onClick={handleAddCandidate}
+                disabled={!newCandidate.name || !newCandidate.studentNumber}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <Plus className="mr-2 h-4 w-4" /> Add Candidate
+              </Button>
+              <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // ─── Detail View ─────────────────────────────────────────────────────────
+  if (viewMode === 'detail' && selectedCandidate) {
+    const c = selectedCandidate
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => { setViewMode('list'); setSelectedId(null) }} className="gap-1">
+            <ArrowLeft className="h-4 w-4" /> Back
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Card className="border-0 shadow-md lg:col-span-2">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg font-semibold">{c.studentName}</CardTitle>
+                  <CardDescription>{c.studentNumber} &middot; {c.examLevel.replace('_', '-')}</CardDescription>
+                </div>
+                <Badge className={cn(
+                  'text-xs',
+                  c.registrationStatus === 'REGISTERED' ? 'bg-emerald-100 text-emerald-700' :
+                  c.registrationStatus === 'CONFIRMED' ? 'bg-teal-100 text-teal-700' :
+                  c.registrationStatus === 'FAILED' ? 'bg-red-100 text-red-700' :
+                  'bg-amber-100 text-amber-700'
+                )}>
+                  {c.registrationStatus}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Gender</p>
+                  <p className="text-sm font-medium">{c.gender}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Date of Birth</p>
+                  <p className="text-sm font-medium">{c.dateOfBirth}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">National ID</p>
+                  <p className="text-sm font-mono">{c.nationalId || 'Not provided'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Centre Number</p>
+                  <p className="text-sm font-mono">{c.centreNumber}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Candidate Number</p>
+                  <p className="text-sm font-mono">{c.candidateNumber || 'Not assigned'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Fees Status</p>
+                  <p className="text-sm">
+                    <span className={c.feesPaid >= c.feesTotal ? 'text-emerald-600 font-medium' : 'text-amber-600 font-medium'}>
+                      ${c.feesPaid} / ${c.feesTotal}
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Subjects ({c.subjects.length})</p>
+                <div className="flex flex-wrap gap-2">
+                  {c.subjects.map(s => (
+                    <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
+                  ))}
+                </div>
+              </div>
+
+              {c.errors && c.errors.length > 0 && (
+                <>
+                  <Separator />
+                  <div>
+                    <p className="text-xs text-red-600 font-medium mb-2">Issues ({c.errors.length})</p>
+                    <div className="space-y-1">
+                      {c.errors.map((err, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-xs text-red-600 bg-red-50 rounded px-2 py-1">
+                          <XCircle className="h-3 w-3 shrink-0" />
+                          {err}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="space-y-4">
+            <Card className="border-0 shadow-md">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start gap-2 text-red-600 hover:text-red-700"
+                  onClick={() => {
+                    handleRemoveCandidate(c.id)
+                    setViewMode('list')
+                    setSelectedId(null)
+                    toast.success('Candidate removed')
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" /> Remove Candidate
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── Settings View ───────────────────────────────────────────────────────
+  if (viewMode === 'settings') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1">
+            <ArrowLeft className="h-4 w-4" /> Back
+          </Button>
+        </div>
+
+        <div>
+          <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+            <Settings className="h-5 w-5" /> Import Settings
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">Configure ZIMSEC bulk import defaults and validation rules</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card className="border-0 shadow-md">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">Import Format</CardTitle>
+              <CardDescription>Configure how data files are processed</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Default Import Format</Label>
+                <Select value={importFormat} onValueChange={setImportFormat}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="csv">CSV (Comma-separated)</SelectItem>
+                    <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
+                    <SelectItem value="xls">Excel (.xls)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Default Exam Session</Label>
+                <Select value={defaultExamSession} onValueChange={setDefaultExamSession}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="June">June Session</SelectItem>
+                    <SelectItem value="November">November Session</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Auto-assign Centre Number</Label>
+                  <p className="text-xs text-muted-foreground">Automatically assign centre number from config</p>
+                </div>
+                <Switch checked={autoAssignCentre} onCheckedChange={setAutoAssignCentre} />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-md">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">Validation Rules</CardTitle>
+              <CardDescription>Configure data validation requirements</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Auto-validate on import</Label>
+                  <p className="text-xs text-muted-foreground">Run validation automatically after file upload</p>
+                </div>
+                <Switch checked={autoValidate} onCheckedChange={setAutoValidate} />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Require National ID</Label>
+                  <p className="text-xs text-muted-foreground">Mark candidates without National ID as invalid</p>
+                </div>
+                <Switch checked={requireNationalId} onCheckedChange={setRequireNationalId} />
+              </div>
+              <div className="space-y-2">
+                <Label>Minimum Subjects Required</Label>
+                <Select value={minSubjects} onValueChange={setMinSubjects}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5 Subjects</SelectItem>
+                    <SelectItem value="6">6 Subjects</SelectItem>
+                    <SelectItem value="7">7 Subjects (O-Level standard)</SelectItem>
+                    <SelectItem value="8">8 Subjects</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button onClick={handleSaveSettings} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            Save Settings
+          </Button>
+          <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── Main List View ─────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600">
-            <FileCheck className="h-5 w-5 text-white" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600">
+              <FileCheck className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold tracking-tight">ZIMSEC Bulk Import</h2>
+              <p className="text-sm text-muted-foreground">Register candidates for ZIMSEC examinations</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold tracking-tight">ZIMSEC Bulk Import</h2>
-            <p className="text-sm text-muted-foreground">Register candidates for ZIMSEC examinations</p>
-          </div>
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('settings')} className="gap-1">
+            <Settings className="h-4 w-4" /> Settings
+          </Button>
         </div>
       </motion.div>
 
@@ -300,16 +594,16 @@ export default function ZimsecBulkImportModule() {
                   className={cn(
                     'flex items-center gap-2 px-3 py-2 rounded-lg transition-all',
                     step === s.id ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300' :
-                    stepOrder.indexOf(step) > idx ? 'text-emerald-500' : 'text-muted-foreground'
+                    ['upload', 'preview', 'validation', 'complete'].indexOf(step) > idx ? 'text-emerald-500' : 'text-muted-foreground'
                   )}
                 >
                   <div className={cn(
                     'flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-bold',
                     step === s.id ? 'border-emerald-500 bg-emerald-100 text-emerald-600' :
-                    stepOrder.indexOf(step) > idx ? 'border-emerald-400 bg-emerald-50 text-emerald-500' :
+                    ['upload', 'preview', 'validation', 'complete'].indexOf(step) > idx ? 'border-emerald-400 bg-emerald-50 text-emerald-500' :
                     'border-muted text-muted-foreground'
                   )}>
-                    {stepOrder.indexOf(step) > idx ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
+                    {['upload', 'preview', 'validation', 'complete'].indexOf(step) > idx ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
                   </div>
                   <span className="text-sm font-medium hidden sm:inline">{s.label}</span>
                 </button>
@@ -407,7 +701,7 @@ export default function ZimsecBulkImportModule() {
             {/* Actions */}
             <div className="flex items-center justify-between">
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => setAddCandidateOpen(true)}>
+                <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => setViewMode('add')}>
                   <Plus className="h-3 w-3" /> Add Candidate
                 </Button>
                 <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => setCandidates(mockCandidates)}>
@@ -435,7 +729,7 @@ export default function ZimsecBulkImportModule() {
                         <TableHead className="text-xs">Subjects</TableHead>
                         <TableHead className="text-xs">Fees</TableHead>
                         <TableHead className="text-xs">Status</TableHead>
-                        <TableHead className="text-xs w-10"></TableHead>
+                        <TableHead className="text-xs w-20">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -470,9 +764,14 @@ export default function ZimsecBulkImportModule() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <button onClick={() => handleRemoveCandidate(candidate.id)} className="text-muted-foreground hover:text-red-500">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => { setSelectedId(candidate.id); setViewMode('detail') }} className="text-muted-foreground hover:text-emerald-600">
+                                <Eye className="h-3.5 w-3.5" />
+                              </button>
+                              <button onClick={() => handleRemoveCandidate(candidate.id)} className="text-muted-foreground hover:text-red-500">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -537,9 +836,9 @@ export default function ZimsecBulkImportModule() {
                     </p>
                     <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
                       <span>Fees Paid: {paidCandidates.length}/{candidates.length}</span>
-                      <span>•</span>
+                      <span>&middot;</span>
                       <span>O-Level: {candidates.filter(c => c.examLevel === 'O_LEVEL').length}</span>
-                      <span>•</span>
+                      <span>&middot;</span>
                       <span>A-Level: {candidates.filter(c => c.examLevel === 'A_LEVEL').length}</span>
                     </div>
                   </CardContent>
@@ -587,28 +886,6 @@ export default function ZimsecBulkImportModule() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Add Candidate Dialog */}
-      <Dialog open={addCandidateOpen} onOpenChange={setAddCandidateOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Add ZIMSEC Candidate</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2"><Label>Full Name</Label><Input value={newCandidate.name} onChange={e => setNewCandidate(p => ({ ...p, name: e.target.value }))} placeholder="Tendai Moyo" /></div>
-              <div className="space-y-2"><Label>Student Number</Label><Input value={newCandidate.studentNumber} onChange={e => setNewCandidate(p => ({ ...p, studentNumber: e.target.value }))} placeholder="STD-2024-001" /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2"><Label>Gender</Label><Select value={newCandidate.gender} onValueChange={v => setNewCandidate(p => ({ ...p, gender: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Male">Male</SelectItem><SelectItem value="Female">Female</SelectItem></SelectContent></Select></div>
-              <div className="space-y-2"><Label>National ID</Label><Input value={newCandidate.nationalId} onChange={e => setNewCandidate(p => ({ ...p, nationalId: e.target.value }))} placeholder="08-123456A08" /></div>
-            </div>
-            <div className="space-y-2"><Label>Subjects (comma-separated)</Label><Input value={newCandidate.subjects} onChange={e => setNewCandidate(p => ({ ...p, subjects: e.target.value }))} placeholder="Mathematics, English, Shona, Physics..." /></div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddCandidateOpen(false)}>Cancel</Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleAddCandidate}>Add</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

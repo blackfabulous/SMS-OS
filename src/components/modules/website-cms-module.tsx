@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { motion } from 'framer-motion'
 import {
   Calendar, MapPin, Clock, Users, Mail, Phone, Globe, BookOpen,
@@ -15,9 +14,13 @@ import {
   ExternalLink, GraduationCap, Target, Eye, Quote, Facebook,
   Twitter, Instagram, Youtube, Send, CheckCircle2, Award,
   UsersRound, FileText, DollarSign, Sparkles, Landmark,
-  Shield, Leaf, HandHeart, ChevronDown, Play, X,
+  Shield, Leaf, HandHeart, ChevronDown, Play, X, ArrowLeft, Settings, Palette, Share2, Save,
 } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
+import { toast } from 'sonner'
+import { Separator } from '@/components/ui/separator'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 
 // ─── Animation Variants ──────────────────────────────────────────────────────
 const fadeIn = {
@@ -465,6 +468,31 @@ function NewsSection() {
   const featured = news.find(n => n.featured)
   const [selectedArticle, setSelectedArticle] = useState<typeof news[0] | null>(null)
 
+  // Inline detail view
+  if (selectedArticle) {
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setSelectedArticle(null)} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back to News</Button>
+        </div>
+        <div className="max-w-2xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardHeader>
+              <Badge variant="secondary" className="w-fit mb-2">{selectedArticle.category}</Badge>
+              <CardTitle className="text-xl">{selectedArticle.title}</CardTitle>
+              <p className="text-xs text-muted-foreground flex items-center gap-2"><Calendar className="h-3 w-3" /> {new Date(selectedArticle.date).toLocaleDateString('en-ZW', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground leading-relaxed">{selectedArticle.excerpt}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">This development marks another milestone in the school&apos;s ongoing commitment to providing quality education under the Ministry of Primary and Secondary Education framework. The school continues to work closely with MoPSE, ZIMSEC, and the local community to ensure all learners have access to the resources they need to succeed.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">For more information, please contact the school administration office at {schoolInfo.phone} or email {schoolInfo.email}.</p>
+            </CardContent>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Category filters */}
@@ -484,12 +512,8 @@ function NewsSection() {
           <Card className="border-0 shadow-lg overflow-hidden group cursor-pointer" onClick={() => setSelectedArticle(featured)}>
             <div className="grid grid-cols-1 md:grid-cols-2">
               <div className="h-48 md:h-auto bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-700 relative">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <GraduationCap className="h-20 w-20 text-white/20" />
-                </div>
-                <Badge className="absolute top-3 left-3 bg-yellow-400 text-emerald-900 font-bold">
-                  <Star className="h-3 w-3 mr-1" /> Featured
-                </Badge>
+                <div className="absolute inset-0 flex items-center justify-center"><GraduationCap className="h-20 w-20 text-white/20" /></div>
+                <Badge className="absolute top-3 left-3 bg-yellow-400 text-emerald-900 font-bold"><Star className="h-3 w-3 mr-1" /> Featured</Badge>
               </div>
               <CardContent className="p-6 flex flex-col justify-center">
                 <Badge variant="secondary" className="w-fit mb-3">{featured.category}</Badge>
@@ -497,9 +521,7 @@ function NewsSection() {
                 <p className="text-muted-foreground text-sm leading-relaxed mb-4">{featured.excerpt}</p>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(featured.date).toLocaleDateString('en-ZW', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                  <Button size="sm" variant="ghost" className="text-emerald-600 hover:text-emerald-700">
-                    Read More <ArrowRight className="h-3 w-3 ml-1" />
-                  </Button>
+                  <Button size="sm" variant="ghost" className="text-emerald-600 hover:text-emerald-700">Read More <ArrowRight className="h-3 w-3 ml-1" /></Button>
                 </div>
               </CardContent>
             </div>
@@ -512,17 +534,9 @@ function NewsSection() {
         {(categoryFilter === 'All' ? news.filter(n => !n.featured) : filtered).map((article) => (
           <motion.div key={article.id} variants={staggerItem}>
             <Card className="border-0 shadow-md hover:shadow-lg transition-all group overflow-hidden cursor-pointer h-full flex flex-col" onClick={() => setSelectedArticle(article)}>
-              <div className={`h-36 bg-gradient-to-br ${
-                article.image === 'academic' ? 'from-blue-400 to-indigo-500' :
-                article.image === 'sports' ? 'from-amber-400 to-orange-500' :
-                article.image === 'campus' ? 'from-emerald-400 to-teal-500' :
-                article.image === 'culture' ? 'from-rose-400 to-pink-500' :
-                'from-purple-400 to-violet-500'
-              } relative`}>
+              <div className={`h-36 bg-gradient-to-br ${article.image === 'academic' ? 'from-blue-400 to-indigo-500' : article.image === 'sports' ? 'from-amber-400 to-orange-500' : article.image === 'campus' ? 'from-emerald-400 to-teal-500' : article.image === 'culture' ? 'from-rose-400 to-pink-500' : 'from-purple-400 to-violet-500'} relative`}>
                 <div className="absolute inset-0 bg-black/10" />
-                <div className="absolute bottom-3 left-3">
-                  <Badge variant="secondary" className="bg-white/90 dark:bg-gray-900/90 shadow text-xs">{article.category}</Badge>
-                </div>
+                <div className="absolute bottom-3 left-3"><Badge variant="secondary" className="bg-white/90 dark:bg-gray-900/90 shadow text-xs">{article.category}</Badge></div>
               </div>
               <CardContent className="p-4 flex-1 flex flex-col">
                 <h3 className="font-semibold text-sm mb-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors line-clamp-2">{article.title}</h3>
@@ -536,32 +550,6 @@ function NewsSection() {
           </motion.div>
         ))}
       </motion.div>
-
-      {/* Article Dialog */}
-      <Dialog open={!!selectedArticle} onOpenChange={() => setSelectedArticle(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          {selectedArticle && (
-            <>
-              <DialogHeader>
-                <Badge variant="secondary" className="w-fit mb-2">{selectedArticle.category}</Badge>
-                <DialogTitle className="text-xl">{selectedArticle.title}</DialogTitle>
-                <p className="text-xs text-muted-foreground flex items-center gap-2">
-                  <Calendar className="h-3 w-3" /> {new Date(selectedArticle.date).toLocaleDateString('en-ZW', { day: 'numeric', month: 'long', year: 'numeric' })}
-                </p>
-              </DialogHeader>
-              <div className="mt-4">
-                <p className="text-sm text-muted-foreground leading-relaxed">{selectedArticle.excerpt}</p>
-                <p className="text-sm text-muted-foreground leading-relaxed mt-4">
-                  This development marks another milestone in the school&apos;s ongoing commitment to providing quality education under the Ministry of Primary and Secondary Education framework. The school continues to work closely with MoPSE, ZIMSEC, and the local community to ensure all learners have access to the resources they need to succeed.
-                </p>
-                <p className="text-sm text-muted-foreground leading-relaxed mt-4">
-                  For more information, please contact the school administration office at {schoolInfo.phone} or email {schoolInfo.email}.
-                </p>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
@@ -633,6 +621,24 @@ function GallerySection() {
   const [selectedImage, setSelectedImage] = useState<typeof galleryImages[0] | null>(null)
   const filtered = catFilter === 'All' ? galleryImages : galleryImages.filter(g => g.category === catFilter)
 
+  // Inline detail view
+  if (selectedImage) {
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setSelectedImage(null)} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back to Gallery</Button>
+        </div>
+        <div className="max-w-3xl mx-auto">
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <div className={`h-80 md:h-96 bg-gradient-to-br ${selectedImage.color} relative flex items-center justify-center`}>
+              <div className="text-center text-white"><Camera className="h-16 w-16 mx-auto mb-4 opacity-40" /><p className="text-lg font-semibold">{selectedImage.title}</p><Badge variant="secondary" className="bg-white/20 text-white border-white/30 mt-2">{selectedImage.category}</Badge></div>
+            </div>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Filters */}
@@ -653,11 +659,7 @@ function GallerySection() {
             <Card className="border-0 shadow-md hover:shadow-lg transition-all group cursor-pointer overflow-hidden p-0" onClick={() => setSelectedImage(image)}>
               <div className={`relative ${i % 3 === 0 ? 'h-64' : i % 3 === 1 ? 'h-48' : 'h-56'} bg-gradient-to-br ${image.color} overflow-hidden`}>
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-300 flex items-center justify-center">
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="h-12 w-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                      <Camera className="h-5 w-5 text-white" />
-                    </div>
-                  </div>
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity"><div className="h-12 w-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center"><Camera className="h-5 w-5 text-white" /></div></div>
                 </div>
                 <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-3">
                   <p className="text-white text-xs font-medium">{image.title}</p>
@@ -668,24 +670,6 @@ function GallerySection() {
           </motion.div>
         ))}
       </motion.div>
-
-      {/* Lightbox Dialog */}
-      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-        <DialogContent className="max-w-3xl p-0 overflow-hidden">
-          {selectedImage && (
-            <div className={`h-80 md:h-96 bg-gradient-to-br ${selectedImage.color} relative flex items-center justify-center`}>
-              <div className="text-center text-white">
-                <Camera className="h-16 w-16 mx-auto mb-4 opacity-40" />
-                <p className="text-lg font-semibold">{selectedImage.title}</p>
-                <Badge variant="secondary" className="bg-white/20 text-white border-white/30 mt-2">{selectedImage.category}</Badge>
-              </div>
-              <Button variant="ghost" size="icon" className="absolute top-3 right-3 text-white hover:bg-white/20" onClick={() => setSelectedImage(null)}>
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
@@ -980,6 +964,58 @@ function AdmissionsSection() {
   )
 }
 
+// ─── Section: Settings ────────────────────────────────────────────────────────
+function SettingsSection() {
+  const [themeSettings, setThemeSettings] = useState({ primaryColor: '#059669', secondaryColor: '#0d9488', fontFamily: 'INTER', borderRadius: 'ROUNDED', layout: 'STANDARD' })
+  const [homepageSettings, setHomepageSettings] = useState({ bannerEnabled: true, showNewsTicker: true, eventCount: '3', showStats: true, showQuickLinks: true })
+  const [analyticsSettings, setAnalyticsSettings] = useState({ googleAnalytics: '', facebookPixel: '', enableTracking: true, anonymizeIp: true })
+  const [socialSettings, setSocialSettings] = useState({ facebook: 'https://facebook.com/mufakosehigh', twitter: 'https://twitter.com/mufakosehigh', instagram: 'https://instagram.com/mufakosehigh', youtube: 'https://youtube.com/@mufakosehigh', showSocialLinks: true })
+
+  return (
+    <div className="space-y-6">
+      <div><h2 className="text-xl font-bold tracking-tight flex items-center gap-2"><Settings className="h-5 w-5 text-gray-500" />Website Settings</h2><p className="text-sm text-muted-foreground mt-1">Configure theme, homepage layout, analytics, and social media</p></div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="border-0 shadow-md">
+          <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><Palette className="h-4 w-4 text-emerald-600" />Theme Settings</CardTitle><CardDescription>Customize website appearance and colors</CardDescription></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-3"><div className="grid gap-2"><Label className="text-xs">Primary Color</Label><div className="flex gap-2"><Input value={themeSettings.primaryColor} onChange={e => setThemeSettings(s => ({ ...s, primaryColor: e.target.value }))} /><div className="h-9 w-9 rounded-md border" style={{ backgroundColor: themeSettings.primaryColor }} /></div></div><div className="grid gap-2"><Label className="text-xs">Secondary Color</Label><div className="flex gap-2"><Input value={themeSettings.secondaryColor} onChange={e => setThemeSettings(s => ({ ...s, secondaryColor: e.target.value }))} /><div className="h-9 w-9 rounded-md border" style={{ backgroundColor: themeSettings.secondaryColor }} /></div></div></div>
+            <div className="grid gap-2"><Label className="text-xs">Font Family</Label><select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm" value={themeSettings.fontFamily} onChange={e => setThemeSettings(s => ({ ...s, fontFamily: e.target.value }))}><option value="INTER">Inter (Modern)</option><option value="ROBOTO">Roboto (Clean)</option><option value="OPENSANS">Open Sans (Friendly)</option></select></div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><Building className="h-4 w-4 text-teal-600" />Homepage Layout</CardTitle><CardDescription>Control what appears on the homepage</CardDescription></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between"><div><Label className="text-xs">Hero Banner</Label><p className="text-[10px] text-muted-foreground">Show hero section with CTA</p></div><Switch checked={homepageSettings.bannerEnabled} onCheckedChange={v => setHomepageSettings(s => ({ ...s, bannerEnabled: v }))} /></div>
+            <div className="flex items-center justify-between"><div><Label className="text-xs">News Ticker</Label><p className="text-[10px] text-muted-foreground">Scrolling news headlines</p></div><Switch checked={homepageSettings.showNewsTicker} onCheckedChange={v => setHomepageSettings(s => ({ ...s, showNewsTicker: v }))} /></div>
+            <div className="flex items-center justify-between"><div><Label className="text-xs">School Statistics</Label><p className="text-[10px] text-muted-foreground">Show enrollment, pass rate stats</p></div><Switch checked={homepageSettings.showStats} onCheckedChange={v => setHomepageSettings(s => ({ ...s, showStats: v }))} /></div>
+            <div className="grid gap-2"><Label className="text-xs">Events to Display</Label><Input type="number" min="1" max="6" value={homepageSettings.eventCount} onChange={e => setHomepageSettings(s => ({ ...s, eventCount: e.target.value }))} /></div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><BookOpen className="h-4 w-4 text-amber-600" />Analytics Integration</CardTitle><CardDescription>Connect tracking and analytics</CardDescription></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-2"><Label className="text-xs">Google Analytics ID</Label><Input placeholder="G-XXXXXXXXXX" value={analyticsSettings.googleAnalytics} onChange={e => setAnalyticsSettings(s => ({ ...s, googleAnalytics: e.target.value }))} /></div>
+            <div className="grid gap-2"><Label className="text-xs">Facebook Pixel ID</Label><Input placeholder="Pixel ID" value={analyticsSettings.facebookPixel} onChange={e => setAnalyticsSettings(s => ({ ...s, facebookPixel: e.target.value }))} /></div>
+            <div className="flex items-center justify-between"><div><Label className="text-xs">Enable Tracking</Label><p className="text-[10px] text-muted-foreground">Collect visitor analytics</p></div><Switch checked={analyticsSettings.enableTracking} onCheckedChange={v => setAnalyticsSettings(s => ({ ...s, enableTracking: v }))} /></div>
+            <div className="flex items-center justify-between"><div><Label className="text-xs">Anonymize IP</Label><p className="text-[10px] text-muted-foreground">Privacy-compliant tracking</p></div><Switch checked={analyticsSettings.anonymizeIp} onCheckedChange={v => setAnalyticsSettings(s => ({ ...s, anonymizeIp: v }))} /></div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><Share2 className="h-4 w-4 text-violet-600" />Social Media Links</CardTitle><CardDescription>Connect your social profiles</CardDescription></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-2"><Label className="text-xs">Facebook</Label><Input value={socialSettings.facebook} onChange={e => setSocialSettings(s => ({ ...s, facebook: e.target.value }))} placeholder="https://facebook.com/..." /></div>
+            <div className="grid gap-2"><Label className="text-xs">Twitter / X</Label><Input value={socialSettings.twitter} onChange={e => setSocialSettings(s => ({ ...s, twitter: e.target.value }))} placeholder="https://twitter.com/..." /></div>
+            <div className="grid gap-2"><Label className="text-xs">Instagram</Label><Input value={socialSettings.instagram} onChange={e => setSocialSettings(s => ({ ...s, instagram: e.target.value }))} placeholder="https://instagram.com/..." /></div>
+            <div className="grid gap-2"><Label className="text-xs">YouTube</Label><Input value={socialSettings.youtube} onChange={e => setSocialSettings(s => ({ ...s, youtube: e.target.value }))} placeholder="https://youtube.com/..." /></div>
+            <div className="flex items-center justify-between"><div><Label className="text-xs">Show Social Links</Label><p className="text-[10px] text-muted-foreground">Display on website footer</p></div><Switch checked={socialSettings.showSocialLinks} onCheckedChange={v => setSocialSettings(s => ({ ...s, showSocialLinks: v }))} /></div>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="flex justify-end"><Button onClick={() => toast.success('Website settings saved successfully')} className="bg-emerald-600 hover:bg-emerald-700 text-white"><Save className="h-4 w-4 mr-2" />Save Settings</Button></div>
+    </div>
+  )
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function WebsiteCMSModule() {
   const [activeTab, setActiveTab] = useState('home')
@@ -1016,6 +1052,7 @@ export default function WebsiteCMSModule() {
               { value: 'gallery', label: 'Gallery', icon: Camera },
               { value: 'contact', label: 'Contact', icon: Mail },
               { value: 'admissions', label: 'Admissions', icon: GraduationCap },
+              { value: 'settings', label: 'Settings', icon: Settings },
             ].map((tab) => (
               <TabsTrigger key={tab.value} value={tab.value} className="text-xs gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
                 <tab.icon className="h-3.5 w-3.5" />
@@ -1033,6 +1070,7 @@ export default function WebsiteCMSModule() {
         <TabsContent value="gallery" className="mt-6"><GallerySection /></TabsContent>
         <TabsContent value="contact" className="mt-6"><ContactSection /></TabsContent>
         <TabsContent value="admissions" className="mt-6"><AdmissionsSection /></TabsContent>
+        <TabsContent value="settings" className="mt-6"><SettingsSection /></TabsContent>
       </Tabs>
     </motion.div>
   )

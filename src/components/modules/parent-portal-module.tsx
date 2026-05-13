@@ -30,6 +30,8 @@ import {
   Heart,
   Users,
   Download,
+  ArrowLeft,
+  Settings,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -41,14 +43,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Progress } from '@/components/ui/progress'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -69,6 +63,7 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { PaynowDialog } from '@/components/modules/paynow-dialog'
 import { SmsDialog } from '@/components/modules/sms-dialog'
+import { Switch } from '@/components/ui/switch'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Child {
@@ -422,7 +417,8 @@ export default function ParentPortalModule() {
   const [activeTab, setActiveTab] = useState('overview')
   const [currency, setCurrency] = useState<'USD' | 'ZiG'>('USD')
   const [expandedChild, setExpandedChild] = useState<string | null>(null)
-  const [composeOpen, setComposeOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<'list' | 'add' | 'edit' | 'detail' | 'settings'>('list')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
   const [calendarFilter, setCalendarFilter] = useState('All')
   const [currentMonth, setCurrentMonth] = useState(new Date(2026, 2, 1))
@@ -433,6 +429,16 @@ export default function ParentPortalModule() {
   const [smsOpen, setSmsOpen] = useState(false)
   const [paynowStudent, setPaynowStudent] = useState('')
   const [paynowAmount, setPaynowAmount] = useState(0)
+
+  // Settings state
+  const [settings, setSettings] = useState({
+    gradeVisibility: true,
+    feeDisplay: true,
+    attendanceAlerts: true,
+    calendarSync: false,
+    notificationEmail: true,
+    notificationSms: false,
+  })
 
   // ─── API Data State ───────────────────────────────────────────────────────────
   const [children, setChildren] = useState<Child[]>(mockChildren)
@@ -565,7 +571,7 @@ export default function ParentPortalModule() {
     setNewMsgRecipient('')
     setNewMsgSubject('')
     setNewMsgBody('')
-    setComposeOpen(false)
+    setViewMode('list')
   }
 
   // ─── Calendar helpers
@@ -588,6 +594,93 @@ export default function ParentPortalModule() {
     })
   }
 
+  // Settings view
+  if (viewMode === 'settings') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
+        </div>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight flex items-center gap-2"><Settings className="h-5 w-5" /> Parent Portal Settings</h2>
+          <p className="text-sm text-muted-foreground mt-1">Customize your parent portal experience</p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base">Access Permissions</CardTitle><CardDescription>Control what information is visible</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Grade Visibility</p><p className="text-xs text-muted-foreground">Show grades and test results</p></div>
+                <Switch checked={settings.gradeVisibility} onCheckedChange={(v) => setSettings({...settings, gradeVisibility: v})} />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Fee Display</p><p className="text-xs text-muted-foreground">Show fee statements and balances</p></div>
+                <Switch checked={settings.feeDisplay} onCheckedChange={(v) => setSettings({...settings, feeDisplay: v})} />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base">Notifications</CardTitle><CardDescription>How you receive alerts</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Email Notifications</p><p className="text-xs text-muted-foreground">Receive updates via email</p></div>
+                <Switch checked={settings.notificationEmail} onCheckedChange={(v) => setSettings({...settings, notificationEmail: v})} />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">SMS Notifications</p><p className="text-xs text-muted-foreground">Receive updates via SMS</p></div>
+                <Switch checked={settings.notificationSms} onCheckedChange={(v) => setSettings({...settings, notificationSms: v})} />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Attendance Alerts</p><p className="text-xs text-muted-foreground">Get notified about attendance</p></div>
+                <Switch checked={settings.attendanceAlerts} onCheckedChange={(v) => setSettings({...settings, attendanceAlerts: v})} />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base">Calendar</CardTitle><CardDescription>School calendar integration</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Calendar Sync</p><p className="text-xs text-muted-foreground">Sync events to your calendar</p></div>
+                <Switch checked={settings.calendarSync} onCheckedChange={(v) => setSettings({...settings, calendarSync: v})} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="flex justify-end">
+          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { toast.success('Settings saved successfully'); setViewMode('list') }}>Save Settings</Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Compose message view
+  if (viewMode === 'add') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
+        </div>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight flex items-center gap-2"><MessageSquare className="h-5 w-5" /> Compose Message</h2>
+        </div>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-6 space-y-4">
+            <div className="grid gap-2"><Label>To</Label><Input placeholder="Teacher or staff name" value={newMsgRecipient} onChange={(e) => setNewMsgRecipient(e.target.value)} /></div>
+            <div className="grid gap-2"><Label>Subject</Label><Input placeholder="Message subject" value={newMsgSubject} onChange={(e) => setNewMsgSubject(e.target.value)} /></div>
+            <div className="grid gap-2"><Label>Message</Label><Textarea placeholder="Write your message..." value={newMsgBody} onChange={(e) => setNewMsgBody(e.target.value)} rows={6} /></div>
+          </CardContent>
+        </Card>
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleSendMessage}><Send className="h-4 w-4 mr-2" /> Send Message</Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -601,6 +694,10 @@ export default function ParentPortalModule() {
             <p className="text-sm text-muted-foreground">Welcome back, {parentName}</p>
           </div>
         </div>
+        <Button variant="outline" size="sm" onClick={() => { setViewMode('settings'); setSelectedId(null) }} className="gap-1.5">
+          <Settings className="h-4 w-4" />
+          <span className="hidden sm:inline">Settings</span>
+        </Button>
       </motion.div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -729,7 +826,7 @@ export default function ParentPortalModule() {
                     { icon: MessageSquare, label: 'Messages', color: 'bg-teal-50 text-teal-600', action: () => setActiveTab('communications') },
                     { icon: GraduationCap, label: 'View Grades', color: 'bg-amber-50 text-amber-600', action: () => setActiveTab('children') },
                     { icon: Calendar, label: 'Events', color: 'bg-violet-50 text-violet-600', action: () => setActiveTab('calendar') },
-                    { icon: Phone, label: 'Contact School', color: 'bg-rose-50 text-rose-600', action: () => setComposeOpen(true) },
+                    { icon: Phone, label: 'Contact School', color: 'bg-rose-50 text-rose-600', action: () => setViewMode('add') },
                     { icon: Receipt, label: 'Payment History', color: 'bg-cyan-50 text-cyan-600', action: () => setActiveTab('fees') },
                   ].map((action, idx) => (
                     <button key={idx} onClick={action.action} className="flex flex-col items-center gap-2 rounded-xl p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 border border-transparent hover:border-muted bg-muted/30 hover:bg-white group">
@@ -1044,7 +1141,7 @@ export default function ParentPortalModule() {
               <h3 className="text-lg font-semibold">Messages & Announcements</h3>
               <p className="text-sm text-muted-foreground">{unreadCount} unread messages</p>
             </div>
-            <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => setComposeOpen(true)}>
+            <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => setViewMode('add')}>
               <Plus className="h-4 w-4" /> Compose
             </Button>
           </div>
@@ -1200,7 +1297,9 @@ export default function ParentPortalModule() {
                 {calendarDays.map((day, idx) => {
                   const events = day ? getEventsForDay(day) : []
                   const isToday = day === new Date().getDate() && currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear()
-                  return (
+
+
+  return (
                     <div
                       key={idx}
                       className={cn(
@@ -1354,45 +1453,6 @@ export default function ParentPortalModule() {
 
       {/* SMS Dialog */}
       <SmsDialog open={smsOpen} onOpenChange={setSmsOpen} />
-
-      {/* Compose Message Dialog */}
-      <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Compose Message</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>To</Label>
-              <Select value={newMsgRecipient} onValueChange={setNewMsgRecipient}>
-                <SelectTrigger><SelectValue placeholder="Select recipient" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="headmaster">Headmaster Ndlovu</SelectItem>
-                  <SelectItem value="hove">Mr. Hove (Mathematics)</SelectItem>
-                  <SelectItem value="mlambo">Mrs. Mlambo (English)</SelectItem>
-                  <SelectItem value="gumbo">Mr. Gumbo (Shona)</SelectItem>
-                  <SelectItem value="ncube">Mrs. Ncube (Physics)</SelectItem>
-                  <SelectItem value="admin">School Administration</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Subject</Label>
-              <Input value={newMsgSubject} onChange={e => setNewMsgSubject(e.target.value)} placeholder="Message subject" />
-            </div>
-            <div className="space-y-2">
-              <Label>Message</Label>
-              <Textarea value={newMsgBody} onChange={e => setNewMsgBody(e.target.value)} placeholder="Type your message..." rows={4} />
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-            <Button className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={handleSendMessage}>
-              <Send className="h-4 w-4" /> Send Message
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

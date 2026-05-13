@@ -64,7 +64,7 @@ import { cn } from '@/lib/utils'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -136,7 +136,7 @@ export default function CanteenModule() {
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const { toast } = useToast()
+
 
   // Data from API
   const [menuItems, setMenuItems] = useState<CanteenItem[]>([])
@@ -292,17 +292,17 @@ export default function CanteenModule() {
         const tx = await res.json()
         setLastReceipt(tx)
         setShowReceipt(true)
-        toast({ title: 'Payment processed successfully' })
+        toast.success('Payment processed successfully')
         setCart([])
         setCustomerName('')
         fetchMenuItems()
         fetchTransactions()
       } else {
         const err = await res.json()
-        toast({ title: 'Error', description: err.error || 'Failed to process payment', variant: 'destructive' })
+        toast.error(err.error || 'Failed to process payment')
       }
     } catch {
-      toast({ title: 'Error', description: 'Failed to process payment', variant: 'destructive' })
+      toast.error('Failed to process payment')
     } finally {
       setSubmitting(false)
     }
@@ -328,16 +328,16 @@ export default function CanteenModule() {
         }),
       })
       if (res.ok) {
-        toast({ title: 'Item added successfully' })
+        toast.success('Item added successfully')
         setItemForm({ name: '', category: 'Hot Meals', price: '', costPrice: '', stockQuantity: '', reorderLevel: '5', description: '' })
         setViewMode('list')
         fetchMenuItems()
       } else {
         const err = await res.json()
-        toast({ title: 'Error', description: err.error || 'Failed to add item', variant: 'destructive' })
+        toast.error(err.error || 'Failed to add item')
       }
     } catch {
-      toast({ title: 'Error', description: 'Failed to add item', variant: 'destructive' })
+      toast.error('Failed to add item')
     } finally {
       setSubmitting(false)
     }
@@ -347,16 +347,16 @@ export default function CanteenModule() {
     try {
       const res = await fetch(`/api/canteen?id=${id}`, { method: 'DELETE' })
       if (res.ok) {
-        toast({ title: 'Item deleted' })
+        toast.success('Item deleted')
         fetchMenuItems()
       }
     } catch {
-      toast({ title: 'Error', description: 'Failed to delete item', variant: 'destructive' })
+      toast.error('Failed to delete item')
     }
   }
 
   const handleSaveSettings = () => {
-    toast({ title: 'Settings saved', description: 'Canteen settings have been updated' })
+    toast.success('Canteen settings have been updated')
   }
 
   // ─── Loading ───────────────────────────────────────────────────────────
@@ -706,11 +706,11 @@ export default function CanteenModule() {
                           }),
                         })
                         if (res.ok) {
-                          toast({ title: 'Item updated successfully' })
+                          toast.success('Item updated successfully')
                           setViewMode('list')
                           fetchMenuItems()
                         }
-                      } catch { toast({ title: 'Error', description: 'Failed to update item', variant: 'destructive' }) }
+                      } catch { toast.error('Failed to update item') }
                       finally { setSubmitting(false) }
                     }} disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700">
                       {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

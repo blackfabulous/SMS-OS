@@ -65,7 +65,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -162,7 +162,7 @@ export default function LibraryModule() {
   const [selectedBook, setSelectedBook] = useState<LibraryBook | null>(null)
   const [students, setStudents] = useState<Student[]>([])
   const [submitting, setSubmitting] = useState(false)
-  const { toast } = useToast()
+
 
   // Issue form
   const [issueForm, setIssueForm] = useState({
@@ -261,16 +261,16 @@ export default function LibraryModule() {
         }),
       })
       if (res.ok) {
-        toast({ title: 'Book issued successfully' })
+        toast.success('Book issued successfully')
         setIssueForm({ bookId: '', studentId: '', dueDate: '' })
         setViewMode('list')
         fetchData()
       } else {
         const err = await res.json()
-        toast({ title: 'Error', description: err.error || 'Failed to issue book', variant: 'destructive' })
+        toast.error(err.error || 'Failed to issue book')
       }
     } catch {
-      toast({ title: 'Error', description: 'Failed to issue book', variant: 'destructive' })
+      toast.error('Failed to issue book')
     } finally {
       setSubmitting(false)
     }
@@ -291,16 +291,16 @@ export default function LibraryModule() {
         }),
       })
       if (res.ok) {
-        toast({ title: 'Book returned successfully' })
+        toast.success('Book returned successfully')
         setReturnForm({ transactionId: '', conditionOnReturn: 'GOOD', fine: '0' })
         setViewMode('list')
         fetchData()
       } else {
         const err = await res.json()
-        toast({ title: 'Error', description: err.error || 'Failed to return book', variant: 'destructive' })
+        toast.error(err.error || 'Failed to return book')
       }
     } catch {
-      toast({ title: 'Error', description: 'Failed to return book', variant: 'destructive' })
+      toast.error('Failed to return book')
     } finally {
       setSubmitting(false)
     }
@@ -325,23 +325,23 @@ export default function LibraryModule() {
         }),
       })
       if (res.ok) {
-        toast({ title: 'Book added successfully' })
+        toast.success('Book added successfully')
         setAddBookForm({ isbn: '', title: '', author: '', publisher: '', category: '', shelfLocation: '', totalCopies: '1', description: '' })
         setViewMode('list')
         fetchData()
       } else {
         const err = await res.json()
-        toast({ title: 'Error', description: err.error || 'Failed to add book', variant: 'destructive' })
+        toast.error(err.error || 'Failed to add book')
       }
     } catch {
-      toast({ title: 'Error', description: 'Failed to add book', variant: 'destructive' })
+      toast.error('Failed to add book')
     } finally {
       setSubmitting(false)
     }
   }
 
   const handleSaveSettings = () => {
-    toast({ title: 'Settings saved', description: 'Library settings have been updated' })
+    toast.success('Library settings have been updated')
   }
 
   // ─── Chart Data ────────────────────────────────────────────────────────

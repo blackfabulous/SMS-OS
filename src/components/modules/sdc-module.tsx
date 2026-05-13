@@ -17,6 +17,8 @@ import {
   Mail,
   TrendingUp,
   ExternalLink,
+  ArrowLeft,
+  Settings,
 } from 'lucide-react'
 import {
   BarChart,
@@ -42,15 +44,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -60,6 +53,8 @@ import {
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Progress } from '@/components/ui/progress'
+import { Switch } from '@/components/ui/switch'
+import { toast } from 'sonner'
 import {
   ChartContainer,
   ChartTooltip,
@@ -133,9 +128,19 @@ export default function SDCModule() {
   const [schoolInfo, setSchoolInfo] = useState<Record<string, string | null>>({})
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
-  const [memberDialogOpen, setMemberDialogOpen] = useState(false)
-  const [meetingDialogOpen, setMeetingDialogOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<'list' | 'add' | 'edit' | 'detail' | 'settings'>('list')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [addType, setAddType] = useState<'member' | 'meeting'>('member')
   const [submitting, setSubmitting] = useState(false)
+
+  // Settings state
+  const [settings, setSettings] = useState({
+    autoScheduleMeetings: false,
+    votingEnabled: true,
+    documentTemplates: true,
+    termDuration: '2',
+    quorumRequired: '50',
+  })
 
   // Form state
   const [memberForm, setMemberForm] = useState({
@@ -188,7 +193,7 @@ export default function SDCModule() {
         body: JSON.stringify(memberForm),
       })
       if (res.ok) {
-        setMemberDialogOpen(false)
+        setViewMode('list')
         setMemberForm({ name: '', position: 'Committee Member', phone: '', email: '', termStart: '', termEnd: '' })
         fetchData()
       }
@@ -209,7 +214,7 @@ export default function SDCModule() {
         body: JSON.stringify({ type: 'meeting', ...meetingForm }),
       })
       if (res.ok) {
-        setMeetingDialogOpen(false)
+        setViewMode('list')
         setMeetingForm({ title: '', description: '', startDate: '', endDate: '', venue: '' })
         fetchData()
       }
@@ -228,6 +233,140 @@ export default function SDCModule() {
     { category: 'Sports', budget: 3000, actual: 1800 },
     { category: 'Fundraising', budget: 2000, actual: 3500 },
   ]
+
+  // Settings view
+  if (viewMode === 'settings') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2"><Settings className="h-6 w-6 text-emerald-600" /> SDC Settings</h1>
+          <p className="text-sm text-muted-foreground mt-1">Configure SDC/SDA governance module</p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base">Meeting Schedule</CardTitle><CardDescription>Default meeting configuration</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Auto-Schedule Meetings</p><p className="text-xs text-muted-foreground">Automatically schedule recurring meetings</p></div>
+                <Switch checked={settings.autoScheduleMeetings} onCheckedChange={(v) => setSettings({...settings, autoScheduleMeetings: v})} />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Term Duration (years)</p><p className="text-xs text-muted-foreground">Default committee term length</p></div>
+                <Select value={settings.termDuration} onValueChange={(v) => setSettings({...settings, termDuration: v})}>
+                  <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 Year</SelectItem>
+                    <SelectItem value="2">2 Years</SelectItem>
+                    <SelectItem value="3">3 Years</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base">Voting & Quorum</CardTitle><CardDescription>Voting and quorum settings</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Voting Enabled</p><p className="text-xs text-muted-foreground">Enable voting on resolutions</p></div>
+                <Switch checked={settings.votingEnabled} onCheckedChange={(v) => setSettings({...settings, votingEnabled: v})} />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Quorum Required (%)</p><p className="text-xs text-muted-foreground">Minimum attendance for decisions</p></div>
+                <Select value={settings.quorumRequired} onValueChange={(v) => setSettings({...settings, quorumRequired: v})}>
+                  <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="33">33%</SelectItem>
+                    <SelectItem value="50">50%</SelectItem>
+                    <SelectItem value="67">67%</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base">Document Templates</CardTitle><CardDescription>Meeting minutes and agenda templates</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Use Document Templates</p><p className="text-xs text-muted-foreground">Auto-generate minutes templates</p></div>
+                <Switch checked={settings.documentTemplates} onCheckedChange={(v) => setSettings({...settings, documentTemplates: v})} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="flex justify-end">
+          <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white" onClick={() => { toast.success('Settings saved successfully'); setViewMode('list') }}>Save Settings</Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Add member/meeting view
+  if (viewMode === 'add') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            {addType === 'member' ? 'Add SDC Member' : 'Schedule SDC Meeting'}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">{addType === 'member' ? 'Add a new member to the School Development Committee' : 'Create a new meeting record'}</p>
+        </div>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-6 space-y-4">
+            {addType === 'member' ? (
+              <>
+                <div className="grid gap-2"><Label>Full Name *</Label><Input placeholder="Full name" value={memberForm.name} onChange={(e) => setMemberForm((p) => ({ ...p, name: e.target.value }))} /></div>
+                <div className="grid gap-2">
+                  <Label>Position *</Label>
+                  <Select value={memberForm.position} onValueChange={(v) => setMemberForm((p) => ({ ...p, position: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Chairperson">Chairperson</SelectItem>
+                      <SelectItem value="Vice Chairperson">Vice Chairperson</SelectItem>
+                      <SelectItem value="Secretary">Secretary</SelectItem>
+                      <SelectItem value="Treasurer">Treasurer</SelectItem>
+                      <SelectItem value="Committee Member">Committee Member</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2"><Label>Phone</Label><Input placeholder="+263..." value={memberForm.phone} onChange={(e) => setMemberForm((p) => ({ ...p, phone: e.target.value }))} /></div>
+                  <div className="grid gap-2"><Label>Email</Label><Input placeholder="email@example.com" value={memberForm.email} onChange={(e) => setMemberForm((p) => ({ ...p, email: e.target.value }))} /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2"><Label>Term Start</Label><Input type="date" value={memberForm.termStart} onChange={(e) => setMemberForm((p) => ({ ...p, termStart: e.target.value }))} /></div>
+                  <div className="grid gap-2"><Label>Term End</Label><Input type="date" value={memberForm.termEnd} onChange={(e) => setMemberForm((p) => ({ ...p, termEnd: e.target.value }))} /></div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="grid gap-2"><Label>Meeting Title *</Label><Input placeholder="e.g. SDC Quarterly Meeting" value={meetingForm.title} onChange={(e) => setMeetingForm((p) => ({ ...p, title: e.target.value }))} /></div>
+                <div className="grid gap-2"><Label>Agenda / Description</Label><Input placeholder="Meeting agenda items" value={meetingForm.description} onChange={(e) => setMeetingForm((p) => ({ ...p, description: e.target.value }))} /></div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2"><Label>Date *</Label><Input type="date" value={meetingForm.startDate} onChange={(e) => setMeetingForm((p) => ({ ...p, startDate: e.target.value }))} /></div>
+                  <div className="grid gap-2"><Label>Venue</Label><Input placeholder="e.g. School Hall" value={meetingForm.venue} onChange={(e) => setMeetingForm((p) => ({ ...p, venue: e.target.value }))} /></div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+          <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white" disabled={submitting} onClick={addType === 'member' ? handleAddMember : handleAddMeeting}>
+            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {addType === 'member' ? 'Add Member' : 'Schedule Meeting'}
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -254,108 +393,21 @@ export default function SDCModule() {
           <p className="text-sm text-muted-foreground mt-1">School Development Committee management</p>
         </div>
         <div className="flex items-center gap-2">
-          <Dialog open={memberDialogOpen} onOpenChange={setMemberDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md">
+          <Button variant="outline" size="sm" onClick={() => { setViewMode('settings'); setSelectedId(null) }} className="gap-1.5">
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Settings</span>
+          </Button>
+          <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md" onClick={() => { setAddType('member'); setViewMode('add') }}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Member
               </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[450px]">
-              <DialogHeader>
-                <DialogTitle>Add SDC Member</DialogTitle>
-                <DialogDescription>Add a new member to the School Development Committee</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label>Full Name *</Label>
-                  <Input placeholder="Full name" value={memberForm.name} onChange={(e) => setMemberForm((p) => ({ ...p, name: e.target.value }))} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Position *</Label>
-                  <Select value={memberForm.position} onValueChange={(v) => setMemberForm((p) => ({ ...p, position: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Chairperson">Chairperson</SelectItem>
-                      <SelectItem value="Vice Chairperson">Vice Chairperson</SelectItem>
-                      <SelectItem value="Secretary">Secretary</SelectItem>
-                      <SelectItem value="Treasurer">Treasurer</SelectItem>
-                      <SelectItem value="Committee Member">Committee Member</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label>Phone</Label>
-                    <Input placeholder="+263..." value={memberForm.phone} onChange={(e) => setMemberForm((p) => ({ ...p, phone: e.target.value }))} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Email</Label>
-                    <Input placeholder="email@example.com" value={memberForm.email} onChange={(e) => setMemberForm((p) => ({ ...p, email: e.target.value }))} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label>Term Start</Label>
-                    <Input type="date" value={memberForm.termStart} onChange={(e) => setMemberForm((p) => ({ ...p, termStart: e.target.value }))} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Term End</Label>
-                    <Input type="date" value={memberForm.termEnd} onChange={(e) => setMemberForm((p) => ({ ...p, termEnd: e.target.value }))} />
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setMemberDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleAddMember} disabled={submitting || !memberForm.name} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white">
-                  {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Add Member
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
 
-          <Dialog open={meetingDialogOpen} onOpenChange={setMeetingDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+
+          <Button variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => { setAddType('meeting'); setViewMode('add') }}>
                 <Calendar className="mr-2 h-4 w-4" />
                 Add Meeting
               </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[450px]">
-              <DialogHeader>
-                <DialogTitle>Schedule SDC Meeting</DialogTitle>
-                <DialogDescription>Create a new meeting record</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label>Meeting Title *</Label>
-                  <Input placeholder="e.g. SDC Quarterly Meeting" value={meetingForm.title} onChange={(e) => setMeetingForm((p) => ({ ...p, title: e.target.value }))} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Agenda / Description</Label>
-                  <Input placeholder="Meeting agenda items" value={meetingForm.description} onChange={(e) => setMeetingForm((p) => ({ ...p, description: e.target.value }))} />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label>Date *</Label>
-                    <Input type="date" value={meetingForm.startDate} onChange={(e) => setMeetingForm((p) => ({ ...p, startDate: e.target.value }))} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Venue</Label>
-                    <Input placeholder="e.g. School Hall" value={meetingForm.venue} onChange={(e) => setMeetingForm((p) => ({ ...p, venue: e.target.value }))} />
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setMeetingDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleAddMeeting} disabled={submitting || !meetingForm.title || !meetingForm.startDate} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white">
-                  {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Schedule Meeting
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+
         </div>
       </div>
 

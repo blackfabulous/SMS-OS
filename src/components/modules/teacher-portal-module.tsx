@@ -34,6 +34,8 @@ import {
   Zap,
   FolderOpen,
   X,
+  ArrowLeft,
+  Settings,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -44,14 +46,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Progress } from '@/components/ui/progress'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -79,6 +73,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { Switch } from '@/components/ui/switch'
+import { Separator } from '@/components/ui/separator'
 
 // ─── ZIMSEC Grading Helper ────────────────────────────────────────────────────
 function getZimsecGrade(mark: number): string {
@@ -492,13 +488,24 @@ export default function TeacherPortalModule() {
   const [marksSaved, setMarksSaved] = useState(false)
 
   // Assignments State
-  const [createAssignOpen, setCreateAssignOpen] = useState(false)
-  const [gradeAssignOpen, setGradeAssignOpen] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<'list' | 'add' | 'edit' | 'detail' | 'settings'>('list')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [addType, setAddType] = useState<'assignment' | 'grade'>('assignment')
   const [assignmentMarks, setAssignmentMarks] = useState<Record<string, string>>({})
 
   // Attendance State
   const [attendanceClass, setAttendanceClass] = useState('Form 3A')
   const [attendanceData, setAttendanceData] = useState<Record<string, string>>({})
+
+  // Settings state
+  const [settings, setSettings] = useState({
+    gradeEntryLock: false,
+    reportAutoGenerate: true,
+    attendanceReminder: true,
+    resourceSharing: true,
+    classNotifications: true,
+    gradingScale: 'zimsec',
+  })
 
   // ─── Computed Values ───────────────────────────────────────────────────────
   const currentClassForMarks = classes.find(c => c.name === selectedGrade)
@@ -567,7 +574,7 @@ export default function TeacherPortalModule() {
     toast.success('Assignment marks saved!', {
       description: `${validMarks.length} marks graded successfully.`,
     })
-    setGradeAssignOpen(null)
+    setViewMode('list')
     setAssignmentMarks({})
   }, [assignmentMarks])
 
@@ -636,7 +643,76 @@ export default function TeacherPortalModule() {
     }
   }
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // ─── Render ────────────────────────────────────────────────────────────────  // Settings view
+  if (viewMode === 'settings') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
+        </div>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight flex items-center gap-2"><Settings className="h-5 w-5" /> Teacher Portal Settings</h2>
+          <p className="text-sm text-muted-foreground mt-1">Configure your teaching preferences</p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base">Class Management</CardTitle><CardDescription>Default settings for class operations</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Grade Entry Lock</p><p className="text-xs text-muted-foreground">Lock grade entry after term ends</p></div>
+                <Switch checked={settings.gradeEntryLock} onCheckedChange={(v) => setSettings({...settings, gradeEntryLock: v})} />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Class Notifications</p><p className="text-xs text-muted-foreground">Receive class-related notifications</p></div>
+                <Switch checked={settings.classNotifications} onCheckedChange={(v) => setSettings({...settings, classNotifications: v})} />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base">Grading & Reports</CardTitle><CardDescription>Grade entry and report settings</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Auto-Generate Reports</p><p className="text-xs text-muted-foreground">Generate reports after grade entry</p></div>
+                <Switch checked={settings.reportAutoGenerate} onCheckedChange={(v) => setSettings({...settings, reportAutoGenerate: v})} />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Grading Scale</p><p className="text-xs text-muted-foreground">Select grading scale</p></div>
+                <Select value={settings.gradingScale} onValueChange={(v) => setSettings({...settings, gradingScale: v})}>
+                  <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="zimsec">ZIMSEC</SelectItem>
+                    <SelectItem value="cambridge">Cambridge</SelectItem>
+                    <SelectItem value="custom">Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base">Attendance & Resources</CardTitle><CardDescription>Attendance and resource sharing settings</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Attendance Reminders</p><p className="text-xs text-muted-foreground">Remind to submit attendance</p></div>
+                <Switch checked={settings.attendanceReminder} onCheckedChange={(v) => setSettings({...settings, attendanceReminder: v})} />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Resource Sharing</p><p className="text-xs text-muted-foreground">Share resources with students</p></div>
+                <Switch checked={settings.resourceSharing} onCheckedChange={(v) => setSettings({...settings, resourceSharing: v})} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="flex justify-end">
+          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { toast.success('Settings saved successfully'); setViewMode('list') }}>Save Settings</Button>
+        </div>
+      </div>
+    )
+  }
+
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -650,6 +726,10 @@ export default function TeacherPortalModule() {
             <p className="text-sm text-muted-foreground">Welcome back, {teacherName}</p>
           </div>
         </div>
+        <Button variant="outline" size="sm" onClick={() => { setViewMode('settings'); setSelectedId(null) }} className="gap-1.5">
+          <Settings className="h-4 w-4" />
+          <span className="hidden sm:inline">Settings</span>
+        </Button>
       </motion.div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -1227,7 +1307,7 @@ export default function TeacherPortalModule() {
               <h3 className="text-base font-semibold">Assignment Management</h3>
               <p className="text-sm text-muted-foreground">8 assignments • 4 active, 2 grading, 2 closed</p>
             </div>
-            <Button className="gap-1" onClick={() => setCreateAssignOpen(true)}>
+            <Button className="gap-1" onClick={() => { setAddType('assignment'); setViewMode('add') }}>
               <Plus className="h-4 w-4" /> Create Assignment
             </Button>
           </div>
@@ -1313,132 +1393,7 @@ export default function TeacherPortalModule() {
             ))}
           </div>
 
-          {/* Create Assignment Dialog */}
-          <Dialog open={createAssignOpen} onOpenChange={setCreateAssignOpen}>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Create Assignment</DialogTitle>
-                <DialogDescription>Set a new assignment for your class</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-2">
-                <div>
-                  <Label className="text-xs font-medium">Title</Label>
-                  <Input placeholder="e.g. Algebra Problem Set 5" className="mt-1.5" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs font-medium">Subject</Label>
-                    <Select defaultValue="Mathematics">
-                      <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Mathematics">Mathematics</SelectItem>
-                        <SelectItem value="Physics">Physics</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-medium">Class</Label>
-                    <Select defaultValue="Form 4A">
-                      <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Form 3A">Form 3A</SelectItem>
-                        <SelectItem value="Form 4A">Form 4A</SelectItem>
-                        <SelectItem value="Form 5A">Form 5A</SelectItem>
-                        <SelectItem value="Form 6A">Form 6A</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs font-medium">Due Date</Label>
-                    <Input type="date" className="mt-1.5" />
-                  </div>
-                  <div>
-                    <Label className="text-xs font-medium">Max Marks</Label>
-                    <Input type="number" placeholder="100" className="mt-1.5" />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs font-medium">Description</Label>
-                  <Textarea placeholder="Describe the assignment requirements..." className="mt-1.5" rows={3} />
-                </div>
-                <div>
-                  <Label className="text-xs font-medium">Attach File</Label>
-                  <div className="mt-1.5 flex items-center justify-center border-2 border-dashed rounded-lg p-6 text-muted-foreground hover:border-emerald-300 hover:text-emerald-600 transition-colors cursor-pointer">
-                    <div className="text-center">
-                      <Upload className="h-8 w-8 mx-auto mb-2" />
-                      <p className="text-xs">Click to upload or drag and drop</p>
-                      <p className="text-[10px] text-muted-foreground">PDF, DOC, XLS (Max 10MB)</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setCreateAssignOpen(false)}>Cancel</Button>
-                <Button onClick={() => { setCreateAssignOpen(false); toast.success('Assignment created successfully!') }}>
-                  Create Assignment
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
 
-          {/* Grade Submissions Dialog */}
-          <Dialog open={!!gradeAssignOpen} onOpenChange={(open) => { if (!open) setGradeAssignOpen(null) }}>
-            <DialogContent className="sm:max-w-2xl max-h-[80vh]">
-              <DialogHeader>
-                <DialogTitle>Grade Submissions</DialogTitle>
-                <DialogDescription>
-                  {teacherAssignments.find(a => a.id === gradeAssignOpen)?.title} — {teacherAssignments.find(a => a.id === gradeAssignOpen)?.className}
-                </DialogDescription>
-              </DialogHeader>
-              <ScrollArea className="max-h-[50vh]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">#</TableHead>
-                      <TableHead className="text-xs">Student</TableHead>
-                      <TableHead className="text-xs text-center w-24">Mark /{teacherAssignments.find(a => a.id === gradeAssignOpen)?.maxMarks || 100}</TableHead>
-                      <TableHead className="text-xs text-center w-20">Grade</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {classes.find(c => c.name === teacherAssignments.find(a => a.id === gradeAssignOpen)?.className)?.students.map((student, idx) => (
-                      <TableRow key={student.id}>
-                        <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
-                        <TableCell className="text-sm">{student.name}</TableCell>
-                        <TableCell className="text-center">
-                          <Input
-                            type="text"
-                            inputMode="numeric"
-                            value={assignmentMarks[student.id] || ''}
-                            onChange={(e) => handleAssignmentMarkChange(student.id, e.target.value)}
-                            placeholder="—"
-                            className="w-20 h-8 text-center text-sm mx-auto"
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {assignmentMarks[student.id] && parseInt(assignmentMarks[student.id]) >= 0 ? (
-                            <Badge className={cn('text-xs', gradeColor(getZimsecGrade(parseInt(assignmentMarks[student.id]))))}>
-                              {getZimsecGrade(parseInt(assignmentMarks[student.id]))}
-                            </Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setGradeAssignOpen(null)}>Cancel</Button>
-                <Button onClick={handleSaveAssignmentMarks} className="gap-1">
-                  <Save className="h-3 w-3" /> Save Grades
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </TabsContent>
 
         {/* ═══════════════════════════════════════════════════════════════════════

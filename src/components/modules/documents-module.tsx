@@ -30,22 +30,18 @@ import {
   TrendingUp,
   HardDrive,
   Folder,
+  ArrowLeft,
+  Settings,
+  Save,
+  Pencil,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,11 +59,14 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+import { Switch } from '@/components/ui/switch'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type FileType = 'pdf' | 'doc' | 'xls' | 'img' | 'ppt' | 'other'
-type ViewMode = 'grid' | 'list'
+type DisplayViewMode = 'grid' | 'list'
+type PageViewMode = 'list' | 'upload' | 'detail' | 'settings'
 
 interface Document {
   id: string
@@ -183,10 +182,11 @@ const uploadTrendData = [
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function DocumentsModule() {
   const [activeTab, setActiveTab] = useState('overview')
-  const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [viewMode, setViewMode] = useState<DisplayViewMode>('grid')
+  const [pageViewMode, setPageViewMode] = useState<PageViewMode>('list')
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
 
   // Upload form state
   const [uploadForm, setUploadForm] = useState({
@@ -194,6 +194,17 @@ export default function DocumentsModule() {
     category: '',
     description: '',
     tags: '',
+  })
+
+  // Settings state
+  const [docSettings, setDocSettings] = useState({
+    numberingFormat: 'SCH-YYYY-NNN',
+    storageProvider: 'LOCAL',
+    maxFileSize: '50',
+    versionControl: true,
+    accessPermissions: 'ROLE_BASED',
+    autoBackup: true,
+    retentionPeriod: '365',
   })
 
   // Filter documents
@@ -206,6 +217,84 @@ export default function DocumentsModule() {
       return matchesSearch && matchesCategory
     })
   }, [searchQuery, selectedCategory])
+
+  // ─── Inline: Upload Document ─────────────────────────────────────────────
+  if (pageViewMode === 'upload') {
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3"><Button variant="ghost" size="sm" onClick={() => setPageViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button></div>
+        <div className="max-w-xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><Upload className="h-5 w-5 text-emerald-600" />Upload Document</CardTitle><CardDescription>Add a new document to the school repository</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2"><Label>Filename</Label><Input placeholder="e.g., Term_1_Results_2025.pdf" value={uploadForm.filename} onChange={e => setUploadForm(f => ({ ...f, filename: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>Category</Label><Select value={uploadForm.category} onValueChange={v => setUploadForm(f => ({ ...f, category: v }))}><SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger><SelectContent>{categories.filter(c => c !== 'All').map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-2"><Label>Description</Label><Input placeholder="Brief description of the document" value={uploadForm.description} onChange={e => setUploadForm(f => ({ ...f, description: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>Tags (comma separated)</Label><Input placeholder="e.g., enrollment, form-1, 2025" value={uploadForm.tags} onChange={e => setUploadForm(f => ({ ...f, tags: e.target.value }))} /></div>
+              <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center"><Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" /><p className="text-sm text-muted-foreground">Drag and drop files here, or click to browse</p><p className="text-xs text-muted-foreground/70 mt-1">Supports PDF, DOC, XLS, IMG, PPT (Max 50MB)</p></div>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setPageViewMode('list')}>Cancel</Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { toast.success('Document uploaded successfully'); setPageViewMode('list') }}>Upload</Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ─── Inline: Document Detail ─────────────────────────────────────────────
+  if (pageViewMode === 'detail' && selectedDocId) {
+    const doc = mockDocuments.find(d => d.id === selectedDocId)
+    if (!doc) return null
+    const config = fileTypeConfig[doc.fileType]
+    const IconComp = config.icon
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3"><Button variant="ghost" size="sm" onClick={() => setPageViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button></div>
+        <div className="max-w-2xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardHeader>
+              <div className="flex items-center gap-3"><div className={cn('flex h-12 w-12 items-center justify-center rounded-xl', config.bg)}><IconComp className={cn('h-6 w-6', config.color)} /></div><div><CardTitle className="text-xl">{doc.name}</CardTitle><CardDescription>{doc.category} &middot; {doc.fileType.toUpperCase()} &middot; {doc.size}</CardDescription></div></div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><span className="text-muted-foreground">Uploaded By:</span> <span className="font-medium">{doc.uploadedBy}</span></div>
+                <div><span className="text-muted-foreground">Uploaded At:</span> <span className="font-medium">{doc.uploadedAt}</span></div>
+                <div><span className="text-muted-foreground">Shared:</span> <Badge variant={doc.shared ? 'default' : 'secondary'} className="text-[10px]">{doc.shared ? 'Yes' : 'No'}</Badge></div>
+                <div><span className="text-muted-foreground">Type:</span> <Badge variant="outline" className="text-[10px]">{config.label}</Badge></div>
+              </div>
+              <Separator />
+              <div><p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Description</p><p className="text-sm">{doc.description}</p></div>
+              {doc.tags.length > 0 && <div><p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Tags</p><div className="flex flex-wrap gap-1">{doc.tags.map(t => <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>)}</div></div>}
+            </CardContent>
+            <CardFooter className="flex justify-end gap-3">
+              <Button variant="outline"><Download className="h-4 w-4 mr-2" />Download</Button>
+              <Button variant="outline"><Share2 className="h-4 w-4 mr-2" />Share</Button>
+              <Button variant="destructive" onClick={() => { toast.success('Document deleted'); setPageViewMode('list') }}><Trash2 className="h-4 w-4 mr-2" />Delete</Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ─── Inline: Settings ────────────────────────────────────────────────────
+  if (pageViewMode === 'settings') {
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3"><Button variant="ghost" size="sm" onClick={() => setPageViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button></div>
+        <div><h2 className="text-xl font-bold tracking-tight flex items-center gap-2"><Settings className="h-5 w-5 text-gray-500" />Document Settings</h2><p className="text-sm text-muted-foreground mt-1">Configure document templates, numbering, storage, and access</p></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="border-0 shadow-md"><CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><LayoutTemplate className="h-4 w-4 text-emerald-600" />Default Templates</CardTitle><CardDescription>Document numbering and templates</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid gap-2"><Label className="text-xs">Numbering Format</Label><Input value={docSettings.numberingFormat} onChange={e => setDocSettings(s => ({ ...s, numberingFormat: e.target.value }))} /></div><div className="grid gap-2"><Label className="text-xs">Default Template</Label><Select value="TRANSFER"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="TRANSFER">Transfer Certificate</SelectItem><SelectItem value="REPORT">Report Card</SelectItem><SelectItem value="ADMISSION">Admission Letter</SelectItem></SelectContent></Select></div></CardContent></Card>
+          <Card className="border-0 shadow-md"><CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><HardDrive className="h-4 w-4 text-teal-600" />Storage Settings</CardTitle><CardDescription>File storage and backup configuration</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid gap-2"><Label className="text-xs">Storage Provider</Label><Select value={docSettings.storageProvider} onValueChange={v => setDocSettings(s => ({ ...s, storageProvider: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="LOCAL">Local Server</SelectItem><SelectItem value="CLOUD">Cloud Storage</SelectItem><SelectItem value="HYBRID">Hybrid (Local + Cloud)</SelectItem></SelectContent></Select></div><div className="grid gap-2"><Label className="text-xs">Max File Size (MB)</Label><Input type="number" value={docSettings.maxFileSize} onChange={e => setDocSettings(s => ({ ...s, maxFileSize: e.target.value }))} /></div><div className="flex items-center justify-between"><div><Label className="text-xs">Auto Backup</Label><p className="text-[10px] text-muted-foreground">Automatically backup documents</p></div><Switch checked={docSettings.autoBackup} onCheckedChange={v => setDocSettings(s => ({ ...s, autoBackup: v }))} /></div></CardContent></Card>
+          <Card className="border-0 shadow-md"><CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><Shield className="h-4 w-4 text-amber-600" />Access Permissions</CardTitle><CardDescription>Control who can access documents</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid gap-2"><Label className="text-xs">Permission Model</Label><Select value={docSettings.accessPermissions} onValueChange={v => setDocSettings(s => ({ ...s, accessPermissions: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ROLE_BASED">Role-Based</SelectItem><SelectItem value="INDIVIDUAL">Individual</SelectItem><SelectItem value="DEPARTMENT">Department-Based</SelectItem></SelectContent></Select></div><div className="flex items-center justify-between"><div><Label className="text-xs">Version Control</Label><p className="text-[10px] text-muted-foreground">Track document versions</p></div><Switch checked={docSettings.versionControl} onCheckedChange={v => setDocSettings(s => ({ ...s, versionControl: v }))} /></div></CardContent></Card>
+          <Card className="border-0 shadow-md"><CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><Clock className="h-4 w-4 text-violet-600" />Retention Policy</CardTitle><CardDescription>Document retention and archival</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid gap-2"><Label className="text-xs">Retention Period (days)</Label><Input type="number" value={docSettings.retentionPeriod} onChange={e => setDocSettings(s => ({ ...s, retentionPeriod: e.target.value }))} /></div><div className="p-3 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-100 text-xs text-violet-700">Documents older than the retention period will be automatically archived. Archived documents can still be accessed by administrators.</div></CardContent></Card>
+        </div>
+        <div className="flex justify-end"><Button onClick={() => { toast.success('Document settings saved successfully') }} className="bg-emerald-600 hover:bg-emerald-700 text-white"><Save className="h-4 w-4 mr-2" />Save Settings</Button></div>
+      </motion.div>
+    )
+  }
 
   const totalDocs = mockDocuments.length
   const totalCategories = categories.length - 1 // exclude 'All'
@@ -233,71 +322,13 @@ export default function DocumentsModule() {
           </h2>
           <p className="text-muted-foreground text-sm mt-1">Manage school documents, templates, and file sharing</p>
         </div>
-        <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-emerald-600 hover:bg-emerald-700">
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Document
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Upload Document</DialogTitle>
-              <DialogDescription>Add a new document to the school repository</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="filename">Filename</Label>
-                <Input
-                  id="filename"
-                  placeholder="e.g., Term_1_Results_2025.pdf"
-                  value={uploadForm.filename}
-                  onChange={(e) => setUploadForm({ ...uploadForm, filename: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Select value={uploadForm.category} onValueChange={(v) => setUploadForm({ ...uploadForm, category: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.filter(c => c !== 'All').map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Input
-                  id="description"
-                  placeholder="Brief description of the document"
-                  value={uploadForm.description}
-                  onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="tags">Tags (comma separated)</Label>
-                <Input
-                  id="tags"
-                  placeholder="e.g., enrollment, form-1, 2025"
-                  value={uploadForm.tags}
-                  onChange={(e) => setUploadForm({ ...uploadForm, tags: e.target.value })}
-                />
-              </div>
-              <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
-                <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Drag and drop files here, or click to browse</p>
-                <p className="text-xs text-muted-foreground/70 mt-1">Supports PDF, DOC, XLS, IMG, PPT (Max 50MB)</p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
-              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setUploadDialogOpen(false)}>Upload</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setPageViewMode('settings')} className="gap-1.5"><Settings className="h-3.5 w-3.5" /><span className="hidden sm:inline">Settings</span></Button>
+          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setPageViewMode('upload')}>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Document
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -606,7 +637,7 @@ export default function DocumentsModule() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem><Eye className="mr-2 h-3.5 w-3.5" /> View</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setSelectedDocId(doc.id); setPageViewMode('detail') }}><Eye className="mr-2 h-3.5 w-3.5" /> View</DropdownMenuItem>
                               <DropdownMenuItem><Download className="mr-2 h-3.5 w-3.5" /> Download</DropdownMenuItem>
                               <DropdownMenuItem><Share2 className="mr-2 h-3.5 w-3.5" /> Share</DropdownMenuItem>
                               <DropdownMenuItem className="text-red-600"><Trash2 className="mr-2 h-3.5 w-3.5" /> Delete</DropdownMenuItem>
@@ -681,7 +712,7 @@ export default function DocumentsModule() {
                             <td className="p-3 text-sm text-muted-foreground">{doc.uploadedAt}</td>
                             <td className="p-3 text-right">
                               <div className="flex items-center justify-end gap-1">
-                                <Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="h-3.5 w-3.5" /></Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setSelectedDocId(doc.id); setPageViewMode('detail') }}><Eye className="h-3.5 w-3.5" /></Button>
                                 <Button variant="ghost" size="icon" className="h-7 w-7"><Download className="h-3.5 w-3.5" /></Button>
                                 <Button variant="ghost" size="icon" className="h-7 w-7"><Share2 className="h-3.5 w-3.5" /></Button>
                               </div>

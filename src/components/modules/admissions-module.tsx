@@ -18,6 +18,9 @@ import {
   ArrowRight,
   Eye,
   ListOrdered,
+  ArrowLeft,
+  Settings,
+  Save,
 } from 'lucide-react'
 import {
   BarChart,
@@ -43,15 +46,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -60,14 +54,20 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
+import { toast } from 'sonner'
+import { useAppStore } from '@/lib/store'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
+
+type ViewMode = 'list' | 'add' | 'edit' | 'detail' | 'settings'
 
 interface Application {
   id: string
@@ -119,6 +119,27 @@ const funnelChartConfig = {
   count: { label: 'Applicants', color: '#10b981' },
 } satisfies ChartConfig
 
+// ─── Default Form State ────────────────────────────────────────────────────
+
+const defaultForm = {
+  firstName: '',
+  lastName: '',
+  middleName: '',
+  gender: 'MALE',
+  dateOfBirth: '',
+  birthCertNumber: '',
+  nationalId: '',
+  boardingStatus: 'DAY_SCHOLAR',
+  previousSchool: '',
+  guardianFirstName: '',
+  guardianLastName: '',
+  guardianPhone: '',
+  guardianEmail: '',
+  guardianRelationship: 'PARENT',
+  gradeId: '',
+  status: 'PENDING',
+}
+
 // ─── Admissions Module ───────────────────────────────────────────────────────
 
 export default function AdmissionsModule() {
@@ -128,28 +149,27 @@ export default function AdmissionsModule() {
   const [activeTab, setActiveTab] = useState('overview')
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
-  const [dialogOpen, setDialogOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
+  // ViewMode state
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
   // Form state
-  const [form, setForm] = useState({
-    firstName: '',
-    lastName: '',
-    middleName: '',
-    gender: 'MALE',
-    dateOfBirth: '',
-    birthCertNumber: '',
-    nationalId: '',
-    boardingStatus: 'DAY_SCHOLAR',
-    previousSchool: '',
-    guardianFirstName: '',
-    guardianLastName: '',
-    guardianPhone: '',
-    guardianEmail: '',
-    guardianRelationship: 'PARENT',
-    gradeId: '',
-    status: 'PENDING',
-  })
+  const [form, setForm] = useState({ ...defaultForm })
+
+  // Settings state
+  const [defaultIntakeYear, setDefaultIntakeYear] = useState('2026')
+  const [requireInterview, setRequireInterview] = useState(true)
+  const [requireBirthCert, setRequireBirthCert] = useState(true)
+  const [requireTransferLetter, setRequireTransferLetter] = useState(true)
+  const [autoAssignStudentNumber, setAutoAssignStudentNumber] = useState(true)
+  const [notifyGuardianOnStatusChange, setNotifyGuardianOnStatusChange] = useState(true)
+  const [applicationFeeAmount, setApplicationFeeAmount] = useState('25')
+  const [maxApplicationsPerGrade, setMaxApplicationsPerGrade] = useState('50')
+  const [welcomeMessage, setWelcomeMessage] = useState('Welcome to our school! Please complete your application carefully.')
+
+  const selectedApp = applications.find(a => a.id === selectedId)
 
   const fetchData = useCallback(async () => {
     try {
@@ -184,18 +204,16 @@ export default function AdmissionsModule() {
         body: JSON.stringify(form),
       })
       if (res.ok) {
-        setDialogOpen(false)
-        setForm({
-          firstName: '', lastName: '', middleName: '', gender: 'MALE', dateOfBirth: '',
-          birthCertNumber: '', nationalId: '', boardingStatus: 'DAY_SCHOLAR',
-          previousSchool: '', guardianFirstName: '', guardianLastName: '',
-          guardianPhone: '', guardianEmail: '', guardianRelationship: 'PARENT',
-          gradeId: '', status: 'PENDING',
-        })
+        toast.success('Application submitted successfully')
+        setForm({ ...defaultForm })
+        setViewMode('list')
         fetchData()
+      } else {
+        toast.error('Failed to submit application')
       }
     } catch (err) {
       console.error('Failed to submit application:', err)
+      toast.error('Failed to submit application')
     } finally {
       setSubmitting(false)
     }
@@ -230,6 +248,325 @@ export default function AdmissionsModule() {
     )
   }
 
+  // ─── Settings View ──────────────────────────────────────────────────────
+  if (viewMode === 'settings') {
+    return (
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" className="gap-1" onClick={() => setViewMode('list')}>
+            <ArrowLeft className="h-4 w-4" /> Back
+          </Button>
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Admissions Settings</h1>
+          <p className="text-sm text-muted-foreground mt-1">Configure admission process, requirements, and defaults</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="border-0 shadow-md">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">Default Configuration</CardTitle>
+              <CardDescription>Set defaults for new applications</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2">
+                <Label>Default Intake Year</Label>
+                <Input value={defaultIntakeYear} onChange={e => setDefaultIntakeYear(e.target.value)} placeholder="e.g. 2026" />
+              </div>
+              <div className="grid gap-2">
+                <Label>Application Fee (USD)</Label>
+                <Input type="number" value={applicationFeeAmount} onChange={e => setApplicationFeeAmount(e.target.value)} placeholder="0.00" />
+              </div>
+              <div className="grid gap-2">
+                <Label>Max Applications Per Grade</Label>
+                <Input type="number" value={maxApplicationsPerGrade} onChange={e => setMaxApplicationsPerGrade(e.target.value)} placeholder="50" />
+              </div>
+              <div className="grid gap-2">
+                <Label>Welcome Message for Applicants</Label>
+                <Textarea value={welcomeMessage} onChange={e => setWelcomeMessage(e.target.value)} rows={3} placeholder="Welcome message..." />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-md">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">Document Requirements</CardTitle>
+              <CardDescription>Required documents for application submission</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-3 rounded-lg border">
+                <div>
+                  <p className="text-sm font-medium">Birth Certificate</p>
+                  <p className="text-xs text-muted-foreground">Require birth certificate copy</p>
+                </div>
+                <Switch checked={requireBirthCert} onCheckedChange={setRequireBirthCert} />
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg border">
+                <div>
+                  <p className="text-sm font-medium">Transfer Letter</p>
+                  <p className="text-xs text-muted-foreground">Require transfer letter from previous school</p>
+                </div>
+                <Switch checked={requireTransferLetter} onCheckedChange={setRequireTransferLetter} />
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg border">
+                <div>
+                  <p className="text-sm font-medium">Interview Required</p>
+                  <p className="text-xs text-muted-foreground">Schedule interview before acceptance</p>
+                </div>
+                <Switch checked={requireInterview} onCheckedChange={setRequireInterview} />
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg border">
+                <div>
+                  <p className="text-sm font-medium">Auto-assign Student Number</p>
+                  <p className="text-xs text-muted-foreground">Automatically generate student numbers</p>
+                </div>
+                <Switch checked={autoAssignStudentNumber} onCheckedChange={setAutoAssignStudentNumber} />
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg border">
+                <div>
+                  <p className="text-sm font-medium">Notify Guardian on Status Change</p>
+                  <p className="text-xs text-muted-foreground">Send SMS/email when application status changes</p>
+                </div>
+                <Switch checked={notifyGuardianOnStatusChange} onCheckedChange={setNotifyGuardianOnStatusChange} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="flex justify-end">
+          <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white" onClick={() => toast.success('Settings saved successfully')}>
+            <Save className="mr-2 h-4 w-4" /> Save Settings
+          </Button>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ─── Add Application View ────────────────────────────────────────────────
+  if (viewMode === 'add') {
+    return (
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" className="gap-1" onClick={() => setViewMode('list')}>
+            <ArrowLeft className="h-4 w-4" /> Back
+          </Button>
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">New Application</h1>
+          <p className="text-sm text-muted-foreground mt-1">Submit a new student admission application</p>
+        </div>
+
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-6">
+            <div className="grid gap-6 max-w-3xl">
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold text-emerald-700">Student Details</Label>
+                <Separator />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>First Name *</Label>
+                  <Input placeholder="First name" value={form.firstName} onChange={(e) => setForm((p) => ({ ...p, firstName: e.target.value }))} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Last Name *</Label>
+                  <Input placeholder="Last name" value={form.lastName} onChange={(e) => setForm((p) => ({ ...p, lastName: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="grid gap-2">
+                  <Label>Middle Name</Label>
+                  <Input placeholder="Middle name" value={form.middleName} onChange={(e) => setForm((p) => ({ ...p, middleName: e.target.value }))} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Gender</Label>
+                  <Select value={form.gender} onValueChange={(v) => setForm((p) => ({ ...p, gender: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MALE">Male</SelectItem>
+                      <SelectItem value="FEMALE">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Date of Birth</Label>
+                  <Input type="date" value={form.dateOfBirth} onChange={(e) => setForm((p) => ({ ...p, dateOfBirth: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Birth Certificate #</Label>
+                  <Input placeholder="e.g. 08-123456A78" value={form.birthCertNumber} onChange={(e) => setForm((p) => ({ ...p, birthCertNumber: e.target.value }))} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>National ID</Label>
+                  <Input placeholder="e.g. 08-1234567X89" value={form.nationalId} onChange={(e) => setForm((p) => ({ ...p, nationalId: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Boarding Status</Label>
+                  <Select value={form.boardingStatus} onValueChange={(v) => setForm((p) => ({ ...p, boardingStatus: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DAY_SCHOLAR">Day Scholar</SelectItem>
+                      <SelectItem value="BOARDER">Boarder</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Previous School</Label>
+                  <Input placeholder="Previous school name" value={form.previousSchool} onChange={(e) => setForm((p) => ({ ...p, previousSchool: e.target.value }))} />
+                </div>
+              </div>
+
+              <div className="space-y-1 pt-2">
+                <Label className="text-sm font-semibold text-emerald-700">Guardian Details</Label>
+                <Separator />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Guardian First Name</Label>
+                  <Input placeholder="First name" value={form.guardianFirstName} onChange={(e) => setForm((p) => ({ ...p, guardianFirstName: e.target.value }))} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Guardian Last Name</Label>
+                  <Input placeholder="Last name" value={form.guardianLastName} onChange={(e) => setForm((p) => ({ ...p, guardianLastName: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="grid gap-2">
+                  <Label>Phone</Label>
+                  <Input placeholder="+263..." value={form.guardianPhone} onChange={(e) => setForm((p) => ({ ...p, guardianPhone: e.target.value }))} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Email</Label>
+                  <Input placeholder="email@example.com" value={form.guardianEmail} onChange={(e) => setForm((p) => ({ ...p, guardianEmail: e.target.value }))} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Relationship</Label>
+                  <Select value={form.guardianRelationship} onValueChange={(v) => setForm((p) => ({ ...p, guardianRelationship: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PARENT">Parent</SelectItem>
+                      <SelectItem value="GUARDIAN">Guardian</SelectItem>
+                      <SelectItem value="GRANDPARENT">Grandparent</SelectItem>
+                      <SelectItem value="SIBLING">Sibling</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1 pt-2">
+                <Label className="text-sm font-semibold text-emerald-700">Documents Checklist</Label>
+                <Separator />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {['Birth Certificate', 'Previous School Report', 'Transfer Letter', 'Passport Photo', 'Immunisation Card', 'National ID Copy'].map((doc) => (
+                  <label key={doc} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" className="rounded border-border text-muted-foreground focus:ring-emerald-500" />
+                    <span>{doc}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-3 pt-4">
+                <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+                <Button onClick={handleSubmit} disabled={submitting || !form.firstName || !form.lastName} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white">
+                  {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Submit Application
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    )
+  }
+
+  // ─── Detail View ──────────────────────────────────────────────────────────
+  if (viewMode === 'detail' && selectedApp) {
+    const sc = statusConfig[selectedApp.enrollmentStatus] || statusConfig.PENDING
+    const primaryParent = selectedApp.parentLinks.find((p) => p.isPrimary)?.parent
+    const grade = selectedApp.enrollments[0]?.class?.grade?.name || 'N/A'
+    const className = selectedApp.enrollments[0]?.class?.name || 'Not assigned'
+
+    return (
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" className="gap-1" onClick={() => setViewMode('list')}>
+            <ArrowLeft className="h-4 w-4" /> Back
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-lg font-semibold">
+            {selectedApp.firstName[0]}{selectedApp.lastName[0]}
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{selectedApp.firstName} {selectedApp.lastName}</h1>
+            <p className="text-sm text-muted-foreground">{selectedApp.studentNumber} &middot; {grade}</p>
+          </div>
+          <Badge variant="outline" className={cn('text-xs px-3 py-1 ml-auto', sc.color)}>
+            {sc.label}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="border-0 shadow-md">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">Student Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between"><span className="text-sm text-muted-foreground">Student Number</span><span className="text-sm font-mono font-semibold">{selectedApp.studentNumber}</span></div>
+              <Separator />
+              <div className="flex justify-between"><span className="text-sm text-muted-foreground">Full Name</span><span className="text-sm font-medium">{selectedApp.firstName} {selectedApp.middleName || ''} {selectedApp.lastName}</span></div>
+              <Separator />
+              <div className="flex justify-between"><span className="text-sm text-muted-foreground">Gender</span><span className="text-sm">{selectedApp.gender === 'MALE' ? 'Male' : 'Female'}</span></div>
+              <Separator />
+              <div className="flex justify-between"><span className="text-sm text-muted-foreground">Date of Birth</span><span className="text-sm">{selectedApp.dateOfBirth ? formatDate(selectedApp.dateOfBirth) : 'N/A'}</span></div>
+              <Separator />
+              <div className="flex justify-between"><span className="text-sm text-muted-foreground">Boarding Status</span><span className="text-sm">{selectedApp.boardingStatus === 'BOARDER' ? 'Boarder' : 'Day Scholar'}</span></div>
+              <Separator />
+              <div className="flex justify-between"><span className="text-sm text-muted-foreground">Previous School</span><span className="text-sm">{selectedApp.previousSchool || 'N/A'}</span></div>
+              <Separator />
+              <div className="flex justify-between"><span className="text-sm text-muted-foreground">Admission Date</span><span className="text-sm">{formatDate(selectedApp.admissionDate)}</span></div>
+              <Separator />
+              <div className="flex justify-between"><span className="text-sm text-muted-foreground">Class</span><span className="text-sm">{className}</span></div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-md">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">Guardian Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {selectedApp.parentLinks.map((link, idx) => (
+                <div key={idx} className={cn('p-4 rounded-xl border', link.isPrimary ? 'border-emerald-200 bg-emerald-50/50' : 'border-muted')}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold">{link.parent.firstName} {link.parent.lastName}</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-[10px]">{link.relationship}</Badge>
+                      {link.isPrimary && <Badge className="text-[10px] bg-emerald-100 text-emerald-700">Primary</Badge>}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between"><span className="text-xs text-muted-foreground">Phone</span><span className="text-xs font-medium">{link.parent.phone}</span></div>
+                    {link.parent.email && <div className="flex justify-between"><span className="text-xs text-muted-foreground">Email</span><span className="text-xs font-medium">{link.parent.email}</span></div>}
+                  </div>
+                </div>
+              ))}
+              {selectedApp.parentLinks.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No guardian information available</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ─── List View ────────────────────────────────────────────────────────────
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
       {/* Header */}
@@ -238,141 +575,15 @@ export default function AdmissionsModule() {
           <h1 className="text-2xl font-bold tracking-tight">Admissions & Enrollment</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage student applications and enrollment process</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md">
-              <Plus className="mr-2 h-4 w-4" />
-              New Application
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>New Application</DialogTitle>
-              <DialogDescription>Submit a new student admission application</DialogDescription>
-            </DialogHeader>
-            <ScrollArea className="max-h-[60vh]">
-              <div className="grid gap-4 py-4 pr-4">
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold text-emerald-700">Student Details</Label>
-                  <Separator />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label>First Name *</Label>
-                    <Input placeholder="First name" value={form.firstName} onChange={(e) => setForm((p) => ({ ...p, firstName: e.target.value }))} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Last Name *</Label>
-                    <Input placeholder="Last name" value={form.lastName} onChange={(e) => setForm((p) => ({ ...p, lastName: e.target.value }))} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="grid gap-2">
-                    <Label>Middle Name</Label>
-                    <Input placeholder="Middle name" value={form.middleName} onChange={(e) => setForm((p) => ({ ...p, middleName: e.target.value }))} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Gender</Label>
-                    <Select value={form.gender} onValueChange={(v) => setForm((p) => ({ ...p, gender: v }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="MALE">Male</SelectItem>
-                        <SelectItem value="FEMALE">Female</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Date of Birth</Label>
-                    <Input type="date" value={form.dateOfBirth} onChange={(e) => setForm((p) => ({ ...p, dateOfBirth: e.target.value }))} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label>Birth Certificate #</Label>
-                    <Input placeholder="e.g. 08-123456A78" value={form.birthCertNumber} onChange={(e) => setForm((p) => ({ ...p, birthCertNumber: e.target.value }))} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>National ID</Label>
-                    <Input placeholder="e.g. 08-1234567X89" value={form.nationalId} onChange={(e) => setForm((p) => ({ ...p, nationalId: e.target.value }))} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label>Boarding Status</Label>
-                    <Select value={form.boardingStatus} onValueChange={(v) => setForm((p) => ({ ...p, boardingStatus: v }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="DAY_SCHOLAR">Day Scholar</SelectItem>
-                        <SelectItem value="BOARDER">Boarder</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Previous School</Label>
-                    <Input placeholder="Previous school name" value={form.previousSchool} onChange={(e) => setForm((p) => ({ ...p, previousSchool: e.target.value }))} />
-                  </div>
-                </div>
-
-                <div className="space-y-1 pt-2">
-                  <Label className="text-sm font-semibold text-emerald-700">Guardian Details</Label>
-                  <Separator />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label>Guardian First Name</Label>
-                    <Input placeholder="First name" value={form.guardianFirstName} onChange={(e) => setForm((p) => ({ ...p, guardianFirstName: e.target.value }))} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Guardian Last Name</Label>
-                    <Input placeholder="Last name" value={form.guardianLastName} onChange={(e) => setForm((p) => ({ ...p, guardianLastName: e.target.value }))} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="grid gap-2">
-                    <Label>Phone</Label>
-                    <Input placeholder="+263..." value={form.guardianPhone} onChange={(e) => setForm((p) => ({ ...p, guardianPhone: e.target.value }))} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Email</Label>
-                    <Input placeholder="email@example.com" value={form.guardianEmail} onChange={(e) => setForm((p) => ({ ...p, guardianEmail: e.target.value }))} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Relationship</Label>
-                    <Select value={form.guardianRelationship} onValueChange={(v) => setForm((p) => ({ ...p, guardianRelationship: v }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="PARENT">Parent</SelectItem>
-                        <SelectItem value="GUARDIAN">Guardian</SelectItem>
-                        <SelectItem value="GRANDPARENT">Grandparent</SelectItem>
-                        <SelectItem value="SIBLING">Sibling</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-1 pt-2">
-                  <Label className="text-sm font-semibold text-emerald-700">Documents Checklist</Label>
-                  <Separator />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {['Birth Certificate', 'Previous School Report', 'Transfer Letter', 'Passport Photo', 'Immunisation Card', 'National ID Copy'].map((doc) => (
-                    <label key={doc} className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="checkbox" className="rounded border-border text-muted-foreground focus:ring-emerald-500" />
-                      <span>{doc}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </ScrollArea>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleSubmit} disabled={submitting || !form.firstName || !form.lastName} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white">
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Submit Application
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => setViewMode('settings')}>
+            <Settings className="h-4 w-4" />
+          </Button>
+          <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md" onClick={() => { setForm({ ...defaultForm }); setViewMode('add') }}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Application
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -546,7 +757,7 @@ export default function AdmissionsModule() {
                       const primaryParent = app.parentLinks.find((p) => p.isPrimary)?.parent
                       const grade = app.enrollments[0]?.class?.grade?.name || 'N/A'
                       return (
-                        <TableRow key={app.id} className="hover:bg-muted/30 cursor-pointer group">
+                        <TableRow key={app.id} className="hover:bg-muted/30 cursor-pointer group" onClick={() => { setSelectedId(app.id); setViewMode('detail') }}>
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-xs font-semibold">
@@ -560,9 +771,9 @@ export default function AdmissionsModule() {
                           </TableCell>
                           <TableCell className="text-sm">{app.gender === 'MALE' ? 'Male' : 'Female'}</TableCell>
                           <TableCell className="text-sm font-medium">{grade}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{app.previousSchool || '—'}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{app.previousSchool || '\u2014'}</TableCell>
                           <TableCell className="text-sm">
-                            {primaryParent ? `${primaryParent.firstName} ${primaryParent.lastName}` : '—'}
+                            {primaryParent ? `${primaryParent.firstName} ${primaryParent.lastName}` : '\u2014'}
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className={cn('text-[10px] px-2 py-0.5', sc.color)}>
@@ -603,7 +814,7 @@ export default function AdmissionsModule() {
                         </div>
                         <div>
                           <p className="text-sm font-medium">{app.firstName} {app.lastName}</p>
-                          <p className="text-xs text-muted-foreground">{app.studentNumber} · {app.enrollments[0]?.class?.grade?.name || 'No grade assigned'}</p>
+                          <p className="text-xs text-muted-foreground">{app.studentNumber} &middot; {app.enrollments[0]?.class?.grade?.name || 'No grade assigned'}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">

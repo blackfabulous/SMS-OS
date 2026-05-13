@@ -29,6 +29,8 @@ import {
   MoreVertical,
   Clock,
   PartyPopper,
+  ArrowLeft,
+  Settings,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -36,15 +38,6 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -62,6 +55,9 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Progress } from '@/components/ui/progress'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts'
 
@@ -237,8 +233,18 @@ export default function AlumniModule() {
   const [yearFilter, setYearFilter] = useState('all')
   const [occupationFilter, setOccupationFilter] = useState('all')
   const [locationFilter, setLocationFilter] = useState('all')
-  const [eventDialogOpen, setEventDialogOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<'list' | 'add' | 'edit' | 'detail' | 'settings'>('list')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [newEvent, setNewEvent] = useState({ name: '', date: '', location: '', type: 'reunion', description: '' })
+
+  // Settings state
+  const [settings, setSettings] = useState({
+    directoryPublic: true,
+    eventNotifications: true,
+    donationTracking: true,
+    membershipTiers: false,
+    emailDigest: 'weekly',
+  })
 
   // Derived data
   const totalAlumni = mockAlumni.length
@@ -264,6 +270,182 @@ export default function AlumniModule() {
     })
   }, [searchQuery, yearFilter, occupationFilter, locationFilter])
 
+  // Get selected alumni for detail view
+  const selectedAlumni = mockAlumni.find(a => a.id === selectedId)
+  const selectedEvent = mockEvents.find(e => e.id === selectedId)
+
+  // Settings view
+  if (viewMode === 'settings') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <Settings className="h-6 w-6 text-emerald-600" />
+            Alumni Settings
+          </h2>
+          <p className="text-muted-foreground text-sm mt-1">Configure the alumni network module</p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base">Directory & Privacy</CardTitle><CardDescription>Control alumni directory visibility</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Public Directory</p><p className="text-xs text-muted-foreground">Make alumni directory visible to all</p></div>
+                <Switch checked={settings.directoryPublic} onCheckedChange={(v) => setSettings({...settings, directoryPublic: v})} />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Membership Tiers</p><p className="text-xs text-muted-foreground">Enable paid membership tiers</p></div>
+                <Switch checked={settings.membershipTiers} onCheckedChange={(v) => setSettings({...settings, membershipTiers: v})} />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base">Notifications</CardTitle><CardDescription>Event and communication preferences</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Event Notifications</p><p className="text-xs text-muted-foreground">Notify alumni of upcoming events</p></div>
+                <Switch checked={settings.eventNotifications} onCheckedChange={(v) => setSettings({...settings, eventNotifications: v})} />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Email Digest</p><p className="text-xs text-muted-foreground">Frequency of alumni email digests</p></div>
+                <Select value={settings.emailDigest} onValueChange={(v) => setSettings({...settings, emailDigest: v})}>
+                  <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base">Donation Tracking</CardTitle><CardDescription>Configure donation and campaign settings</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Enable Donation Tracking</p><p className="text-xs text-muted-foreground">Track and display alumni contributions</p></div>
+                <Switch checked={settings.donationTracking} onCheckedChange={(v) => setSettings({...settings, donationTracking: v})} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="flex justify-end">
+          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { toast.success('Settings saved successfully'); setViewMode('list') }}>Save Settings</Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Add event view
+  if (viewMode === 'add') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back to Events</Button>
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <Calendar className="h-6 w-6 text-emerald-600" />
+            Create Alumni Event
+          </h2>
+          <p className="text-muted-foreground text-sm mt-1">Add a new alumni event or reunion</p>
+        </div>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-6 space-y-4">
+            <div className="space-y-2">
+              <Label>Event Name</Label>
+              <Input placeholder="e.g., Class of 2010 Reunion" value={newEvent.name} onChange={(e) => setNewEvent({ ...newEvent, name: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Input type="date" value={newEvent.date} onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select value={newEvent.type} onValueChange={(v) => setNewEvent({ ...newEvent, type: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="reunion">Reunion</SelectItem>
+                    <SelectItem value="networking">Networking</SelectItem>
+                    <SelectItem value="fundraiser">Fundraiser</SelectItem>
+                    <SelectItem value="career">Career Day</SelectItem>
+                    <SelectItem value="social">Social</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Location</Label>
+              <Input placeholder="e.g., School Main Hall" value={newEvent.location} onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea placeholder="Brief description of the event" value={newEvent.description} onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })} rows={3} />
+            </div>
+          </CardContent>
+        </Card>
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { toast.success('Event created successfully'); setViewMode('list') }}>Create Event</Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Detail view for alumni
+  if (viewMode === 'detail' && selectedAlumni) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back to Directory</Button>
+        </div>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <Avatar className={cn('h-20 w-20', selectedAlumni.notable ? 'border-2 border-amber-300' : '')}>
+                <AvatarFallback className={cn('text-xl font-semibold', selectedAlumni.notable ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white' : 'bg-gradient-to-br from-emerald-400 to-teal-500 text-white')}>
+                  {selectedAlumni.photo}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-bold">{selectedAlumni.name}</h2>
+                  {selectedAlumni.notable && <Badge className="bg-amber-100 text-amber-700"><Star className="h-3 w-3 mr-1" />Notable</Badge>}
+                </div>
+                <p className="text-sm text-muted-foreground">Class of {selectedAlumni.graduationYear}</p>
+              </div>
+            </div>
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2"><Briefcase className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Occupation</p><p className="text-sm font-medium">{selectedAlumni.occupation}</p></div></div>
+                <div className="flex items-center gap-2"><Building className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Company</p><p className="text-sm font-medium">{selectedAlumni.company}</p></div></div>
+                <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Location</p><p className="text-sm font-medium">{selectedAlumni.location}</p></div></div>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Email</p><p className="text-sm font-medium">{selectedAlumni.email}</p></div></div>
+                <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Phone</p><p className="text-sm font-medium">{selectedAlumni.phone}</p></div></div>
+                <div className="flex items-center gap-2"><DollarSign className="h-4 w-4 text-emerald-600" /><div><p className="text-xs text-muted-foreground">Contributions</p><p className="text-sm font-medium text-emerald-600">${selectedAlumni.contributionTotal.toLocaleString()}</p></div></div>
+              </div>
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              {selectedAlumni.tags.map(tag => <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>)}
+            </div>
+          </CardContent>
+        </Card>
+        <div className="flex gap-3">
+          <Button variant="outline" className="gap-2"><Mail className="h-4 w-4" /> Send Email</Button>
+          <Button variant="outline" className="gap-2"><Phone className="h-4 w-4" /> Call</Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Module Header */}
@@ -275,6 +457,10 @@ export default function AlumniModule() {
           </h2>
           <p className="text-muted-foreground text-sm mt-1">Connect with former students, track contributions, and manage alumni events</p>
         </div>
+        <Button variant="outline" size="sm" onClick={() => { setViewMode('settings'); setSelectedId(null) }} className="gap-1.5">
+          <Settings className="h-4 w-4" />
+          <span className="hidden sm:inline">Settings</span>
+        </Button>
       </div>
 
       {/* Tabs */}
@@ -581,12 +767,12 @@ export default function AlumniModule() {
                       ))}
                     </div>
 
-                    <div className="mt-3 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="outline" size="sm" className="h-7 text-xs flex-1">
-                        <Mail className="h-3 w-3 mr-1" /> Email
+                    <div className="mt-3 flex items-center gap-1.5">
+                      <Button variant="outline" size="sm" className="h-7 text-xs flex-1" onClick={() => { setViewMode('detail'); setSelectedId(alumni.id) }}>
+                        <Eye className="h-3 w-3 mr-1" /> View
                       </Button>
                       <Button variant="outline" size="sm" className="h-7 text-xs flex-1">
-                        <Phone className="h-3 w-3 mr-1" /> Call
+                        <Mail className="h-3 w-3 mr-1" /> Email
                       </Button>
                     </div>
                   </CardContent>
@@ -745,74 +931,9 @@ export default function AlumniModule() {
         <TabsContent value="events" className="space-y-4 mt-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Alumni Events</h3>
-            <Dialog open={eventDialogOpen} onOpenChange={setEventDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-emerald-600 hover:bg-emerald-700">
+                <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { setViewMode('add'); setNewEvent({ name: '', date: '', location: '', type: 'reunion', description: '' }) }}>
                   <Plus className="h-4 w-4 mr-2" /> Add Event
                 </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create Alumni Event</DialogTitle>
-                  <DialogDescription>Add a new alumni event or reunion</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Event Name</Label>
-                    <Input
-                      placeholder="e.g., Class of 2010 Reunion"
-                      value={newEvent.name}
-                      onChange={(e) => setNewEvent({ ...newEvent, name: e.target.value })}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Date</Label>
-                      <Input
-                        type="date"
-                        value={newEvent.date}
-                        onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Type</Label>
-                      <Select value={newEvent.type} onValueChange={(v) => setNewEvent({ ...newEvent, type: v })}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="reunion">Reunion</SelectItem>
-                          <SelectItem value="networking">Networking</SelectItem>
-                          <SelectItem value="fundraiser">Fundraiser</SelectItem>
-                          <SelectItem value="career">Career Day</SelectItem>
-                          <SelectItem value="social">Social</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Location</Label>
-                    <Input
-                      placeholder="e.g., School Main Hall"
-                      value={newEvent.location}
-                      onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Description</Label>
-                    <Input
-                      placeholder="Brief description of the event"
-                      value={newEvent.description}
-                      onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setEventDialogOpen(false)}>Cancel</Button>
-                  <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setEventDialogOpen(false)}>Create Event</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

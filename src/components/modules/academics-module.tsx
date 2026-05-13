@@ -52,15 +52,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
+// Dialog removed - using ViewMode inline pattern
 import {
   Select,
   SelectContent,
@@ -226,8 +218,10 @@ export default function AcademicsModule() {
   const [marksSaving, setMarksSaving] = useState(false)
   const [editedMarks, setEditedMarks] = useState<Record<string, number>>({})
 
-  // Create assessment dialog
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  // ViewMode state pattern
+  type ViewMode = 'list' | 'add' | 'edit' | 'detail' | 'settings'
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [createForm, setCreateForm] = useState({
     name: '',
@@ -343,8 +337,9 @@ export default function AcademicsModule() {
         }),
       })
       if (res.ok) {
-        setCreateDialogOpen(false)
+        setViewMode('list')
         setCreateForm({ name: '', subjectId: '', classId: '', assessmentType: 'TEST', totalMarks: '100', weight: '1', date: '' })
+        toast.success('Assessment created successfully')
         fetchOverview()
         if (activeTab === 'assessments') fetchAssessments()
       } else {
@@ -378,7 +373,7 @@ export default function AcademicsModule() {
       })
 
       if (res.ok) {
-        // Refresh marks
+        toast.success('Marks saved successfully')
         fetchMarks(selectedAssessment.id)
       }
     } catch (err) {
@@ -446,6 +441,391 @@ export default function AcademicsModule() {
     )
   }
 
+  // ─── Add Assessment Inline View ─────────────────────────────────────────────
+
+  if (viewMode === 'add') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3 }}
+        className="space-y-6"
+      >
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+            onClick={() => setViewMode('list')}
+          >
+            <ChevronLeft className="h-4 w-4" /> Back to Academics
+          </Button>
+        </div>
+
+        <Card className="border-0 shadow-md overflow-hidden">
+          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6">
+            <h2 className="text-xl font-bold">Create Assessment</h2>
+            <p className="text-emerald-100 text-sm mt-1">Add a new test, exam, or assignment for a class</p>
+          </div>
+          <CardContent className="p-6">
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label>Assessment Name *</Label>
+                <Input
+                  placeholder="e.g. Term 1 Mathematics Test"
+                  value={createForm.name}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, name: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Subject *</Label>
+                  <Select
+                    value={createForm.subjectId}
+                    onValueChange={(v) => setCreateForm((p) => ({ ...p, subjectId: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select subject" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <ScrollArea className="h-48">
+                        {overview?.subjects.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.name} ({s.code})
+                          </SelectItem>
+                        ))}
+                      </ScrollArea>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Class</Label>
+                  <Select
+                    value={createForm.classId}
+                    onValueChange={(v) => setCreateForm((p) => ({ ...p, classId: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select class" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <ScrollArea className="h-48">
+                        {overview?.classes.map((cls) => (
+                          <SelectItem key={cls.id} value={cls.id}>
+                            {cls.grade?.name || ''} - {cls.name}
+                          </SelectItem>
+                        ))}
+                      </ScrollArea>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Assessment Type</Label>
+                  <Select
+                    value={createForm.assessmentType}
+                    onValueChange={(v) => setCreateForm((p) => ({ ...p, assessmentType: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(assessmentTypeLabels).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Date</Label>
+                  <Input
+                    type="date"
+                    value={createForm.date}
+                    onChange={(e) => setCreateForm((p) => ({ ...p, date: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Total Marks</Label>
+                  <Input
+                    type="number"
+                    placeholder="100"
+                    value={createForm.totalMarks}
+                    onChange={(e) => setCreateForm((p) => ({ ...p, totalMarks: e.target.value }))}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Weight</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    placeholder="1"
+                    value={createForm.weight}
+                    onChange={(e) => setCreateForm((p) => ({ ...p, weight: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t">
+              <Button variant="outline" onClick={() => setViewMode('list')}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreateAssessment}
+                disabled={creating || !createForm.name || !createForm.subjectId}
+                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
+              >
+                {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Create Assessment
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    )
+  }
+
+  // ─── Settings View ──────────────────────────────────────────────────────
+
+  if (viewMode === 'settings') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3 }}
+        className="space-y-6"
+      >
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+            onClick={() => setViewMode('list')}
+          >
+            <ChevronLeft className="h-4 w-4" /> Back to Academics
+          </Button>
+        </div>
+
+        <Card className="border-0 shadow-md overflow-hidden">
+          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6">
+            <h2 className="text-xl font-bold">Academics Settings</h2>
+            <p className="text-emerald-100 text-sm mt-1">Configure grading scales, pass marks, and display preferences</p>
+          </div>
+          <CardContent className="p-6 space-y-6">
+            {/* Grading Scale */}
+            <Card className="border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Grading Scale</CardTitle>
+                <CardDescription>Choose the grading system used for assessment marks</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Grading Scale</Label>
+                    <Select
+                      value={academicsSettings.gradingScale}
+                      onValueChange={(v) => setAcademicsSettings((p) => ({ ...p, gradingScale: v }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ZIMSEC">ZIMSEC (A-U)</SelectItem>
+                        <SelectItem value="PERCENTAGE">Percentage (0-100%)</SelectItem>
+                        <SelectItem value="GPA">GPA (4.0 Scale)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Default Pass Mark (%)</Label>
+                    <Input
+                      type="number"
+                      value={academicsSettings.passMark}
+                      onChange={(e) => setAcademicsSettings((p) => ({ ...p, passMark: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Assessment Weightings */}
+            <Card className="border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Assessment Weightings</CardTitle>
+                <CardDescription>Set default weights for different assessment types</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Tests Weight (%)</Label>
+                    <Input
+                      type="number"
+                      value={academicsSettings.testWeight}
+                      onChange={(e) => setAcademicsSettings((p) => ({ ...p, testWeight: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Exams Weight (%)</Label>
+                    <Input
+                      type="number"
+                      value={academicsSettings.examWeight}
+                      onChange={(e) => setAcademicsSettings((p) => ({ ...p, examWeight: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Assignments Weight (%)</Label>
+                    <Input
+                      type="number"
+                      value={academicsSettings.assignmentWeight}
+                      onChange={(e) => setAcademicsSettings((p) => ({ ...p, assignmentWeight: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Total: {parseInt(academicsSettings.testWeight || '0') + parseInt(academicsSettings.examWeight || '0') + parseInt(academicsSettings.assignmentWeight || '0')}%
+                  {parseInt(academicsSettings.testWeight || '0') + parseInt(academicsSettings.examWeight || '0') + parseInt(academicsSettings.assignmentWeight || '0') !== 100 && (
+                    <span className="text-amber-600 ml-2">⚠ Should total 100%</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Display Preferences */}
+            <Card className="border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Display Preferences</CardTitle>
+                <CardDescription>Control how academic data is displayed</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Auto-calculate Grades</p>
+                    <p className="text-xs text-muted-foreground">Automatically compute grades from marks entered</p>
+                  </div>
+                  <Switch
+                    checked={academicsSettings.autoCalculateGrades}
+                    onCheckedChange={(v) => setAcademicsSettings((p) => ({ ...p, autoCalculateGrades: v }))}
+                  />
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Show Class Rank</p>
+                    <p className="text-xs text-muted-foreground">Display student ranking position in class</p>
+                  </div>
+                  <Switch
+                    checked={academicsSettings.showClassRank}
+                    onCheckedChange={(v) => setAcademicsSettings((p) => ({ ...p, showClassRank: v }))}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+              <Button
+                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
+                onClick={() => { toast.success('Settings saved successfully'); setViewMode('list') }}
+              >
+                <Save className="mr-2 h-4 w-4" /> Save Settings
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    )
+  }
+
+  // ─── Detail View ────────────────────────────────────────────────────────
+
+  if (viewMode === 'detail' && selectedId) {
+    const assessment = assessments.find((a) => a.id === selectedId) || overview?.recentAssessments.find((a) => a.id === selectedId)
+    if (assessment) {
+      return (
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
+          className="space-y-6"
+        >
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+              onClick={() => { setViewMode('list'); setSelectedId(null) }}
+            >
+              <ChevronLeft className="h-4 w-4" /> Back to Academics
+            </Button>
+          </div>
+
+          <Card className="border-0 shadow-md overflow-hidden">
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6">
+              <h2 className="text-xl font-bold">{assessment.name}</h2>
+              <div className="flex flex-wrap gap-4 mt-3">
+                <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-lg px-3 py-1.5">
+                  <BookOpen className="h-4 w-4 text-emerald-200" />
+                  <span className="text-sm font-medium">{assessment.subject.name}</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-lg px-3 py-1.5">
+                  <Award className="h-4 w-4 text-emerald-200" />
+                  <span className="text-sm font-medium">{assessmentTypeLabels[assessment.assessmentType] || assessment.assessmentType}</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-lg px-3 py-1.5">
+                  <span className="text-sm font-medium">Total: {assessment.totalMarks} marks</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-lg px-3 py-1.5">
+                  <Calendar className="h-4 w-4 text-emerald-200" />
+                  <span className="text-sm font-medium">{formatDate(assessment.date)}</span>
+                </div>
+              </div>
+            </div>
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="border">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground uppercase">Subject</p>
+                    <p className="text-sm font-semibold mt-1">{assessment.subject.name}</p>
+                    <Badge className={cn('mt-2 text-[10px] border', assessment.subject.isCore ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-amber-100 text-amber-700 border-amber-200')}>{assessment.subject.isCore ? 'Core' : 'Optional'}</Badge>
+                  </CardContent>
+                </Card>
+                <Card className="border">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground uppercase">Type</p>
+                    <p className="text-sm font-semibold mt-1">{assessmentTypeLabels[assessment.assessmentType] || assessment.assessmentType}</p>
+                    <Badge className={cn('mt-2 text-[10px] border', assessmentTypeColors[assessment.assessmentType] || 'bg-gray-100 text-gray-700')}>{assessment.assessmentType}</Badge>
+                  </CardContent>
+                </Card>
+                <Card className="border">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground uppercase">Total Marks</p>
+                    <p className="text-sm font-semibold mt-1">{assessment.totalMarks}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Weight: {assessment.weight}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground uppercase">Status</p>
+                    <p className="text-sm font-semibold mt-1">{assessment.isLocked ? 'Locked' : 'Open'}</p>
+                    <Badge className={cn('mt-2 text-[10px]', assessment.isLocked ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700')}>{assessment.isLocked ? 'Locked' : 'Open for Entry'}</Badge>
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="flex items-center gap-3 mt-6">
+                <Button
+                  className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
+                  onClick={() => fetchMarks(assessment.id)}
+                >
+                  Enter Marks
+                </Button>
+                <p className="text-sm text-muted-foreground">{assessment.marks?.length || 0} marks entered</p>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )
+    }
+  }
+
   // ─── Marks Entry Sub-view ─────────────────────────────────────────────
 
   if (selectedAssessment) {
@@ -467,7 +847,7 @@ export default function AcademicsModule() {
               setEditedMarks({})
             }}
           >
-            <ChevronLeft className="h-4 w-4" /> Back to Assessments
+            <ChevronLeft className="h-4 w-4" /> Back to Academics
           </Button>
         </div>
 
@@ -615,134 +995,21 @@ export default function AcademicsModule() {
           <p className="text-sm text-muted-foreground mt-1">Manage grades, subjects, assessments and marks</p>
         </div>
         <div className="flex items-center gap-2">
-          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md">
-                <Plus className="mr-2 h-4 w-4" />
-                Create Assessment
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[550px]">
-              <DialogHeader>
-                <DialogTitle>Create Assessment</DialogTitle>
-                <DialogDescription>Add a new test, exam, or assignment for a class</DialogDescription>
-              </DialogHeader>
-              <ScrollArea className="max-h-[65vh]">
-                <div className="grid gap-4 py-4 pr-4">
-                  <div className="grid gap-2">
-                    <Label>Assessment Name *</Label>
-                    <Input
-                      placeholder="e.g. Term 1 Mathematics Test"
-                      value={createForm.name}
-                      onChange={(e) => setCreateForm((p) => ({ ...p, name: e.target.value }))}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label>Subject *</Label>
-                      <Select
-                        value={createForm.subjectId}
-                        onValueChange={(v) => setCreateForm((p) => ({ ...p, subjectId: v }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select subject" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <ScrollArea className="h-48">
-                            {overview?.subjects.map((s) => (
-                              <SelectItem key={s.id} value={s.id}>
-                                {s.name} ({s.code})
-                              </SelectItem>
-                            ))}
-                          </ScrollArea>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Class</Label>
-                      <Select
-                        value={createForm.classId}
-                        onValueChange={(v) => setCreateForm((p) => ({ ...p, classId: v }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select class" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <ScrollArea className="h-48">
-                            {overview?.classes.map((cls) => (
-                              <SelectItem key={cls.id} value={cls.id}>
-                                {cls.grade?.name || ''} - {cls.name}
-                              </SelectItem>
-                            ))}
-                          </ScrollArea>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label>Assessment Type</Label>
-                      <Select
-                        value={createForm.assessmentType}
-                        onValueChange={(v) => setCreateForm((p) => ({ ...p, assessmentType: v }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(assessmentTypeLabels).map(([key, label]) => (
-                            <SelectItem key={key} value={key}>{label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Date</Label>
-                      <Input
-                        type="date"
-                        value={createForm.date}
-                        onChange={(e) => setCreateForm((p) => ({ ...p, date: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label>Total Marks</Label>
-                      <Input
-                        type="number"
-                        placeholder="100"
-                        value={createForm.totalMarks}
-                        onChange={(e) => setCreateForm((p) => ({ ...p, totalMarks: e.target.value }))}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Weight</Label>
-                      <Input
-                        type="number"
-                        step="0.1"
-                        placeholder="1"
-                        value={createForm.weight}
-                        onChange={(e) => setCreateForm((p) => ({ ...p, weight: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </ScrollArea>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCreateAssessment}
-                  disabled={creating || !createForm.name || !createForm.subjectId}
-                  className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
-                >
-                  {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Assessment
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setViewMode('settings')}
+            className="h-9 w-9"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+          <Button
+            className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md"
+            onClick={() => setViewMode('add')}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Create Assessment
+          </Button>
         </div>
       </div>
 
@@ -952,7 +1219,7 @@ export default function AcademicsModule() {
                     </TableHeader>
                     <TableBody>
                       {overview?.recentAssessments.map((a) => (
-                        <TableRow key={a.id} className="hover:bg-muted/30 cursor-pointer">
+                        <TableRow key={a.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => { setSelectedId(a.id); setViewMode('detail') }}>
                           <TableCell className="text-sm font-medium">{a.name}</TableCell>
                           <TableCell className="text-sm">{a.subject.name}</TableCell>
                           <TableCell>

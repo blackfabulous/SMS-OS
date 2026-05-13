@@ -21,6 +21,8 @@ import {
   Loader2,
   HandHeart,
   FileText,
+  ArrowLeft,
+  Settings,
 } from 'lucide-react'
 import {
   PieChart,
@@ -49,15 +51,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -68,6 +61,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
+import { toast } from 'sonner'
 import {
   ChartContainer,
   ChartTooltip,
@@ -188,10 +183,20 @@ export default function WelfareModule() {
   const [beamSearch, setBeamSearch] = useState('')
   const [showConfidential, setShowConfidential] = useState(false)
 
-  // Dialog states
-  const [addWelfareOpen, setAddWelfareOpen] = useState(false)
-  const [applyBeamOpen, setApplyBeamOpen] = useState(false)
+  // View mode state
+  const [viewMode, setViewMode] = useState<'list' | 'add' | 'edit' | 'detail' | 'settings'>('list')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [addType, setAddType] = useState<'welfare' | 'beam'>('welfare')
   const [submitting, setSubmitting] = useState(false)
+
+  // Settings state
+  const [settings, setSettings] = useState({
+    defaultConfidential: true,
+    caseAutoAssign: false,
+    referralTracking: true,
+    fundingSourceRequired: false,
+    reportFormat: 'detailed',
+  })
 
   // Welfare form
   const [welfareForm, setWelfareForm] = useState({
@@ -248,8 +253,8 @@ export default function WelfareModule() {
   }, [fetchData])
 
   useEffect(() => {
-    if (addWelfareOpen || applyBeamOpen) fetchStudents()
-  }, [addWelfareOpen, applyBeamOpen, fetchStudents])
+    if (viewMode === 'add') fetchStudents()
+  }, [viewMode, fetchStudents])
 
   // ─── Form Handlers ─────────────────────────────────────────────────────
 
@@ -266,7 +271,7 @@ export default function WelfareModule() {
         }),
       })
       if (res.ok) {
-        setAddWelfareOpen(false)
+        setViewMode('list')
         setWelfareForm({
           studentId: '',
           category: 'VULNERABLE',
@@ -302,7 +307,7 @@ export default function WelfareModule() {
         }),
       })
       if (res.ok) {
-        setApplyBeamOpen(false)
+        setViewMode('list')
         setBeamForm({
           studentId: '',
           guardianSituation: '',
@@ -374,6 +379,162 @@ export default function WelfareModule() {
   const totalBeamCovered = beamApplications.reduce((sum, b) => sum + b.coveredAmount, 0)
   const totalBeamOutstanding = beamApplications.reduce((sum, b) => sum + b.outstandingBalance, 0)
 
+  // Settings view
+  if (viewMode === 'settings') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2"><Settings className="h-6 w-6 text-rose-500" /> Welfare Settings</h1>
+          <p className="text-sm text-muted-foreground mt-1">Configure welfare and BEAM module preferences</p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base">Programme Defaults</CardTitle><CardDescription>Default settings for new welfare cases</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Default Confidential</p><p className="text-xs text-muted-foreground">New cases are confidential by default</p></div>
+                <Switch checked={settings.defaultConfidential} onCheckedChange={(v) => setSettings({...settings, defaultConfidential: v})} />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Auto-Assign Cases</p><p className="text-xs text-muted-foreground">Automatically assign cases to staff</p></div>
+                <Switch checked={settings.caseAutoAssign} onCheckedChange={(v) => setSettings({...settings, caseAutoAssign: v})} />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base">Referral & Funding</CardTitle><CardDescription>Referral and funding source settings</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Referral Tracking</p><p className="text-xs text-muted-foreground">Track external referrals</p></div>
+                <Switch checked={settings.referralTracking} onCheckedChange={(v) => setSettings({...settings, referralTracking: v})} />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Funding Source Required</p><p className="text-xs text-muted-foreground">Require funding source for BEAM</p></div>
+                <Switch checked={settings.fundingSourceRequired} onCheckedChange={(v) => setSettings({...settings, fundingSourceRequired: v})} />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base">Report Format</CardTitle><CardDescription>Default format for welfare reports</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Report Format</p><p className="text-xs text-muted-foreground">Choose report detail level</p></div>
+                <Select value={settings.reportFormat} onValueChange={(v) => setSettings({...settings, reportFormat: v})}>
+                  <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="summary">Summary</SelectItem>
+                    <SelectItem value="detailed">Detailed</SelectItem>
+                    <SelectItem value="comprehensive">Comprehensive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="flex justify-end">
+          <Button className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white" onClick={() => { toast.success('Settings saved successfully'); setViewMode('list') }}>Save Settings</Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Add welfare/BEAM record view
+  if (viewMode === 'add') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            {addType === 'welfare' ? <><Heart className="h-6 w-6 text-rose-500" /> Add Welfare Record</> : <><Shield className="h-6 w-6 text-emerald-500" /> Apply for BEAM</>}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">{addType === 'welfare' ? 'Record a new welfare case for a student. Confidential by default.' : 'Submit a BEAM (Basic Education Assistance Module) application.'}</p>
+        </div>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-6 space-y-4">
+            <div className="grid gap-2">
+              <Label>Student</Label>
+              <Select value={addType === 'welfare' ? welfareForm.studentId : beamForm.studentId} onValueChange={(v) => addType === 'welfare' ? setWelfareForm((p) => ({ ...p, studentId: v })) : setBeamForm((p) => ({ ...p, studentId: v }))}>
+                <SelectTrigger><SelectValue placeholder="Search and select student..." /></SelectTrigger>
+                <SelectContent>
+                  <ScrollArea className="h-48">
+                    {students.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.firstName} {s.lastName} ({s.studentNumber})</SelectItem>
+                    ))}
+                  </ScrollArea>
+                </SelectContent>
+              </Select>
+            </div>
+            {addType === 'welfare' ? (
+              <>
+                <div className="grid gap-2">
+                  <Label>Category</Label>
+                  <Select value={welfareForm.category} onValueChange={(v) => setWelfareForm((p) => ({ ...p, category: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="VULNERABLE">Vulnerable</SelectItem>
+                      <SelectItem value="ORPHAN">Orphan</SelectItem>
+                      <SelectItem value="CHILD_HEADED">Child-Headed</SelectItem>
+                      <SelectItem value="DISABLED">Disabled</SelectItem>
+                      <SelectItem value="CHRONIC_ILLNESS">Chronic Illness</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2"><Label>Description</Label><Textarea placeholder="Describe the welfare concern..." value={welfareForm.description} onChange={(e) => setWelfareForm((p) => ({ ...p, description: e.target.value }))} rows={3} /></div>
+                <div className="grid gap-2"><Label>Action Taken</Label><Textarea placeholder="Describe actions taken..." value={welfareForm.actionTaken} onChange={(e) => setWelfareForm((p) => ({ ...p, actionTaken: e.target.value }))} rows={2} /></div>
+                <div className="grid gap-2"><Label>Referred To</Label><Input placeholder="e.g., Social Welfare, DSW, NGO" value={welfareForm.referredTo} onChange={(e) => setWelfareForm((p) => ({ ...p, referredTo: e.target.value }))} /></div>
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-50 border border-rose-100">
+                  <Checkbox id="confidential" checked={welfareForm.isConfidential} onCheckedChange={(checked) => setWelfareForm((p) => ({ ...p, isConfidential: !!checked }))} className="border-rose-300" />
+                  <div className="grid gap-0.5">
+                    <Label htmlFor="confidential" className="text-sm font-medium flex items-center gap-1.5"><Lock className="h-3.5 w-3.5 text-rose-500" />Confidential Record</Label>
+                    <span className="text-xs text-muted-foreground">Restrict access to authorised personnel only</span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="grid gap-2"><Label>Guardian Situation</Label><Textarea placeholder="Describe the guardian/parent situation..." value={beamForm.guardianSituation} onChange={(e) => setBeamForm((p) => ({ ...p, guardianSituation: e.target.value }))} rows={3} /></div>
+                <div className="grid gap-2">
+                  <Label>Orphan Status</Label>
+                  <Select value={beamForm.orphanStatus} onValueChange={(v) => setBeamForm((p) => ({ ...p, orphanStatus: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select orphan status..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NONE">Not an Orphan</SelectItem>
+                      <SelectItem value="SINGLE_ORPHAN">Single Orphan</SelectItem>
+                      <SelectItem value="DOUBLE_ORPHAN">Double Orphan</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2"><Label>Covered Amount (USD)</Label><Input type="number" placeholder="0.00" value={beamForm.coveredAmount} onChange={(e) => setBeamForm((p) => ({ ...p, coveredAmount: e.target.value }))} /></div>
+                  <div className="grid gap-2"><Label>Outstanding Balance (USD)</Label><Input type="number" placeholder="0.00" value={beamForm.outstandingBalance} onChange={(e) => setBeamForm((p) => ({ ...p, outstandingBalance: e.target.value }))} /></div>
+                </div>
+                <div className="grid gap-2"><Label>Notes</Label><Textarea placeholder="Additional notes..." value={beamForm.notes} onChange={(e) => setBeamForm((p) => ({ ...p, notes: e.target.value }))} rows={2} /></div>
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-100">
+                  <Shield className="h-4 w-4 text-amber-600" />
+                  <span className="text-xs text-amber-700">BEAM applications are processed by the Department of Social Welfare</span>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+          <Button className={addType === 'welfare' ? 'bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white' : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white'} disabled={submitting} onClick={addType === 'welfare' ? handleAddWelfare : handleApplyBeam}>
+            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {addType === 'welfare' ? 'Add Record' : 'Submit Application'}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   // ─── Loading ───────────────────────────────────────────────────────────
 
   if (loading) {
@@ -418,6 +579,10 @@ export default function WelfareModule() {
           <p className="text-sm text-muted-foreground mt-1">Manage student welfare cases and BEAM applications</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => { setViewMode('settings'); setSelectedId(null) }} className="gap-1.5">
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Settings</span>
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -430,233 +595,17 @@ export default function WelfareModule() {
             {showConfidential ? <Eye className="mr-2 h-4 w-4" /> : <EyeOff className="mr-2 h-4 w-4" />}
             {showConfidential ? 'Confidential Visible' : 'Show Confidential'}
           </Button>
-          <Dialog open={addWelfareOpen} onOpenChange={setAddWelfareOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-md">
+          <Button className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-md" onClick={() => { setAddType('welfare'); setViewMode('add') }}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Welfare Record
               </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[550px]">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Heart className="h-5 w-5 text-rose-500" />
-                  Add Welfare Record
-                </DialogTitle>
-                <DialogDescription>Record a new welfare case for a student. Confidential by default.</DialogDescription>
-              </DialogHeader>
-              <ScrollArea className="max-h-[60vh]">
-                <div className="grid gap-4 py-4 pr-4">
-                  <div className="grid gap-2">
-                    <Label>Student</Label>
-                    <Select
-                      value={welfareForm.studentId}
-                      onValueChange={(v) => setWelfareForm((p) => ({ ...p, studentId: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Search and select student..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <ScrollArea className="h-48">
-                          {students.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.firstName} {s.lastName} ({s.studentNumber})
-                            </SelectItem>
-                          ))}
-                        </ScrollArea>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Category</Label>
-                    <Select
-                      value={welfareForm.category}
-                      onValueChange={(v) => setWelfareForm((p) => ({ ...p, category: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="VULNERABLE">Vulnerable</SelectItem>
-                        <SelectItem value="ORPHAN">Orphan</SelectItem>
-                        <SelectItem value="CHILD_HEADED">Child-Headed</SelectItem>
-                        <SelectItem value="DISABLED">Disabled</SelectItem>
-                        <SelectItem value="CHRONIC_ILLNESS">Chronic Illness</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Description</Label>
-                    <Textarea
-                      placeholder="Describe the welfare concern..."
-                      value={welfareForm.description}
-                      onChange={(e) => setWelfareForm((p) => ({ ...p, description: e.target.value }))}
-                      rows={3}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Action Taken</Label>
-                    <Textarea
-                      placeholder="Describe actions taken..."
-                      value={welfareForm.actionTaken}
-                      onChange={(e) => setWelfareForm((p) => ({ ...p, actionTaken: e.target.value }))}
-                      rows={2}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Referred To</Label>
-                    <Input
-                      placeholder="e.g., Social Welfare, DSW, NGO"
-                      value={welfareForm.referredTo}
-                      onChange={(e) => setWelfareForm((p) => ({ ...p, referredTo: e.target.value }))}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-50 border border-rose-100">
-                    <Checkbox
-                      id="confidential"
-                      checked={welfareForm.isConfidential}
-                      onCheckedChange={(checked) => setWelfareForm((p) => ({ ...p, isConfidential: !!checked }))}
-                      className="border-rose-300"
-                    />
-                    <div className="grid gap-0.5">
-                      <Label htmlFor="confidential" className="text-sm font-medium flex items-center gap-1.5">
-                        <Lock className="h-3.5 w-3.5 text-rose-500" />
-                        Confidential Record
-                      </Label>
-                      <span className="text-xs text-muted-foreground">Restrict access to authorised personnel only</span>
-                    </div>
-                  </div>
-                </div>
-              </ScrollArea>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setAddWelfareOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleAddWelfare}
-                  disabled={submitting || !welfareForm.studentId}
-                  className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white"
-                >
-                  {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Add Record
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
 
-          <Dialog open={applyBeamOpen} onOpenChange={setApplyBeamOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="border-rose-200 text-rose-700 hover:bg-rose-50">
+
+          <Button variant="outline" className="border-rose-200 text-rose-700 hover:bg-rose-50" onClick={() => { setAddType('beam'); setViewMode('add') }}>
                 <HandHeart className="mr-2 h-4 w-4" />
                 Apply for BEAM
               </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[550px]">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-emerald-500" />
-                  Apply for BEAM
-                </DialogTitle>
-                <DialogDescription>Submit a BEAM (Basic Education Assistance Module) application for a student.</DialogDescription>
-              </DialogHeader>
-              <ScrollArea className="max-h-[60vh]">
-                <div className="grid gap-4 py-4 pr-4">
-                  <div className="grid gap-2">
-                    <Label>Student</Label>
-                    <Select
-                      value={beamForm.studentId}
-                      onValueChange={(v) => setBeamForm((p) => ({ ...p, studentId: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Search and select student..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <ScrollArea className="h-48">
-                          {students.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.firstName} {s.lastName} ({s.studentNumber})
-                              {s.beamStatus ? ` - BEAM: ${s.beamStatus}` : ''}
-                            </SelectItem>
-                          ))}
-                        </ScrollArea>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Guardian Situation</Label>
-                    <Textarea
-                      placeholder="Describe the guardian/parent situation..."
-                      value={beamForm.guardianSituation}
-                      onChange={(e) => setBeamForm((p) => ({ ...p, guardianSituation: e.target.value }))}
-                      rows={3}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Orphan Status</Label>
-                    <Select
-                      value={beamForm.orphanStatus}
-                      onValueChange={(v) => setBeamForm((p) => ({ ...p, orphanStatus: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select orphan status..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="NONE">Not an Orphan</SelectItem>
-                        <SelectItem value="SINGLE_ORPHAN">Single Orphan (One parent deceased)</SelectItem>
-                        <SelectItem value="DOUBLE_ORPHAN">Double Orphan (Both parents deceased)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label>Covered Amount (USD)</Label>
-                      <Input
-                        type="number"
-                        placeholder="0.00"
-                        value={beamForm.coveredAmount}
-                        onChange={(e) => setBeamForm((p) => ({ ...p, coveredAmount: e.target.value }))}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Outstanding Balance (USD)</Label>
-                      <Input
-                        type="number"
-                        placeholder="0.00"
-                        value={beamForm.outstandingBalance}
-                        onChange={(e) => setBeamForm((p) => ({ ...p, outstandingBalance: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Notes</Label>
-                    <Textarea
-                      placeholder="Additional notes..."
-                      value={beamForm.notes}
-                      onChange={(e) => setBeamForm((p) => ({ ...p, notes: e.target.value }))}
-                      rows={2}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-100">
-                    <Shield className="h-4 w-4 text-amber-600" />
-                    <span className="text-xs text-amber-700">BEAM applications are processed by the Department of Social Welfare</span>
-                  </div>
-                </div>
-              </ScrollArea>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setApplyBeamOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleApplyBeam}
-                  disabled={submitting || !beamForm.studentId}
-                  className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
-                >
-                  {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Submit Application
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+
         </div>
       </div>
 
@@ -903,7 +852,7 @@ export default function WelfareModule() {
                       const vuln = categoryVulnerabilityLevel[record.category]
                       const isHidden = record.isConfidential && !showConfidential
                       return (
-                        <TableRow key={record.id} className="hover:bg-muted/30">
+                        <TableRow key={record.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => { setViewMode('detail'); setSelectedId(record.id) }}>
                           <TableCell className="font-medium text-sm">
                             {isHidden ? (
                               <span className="text-muted-foreground italic">Confidential</span>

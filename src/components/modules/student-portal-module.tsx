@@ -31,6 +31,8 @@ import {
   CalendarCheck,
   XCircle as XCircleIcon,
   Monitor,
+  ArrowLeft,
+  Settings,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -42,14 +44,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Progress } from '@/components/ui/progress'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -68,6 +62,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { Switch } from '@/components/ui/switch'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface TimetablePeriod {
@@ -325,17 +320,26 @@ const daysUntil = (dateStr: string) => {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function StudentPortalModule() {
   const [activeTab, setActiveTab] = useState('overview')
-  const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<'list' | 'add' | 'edit' | 'detail' | 'settings'>('list')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null)
-  const [reserveBookOpen, setReserveBookOpen] = useState(false)
-  const [reserveBookTitle, setReserveBookTitle] = useState('')
-  const [reportCardOpen, setReportCardOpen] = useState(false)
+  const [addType, setAddType] = useState<'submit' | 'reserve' | 'report'>('submit')
 
   // ─── API Data State ───────────────────────────────────────────────────────────
   const [assignments, setAssignments] = useState<Assignment[]>(mockAssignments)
   const [resources, setResources] = useState<DigitalResource[]>(digitalResources)
   const [attendanceRate, setAttendanceRate] = useState(94)
   const [loading, setLoading] = useState({ assignments: true, resources: true, attendance: true })
+
+  // Settings state
+  const [settings, setSettings] = useState({
+    featureAccess: true,
+    gradeVisibility: true,
+    timetableDisplay: true,
+    libraryAccess: true,
+    notifications: true,
+    darkMode: false,
+  })
 
   // ─── Fetch from APIs ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -416,7 +420,7 @@ export default function StudentPortalModule() {
   const handleSubmitAssignment = () => {
     if (selectedAssignment) {
       toast.success(`"${selectedAssignment.title}" submitted successfully!`)
-      setSubmitDialogOpen(false)
+      setViewMode('list')
       setSelectedAssignment(null)
     }
   }
@@ -425,9 +429,155 @@ export default function StudentPortalModule() {
     if (reserveBookTitle) {
       toast.success(`"${reserveBookTitle}" reserved successfully!`)
       setReserveBookTitle('')
-      setReserveBookOpen(false)
+      setViewMode('list')
     }
   }
+  // Settings view
+  if (viewMode === 'settings') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
+        </div>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight flex items-center gap-2"><Settings className="h-5 w-5" /> Student Portal Settings</h2>
+          <p className="text-sm text-muted-foreground mt-1">Customize your student portal experience</p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base">Feature Access</CardTitle><CardDescription>Control which features are visible</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Grade Visibility</p><p className="text-xs text-muted-foreground">Show grades and academic records</p></div>
+                <Switch checked={settings.gradeVisibility} onCheckedChange={(v) => setSettings({...settings, gradeVisibility: v})} />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Timetable Display</p><p className="text-xs text-muted-foreground">Show weekly timetable</p></div>
+                <Switch checked={settings.timetableDisplay} onCheckedChange={(v) => setSettings({...settings, timetableDisplay: v})} />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Library Access</p><p className="text-xs text-muted-foreground">Enable library features</p></div>
+                <Switch checked={settings.libraryAccess} onCheckedChange={(v) => setSettings({...settings, libraryAccess: v})} />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base">Notifications</CardTitle><CardDescription>Manage your notification preferences</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><p className="text-sm font-medium">Push Notifications</p><p className="text-xs text-muted-foreground">Receive assignment and event alerts</p></div>
+                <Switch checked={settings.notifications} onCheckedChange={(v) => setSettings({...settings, notifications: v})} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="flex justify-end">
+          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { toast.success('Settings saved successfully'); setViewMode('list') }}>Save Settings</Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Submit assignment view
+  if (viewMode === 'add' && addType === 'submit') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
+        </div>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight">Submit Assignment</h2>
+        </div>
+        {selectedAssignment ? (
+          <Card className="border-0 shadow-md">
+            <CardContent className="p-6 space-y-4">
+              <div><h3 className="text-lg font-semibold">{selectedAssignment.title}</h3><p className="text-sm text-muted-foreground">{selectedAssignment.subject} &middot; Due: {selectedAssignment.dueDate}</p></div>
+              <div className="grid gap-2"><Label>Comments</Label><Textarea placeholder="Add any comments for your teacher..." rows={4} /></div>
+              <div className="grid gap-2"><Label>Attach Files</Label><div className="border-2 border-dashed rounded-lg p-8 text-center"><Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" /><p className="text-sm text-muted-foreground">Drag and drop files here, or click to browse</p></div></div>
+            </CardContent>
+          </Card>
+        ) : <p>No assignment selected</p>}
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleSubmitAssignment}><Upload className="h-4 w-4 mr-2" /> Submit</Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Reserve book view
+  if (viewMode === 'add' && addType === 'reserve') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
+        </div>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight">Reserve a Book</h2>
+        </div>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-6 space-y-4">
+            <div className="grid gap-2"><Label>Book Title</Label><Input placeholder="Enter the book title" value={reserveBookTitle} onChange={(e) => setReserveBookTitle(e.target.value)} /></div>
+          </CardContent>
+        </Card>
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleReserveBook}>Reserve Book</Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Report card view
+  if (viewMode === 'detail' && addType === 'report') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
+        </div>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight flex items-center gap-2"><Award className="h-5 w-5 text-emerald-600" /> Report Card - Term 1 2026</h2>
+        </div>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-6">
+            <div className="text-center mb-6">
+              <p className="text-lg font-bold">ZimSchool Pro Academy</p>
+              <p className="text-sm text-muted-foreground">Term 1 2026 Academic Report</p>
+              <p className="text-sm mt-1">Student: <span className="font-medium">{studentName}</span> | Class: <span className="font-medium">{studentClass}</span></p>
+            </div>
+            <div className="space-y-3">
+              {subjectGrades.map((sg) => (
+                <div key={sg.subject} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{sg.subject}</p>
+                    <p className="text-xs text-muted-foreground">Teacher: {sg.teacher}</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right text-xs"><span className="text-muted-foreground">Mid:</span> <span className="font-medium">{sg.midTerm}%</span></div>
+                    <div className="text-right text-xs"><span className="text-muted-foreground">Test:</span> <span className="font-medium">{sg.test}%</span></div>
+                    <div className="text-right text-xs"><span className="text-muted-foreground">Exam:</span> <span className="font-medium">{sg.exam}%</span></div>
+                    <Badge className={cn('text-xs', gradeColor(sg.letterGrade))}>{sg.letterGrade}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Separator className="my-4" />
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium">Overall Average</span>
+              <span className="text-lg font-bold text-emerald-600">{currentAverage}%</span>
+            </div>
+          </CardContent>
+        </Card>
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={() => setViewMode('list')}>Close</Button>
+          <Button variant="outline" className="gap-2"><Download className="h-4 w-4" /> Download PDF</Button>
+        </div>
+      </div>
+    )
+  }
+
 
   return (
     <div className="space-y-6">
@@ -442,6 +592,10 @@ export default function StudentPortalModule() {
             <p className="text-sm text-muted-foreground">Welcome, {studentName}</p>
           </div>
         </div>
+        <Button variant="outline" size="sm" onClick={() => { setViewMode('settings'); setSelectedId(null) }} className="gap-1.5">
+          <Settings className="h-4 w-4" />
+          <span className="hidden sm:inline">Settings</span>
+        </Button>
       </motion.div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -599,7 +753,7 @@ export default function StudentPortalModule() {
                     { icon: FileText, label: 'Assignments', color: 'bg-amber-50 text-amber-600', action: () => setActiveTab('assignments') },
                     { icon: Library, label: 'Library', color: 'bg-teal-50 text-teal-600', action: () => setActiveTab('library') },
                     { icon: Clock, label: 'Timetable', color: 'bg-violet-50 text-violet-600', action: () => setActiveTab('schedule') },
-                    { icon: Award, label: 'Report Card', color: 'bg-rose-50 text-rose-600', action: () => setReportCardOpen(true) },
+                    { icon: Award, label: 'Report Card', color: 'bg-rose-50 text-rose-600', action: () => { setAddType('report'); setViewMode('detail') } },
                     { icon: Target, label: 'Progress', color: 'bg-cyan-50 text-cyan-600', action: () => setActiveTab('grades') },
                   ].map((action, idx) => (
                     <button key={idx} onClick={action.action} className="flex flex-col items-center gap-2 rounded-xl p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 border border-transparent hover:border-muted bg-muted/30 hover:bg-white group">
@@ -643,7 +797,7 @@ export default function StudentPortalModule() {
                         variant="ghost"
                         size="sm"
                         className="text-xs gap-1"
-                        onClick={() => { setSelectedAssignment(a); setSubmitDialogOpen(true) }}
+                        onClick={() => { setSelectedAssignment(a); setAddType('submit'); setViewMode('add') }}
                       >
                         <Upload className="h-3 w-3" /> Submit
                       </Button>
@@ -772,7 +926,7 @@ export default function StudentPortalModule() {
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Report Card</p>
                   <p className="text-sm font-medium mt-1">Term 1 2026</p>
                 </div>
-                <Button className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={() => setReportCardOpen(true)}>
+                <Button className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={() => { setAddType('report'); setViewMode('detail') }}>
                   <FileText className="h-4 w-4" /> Preview
                 </Button>
               </CardContent>
@@ -928,7 +1082,7 @@ export default function StudentPortalModule() {
                       <Button
                         size="sm"
                         className={cn('gap-1', a.status === 'overdue' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700')}
-                        onClick={() => { setSelectedAssignment(a); setSubmitDialogOpen(true) }}
+                        onClick={() => { setSelectedAssignment(a); setAddType('submit'); setViewMode('add') }}
                       >
                         <Upload className="h-3 w-3" /> Submit
                       </Button>
@@ -1296,156 +1450,8 @@ export default function StudentPortalModule() {
 
       </Tabs>
 
-      {/* Submit Assignment Dialog */}
-      <Dialog open={submitDialogOpen} onOpenChange={setSubmitDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Submit Assignment</DialogTitle>
-          </DialogHeader>
-          {selectedAssignment && (
-            <div className="space-y-4 py-2">
-              <div className="bg-muted/30 rounded-lg p-4">
-                <p className="text-sm font-semibold">{selectedAssignment.title}</p>
-                <p className="text-xs text-muted-foreground">{selectedAssignment.subject} • {selectedAssignment.teacher}</p>
-                <p className="text-xs text-muted-foreground mt-1">Max marks: {selectedAssignment.maxMark}</p>
-              </div>
-              <div className="space-y-2">
-                <Label>Comments (optional)</Label>
-                <Textarea placeholder="Any notes for your teacher..." rows={3} />
-              </div>
-              <div className="border-2 border-dashed border-muted rounded-lg p-6 text-center">
-                <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm font-medium">Click to upload your file</p>
-                <p className="text-xs text-muted-foreground">PDF, DOC, or images up to 10MB</p>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-            <Button className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={handleSubmitAssignment}>
-              <Send className="h-4 w-4" /> Submit
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      {/* Reserve Book Dialog */}
-      <Dialog open={reserveBookOpen} onOpenChange={setReserveBookOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reserve a Book</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Book Title</Label>
-              <Input value={reserveBookTitle} onChange={e => setReserveBookTitle(e.target.value)} placeholder="Enter book title or ISBN..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Subject Area</Label>
-              <Select>
-                <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mathematics">Mathematics</SelectItem>
-                  <SelectItem value="english">English</SelectItem>
-                  <SelectItem value="physics">Physics</SelectItem>
-                  <SelectItem value="chemistry">Chemistry</SelectItem>
-                  <SelectItem value="biology">Biology</SelectItem>
-                  <SelectItem value="history">History</SelectItem>
-                  <SelectItem value="geography">Geography</SelectItem>
-                  <SelectItem value="shona">Shona</SelectItem>
-                  <SelectItem value="fiction">Fiction</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="bg-muted/30 rounded-lg p-4 text-center">
-              <Library className="h-8 w-8 mx-auto text-emerald-600 mb-2" />
-              <p className="text-sm font-medium">Book reservation</p>
-              <p className="text-xs text-muted-foreground">You will be notified when the book is available</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-            <Button className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={handleReserveBook}>
-              <BookmarkCheck className="h-4 w-4" /> Reserve
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      {/* Report Card Preview Dialog */}
-      <Dialog open={reportCardOpen} onOpenChange={setReportCardOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Award className="h-5 w-5 text-emerald-600" /> Report Card Preview
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            {/* School Header */}
-            <div className="text-center border-b pb-3">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
-                  <GraduationCap className="h-4 w-4 text-white" />
-                </div>
-                <h3 className="text-lg font-bold">Mhondoro Secondary School</h3>
-              </div>
-              <p className="text-xs text-muted-foreground">Excellence in Education • Est. 1985</p>
-            </div>
-
-            {/* Student Info */}
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div><span className="text-muted-foreground">Name:</span> <span className="font-medium">{studentName}</span></div>
-              <div><span className="text-muted-foreground">Class:</span> <span className="font-medium">{studentClass}</span></div>
-              <div><span className="text-muted-foreground">Number:</span> <span className="font-medium">{studentNumber}</span></div>
-              <div><span className="text-muted-foreground">Position:</span> <span className="font-medium">{classPosition}/{classSize}</span></div>
-            </div>
-
-            <Separator />
-
-            {/* Grades */}
-            <div className="space-y-1">
-              {subjectGrades.map(sg => (
-                <div key={sg.subject} className="flex items-center justify-between text-sm py-1">
-                  <span className="flex-1">{sg.subject}</span>
-                  <span className="w-14 text-center">{sg.midTerm}</span>
-                  <span className="w-14 text-center">{sg.test}</span>
-                  <span className="w-14 text-center">{sg.exam}</span>
-                  <span className={cn('w-10 text-center font-bold', gradeTextColor(sg.letterGrade))}>{sg.letterGrade}</span>
-                </div>
-              ))}
-              <Separator />
-              <div className="flex items-center justify-between text-sm font-semibold pt-1">
-                <span className="flex-1">Average</span>
-                <span className="w-14 text-center">{Math.round(subjectGrades.reduce((s, g) => s + g.midTerm, 0) / subjectGrades.length)}</span>
-                <span className="w-14 text-center">{Math.round(subjectGrades.reduce((s, g) => s + g.test, 0) / subjectGrades.length)}</span>
-                <span className="w-14 text-center">{currentAverage}</span>
-                <span className="w-10 text-center">{currentAverage >= 80 ? 'A' : currentAverage >= 70 ? 'B' : currentAverage >= 60 ? 'C' : 'D'}</span>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Comments */}
-            <div className="space-y-2 text-sm">
-              <div>
-                <span className="text-muted-foreground">Class Teacher:</span>
-                <p className="italic mt-0.5">&quot;Tendai is making steady progress. Needs to focus more on Physics and Chemistry. Excellent work in History and English.&quot;</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Headmaster:</span>
-                <p className="italic mt-0.5">&quot;Keep up the good work. Parent-teacher conference on March 20th.&quot;</p>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Close</Button></DialogClose>
-            <Button className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={() => toast.success('Report card printed!')}>
-              <FileText className="h-4 w-4" /> Print Report
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

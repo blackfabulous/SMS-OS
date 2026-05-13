@@ -21,23 +21,17 @@ import {
   Unlock,
   ChevronRight,
   TrendingUp,
+  ArrowLeft,
+  Settings,
+  Save,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -54,7 +48,9 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Visitor {
@@ -150,13 +146,13 @@ const securityAlerts = [
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function SecurityModule() {
   const [activeTab, setActiveTab] = useState('overview')
+  const [viewMode, setViewMode] = useState<'list' | 'add-visitor' | 'add-incident' | 'detail-visitor' | 'detail-incident' | 'settings'>('list')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [visitors, setVisitors] = useState<Visitor[]>(mockVisitors)
   const [incidents, setIncidents] = useState<SecurityIncident[]>(mockIncidents)
   const [accessPoints, setAccessPoints] = useState<AccessPoint[]>(mockAccessPoints)
   const [searchVisitor, setSearchVisitor] = useState('')
   const [searchIncident, setSearchIncident] = useState('')
-  const [addVisitorOpen, setAddVisitorOpen] = useState(false)
-  const [addIncidentOpen, setAddIncidentOpen] = useState(false)
 
   // Form state for new visitor
   const [newVisitorName, setNewVisitorName] = useState('')
@@ -172,6 +168,12 @@ export default function SecurityModule() {
   const [newIncidentDesc, setNewIncidentDesc] = useState('')
   const [newIncidentReporter, setNewIncidentReporter] = useState('')
   const [newIncidentSeverity, setNewIncidentSeverity] = useState<SecurityIncident['severity']>('Medium')
+
+  // Settings state
+  const [securitySettings, setSecuritySettings] = useState({
+    passwordMinLength: '8', passwordRequireUpper: true, passwordRequireSpecial: true, sessionTimeout: '30', twoFactorEnabled: false,
+    ipRestrictions: '', auditRetention: '365', visitorAutoCheckout: true, incidentEscalation: true,
+  })
 
   // Computed values
   const visitorsToday = visitors.length
@@ -197,46 +199,25 @@ export default function SecurityModule() {
   const handleAddVisitor = () => {
     if (!newVisitorName || !newVisitorId || !newVisitorPurpose || !newVisitorHost) return
     const newVisitor: Visitor = {
-      id: String(visitors.length + 1),
-      name: newVisitorName,
-      idNumber: newVisitorId,
-      purpose: newVisitorPurpose,
-      hostPerson: newVisitorHost,
-      vehicleReg: newVisitorVehicle,
-      timeIn: new Date().toLocaleTimeString('en-ZW', { hour: '2-digit', minute: '2-digit', hour12: false }),
-      timeOut: null,
-      status: 'On Campus',
-      phone: newVisitorPhone,
+      id: String(visitors.length + 1), name: newVisitorName, idNumber: newVisitorId, purpose: newVisitorPurpose, hostPerson: newVisitorHost, vehicleReg: newVisitorVehicle,
+      timeIn: new Date().toLocaleTimeString('en-ZW', { hour: '2-digit', minute: '2-digit', hour12: false }), timeOut: null, status: 'On Campus', phone: newVisitorPhone,
     }
     setVisitors(prev => [newVisitor, ...prev])
-    setNewVisitorName('')
-    setNewVisitorId('')
-    setNewVisitorPurpose('')
-    setNewVisitorHost('')
-    setNewVisitorVehicle('')
-    setNewVisitorPhone('')
-    setAddVisitorOpen(false)
+    setNewVisitorName(''); setNewVisitorId(''); setNewVisitorPurpose(''); setNewVisitorHost(''); setNewVisitorVehicle(''); setNewVisitorPhone('')
+    toast.success('Visitor registered and checked in')
+    setViewMode('list')
   }
 
   const handleAddIncident = () => {
     if (!newIncidentLocation || !newIncidentDesc || !newIncidentReporter) return
     const newIncident: SecurityIncident = {
-      id: String(incidents.length + 1),
-      type: newIncidentType,
-      location: newIncidentLocation,
-      date: new Date().toISOString().split('T')[0],
-      description: newIncidentDesc,
-      status: 'Open',
-      reporter: newIncidentReporter,
-      severity: newIncidentSeverity,
+      id: String(incidents.length + 1), type: newIncidentType, location: newIncidentLocation, date: new Date().toISOString().split('T')[0],
+      description: newIncidentDesc, status: 'Open', reporter: newIncidentReporter, severity: newIncidentSeverity,
     }
     setIncidents(prev => [newIncident, ...prev])
-    setNewIncidentType('Other')
-    setNewIncidentLocation('')
-    setNewIncidentDesc('')
-    setNewIncidentReporter('')
-    setNewIncidentSeverity('Medium')
-    setAddIncidentOpen(false)
+    setNewIncidentType('Other'); setNewIncidentLocation(''); setNewIncidentDesc(''); setNewIncidentReporter(''); setNewIncidentSeverity('Medium')
+    toast.success('Security incident reported')
+    setViewMode('list')
   }
 
   const checkoutVisitor = (id: string) => {
@@ -291,6 +272,113 @@ export default function SecurityModule() {
     }
   }
 
+  // ─── Inline: Add Visitor ──────────────────────────────────────────────────
+  if (viewMode === 'add-visitor') {
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3"><Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button></div>
+        <div className="max-w-xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><Users className="h-5 w-5 text-emerald-600" />Register New Visitor</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2"><Label>Full Name</Label><Input value={newVisitorName} onChange={e => setNewVisitorName(e.target.value)} placeholder="Visitor's full name" /></div>
+              <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>ID Number</Label><Input value={newVisitorId} onChange={e => setNewVisitorId(e.target.value)} placeholder="e.g. 63-123456A78" /></div><div className="space-y-2"><Label>Phone</Label><Input value={newVisitorPhone} onChange={e => setNewVisitorPhone(e.target.value)} placeholder="+263 7X XXX XXXX" /></div></div>
+              <div className="space-y-2"><Label>Purpose of Visit</Label><Input value={newVisitorPurpose} onChange={e => setNewVisitorPurpose(e.target.value)} placeholder="e.g. Parent-Teacher Meeting" /></div>
+              <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Host Person</Label><Input value={newVisitorHost} onChange={e => setNewVisitorHost(e.target.value)} placeholder="Staff member hosting" /></div><div className="space-y-2"><Label>Vehicle Registration</Label><Input value={newVisitorVehicle} onChange={e => setNewVisitorVehicle(e.target.value)} placeholder="e.g. ABZ 1234 (optional)" /></div></div>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleAddVisitor}>Register & Check In</Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ─── Inline: Add Incident ────────────────────────────────────────────────
+  if (viewMode === 'add-incident') {
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3"><Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button></div>
+        <div className="max-w-xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><AlertTriangle className="h-5 w-5 text-amber-600" />Report Security Incident</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Incident Type</Label><Select value={newIncidentType} onValueChange={v => setNewIncidentType(v as SecurityIncident['type'])}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Unauthorized Access">Unauthorized Access</SelectItem><SelectItem value="Property Damage">Property Damage</SelectItem><SelectItem value="Theft">Theft</SelectItem><SelectItem value="Disturbance">Disturbance</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select></div><div className="space-y-2"><Label>Severity</Label><Select value={newIncidentSeverity} onValueChange={v => setNewIncidentSeverity(v as SecurityIncident['severity'])}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Low">Low</SelectItem><SelectItem value="Medium">Medium</SelectItem><SelectItem value="High">High</SelectItem><SelectItem value="Critical">Critical</SelectItem></SelectContent></Select></div></div>
+              <div className="space-y-2"><Label>Location</Label><Input value={newIncidentLocation} onChange={e => setNewIncidentLocation(e.target.value)} placeholder="Where did this occur?" /></div>
+              <div className="space-y-2"><Label>Description</Label><Textarea value={newIncidentDesc} onChange={e => setNewIncidentDesc(e.target.value)} placeholder="Describe the incident in detail" rows={4} /></div>
+              <div className="space-y-2"><Label>Reported By</Label><Input value={newIncidentReporter} onChange={e => setNewIncidentReporter(e.target.value)} placeholder="Your name" /></div>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleAddIncident}>Submit Report</Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ─── Inline: Visitor Detail ──────────────────────────────────────────────
+  if (viewMode === 'detail-visitor' && selectedId) {
+    const visitor = visitors.find(v => v.id === selectedId)
+    if (!visitor) return null
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3"><Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button></div>
+        <div className="max-w-xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardHeader><div className="flex items-center justify-between"><CardTitle className="text-xl">{visitor.name}</CardTitle><Badge variant={visitor.status === 'On Campus' ? 'default' : 'secondary'} className={visitor.status === 'On Campus' ? 'bg-emerald-100 text-emerald-700' : 'bg-muted'}>{visitor.status}</Badge></div></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm"><div><span className="text-muted-foreground">ID Number:</span> <span className="font-medium">{visitor.idNumber}</span></div><div><span className="text-muted-foreground">Phone:</span> <span className="font-medium">{visitor.phone}</span></div><div><span className="text-muted-foreground">Purpose:</span> <span className="font-medium">{visitor.purpose}</span></div><div><span className="text-muted-foreground">Host:</span> <span className="font-medium">{visitor.hostPerson}</span></div><div><span className="text-muted-foreground">Time In:</span> <span className="font-medium">{visitor.timeIn}</span></div><div><span className="text-muted-foreground">Time Out:</span> <span className="font-medium">{visitor.timeOut ?? '—'}</span></div></div>
+              {visitor.vehicleReg && <div><span className="text-muted-foreground text-sm">Vehicle:</span> <Badge variant="outline" className="text-[10px] ml-1 gap-1"><Car className="h-3 w-3" />{visitor.vehicleReg}</Badge></div>}
+            </CardContent>
+            <CardFooter className="flex justify-end gap-3">{visitor.status === 'On Campus' && <Button onClick={() => { checkoutVisitor(visitor.id); setViewMode('list') }}>Check Out</Button>}</CardFooter>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ─── Inline: Incident Detail ─────────────────────────────────────────────
+  if (viewMode === 'detail-incident' && selectedId) {
+    const incident = incidents.find(i => i.id === selectedId)
+    if (!incident) return null
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3"><Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button></div>
+        <div className="max-w-xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardHeader><div className="flex items-center justify-between"><CardTitle className="text-xl">{incident.type}</CardTitle><Badge className={cn('text-xs', severityColor(incident.severity))}>{incident.severity}</Badge></div><CardDescription>{incident.location} &middot; {incident.date}</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm"><div><span className="text-muted-foreground">Status:</span> <Badge className={cn('text-xs', incidentStatusColor(incident.status))}>{incident.status}</Badge></div><div><span className="text-muted-foreground">Reporter:</span> <span className="font-medium">{incident.reporter}</span></div></div>
+              <Separator />
+              <div><p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Description</p><p className="text-sm">{incident.description}</p></div>
+            </CardContent>
+          </Card>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ─── Inline: Settings ────────────────────────────────────────────────────
+  if (viewMode === 'settings') {
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+        <div className="flex items-center gap-3"><Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button></div>
+        <div><h2 className="text-xl font-bold tracking-tight flex items-center gap-2"><Settings className="h-5 w-5 text-gray-500" />Security Settings</h2><p className="text-sm text-muted-foreground mt-1">Configure password policy, session, 2FA, IP restrictions, and audit retention</p></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="border-0 shadow-md"><CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><Lock className="h-4 w-4 text-emerald-600" />Password Policy</CardTitle><CardDescription>Set password requirements for all users</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid gap-2"><Label className="text-xs">Minimum Password Length</Label><Input type="number" min="6" max="24" value={securitySettings.passwordMinLength} onChange={e => setSecuritySettings(s => ({ ...s, passwordMinLength: e.target.value }))} /></div><div className="flex items-center justify-between"><div><Label className="text-xs">Require Uppercase</Label><p className="text-[10px] text-muted-foreground">At least one uppercase letter</p></div><Switch checked={securitySettings.passwordRequireUpper} onCheckedChange={v => setSecuritySettings(s => ({ ...s, passwordRequireUpper: v }))} /></div><div className="flex items-center justify-between"><div><Label className="text-xs">Require Special Characters</Label><p className="text-[10px] text-muted-foreground">At least one special character</p></div><Switch checked={securitySettings.passwordRequireSpecial} onCheckedChange={v => setSecuritySettings(s => ({ ...s, passwordRequireSpecial: v }))} /></div></CardContent></Card>
+          <Card className="border-0 shadow-md"><CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><Clock className="h-4 w-4 text-teal-600" />Session & 2FA</CardTitle><CardDescription>Session timeout and two-factor authentication</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid gap-2"><Label className="text-xs">Session Timeout (minutes)</Label><Input type="number" value={securitySettings.sessionTimeout} onChange={e => setSecuritySettings(s => ({ ...s, sessionTimeout: e.target.value }))} /></div><div className="flex items-center justify-between"><div><Label className="text-xs">Two-Factor Authentication</Label><p className="text-[10px] text-muted-foreground">Require 2FA for admin accounts</p></div><Switch checked={securitySettings.twoFactorEnabled} onCheckedChange={v => setSecuritySettings(s => ({ ...s, twoFactorEnabled: v }))} /></div></CardContent></Card>
+          <Card className="border-0 shadow-md"><CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><MapPin className="h-4 w-4 text-amber-600" />IP Restrictions</CardTitle><CardDescription>Restrict access by IP address</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid gap-2"><Label className="text-xs">Allowed IP Addresses</Label><Textarea value={securitySettings.ipRestrictions} onChange={e => setSecuritySettings(s => ({ ...s, ipRestrictions: e.target.value }))} placeholder="One IP per line, e.g.&#10;192.168.1.0/24&#10;10.0.0.1" rows={4} className="font-mono text-xs" /></div></CardContent></Card>
+          <Card className="border-0 shadow-md"><CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><FileText className="h-4 w-4 text-violet-600" />Audit & Compliance</CardTitle><CardDescription>Audit log retention and auto-checkout</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid gap-2"><Label className="text-xs">Audit Retention (days)</Label><Input type="number" value={securitySettings.auditRetention} onChange={e => setSecuritySettings(s => ({ ...s, auditRetention: e.target.value }))} /></div><div className="flex items-center justify-between"><div><Label className="text-xs">Visitor Auto-Checkout</Label><p className="text-[10px] text-muted-foreground">Auto-checkout at end of day</p></div><Switch checked={securitySettings.visitorAutoCheckout} onCheckedChange={v => setSecuritySettings(s => ({ ...s, visitorAutoCheckout: v }))} /></div><div className="flex items-center justify-between"><div><Label className="text-xs">Incident Auto-Escalation</Label><p className="text-[10px] text-muted-foreground">Auto-escalate unresolved incidents</p></div><Switch checked={securitySettings.incidentEscalation} onCheckedChange={v => setSecuritySettings(s => ({ ...s, incidentEscalation: v }))} /></div></CardContent></Card>
+        </div>
+        <div className="flex justify-end"><Button onClick={() => toast.success('Security settings saved successfully')} className="bg-emerald-600 hover:bg-emerald-700 text-white"><Save className="h-4 w-4 mr-2" />Save Settings</Button></div>
+      </motion.div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -303,6 +391,9 @@ export default function SecurityModule() {
             <h2 className="text-xl font-bold tracking-tight">Security & Visitor Management</h2>
             <p className="text-sm text-muted-foreground">Manage campus security, visitor access, and incident reports</p>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setViewMode('settings')} className="gap-1.5"><Settings className="h-3.5 w-3.5" /><span className="hidden sm:inline">Settings</span></Button>
         </div>
       </motion.div>
 
@@ -501,52 +592,9 @@ export default function SecurityModule() {
                 onChange={e => setSearchVisitor(e.target.value)}
               />
             </div>
-            <Dialog open={addVisitorOpen} onOpenChange={setAddVisitorOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-                  <Plus className="h-4 w-4" /> Register Visitor
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Register New Visitor</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-2">
-                  <div className="space-y-2">
-                    <Label>Full Name</Label>
-                    <Input value={newVisitorName} onChange={e => setNewVisitorName(e.target.value)} placeholder="Visitor's full name" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>ID Number</Label>
-                      <Input value={newVisitorId} onChange={e => setNewVisitorId(e.target.value)} placeholder="e.g. 63-123456A78" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Phone</Label>
-                      <Input value={newVisitorPhone} onChange={e => setNewVisitorPhone(e.target.value)} placeholder="+263 7X XXX XXXX" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Purpose of Visit</Label>
-                    <Input value={newVisitorPurpose} onChange={e => setNewVisitorPurpose(e.target.value)} placeholder="e.g. Parent-Teacher Meeting" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Host Person</Label>
-                      <Input value={newVisitorHost} onChange={e => setNewVisitorHost(e.target.value)} placeholder="Staff member hosting" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Vehicle Registration</Label>
-                      <Input value={newVisitorVehicle} onChange={e => setNewVisitorVehicle(e.target.value)} placeholder="e.g. ABZ 1234 (optional)" />
-                    </div>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-                  <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleAddVisitor}>Register & Check In</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => setViewMode('add-visitor')}>
+              <Plus className="h-4 w-4" /> Register Visitor
+            </Button>
           </div>
 
           {/* Active Visitors */}
@@ -572,7 +620,7 @@ export default function SecurityModule() {
                   </TableHeader>
                   <TableBody>
                     {activeVisitors.map(v => (
-                      <TableRow key={v.id}>
+                      <TableRow key={v.id} className="cursor-pointer" onClick={() => { setSelectedId(v.id); setViewMode('detail-visitor') }}>
                         <TableCell>
                           <div>
                             <p className="font-medium text-sm">{v.name}</p>
@@ -622,7 +670,7 @@ export default function SecurityModule() {
                 </TableHeader>
                 <TableBody>
                   {filteredVisitors.map(v => (
-                    <TableRow key={v.id}>
+                    <TableRow key={v.id} className="cursor-pointer" onClick={() => { setSelectedId(v.id); setViewMode('detail-visitor') }}>
                       <TableCell className="font-medium text-sm">{v.name}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{v.idNumber}</TableCell>
                       <TableCell className="text-sm">{v.purpose}</TableCell>
@@ -743,63 +791,9 @@ export default function SecurityModule() {
                 onChange={e => setSearchIncident(e.target.value)}
               />
             </div>
-            <Dialog open={addIncidentOpen} onOpenChange={setAddIncidentOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-                  <Plus className="h-4 w-4" /> Report Incident
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Report Security Incident</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-2">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Incident Type</Label>
-                      <Select value={newIncidentType} onValueChange={v => setNewIncidentType(v as SecurityIncident['type'])}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Unauthorized Access">Unauthorized Access</SelectItem>
-                          <SelectItem value="Property Damage">Property Damage</SelectItem>
-                          <SelectItem value="Theft">Theft</SelectItem>
-                          <SelectItem value="Disturbance">Disturbance</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Severity</Label>
-                      <Select value={newIncidentSeverity} onValueChange={v => setNewIncidentSeverity(v as SecurityIncident['severity'])}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Low">Low</SelectItem>
-                          <SelectItem value="Medium">Medium</SelectItem>
-                          <SelectItem value="High">High</SelectItem>
-                          <SelectItem value="Critical">Critical</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Location</Label>
-                    <Input value={newIncidentLocation} onChange={e => setNewIncidentLocation(e.target.value)} placeholder="e.g. Main Gate, Form 2B Classroom" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Description</Label>
-                    <Textarea value={newIncidentDesc} onChange={e => setNewIncidentDesc(e.target.value)} placeholder="Describe the incident in detail..." rows={3} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Reporter</Label>
-                    <Input value={newIncidentReporter} onChange={e => setNewIncidentReporter(e.target.value)} placeholder="Name of person reporting" />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-                  <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleAddIncident}>Submit Report</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => setViewMode('add-incident')}>
+              <Plus className="h-4 w-4" /> Report Incident
+            </Button>
           </div>
 
           {/* Incident Summary */}
@@ -847,7 +841,7 @@ export default function SecurityModule() {
                 </TableHeader>
                 <TableBody>
                   {filteredIncidents.map(inc => (
-                    <TableRow key={inc.id}>
+                    <TableRow key={inc.id} className="cursor-pointer" onClick={() => { setSelectedId(inc.id); setViewMode('detail-incident') }}>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">{inc.type}</Badge>
                       </TableCell>
