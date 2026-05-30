@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { validateAuth } from '@/lib/api-auth'
+import { getSetting } from '@/lib/settings'
+import { symbolForMark, computeFinalMark } from '@/lib/grading'
 
 export async function GET(request: NextRequest) {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const studentId = searchParams.get('studentId')
@@ -99,15 +105,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Calculate grade from score
-    function getGrade(score: number): string {
-      if (score >= 80) return 'A'
-      if (score >= 70) return 'B'
-      if (score >= 60) return 'C'
-      if (score >= 50) return 'D'
-      if (score >= 40) return 'E'
-      return 'U'
-    }
+    // Grading scale + CA weighting come from the school settings (ZIMSEC by default).
+    const gradingScale = await getSetting(student.schoolId, 'grading.scale')
+    const caWeight = await getSetting(student.schoolId, 'grading.continuousAssessmentWeight')
 
     // Attendance summary
     const totalDays = student.attendanceRecords.length
@@ -120,8 +120,13 @@ export async function GET(request: NextRequest) {
 
     // Build subjects array for the HTML
     const subjectsHtml = Object.values(subjectMarks).map(sm => {
-      const finalScore = sm.exam ?? sm.midTerm ?? sm.test ?? 0
-      const grade = sm.grade || getGrade(finalScore)
+      // Continuous assessment = tests/mid-term; exam weighted per settings.
+      const finalScore = computeFinalMark({
+        continuousAssessment: sm.test ?? sm.midTerm ?? null,
+        exam: sm.exam ?? null,
+        caWeight,
+      })
+      const grade = sm.grade || symbolForMark(finalScore, gradingScale)
       return {
         subject: sm.subject,
         midTerm: sm.midTerm ?? '—',
