@@ -1,11 +1,16 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
-import { validateAuth, validateRole } from '@/lib/api-auth'
+import { validateRole } from '@/lib/api-auth'
+import { getRequestTenant } from '@/lib/tenant'
+import { logAudit } from '@/lib/audit'
+import { CreateStudentSchema } from '@/lib/validations'
 
 export async function GET(request: Request) {
   try {
-    const authResult = await validateAuth()
-    if ('error' in authResult) return authResult.error
+    const tenantResult = await getRequestTenant()
+    if ('error' in tenantResult) return tenantResult.error
+    const { schoolId } = tenantResult
+
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
     const gender = searchParams.get('gender') || ''
@@ -15,15 +20,16 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
 
-    const where: Record<string, unknown> = {}
+    // Always scope to the authenticated user's school
+    const where: Record<string, unknown> = { schoolId }
 
     if (search) {
       where.OR = [
-        { firstName: { contains: search } },
-        { lastName: { contains: search } },
-        { middleName: { contains: search } },
-        { studentNumber: { contains: search } },
-        { nationalId: { contains: search } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { middleName: { contains: search, mode: 'insensitive' } },
+        { studentNumber: { contains: search, mode: 'insensitive' } },
+        { nationalId: { contains: search, mode: 'insensitive' } },
       ]
     }
 
@@ -33,12 +39,7 @@ export async function GET(request: Request) {
 
     if (grade) {
       where.enrollments = {
-        some: {
-          class: {
-            grade: { name: grade },
-          },
-          status: 'ACTIVE',
-        },
+        some: { class: { grade: { name: grade } }, status: 'ACTIVE' },
       }
     }
 
@@ -48,11 +49,7 @@ export async function GET(request: Request) {
         include: {
           enrollments: {
             where: { status: 'ACTIVE' },
-            include: {
-              class: {
-                include: { grade: true },
-              },
-            },
+            include: { class: { include: { grade: true } } },
             take: 1,
             orderBy: { enrollmentDate: 'desc' },
           },
@@ -69,35 +66,32 @@ export async function GET(request: Request) {
       db.student.count({ where }),
     ])
 
-    return NextResponse.json({
-      data,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
-    })
+    return NextResponse.json({ data, total, page, totalPages: Math.ceil(total / limit) })
   } catch (error) {
     console.error('Error fetching students:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch students' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch students' }, { status: 500 })
   }
 }
 
 export async function POST(request: Request) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER', 'BURSAR'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
-    const authResult = await validateRole(['ADMIN', 'TEACHER', 'BURSAR'])
-    if ('error' in authResult) return authResult.error
     const body = await request.json()
 
-    // Get the current year for the student number
+    // Validate the required identity fields; optional profile fields are read
+    // from the body below.
+    const parsed = CreateStudentSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    }
+
     const currentYear = new Date().getFullYear()
 
-    // Find the last student number for this year
     const lastStudent = await db.student.findFirst({
-      where: {
-        studentNumber: { startsWith: `STU${currentYear}` },
-      },
+      where: { studentNumber: { startsWith: `STU${currentYear}` } },
       orderBy: { studentNumber: 'desc' },
     })
 
@@ -109,15 +103,16 @@ export async function POST(request: Request) {
 
     const studentNumber = `STU${currentYear}${sequence.toString().padStart(3, '0')}`
 
+    // Always use the authenticated user's schoolId — never trust the request body
     const student = await db.student.create({
       data: {
         studentNumber,
-        schoolId: body.schoolId,
+        schoolId: session.user.schoolId,
         firstName: body.firstName,
         lastName: body.lastName,
         middleName: body.middleName,
         preferredName: body.preferredName,
-        dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
+        dateOfBirth: new Date(body.dateOfBirth),
         gender: body.gender,
         birthCertNumber: body.birthCertNumber,
         nationalId: body.nationalId,
@@ -145,16 +140,11 @@ export async function POST(request: Request) {
         exitReason: body.exitReason,
       },
       include: {
-        enrollments: {
-          include: { class: { include: { grade: true } } },
-        },
-        parentLinks: {
-          include: { parent: true },
-        },
+        enrollments: { include: { class: { include: { grade: true } } } },
+        parentLinks: { include: { parent: true } },
       },
     })
 
-    // Create parent links if provided
     if (body.parentLinks && body.parentLinks.length > 0) {
       await db.studentParent.createMany({
         data: body.parentLinks.map((link: { parentId: string; relationship: string; isPrimary?: boolean; isFeeResponsible?: boolean }) => ({
@@ -167,7 +157,6 @@ export async function POST(request: Request) {
       })
     }
 
-    // Create enrollment if classId and academicYearId provided
     if (body.classId && body.academicYearId) {
       await db.studentEnrollment.create({
         data: {
@@ -179,12 +168,10 @@ export async function POST(request: Request) {
       })
     }
 
+    logAudit({ action: 'CREATE', entity: 'students', entityId: student.id, afterValue: student }).catch(() => {})
     return NextResponse.json(student, { status: 201 })
   } catch (error) {
     console.error('Error creating student:', error)
-    return NextResponse.json(
-      { error: 'Failed to create student' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to create student' }, { status: 500 })
   }
 }

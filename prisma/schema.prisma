@@ -1,13 +1,14 @@
 // Zimbabwe School Management System - Database Schema
-// Designed for SQLite with comprehensive school operations support
+// Targets PostgreSQL (Supabase managed Postgres) with comprehensive school operations support
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled connection (PgBouncer, port 6543, ?pgbouncer=true)
+  directUrl = env("DIRECT_URL")   // direct connection (port 5432) — used for schema ops/migrations
 }
 
 // ============================================
@@ -161,6 +162,7 @@ model Class {
 
   grade                 Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
   enrollments           StudentEnrollment[]
+  timetableEntries      TimetableEntry[]
 
   @@unique([schoolId, gradeId, name, academicYear])
 }
@@ -181,6 +183,7 @@ model Subject {
   school                School   @relation(fields: [schoolId], references: [id])
   gradeSubjects         GradeSubject[]
   assessments           Assessment[]
+  timetableEntries      TimetableEntry[]
 
   @@unique([schoolId, code])
 }
@@ -272,6 +275,7 @@ model Student {
 
   @@index([schoolId])
   @@index([enrollmentStatus])
+  @@index([schoolId, enrollmentStatus])
 }
 
 model Parent {
@@ -335,6 +339,7 @@ model StudentEnrollment {
   academicYear          AcademicYear @relation(fields: [academicYearId], references: [id])
 
   @@unique([studentId, academicYearId])
+  @@index([classId, academicYearId])
 }
 
 // ============================================
@@ -406,6 +411,7 @@ model Attendance {
 
   @@index([studentId, date])
   @@index([termId])
+  @@index([termId, date])
 }
 
 // ============================================
@@ -446,6 +452,7 @@ model AssessmentMark {
   student               Student   @relation(fields: [studentId], references: [id])
 
   @@unique([assessmentId, studentId])
+  @@index([studentId])
 }
 
 model ReportCard {
@@ -504,6 +511,9 @@ model FeeInvoice {
   term                  Term       @relation(fields: [termId], references: [id])
   payments              FeePayment[]
   items                 InvoiceItem[]
+
+  @@index([studentId, status])
+  @@index([termId])
 }
 
 model InvoiceItem {
@@ -537,6 +547,7 @@ model FeePayment {
 
   @@index([studentId])
   @@index([invoiceId])
+  @@index([parentId])
 }
 
 model BankAccount {
@@ -1341,6 +1352,8 @@ model TimetableEntry {
   updatedAt             DateTime @updatedAt
 
   school                School   @relation(fields: [schoolId], references: [id])
+  class                 Class    @relation(fields: [classId], references: [id])
+  subject               Subject  @relation(fields: [subjectId], references: [id])
 }
 
 // ============================================
