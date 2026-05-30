@@ -38,7 +38,19 @@ interface SettingDefBase<T> {
   description?: string
   schema: z.ZodType<T>
   default: T
+  /** Hint for the settings UI on how to render an editor for this value. */
+  ui: SettingUi
 }
+
+/** Declarative control descriptor consumed by the settings panel. */
+export type SettingUi =
+  | { control: 'text' }
+  | { control: 'number'; min?: number; max?: number; step?: number }
+  | { control: 'toggle' }
+  | { control: 'color' }
+  | { control: 'select'; options: readonly string[] }
+  | { control: 'multiselect'; options: readonly string[] }
+  | { control: 'gradeScale' }
 
 /** Helper to keep each entry's value type inferred from its schema. */
 function def<T>(d: SettingDefBase<T>): SettingDefBase<T> {
@@ -52,18 +64,21 @@ export const SETTINGS_REGISTRY = {
     label: 'Current academic year',
     schema: z.string().regex(/^\d{4}$/, 'Must be a 4-digit year'),
     default: '2025',
+    ui: { control: 'text' },
   }),
   'academic.termStructure': def({
     category: 'academic',
     label: 'Term structure',
     schema: z.enum(['3-term', '2-semester']),
     default: '3-term',
+    ui: { control: 'select', options: ['3-term', '2-semester'] },
   }),
   'academic.yearStartMonth': def({
     category: 'academic',
     label: 'Academic year start month',
     schema: z.number().int().min(1).max(12),
     default: 1,
+    ui: { control: 'number', min: 1, max: 12, step: 1 },
   }),
 
   // ─── Grading (ZIMSEC) ──────────────────────────────────────────────────
@@ -72,6 +87,7 @@ export const SETTINGS_REGISTRY = {
     label: 'Pass mark (%)',
     schema: z.number().min(0).max(100),
     default: 50,
+    ui: { control: 'number', min: 0, max: 100, step: 1 },
   }),
   'grading.scale': def({
     category: 'grading',
@@ -86,6 +102,7 @@ export const SETTINGS_REGISTRY = {
       { symbol: 'E', min: 30, max: 39, descriptor: 'Weak Pass' },
       { symbol: 'U', min: 0, max: 29, descriptor: 'Ungraded' },
     ],
+    ui: { control: 'gradeScale' },
   }),
   'grading.continuousAssessmentWeight': def({
     category: 'grading',
@@ -93,6 +110,7 @@ export const SETTINGS_REGISTRY = {
     description: 'CA contribution to the final mark; the exam takes the remainder.',
     schema: z.number().min(0).max(100),
     default: 30,
+    ui: { control: 'number', min: 0, max: 100, step: 5 },
   }),
 
   // ─── Finance ───────────────────────────────────────────────────────────
@@ -101,24 +119,28 @@ export const SETTINGS_REGISTRY = {
     label: 'Base currency',
     schema: z.enum(CURRENCIES),
     default: 'USD',
+    ui: { control: 'select', options: CURRENCIES },
   }),
   'finance.acceptedCurrencies': def({
     category: 'finance',
     label: 'Accepted currencies',
     schema: z.array(z.enum(CURRENCIES)).min(1),
     default: ['USD', 'ZWG'],
+    ui: { control: 'multiselect', options: CURRENCIES },
   }),
   'finance.paymentMethods': def({
     category: 'finance',
     label: 'Accepted payment methods',
     schema: z.array(z.enum(PAYMENT_METHODS)).min(1),
     default: ['CASH', 'ECOCASH', 'ONEMONEY', 'INNBUCKS', 'ZIMSWITCH', 'BANK_TRANSFER'],
+    ui: { control: 'multiselect', options: PAYMENT_METHODS },
   }),
   'finance.lateFeePenaltyPct': def({
     category: 'finance',
     label: 'Late fee penalty (%)',
     schema: z.number().min(0).max(100),
     default: 0,
+    ui: { control: 'number', min: 0, max: 100, step: 1 },
   }),
 
   // ─── Attendance ────────────────────────────────────────────────────────
@@ -128,6 +150,7 @@ export const SETTINGS_REGISTRY = {
     description: 'Attendance can no longer be edited this many days after the date.',
     schema: z.number().int().min(0).max(90),
     default: 7,
+    ui: { control: 'number', min: 0, max: 90, step: 1 },
   }),
 
   // ─── Notifications ─────────────────────────────────────────────────────
@@ -136,12 +159,14 @@ export const SETTINGS_REGISTRY = {
     label: 'Enabled notification channels',
     schema: z.array(z.enum(NOTIFICATION_CHANNELS)).min(0),
     default: ['SMS', 'EMAIL'],
+    ui: { control: 'multiselect', options: NOTIFICATION_CHANNELS },
   }),
   'notifications.feeRemindersEnabled': def({
     category: 'notifications',
     label: 'Send fee reminders',
     schema: z.boolean(),
     default: true,
+    ui: { control: 'toggle' },
   }),
 
   // ─── Branding ──────────────────────────────────────────────────────────
@@ -150,6 +175,7 @@ export const SETTINGS_REGISTRY = {
     label: 'Primary brand colour',
     schema: z.string().regex(/^#([0-9a-fA-F]{6})$/, 'Must be a 6-digit hex colour'),
     default: '#059669',
+    ui: { control: 'color' },
   }),
 } as const
 

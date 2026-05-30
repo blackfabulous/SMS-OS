@@ -39,6 +39,7 @@ export async function GET(request: Request) {
       description: SETTINGS_REGISTRY[k].description ?? null,
       value: values[k],
       default: SETTINGS_REGISTRY[k].default,
+      ui: SETTINGS_REGISTRY[k].ui,
     }))
 
   return NextResponse.json({ categories: SETTING_CATEGORIES, settings: meta })

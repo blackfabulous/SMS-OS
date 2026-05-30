@@ -55,6 +55,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { SettingsRegistryPanel } from '@/components/modules/settings-registry-panel'
 import {
   Table,
   TableBody,
@@ -106,6 +107,9 @@ interface SchoolProfile {
   taxNumber?: string
   nssaNumber?: string
   zimdefNumber?: string
+  sdcChairperson?: string
+  sdcSecretary?: string
+  sdcTreasurer?: string
 }
 
 interface AuditLog {
@@ -397,7 +401,16 @@ export default function SettingsModule() {
             <Database className="mr-1.5 h-3.5 w-3.5" />
             System
           </TabsTrigger>
+          <TabsTrigger value="advanced" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <Settings className="mr-1.5 h-3.5 w-3.5" />
+            Advanced
+          </TabsTrigger>
         </TabsList>
+
+        {/* ─── Advanced (registry-driven) Tab ───────────────────────────── */}
+        <TabsContent value="advanced" className="space-y-4">
+          <SettingsRegistryPanel />
+        </TabsContent>
 
         {/* ─── Setup Wizard Tab ─────────────────────────────────────────── */}
         <TabsContent value="setup-wizard" className="space-y-4">
