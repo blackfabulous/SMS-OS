@@ -88,6 +88,7 @@ model School {
   shopItems              SchoolShopItem[]
   shopOrders             SchoolShopOrder[]
   seoSettings            SEOSetting[]
+  settings               SchoolSetting[]
 }
 
 model AcademicYear {
@@ -1492,4 +1493,23 @@ model PasswordResetToken {
   createdAt  DateTime  @default(now())
 
   @@index([email])
+}
+
+// ============================================
+// 29. SETTINGS (generic per-school key/value store)
+// ============================================
+
+model SchoolSetting {
+  id        String   @id @default(cuid())
+  schoolId  String
+  key       String // registry key, e.g. "grading.passMark"
+  category  String // registry category, e.g. "grading"
+  value     String // JSON-encoded value, validated against the registry on write
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, key])
+  @@index([schoolId, category])
 }
