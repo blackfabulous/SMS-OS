@@ -9,7 +9,6 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { signIn, getSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,9 +16,10 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState('admin@zimschool.co.zw')
-  const [password, setPassword] = useState('password123')
+  // Demo helpers are only available outside production.
+  const isDev = process.env.NODE_ENV !== 'production'
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -55,12 +55,9 @@ export default function LoginPage() {
         try {
           await getSession()
         } catch {}
-        // Use router.push + hard reload to ensure session is picked up
-        router.push('/')
-        // Small delay then force full reload to ensure session cookie is read
-        setTimeout(() => {
-          window.location.reload()
-        }, 300)
+        // Send the user into the dashboard; hard-navigate so the session cookie
+        // is picked up by the server on first render.
+        window.location.href = '/dashboard'
       }
     } catch {
       setShakeForm(true)
@@ -330,7 +327,8 @@ export default function LoginPage() {
               </motion.div>
             )}
 
-            {/* Demo Credentials Section */}
+            {/* Demo Credentials Section — development only, never shipped to production */}
+            {isDev && (
             <div className="mt-5">
               <button
                 type="button"
@@ -411,6 +409,7 @@ export default function LoginPage() {
                 )}
               </AnimatePresence>
             </div>
+            )}
 
             <div className="mt-4 flex items-center justify-between">
               <p className="text-center text-xs text-muted-foreground">

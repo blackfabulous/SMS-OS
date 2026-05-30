@@ -13,7 +13,7 @@ export async function verifyPassword(password: string, hashedPassword: string): 
 }
 
 // Role type
-export type UserRole = 'ADMIN' | 'TEACHER' | 'PARENT' | 'STUDENT' | 'BURSAR'
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'TEACHER' | 'PARENT' | 'STUDENT' | 'BURSAR'
 
 // NextAuth configuration
 export const authOptions: NextAuthOptions = {
@@ -63,9 +63,9 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role as UserRole,
-          schoolId: user.schoolId,
-          schoolName: user.school.name,
-          schoolCode: user.school.code,
+          schoolId: user.schoolId ?? '',
+          schoolName: user.school?.name ?? '',
+          schoolCode: user.school?.code ?? '',
           staffId: user.staffId,
           studentId: user.studentId,
           staffNumber: user.staff?.staffNumber ?? null,
@@ -83,15 +83,15 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id
-        token.role = (user as Record<string, unknown>).role
-        token.schoolId = (user as Record<string, unknown>).schoolId
-        token.schoolName = (user as Record<string, unknown>).schoolName
-        token.schoolCode = (user as Record<string, unknown>).schoolCode
-        token.staffId = (user as Record<string, unknown>).staffId ?? null
-        token.studentId = (user as Record<string, unknown>).studentId ?? null
-        token.staffNumber = (user as Record<string, unknown>).staffNumber ?? null
-        token.studentNumber = (user as Record<string, unknown>).studentNumber ?? null
-        token.position = (user as Record<string, unknown>).position ?? null
+        token.role = (user as unknown as Record<string, unknown>).role as UserRole
+        token.schoolId = (user as unknown as Record<string, unknown>).schoolId as string
+        token.schoolName = (user as unknown as Record<string, unknown>).schoolName as string
+        token.schoolCode = (user as unknown as Record<string, unknown>).schoolCode as string
+        token.staffId = ((user as unknown as Record<string, unknown>).staffId as string) ?? null
+        token.studentId = ((user as unknown as Record<string, unknown>).studentId as string) ?? null
+        token.staffNumber = ((user as unknown as Record<string, unknown>).staffNumber as string) ?? null
+        token.studentNumber = ((user as unknown as Record<string, unknown>).studentNumber as string) ?? null
+        token.position = ((user as unknown as Record<string, unknown>).position as string) ?? null
       }
       return token
     },
@@ -112,10 +112,14 @@ export const authOptions: NextAuthOptions = {
     },
   },
   pages: {
-    signIn: '/',
-    error: '/',
+    signIn: '/login',
+    error: '/login',
   },
-  secret: process.env.NEXTAUTH_SECRET || 'zimschool-pro-dev-secret-change-in-production',
+  secret: (() => {
+    const s = process.env.NEXTAUTH_SECRET
+    if (!s) throw new Error('NEXTAUTH_SECRET environment variable is required. Generate one with: openssl rand -base64 32')
+    return s
+  })(),
 }
 
 // Type augmentation for next-auth

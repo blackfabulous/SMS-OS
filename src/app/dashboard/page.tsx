@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, GraduationCap, Users, UserPlus, BookOpen,
@@ -12,10 +13,10 @@ import {
   Search, HandHeart,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useSession, signIn, signOut } from 'next-auth/react'
+import { useSession, signOut } from 'next-auth/react'
 import { useAppStore } from '@/lib/store'
 import { useRBAC } from '@/hooks/use-rbac'
-import { getRoleDisplayName, getRoleColor, type UserRole } from '@/lib/rbac'
+import { getRoleDisplayName, type UserRole } from '@/lib/rbac'
 import { getCurrentRate, fetchExchangeRate } from '@/lib/currency'
 import { OfflineIndicator } from '@/components/offline-indicator'
 import { AppSidebar, type NavGroup } from '@/components/app-sidebar'
@@ -24,7 +25,6 @@ import { ModuleHeader } from '@/components/module-helpers'
 import { ModuleRenderer } from '@/components/module-registry'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import MobileBottomNav from '@/components/mobile-bottom-nav'
-import PublicWebsite from '@/components/public-website'
 
 // ─── Navigation Config ────────────────────────────────────────────────────────
 const navGroups: NavGroup[] = [
@@ -129,8 +129,9 @@ const initialNotifications: Notification[] = [
   { id: '7', icon: Settings, title: 'System Update', description: 'ZimSchool Pro v2.5.0 installed successfully', time: 'Yesterday', read: true, type: 'system' },
 ]
 
-// ─── Main Application ────────────────────────────────────────────────────────
-export default function Home() {
+// ─── Dashboard (authenticated SPA shell) ───────────────────────────────────────
+export default function Dashboard() {
+  const router = useRouter()
   const { data: session, status } = useSession()
   const { activeModule } = useAppStore()
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications)
@@ -149,6 +150,11 @@ export default function Home() {
     return () => clearInterval(interval)
   }, [])
 
+  // Redirect unauthenticated users to the login page (middleware also guards this route).
+  useEffect(() => {
+    if (status === 'unauthenticated') router.replace('/login')
+  }, [status, router])
+
   // Filtered Navigation (RBAC)
   const filteredNavGroups = useMemo(() => rbac.filterNavGroups(navGroups), [rbac])
 
@@ -158,7 +164,7 @@ export default function Home() {
 
   const handleLogout = useCallback(() => {
     toast('Signed out successfully', { description: 'You have been logged out of ZimSchool Pro' })
-    signOut({ redirect: false })
+    signOut({ callbackUrl: '/' })
   }, [])
 
   const handleMarkAllRead = useCallback(() => {
@@ -174,8 +180,8 @@ export default function Home() {
   const userName = session?.user?.name || 'Admin User'
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 
-  // Loading state
-  if (status === 'loading') {
+  // Loading / redirecting state
+  if (status === 'loading' || status === 'unauthenticated') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -184,11 +190,6 @@ export default function Home() {
         </div>
       </div>
     )
-  }
-
-  // Not authenticated - show public website with login dialog
-  if (!session) {
-    return <PublicWebsite onLogin={() => {}} />
   }
 
   return (
@@ -212,8 +213,6 @@ export default function Home() {
           onMarkRead={handleMarkRead}
           userName={userName}
           userInitials={userInitials}
-          wsConnected={false}
-          wsStatus="disconnected"
           exchangeRate={exchangeRate}
           currentRole={rbac.currentRole}
           unreadCount={totalUnreadCount}
