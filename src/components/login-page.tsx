@@ -246,9 +246,9 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password" className="text-sm font-medium transition-colors group-focus-within:text-emerald-600">Password</Label>
-                  <button type="button" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium transition-colors">
+                  <a href="/forgot-password" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium transition-colors">
                     Forgot password?
-                  </button>
+                  </a>
                 </div>
                 <div className="relative group">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-emerald-500" />
