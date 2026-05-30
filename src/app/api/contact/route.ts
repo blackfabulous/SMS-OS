@@ -12,8 +12,9 @@ const ContactSchema = z.object({
   phone: z.string().max(30).optional().or(z.literal('')),
   subject: z.string().min(1).max(160),
   message: z.string().min(1).max(2000),
-  // Honeypot — must stay empty.
-  company: z.string().max(0).optional(),
+  // Honeypot — accept any value at the schema level so a filled value doesn't
+  // produce a validation error that signals the trap; handled after parsing.
+  company: z.string().optional(),
 })
 
 export async function POST(request: Request) {

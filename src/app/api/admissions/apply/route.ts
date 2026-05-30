@@ -23,8 +23,9 @@ const ApplySchema = z.object({
   guardianEmail: z.string().email().optional().or(z.literal('')),
   guardianRelationship: z.string().max(40).optional().or(z.literal('')),
   message: z.string().max(1000).optional().or(z.literal('')),
-  // Honeypot — must be empty. Bots tend to fill every field.
-  company: z.string().max(0).optional(),
+  // Honeypot — accept any value at the schema level so a filled value doesn't
+  // produce a validation error that signals the trap; handled after parsing.
+  company: z.string().optional(),
 })
 
 export async function POST(request: Request) {
