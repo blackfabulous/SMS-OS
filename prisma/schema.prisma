@@ -505,6 +505,7 @@ model FeeInvoice {
   balance               Float
   dueDate               DateTime
   status                String   @default("PENDING")
+  lateFeeApplied        Boolean  @default(false) // guards against compounding the overdue penalty
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
