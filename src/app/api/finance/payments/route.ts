@@ -6,6 +6,7 @@ import { validateRole } from '@/lib/api-auth'
 import { CreatePaymentSchema, type CreatePaymentInput } from '@/lib/validations'
 import { applyPayment, reversePayment, toBaseAmount } from '@/lib/finance-calc'
 import { getSetting } from '@/lib/settings'
+import { notifyStudentGuardian } from '@/lib/notifications'
 
 function generateReceiptNumber(year: number): string {
   // Timestamp in base36 + 4 random hex chars = collision-resistant without a DB counter
@@ -175,6 +176,17 @@ export async function POST(request: Request) {
     }
 
     logAudit({ action: 'CREATE', entity: 'payments', entityId: payment.id, afterValue: payment }).catch(() => {})
+
+    // Send a receipt acknowledgement to the guardian (fire-and-forget, original currency).
+    const receiptNumber = payment.receiptNumber
+    void notifyStudentGuardian(session.user.schoolId, data.studentId, (studentName) => ({
+      type: 'payment.received',
+      studentName,
+      amount,
+      currency: data.currency || 'USD',
+      receiptNumber,
+    })).catch(() => {})
+
     return NextResponse.json(payment, { status: 201 })
   } catch (error) {
     console.error('Error recording payment:', error)

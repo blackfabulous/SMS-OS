@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { validateRole } from '@/lib/api-auth'
+import { getRequestTenant } from '@/lib/tenant'
+import { notifyStudentGuardiansBatch } from '@/lib/notifications'
 
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+  const tenant = await getRequestTenant()
+  if ('error' in tenant) return tenant.error
+  const { schoolId } = tenant
+
   try {
     const body = await request.json()
     const { classId, date, records } = body
@@ -37,14 +46,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Validate class exists
-    const classData = await db.class.findUnique({
-      where: { id: classId },
+    // Validate class exists AND belongs to the caller's school (tenant guard).
+    const classData = await db.class.findFirst({
+      where: { id: classId, schoolId },
       include: { grade: true },
     })
     if (!classData) {
       return NextResponse.json({ error: 'Invalid class ID' }, { status: 400 })
     }
+
+    // Tenant guard: restrict processing to students that belong to this school.
+    const ownedStudents = await db.student.findMany({
+      where: { id: { in: records.map((r: { studentId: string }) => r.studentId) }, schoolId },
+      select: { id: true },
+    })
+    const ownedIds = new Set(ownedStudents.map((s) => s.id))
 
     // Determine the term - find the term that contains the given date
     const attendanceDate = new Date(date)
@@ -75,6 +91,11 @@ export async function POST(request: NextRequest) {
 
     for (const record of records) {
       try {
+        // Skip students that don't belong to this school (tenant guard).
+        if (!ownedIds.has(record.studentId)) {
+          errors.push(`Student ${record.studentId} does not belong to your school`)
+          continue
+        }
         // Check if attendance record already exists for this student on this date in this term
         const existing = await db.attendance.findFirst({
           where: {
@@ -112,6 +133,19 @@ export async function POST(request: NextRequest) {
         errors.push(`Failed to process attendance for student ${record.studentId}`)
       }
     }
+
+    // Notify guardians of (owned) absentees — batched (one context + one guardian
+    // query, no N+1) and fire-and-forget so it never blocks the response.
+    const absenceLabel = dateOnly.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    void notifyStudentGuardiansBatch(
+      schoolId,
+      records
+        .filter((r: { status?: string; studentId: string }) => r.status === 'ABSENT' && ownedIds.has(r.studentId))
+        .map((r: { studentId: string }) => ({
+          studentId: r.studentId,
+          eventFactory: (studentName: string) => ({ type: 'attendance.absent' as const, studentName, date: absenceLabel }),
+        })),
+    ).catch(() => {})
 
     // Log audit entry
     try {

@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { dispatchNotification } from '@/lib/notifications'
 
 /**
  * PUBLIC admission application endpoint (no auth) for the website apply form.
@@ -97,6 +98,14 @@ export async function POST(request: Request) {
         isFeeResponsible: true,
       },
     })
+
+    // Acknowledge the application to the guardian over enabled channels.
+    // Fire-and-forget (matches the logAudit pattern) so it never blocks the response.
+    void dispatchNotification(
+      school.id,
+      { type: 'admission.received', applicantName: `${d.firstName} ${d.lastName}`, reference: studentNumber },
+      { parentId: parent.id, phone: d.guardianPhone, email: d.guardianEmail || null, name: `${d.guardianFirstName} ${d.guardianLastName}` },
+    ).catch(() => {})
 
     return NextResponse.json(
       {

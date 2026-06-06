@@ -5,6 +5,7 @@ import { getRequestTenant } from '@/lib/tenant'
 import { logAudit } from '@/lib/audit'
 import { getSetting } from '@/lib/settings'
 import { applyLateFee, round2 } from '@/lib/finance-calc'
+import { notifyStudentGuardiansBatch } from '@/lib/notifications'
 
 /**
  * GET /api/finance/late-fees
@@ -53,7 +54,7 @@ export async function POST() {
       dueDate: { lt: new Date() },
       lateFeeApplied: false,
     },
-    select: { id: true, totalAmount: true, balance: true },
+    select: { id: true, studentId: true, totalAmount: true, balance: true },
   })
 
   if (overdue.length === 0) {
@@ -61,10 +62,12 @@ export async function POST() {
   }
 
   let totalPenalty = 0
+  const notify: { studentId: string; balance: number }[] = []
   const ops = overdue.map((inv) => {
     const newBalance = applyLateFee(inv.balance, penaltyPct)
     const penalty = round2(newBalance - inv.balance)
     totalPenalty = round2(totalPenalty + penalty)
+    notify.push({ studentId: inv.studentId, balance: newBalance })
     return db.feeInvoice.update({
       where: { id: inv.id },
       data: {
@@ -76,6 +79,17 @@ export async function POST() {
   })
 
   await db.$transaction(ops)
+
+  // Notify each affected guardian of the now-overdue balance. Batch loads the
+  // school context + all guardians once (no N+1) and runs fire-and-forget.
+  const currency = await getSetting(tenant.schoolId, 'finance.baseCurrency')
+  void notifyStudentGuardiansBatch(
+    tenant.schoolId,
+    notify.map((n) => ({
+      studentId: n.studentId,
+      eventFactory: (studentName: string) => ({ type: 'fee.overdue' as const, studentName, balance: n.balance, currency }),
+    })),
+  ).catch(() => {})
 
   logAudit({
     action: 'UPDATE',
