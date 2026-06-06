@@ -21,6 +21,7 @@ Dev login (seeded): `admin@zimschool.co.zw` / `password123`.
 | **F3 — Examinations** | `94e0c54` | `grading.ts` (ZIMSEC bands + CA weighting); wired both report-card routes to settings |
 | **F4 — Notifications** | `f3511ae` | Event library + `dispatchNotification` (EMAIL/SMS/WhatsApp/in-app from settings); `sms.ts`; `/api/notifications/send` |
 | **F5 — Settings UI** | `335eb82` | Registry-driven "Advanced" settings tab — auto-renders a control for every setting incl. grade-scale editor |
+| **F6 — Notification triggers + hardening** | `51993d2` | Wired dispatch into admissions/payments/late-fees/attendance; multi-agent adversarial review → fixed 10 findings (3 tenant-security holes, N+1 batching, non-blocking dispatch) |
 
 **Quality gates:** `tsc --noEmit` clean; **61 unit tests passing** (`bunx vitest run`) across settings, finance, grading, notifications; **full `next build` green** (exit 0, 69 pages, all new API routes registered); Phase B verified via runtime probes; Phase C & F2/F5 verified via DB round-trips against Supabase.
 
@@ -29,7 +30,7 @@ Dev login (seeded): `admin@zimschool.co.zw` / `password123`.
 ---
 
 ## 🟡 Known follow-ups on delivered work
-- **Notifications not yet auto-triggered** from attendance/fee/admission flows — only the manual dispatch API exists. Wire `dispatchNotification` into those routes.
+- **Notifications auto-trigger from attendance/fees/admissions/payments** ✅ done (F6). A real delivery queue (vs fire-and-forget) is still future work for serverless deployments.
 - **Currency code mismatch**: `currency.ts` uses `ZiG`; settings/ISO use `ZWG`. Bridge/unify.
 - **Settings UI** covers the registry (~14 keys). The legacy settings tabs (profile/academic/fees) still save via `/api/school`; migrate more of the spec's settings tree into the registry over time.
 - **Branch not pushed**; no PR opened. ~690 pre-existing uncommitted files in the tree (a tenant-scoping/audit refactor + bulk `skills/`) are NOT ours — never `git add -A`.
