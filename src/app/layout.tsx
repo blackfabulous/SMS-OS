@@ -1,25 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+// Self-hosted Geist (via the `geist` package) — no build-time Google Fonts fetch,
+// which is faster, privacy-friendly and avoids flaky network failures at build.
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/components/auth-provider";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   themeColor: "#059669",
 };
 
@@ -29,7 +20,7 @@ export const metadata: Metadata = {
   keywords: ["ZimSchool", "school management", "Zimbabwe", "education", "administration"],
   manifest: "/manifest.json",
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/icons/icon-192x192.png",
   },
   appleWebApp: {
     capable: true,
@@ -53,7 +44,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${GeistSans.variable} ${GeistMono.variable} antialiased bg-background text-foreground`}
       >
         <ThemeProvider
           attribute="class"
