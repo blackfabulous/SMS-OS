@@ -64,6 +64,25 @@ export function computeFinalMark({ continuousAssessment, exam, caWeight }: Final
   return 0
 }
 
+/** Validate a raw mark against an assessment's maximum. */
+export function validateMark(
+  marksObtained: number,
+  totalMarks: number,
+): { ok: true } | { ok: false; error: string } {
+  if (Number.isNaN(marksObtained)) return { ok: false, error: 'Mark must be a number' }
+  if (marksObtained < 0) return { ok: false, error: 'Mark cannot be negative' }
+  if (totalMarks > 0 && marksObtained > totalMarks) {
+    return { ok: false, error: `Mark cannot exceed the assessment total of ${totalMarks}` }
+  }
+  return { ok: true }
+}
+
+/** Convert a raw mark to a percentage of the assessment total (0 if total<=0). */
+export function markToPercent(marksObtained: number, totalMarks: number): number {
+  if (totalMarks <= 0) return 0
+  return round2((clampMark((marksObtained / totalMarks) * 100)))
+}
+
 /** Mean of a set of marks, rounded to 2dp (0 for an empty set). */
 export function averageMark(marks: number[]): number {
   if (marks.length === 0) return 0

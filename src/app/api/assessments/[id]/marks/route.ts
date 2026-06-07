@@ -1,10 +1,19 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateAuth, validateRole } from '@/lib/api-auth'
+import { SaveMarksSchema } from '@/lib/validations'
+import { getSetting } from '@/lib/settings'
+import { symbolForMark, validateMark, markToPercent } from '@/lib/grading'
+import type { AssessmentMark } from '@prisma/client'
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+
   try {
     const { id } = await params
 
@@ -99,44 +108,58 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const { id } = await params
     const body = await request.json()
-    const marks: Array<{
-      studentId: string
-      marksObtained: number
-      grade?: string
-      comments?: string
-    }> = body.marks || []
 
-    if (!marks.length) {
-      return NextResponse.json({ error: 'No marks provided' }, { status: 400 })
+    const parsed = SaveMarksSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
     }
+    const marks = parsed.data.marks
 
-    // Verify assessment exists
-    const assessment = await db.assessment.findUnique({
-      where: { id },
+    // Verify the assessment exists AND belongs to the caller's school
+    const assessment = await db.assessment.findFirst({
+      where: { id, schoolId: session.user.schoolId },
     })
 
     if (!assessment) {
       return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
     }
 
-    // Calculate grade from marks
-    const calculateGrade = (obtained: number, total: number): string => {
-      const pct = (obtained / total) * 100
-      if (pct >= 80) return 'A'
-      if (pct >= 70) return 'B'
-      if (pct >= 60) return 'C'
-      if (pct >= 50) return 'D'
-      if (pct >= 40) return 'E'
-      return 'U'
+    if (assessment.isLocked) {
+      return NextResponse.json({ error: 'Assessment is locked and cannot be modified' }, { status: 409 })
     }
 
+    // Reject marks above the assessment's maximum
+    for (const m of marks) {
+      const v = validateMark(m.marksObtained, assessment.totalMarks)
+      if (!v.ok) {
+        return NextResponse.json({ error: `Student ${m.studentId}: ${v.error}` }, { status: 400 })
+      }
+    }
+
+    // Verify every target student belongs to the caller's school (prevents
+    // writing marks against another school's students via a forged studentId)
+    const studentIds = [...new Set(marks.map((m) => m.studentId))]
+    const validStudents = await db.student.count({
+      where: { id: { in: studentIds }, schoolId: session.user.schoolId },
+    })
+    if (validStudents !== studentIds.length) {
+      return NextResponse.json({ error: 'One or more students do not belong to your school' }, { status: 403 })
+    }
+
+    // Grade symbols come from the school's ZIMSEC grading scale (settings).
+    const gradingScale = await getSetting(session.user.schoolId, 'grading.scale')
+
     // Upsert marks
-    const results = []
+    const results: AssessmentMark[] = []
     for (const mark of marks) {
-      const grade = mark.grade || calculateGrade(mark.marksObtained, assessment.totalMarks)
+      const grade = mark.grade || symbolForMark(markToPercent(mark.marksObtained, assessment.totalMarks), gradingScale)
       const result = await db.assessmentMark.upsert({
         where: {
           assessmentId_studentId: {
@@ -160,6 +183,7 @@ export async function POST(
       results.push(result)
     }
 
+    logAudit({ action: 'CREATE', entity: 'marks' }).catch(() => {})
     return NextResponse.json({
       saved: results.length,
       marks: results,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { gradeForMark, symbolForMark, computeFinalMark, averageMark, summariseReport, type GradeBand } from '@/lib/grading'
+import { gradeForMark, symbolForMark, computeFinalMark, averageMark, summariseReport, validateMark, markToPercent, type GradeBand } from '@/lib/grading'
 import { getDefault } from '@/lib/settings-schema'
 
 // Use the real default ZIMSEC scale from the settings registry.
@@ -75,5 +75,31 @@ describe('averageMark + summariseReport', () => {
 
   it('reports a dash overall grade with no subjects', () => {
     expect(summariseReport([], SCALE).overallGrade).toBe('—')
+  })
+})
+
+describe('validateMark', () => {
+  it('accepts a mark within range', () => {
+    expect(validateMark(45, 50)).toEqual({ ok: true })
+    expect(validateMark(50, 50)).toEqual({ ok: true })
+  })
+  it('rejects a negative mark', () => {
+    expect(validateMark(-1, 50)).toMatchObject({ ok: false })
+  })
+  it('rejects a mark above the total', () => {
+    expect(validateMark(60, 50)).toMatchObject({ ok: false })
+  })
+  it('rejects NaN', () => {
+    expect(validateMark(NaN, 50)).toMatchObject({ ok: false })
+  })
+})
+
+describe('markToPercent', () => {
+  it('converts a raw mark to a percentage', () => {
+    expect(markToPercent(30, 60)).toBe(50)
+    expect(markToPercent(45, 50)).toBe(90)
+  })
+  it('returns 0 for a non-positive total', () => {
+    expect(markToPercent(10, 0)).toBe(0)
   })
 })

@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { validateAuth } from '@/lib/api-auth'
+import { validateAuth, validateRole } from '@/lib/api-auth'
+import { getRequestTenant } from '@/lib/tenant'
+import { logAudit } from '@/lib/audit'
 import { getSetting } from '@/lib/settings'
 import { symbolForMark, computeFinalMark } from '@/lib/grading'
+import { transition, type ReportCardAction, type ReportCardStatus, type Role } from '@/lib/report-card-workflow'
+import { Prisma } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   const authResult = await validateAuth()
@@ -562,4 +566,52 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+/**
+ * PATCH /api/reports/report-card
+ * Body: { reportCardId, action: 'submit'|'countersign'|'publish'|'revert',
+ *         classTeacherComment?, headComment? }
+ * Drives the publish/countersign workflow. The transition's role + state rules
+ * are enforced by the pure state machine; effects (status, signatures,
+ * isPublished) are applied here.
+ */
+export async function PATCH(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER', 'SUPER_ADMIN'])
+  if ('error' in authResult) return authResult.error
+  const tenant = await getRequestTenant()
+  if ('error' in tenant) return tenant.error
+  const role = authResult.session.user.role as Role
+
+  let body: { reportCardId?: string; action?: ReportCardAction; classTeacherComment?: string; headComment?: string }
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
+
+  if (!body.reportCardId || !body.action) {
+    return NextResponse.json({ error: 'reportCardId and action are required' }, { status: 400 })
+  }
+
+  // Load the card scoped to the caller's school (via the student relation).
+  const card = await db.reportCard.findFirst({
+    where: { id: body.reportCardId, student: { schoolId: tenant.schoolId } },
+    select: { id: true, status: true },
+  })
+  if (!card) return NextResponse.json({ error: 'Report card not found' }, { status: 404 })
+
+  const result = transition(card.status as ReportCardStatus, body.action, role)
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.code === 'FORBIDDEN' ? 403 : 409 })
+  }
+
+  const data: Prisma.ReportCardUpdateInput = { status: result.next, isPublished: result.effects.isPublished }
+  if (result.effects.classTeacherSignedAt === 'set') data.classTeacherSignedAt = new Date()
+  if (result.effects.classTeacherSignedAt === 'clear') data.classTeacherSignedAt = null
+  if (result.effects.headSignedAt === 'set') data.headSignedAt = new Date()
+  if (result.effects.headSignedAt === 'clear') data.headSignedAt = null
+  if (typeof body.classTeacherComment === 'string') data.classTeacherComment = body.classTeacherComment
+  if (typeof body.headComment === 'string') data.headComment = body.headComment
+
+  const updated = await db.reportCard.update({ where: { id: card.id }, data })
+  logAudit({ action: 'UPDATE', entity: 'report-card.workflow', entityId: card.id, afterValue: { action: body.action, status: result.next } }).catch(() => {})
+
+  return NextResponse.json({ id: updated.id, status: updated.status, isPublished: updated.isPublished })
 }

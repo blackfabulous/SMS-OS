@@ -467,11 +467,17 @@ model ReportCard {
   headComment           String?
   attendanceDays        Int?
   daysPresent           Int?
+  status                String   @default("DRAFT") // DRAFT, SUBMITTED, COUNTERSIGNED, PUBLISHED
+  classTeacherSignedAt  DateTime?
+  headSignedAt          DateTime?
   isPublished           Boolean  @default(false)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
   student               Student  @relation(fields: [studentId], references: [id])
+
+  @@unique([studentId, termId])
+  @@index([classId, termId])
 }
 
 // ============================================
