@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { validateAuth } from '@/lib/api-auth'
+import { getRequestTenant } from '@/lib/tenant'
 import { getSetting } from '@/lib/settings'
 import { symbolForMark, computeFinalMark } from '@/lib/grading'
 
 export async function GET(request: NextRequest) {
   const authResult = await validateAuth()
   if ('error' in authResult) return authResult.error
+  const tenant = await getRequestTenant()
+  if ('error' in tenant) return tenant.error
 
   try {
     const { searchParams } = new URL(request.url)
@@ -20,9 +23,9 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Fetch student with all related data
-    const student = await db.student.findUnique({
-      where: { id: studentId },
+    // Fetch student with all related data — SCOPED to the caller's school.
+    const student = await db.student.findFirst({
+      where: { id: studentId, schoolId: tenant.schoolId },
       include: {
         enrollments: {
           where: { status: 'ACTIVE' },

@@ -11,6 +11,8 @@ import { Prisma } from '@prisma/client'
 export async function GET(request: NextRequest) {
   const authResult = await validateAuth()
   if ('error' in authResult) return authResult.error
+  const tenant = await getRequestTenant()
+  if ('error' in tenant) return tenant.error
 
   try {
     const { searchParams } = new URL(request.url)
@@ -25,9 +27,9 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Fetch student details
-    const student = await db.student.findUnique({
-      where: { id: studentId },
+    // Fetch student details — SCOPED to the caller's school (tenant isolation).
+    const student = await db.student.findFirst({
+      where: { id: studentId, schoolId: tenant.schoolId },
       include: {
         enrollments: {
           where: { status: 'ACTIVE' },

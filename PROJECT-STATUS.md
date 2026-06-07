@@ -22,6 +22,8 @@ Dev login (seeded): `admin@zimschool.co.zw` / `password123`.
 | **F4 — Notifications** | `f3511ae` | Event library + `dispatchNotification` (EMAIL/SMS/WhatsApp/in-app from settings); `sms.ts`; `/api/notifications/send` |
 | **F5 — Settings UI** | `335eb82` | Registry-driven "Advanced" settings tab — auto-renders a control for every setting incl. grade-scale editor |
 | **F6 — Notification triggers + hardening** | `51993d2` | Wired dispatch into admissions/payments/late-fees/attendance; multi-agent adversarial review → fixed 10 findings (3 tenant-security holes, N+1 batching, non-blocking dispatch) |
+| **F7 — Examinations depth** | `6853c2e` | Mark validation + ZIMSEC grading on entry; report-card generation (class aggregation + ranking) + DRAFT→SUBMITTED→COUNTERSIGNED→PUBLISHED workflow (state machine + RBAC) |
+| **build — self-host fonts** | `a959d6c` | Geist via `geist` pkg (no build-time Google Fonts fetch); declared vitest/test scripts |
 
 **Quality gates:** `tsc --noEmit` clean; **61 unit tests passing** (`bunx vitest run`) across settings, finance, grading, notifications; **full `next build` green** (exit 0, 69 pages, all new API routes registered); Phase B verified via runtime probes; Phase C & F2/F5 verified via DB round-trips against Supabase.
 
@@ -50,7 +52,7 @@ Status legend: **Shell** = pre-existing module/route exists but thin vs spec · 
 - Academic/Curriculum — **Shell**
 - Timetable — **Shell** (conflict detection exists; auto-generation, room/teacher load TODO)
 - Attendance — **Shell** (records exist; settings `lockAfterDays` not yet enforced; biometric/SMS-on-absent TODO)
-- Examinations & Assessment — **Partial** (grading/CA done F3; mark-entry UX, report-card countersign workflow, ZIMSEC reg TODO)
+- Examinations & Assessment — **Partial** (grading/CA F3; mark validation + report-card generation + publish/countersign workflow F7; remaining: mark-entry UI, ZIMSEC candidate registration, report-card UI for the new workflow)
 
 ### Finance
 - Fees & Finance — **Partial** (multi-currency/methods/late-fees done F2; invoicing depth, statements, BEAM workflow, EcoCash/PayNow live integration, reconciliations TODO)
