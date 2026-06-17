@@ -69,6 +69,7 @@ import {
 
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
+import { StatGrid, ModuleStatCard, ModuleContainer, ModuleToolbar } from '@/components/module-ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -397,34 +398,21 @@ export default function NotificationCenterModule() {
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="space-y-6"
-    >
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
+    <ModuleContainer>
+      <ModuleToolbar
+        actions={
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600">
-              <Bell className="h-4 w-4 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight">Notification Center</h1>
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1 px-3 py-1">
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              Africa&apos;s Talking: Connected
+            </Badge>
+            <Badge variant="outline" className="bg-teal-50 text-teal-700 border-teal-200 gap-1 px-3 py-1">
+              <Phone className="h-3 w-3 mr-1" />
+              WhatsApp: Active
+            </Badge>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">SMS, WhatsApp & Email notifications powered by Africa&apos;s Talking</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1 px-3 py-1">
-            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            Africa&apos;s Talking: Connected
-          </Badge>
-          <Badge variant="outline" className="bg-teal-50 text-teal-700 border-teal-200 gap-1 px-3 py-1">
-            <Phone className="h-3 w-3" />
-            WhatsApp: Active
-          </Badge>
-        </div>
-      </div>
+        }
+      />
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -454,83 +442,43 @@ export default function NotificationCenterModule() {
         {/* ─── Overview Tab ──────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Messages Sent Today</p>
-                    <p className="text-2xl font-bold tracking-tight">45</p>
-                    <div className="flex items-center gap-1.5">
-                      <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-600">+12% vs yesterday</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
-                    <Send className="h-5 w-5 text-emerald-600" />
-                  </div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 to-teal-500" />
-            </Card>
-
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Delivery Rate</p>
-                    <p className="text-2xl font-bold tracking-tight">94.2%</p>
-                    <div className="flex items-center gap-1.5">
-                      <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-600">+2.1% this week</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50">
-                    <CheckCircle2 className="h-5 w-5 text-teal-600" />
-                  </div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-teal-400 to-cyan-500" />
-            </Card>
-
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">SMS Credits Remaining</p>
-                    <p className="text-2xl font-bold tracking-tight">2,350</p>
-                    <div className="flex items-center gap-1.5">
-                      <ArrowDownRight className="h-3.5 w-3.5 text-amber-600" />
-                      <span className="text-xs font-medium text-amber-600">~52 days left</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
-                    <CreditCard className="h-5 w-5 text-amber-600" />
-                  </div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-400 to-orange-500" />
-            </Card>
-
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">WhatsApp Messages</p>
-                    <p className="text-2xl font-bold tracking-tight">128</p>
-                    <div className="flex items-center gap-1.5">
-                      <Phone className="h-3.5 w-3.5 text-teal-600" />
-                      <span className="text-xs font-medium text-teal-600">Primary channel</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50">
-                    <Phone className="h-5 w-5 text-teal-600" />
-                  </div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-teal-400 to-emerald-500" />
-            </Card>
-          </div>
+          <StatGrid cols={4}>
+            <ModuleStatCard
+              icon={Send}
+              label="Messages Sent Today"
+              value="45"
+              accentGradient="from-emerald-400 to-teal-500"
+              bgColor="bg-emerald-50"
+              footer={<div className="flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5 text-emerald-600" /><span className="text-xs font-medium text-emerald-600">+12% vs yesterday</span></div>}
+            />
+            <ModuleStatCard
+              icon={CheckCircle2}
+              label="Delivery Rate"
+              value="94.2%"
+              accentGradient="from-teal-400 to-cyan-500"
+              bgColor="bg-teal-50"
+              iconColor="text-teal-600"
+              footer={<div className="flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5 text-emerald-600" /><span className="text-xs font-medium text-emerald-600">+2.1% this week</span></div>}
+            />
+            <ModuleStatCard
+              icon={CreditCard}
+              label="SMS Credits Remaining"
+              value="2,350"
+              accentGradient="from-amber-400 to-orange-500"
+              bgColor="bg-amber-50"
+              iconColor="text-amber-600"
+              footer={<div className="flex items-center gap-1.5"><ArrowDownRight className="h-3.5 w-3.5 text-amber-600" /><span className="text-xs font-medium text-amber-600">~52 days left</span></div>}
+            />
+            <ModuleStatCard
+              icon={Phone}
+              label="WhatsApp Messages"
+              value="128"
+              accentGradient="from-teal-400 to-emerald-500"
+              bgColor="bg-teal-50"
+              iconColor="text-teal-600"
+              footer={<div className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-teal-600" /><span className="text-xs font-medium text-teal-600">Primary channel</span></div>}
+            />
+          </StatGrid>
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1895,6 +1843,6 @@ export default function NotificationCenterModule() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </motion.div>
+    </ModuleContainer>
   )
 }

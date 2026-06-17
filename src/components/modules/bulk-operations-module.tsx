@@ -24,6 +24,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { exportToCSV } from '@/lib/export-utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { StatGrid, ModuleStatCard, ModuleContainer } from '@/components/module-ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -462,36 +463,19 @@ export default function BulkOperationsModule() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Bulk Operations</h1>
-        <p className="text-sm text-muted-foreground mt-1">Mass actions for student promotion, fee assignment, attendance, and data import</p>
-      </div>
+    <ModuleContainer>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <StatGrid cols={4}>
         {[
-          { icon: GraduationCap, label: 'Grades Available', value: grades.length, color: 'text-emerald-600 bg-emerald-50' },
-          { icon: Users, label: 'Classes', value: classes.length, color: 'text-teal-600 bg-teal-50' },
-          { icon: DollarSign, label: 'Fee Structures', value: feeStructures.length, color: 'text-amber-600 bg-amber-50' },
-          { icon: CalendarCheck, label: 'Academic Years', value: academicYears.length, color: 'text-cyan-600 bg-cyan-50' },
-        ].map((stat) => (
-          <Card key={stat.label} className="border-0 shadow-md">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', stat.color)}>
-                  <stat.icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">{stat.label}</p>
-                  <p className="text-xl font-bold">{stat.value}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          { icon: GraduationCap, label: 'Grades Available', value: grades.length, ic: 'text-emerald-600', bg: 'bg-emerald-50', accent: 'from-emerald-400 to-teal-500' },
+          { icon: Users, label: 'Classes', value: classes.length, ic: 'text-teal-600', bg: 'bg-teal-50', accent: 'from-teal-400 to-cyan-500' },
+          { icon: DollarSign, label: 'Fee Structures', value: feeStructures.length, ic: 'text-amber-600', bg: 'bg-amber-50', accent: 'from-amber-400 to-orange-500' },
+          { icon: CalendarCheck, label: 'Academic Years', value: academicYears.length, ic: 'text-cyan-600', bg: 'bg-cyan-50', accent: 'from-cyan-400 to-sky-500' },
+        ].map((stat, i) => (
+          <ModuleStatCard key={stat.label} index={i} icon={stat.icon} label={stat.label} value={stat.value} accentGradient={stat.accent} bgColor={stat.bg} iconColor={stat.ic} />
         ))}
-      </div>
+      </StatGrid>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -1136,6 +1120,6 @@ export default function BulkOperationsModule() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </motion.div>
+    </ModuleContainer>
   )
 }

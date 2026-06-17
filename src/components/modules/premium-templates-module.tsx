@@ -32,6 +32,7 @@ import {
   RotateCcw, Layers, Maximize2, ZoomIn, ZoomOut, Columns,
 } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
+import { ModuleContainer, ModuleToolbar } from '@/components/module-ui'
 import { cn } from '@/lib/utils'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -1589,40 +1590,10 @@ export default function PremiumTemplatesModule() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="space-y-6"
-    >
-      {/* Module Header with gradient */}
-      <div className="relative overflow-hidden rounded-xl border border-emerald-200 dark:border-emerald-800">
-        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent" />
-        <div className="relative p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md">
-                  <Sparkles className="h-4 w-4 text-white" />
-                </div>
-                <h2 className="text-xl font-bold tracking-tight">Premium Print Templates</h2>
-              </div>
-              <p className="text-sm text-muted-foreground ml-10">Professional, print-ready documents for {settings.schoolName}</p>
-            </div>
-            <div className="flex items-center gap-2 ml-10 sm:ml-0">
-              <Badge className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-0 text-xs shadow-sm">
-                <FileText className="h-3 w-3 mr-1" />
-                4 Templates
-              </Badge>
-              <Badge variant="outline" className="text-[10px] border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400">
-                <Shield className="h-3 w-3 mr-1" />
-                ZW Compliant
-              </Badge>
-            </div>
-          </div>
-
-          {/* Main View Toggle */}
-          <div className="flex items-center gap-2 mt-4 ml-10 sm:ml-10">
+    <ModuleContainer>
+      <ModuleToolbar
+        filters={
+          <div className="flex items-center gap-2">
             <Button
               variant={mainView === 'preview' ? 'default' : 'outline'}
               size="sm"
@@ -1648,8 +1619,20 @@ export default function PremiumTemplatesModule() {
               Template Editor
             </Button>
           </div>
-        </div>
-      </div>
+        }
+        actions={
+          <div className="flex items-center gap-2">
+            <Badge className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-0 text-xs shadow-sm">
+              <FileText className="h-3 w-3 mr-1" />
+              4 Templates
+            </Badge>
+            <Badge variant="outline" className="text-[10px] border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400">
+              <Shield className="h-3 w-3 mr-1" />
+              ZW Compliant
+            </Badge>
+          </div>
+        }
+      />
 
       {/* Content Area */}
       <AnimatePresence mode="wait">
@@ -1768,6 +1751,6 @@ export default function PremiumTemplatesModule() {
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </ModuleContainer>
   )
 }

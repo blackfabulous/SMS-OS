@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { StatGrid, ModuleStatCard, ModuleContainer, ModuleToolbar } from '@/components/module-ui'
 import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
 import { Switch } from '@/components/ui/switch'
@@ -104,8 +105,8 @@ export default function ZimsecBulkImportModule() {
   const [autoAssignCentre, setAutoAssignCentre] = useState(true)
   const [defaultExamSession, setDefaultExamSession] = useState('June')
 
-  const validCandidates = candidates.filter(c => c.errors.length === 0)
-  const invalidCandidates = candidates.filter(c => c.errors.length > 0)
+  const validCandidates = candidates.filter(c => (c.errors ?? []).length === 0)
+  const invalidCandidates = candidates.filter(c => (c.errors ?? []).length > 0)
   const paidCandidates = candidates.filter(c => c.feesPaid >= c.feesTotal)
   const unpaidCandidates = candidates.filter(c => c.feesPaid < c.feesTotal)
 
@@ -192,7 +193,7 @@ export default function ZimsecBulkImportModule() {
       if (data.success) {
         setCandidates(prev => prev.map(c => ({
           ...c,
-          registrationStatus: c.errors.length === 0 ? 'REGISTERED' as const : 'FAILED' as const
+          registrationStatus: (c.errors ?? []).length === 0 ? 'REGISTERED' as const : 'FAILED' as const
         })))
         setStep('complete')
         toast.success(`${data.imported} results imported for ${validCandidates.length} candidates!`)
@@ -200,7 +201,7 @@ export default function ZimsecBulkImportModule() {
         toast.error('Bulk import failed', { description: data.error })
         setCandidates(prev => prev.map(c => ({
           ...c,
-          registrationStatus: c.errors.length === 0 ? 'REGISTERED' as const : 'FAILED' as const
+          registrationStatus: (c.errors ?? []).length === 0 ? 'REGISTERED' as const : 'FAILED' as const
         })))
         setStep('complete')
       }
@@ -210,7 +211,7 @@ export default function ZimsecBulkImportModule() {
       setIsProcessing(false)
       setCandidates(prev => prev.map(c => ({
         ...c,
-        registrationStatus: c.errors.length === 0 ? 'REGISTERED' as const : 'FAILED' as const
+        registrationStatus: (c.errors ?? []).length === 0 ? 'REGISTERED' as const : 'FAILED' as const
       })))
       setStep('complete')
       toast.success(`${validCandidates.length} candidates registered with ZIMSEC!`)
@@ -554,24 +555,14 @@ export default function ZimsecBulkImportModule() {
 
   // ─── Main List View ─────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600">
-              <FileCheck className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold tracking-tight">ZIMSEC Bulk Import</h2>
-              <p className="text-sm text-muted-foreground">Register candidates for ZIMSEC examinations</p>
-            </div>
-          </div>
+    <ModuleContainer>
+      <ModuleToolbar
+        actions={
           <Button variant="ghost" size="sm" onClick={() => setViewMode('settings')} className="gap-1">
             <Settings className="h-4 w-4" /> Settings
           </Button>
-        </div>
-      </motion.div>
+        }
+      />
 
       {/* Progress Steps */}
       <Card className="border-0 shadow-md">
@@ -758,9 +749,9 @@ export default function ZimsecBulkImportModule() {
                           </TableCell>
                           <TableCell>
                             <Badge className={cn('text-[9px]',
-                              candidate.errors.length === 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                              (candidate.errors ?? []).length === 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
                             )}>
-                              {candidate.errors.length === 0 ? 'Valid' : `${candidate.errors.length} issues`}
+                              {(candidate.errors ?? []).length === 0 ? 'Valid' : `${(candidate.errors ?? []).length} issues`}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -813,7 +804,7 @@ export default function ZimsecBulkImportModule() {
                             <Button variant="ghost" size="sm" className="text-xs text-red-600" onClick={() => handleRemoveCandidate(c.id)}>Remove</Button>
                           </div>
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {c.errors.map((err, idx) => (
+                            {(c.errors ?? []).map((err, idx) => (
                               <Badge key={idx} variant="outline" className="text-[9px] text-red-600 border-red-200">{err}</Badge>
                             ))}
                           </div>
@@ -886,6 +877,6 @@ export default function ZimsecBulkImportModule() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </ModuleContainer>
   )
 }

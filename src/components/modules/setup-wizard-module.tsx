@@ -27,6 +27,7 @@ import {
   BedDouble,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ModuleContainer } from '@/components/module-ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -854,7 +855,7 @@ export default function SetupWizardModule() {
   // ─── Completion Screen ─────────────────────────────────────────────────────
   if (setupComplete) {
     return (
-      <div className="space-y-6">
+      <ModuleContainer>
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-12">
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, delay: 0.2 }}>
             <div className="inline-flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30">
@@ -886,24 +887,12 @@ export default function SetupWizardModule() {
             <span className="text-sm text-muted-foreground">You can now start enrolling students and managing your school!</span>
           </motion.div>
         </motion.div>
-      </div>
+      </ModuleContainer>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600">
-            <Sparkles className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold">School Setup Wizard</h2>
-            <p className="text-xs text-muted-foreground">Configure your new school in 5 simple steps</p>
-          </div>
-        </div>
-      </motion.div>
+    <ModuleContainer>
 
       {/* Progress Bar */}
       <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
@@ -1086,6 +1075,6 @@ export default function SetupWizardModule() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </ModuleContainer>
   )
 }

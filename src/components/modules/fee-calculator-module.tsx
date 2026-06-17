@@ -30,6 +30,7 @@ import {
 
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { ModuleContainer, TableShell } from '@/components/module-ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -240,17 +241,7 @@ export default function FeeCalculatorModule() {
   const [activeTab, setActiveTab] = useState('overview')
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Calculator className="h-6 w-6 text-emerald-600" />
-            Fee Calculator & Currency Converter
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Calculate fees, convert currencies, plan payments, and check scholarship eligibility</p>
-        </div>
-      </div>
+    <ModuleContainer>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -283,7 +274,7 @@ export default function FeeCalculatorModule() {
         <TabsContent value="payments"><PaymentPlansTab /></TabsContent>
         <TabsContent value="scholarships"><ScholarshipsTab /></TabsContent>
       </Tabs>
-    </motion.div>
+    </ModuleContainer>
   )
 }
 
@@ -371,7 +362,7 @@ function OverviewTab({ onNavigate }: { onNavigate: (tab: string) => void }) {
           <CardDescription>Quick reference for tuition and boarding fees across all grade levels</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <ScrollArea className="max-h-[320px]">
+          <TableShell maxHeight="320px" className="border-0 rounded-none">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -394,7 +385,7 @@ function OverviewTab({ onNavigate }: { onNavigate: (tab: string) => void }) {
                 ))}
               </TableBody>
             </Table>
-          </ScrollArea>
+          </TableShell>
         </CardContent>
       </Card>
     </div>
@@ -863,8 +854,9 @@ function CurrencyConverterTab() {
               className="font-mono"
             />
           </div>
-          <Table>
-            <TableHeader>
+          <TableShell>
+            <Table>
+              <TableHeader>
               <TableRow>
                 <TableHead className="text-xs">USD ($)</TableHead>
                 <TableHead className="text-xs text-right">ZiG (ZiG$)</TableHead>
@@ -881,6 +873,7 @@ function CurrencyConverterTab() {
               ))}
             </TableBody>
           </Table>
+          </TableShell>
         </CardContent>
       </Card>
 
@@ -891,7 +884,7 @@ function CurrencyConverterTab() {
           <CardDescription>Tuition and boarding fees converted at rate 1 USD = {currentRate} ZiG</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <ScrollArea className="max-h-[350px]">
+          <TableShell maxHeight="350px" className="border-0 rounded-none">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -914,7 +907,7 @@ function CurrencyConverterTab() {
                 ))}
               </TableBody>
             </Table>
-          </ScrollArea>
+          </TableShell>
         </CardContent>
       </Card>
     </div>
@@ -1101,8 +1094,9 @@ function PaymentPlansTab() {
           <CardDescription>Currently active payment plans for students</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
+          <TableShell className="border-0 rounded-none">
+            <Table>
+              <TableHeader>
               <TableRow>
                 <TableHead className="text-xs">Student</TableHead>
                 <TableHead className="text-xs">Grade</TableHead>
@@ -1138,6 +1132,7 @@ function PaymentPlansTab() {
               ))}
             </TableBody>
           </Table>
+          </TableShell>
         </CardContent>
       </Card>
     </div>

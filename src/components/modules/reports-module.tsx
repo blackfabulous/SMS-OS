@@ -26,7 +26,6 @@ import {
   FileSpreadsheet,
   Award,
   Signature,
-  Select,
 } from 'lucide-react'
 import {
   BarChart,
@@ -44,6 +43,7 @@ import {
 import { cn } from '@/lib/utils'
 import { exportToCSV, printReport, buildHTMLTable } from '@/lib/export-utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { ModuleContainer, ModuleToolbar, SectionCard, TableShell, KitEmptyState, StatGrid, ModuleStatCard } from '@/components/module-ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -134,7 +134,12 @@ const gradeDistChartConfig = {
 
 // ─── Simulated Report Data ───────────────────────────────────────────────────
 
-function getReportData(reportId: string) {
+function getReportData(reportId: string): {
+  title: string
+  summary: Array<{ label: string; value: string; trend: string }>
+  chart: Array<{ name: string; value: number }>
+  table: any[]
+} {
   switch (reportId) {
     case 'pass_rate':
       return {
@@ -507,13 +512,7 @@ export default function ReportsModule() {
   const avgScore = (totalScore / reportCardSubjects.length).toFixed(1)
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Reports & Analytics</h1>
-        <p className="text-sm text-muted-foreground mt-1">Generate and view school reports across all departments</p>
-      </div>
-
+    <ModuleContainer>
       {/* Report Categories */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {reportCategories.map((cat) => {
@@ -550,51 +549,55 @@ export default function ReportsModule() {
             className="space-y-4"
           >
             {/* Report Card Header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Button variant="ghost" size="sm" onClick={handleClosePreview}>
-                  <X className="mr-1 h-4 w-4" />
-                  Close Preview
-                </Button>
-                <Separator orientation="vertical" className="h-6" />
-                <h2 className="text-lg font-semibold">Student Report Card</h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => {
-                  const headers = ['Subject', 'Mid-Term', 'Test', 'Exam', 'Grade']
-                  const rows = reportCardSubjects.map(s => [s.subject, String(s.midTerm), String(s.test), String(s.exam), s.grade])
-                  printReport(`Report Card - ${selectedStudentData?.name || 'Student'}`, buildHTMLTable(headers, rows))
-                }}>
-                  <Printer className="mr-2 h-3.5 w-3.5" />
-                  Print Report Card
-                </Button>
-                <Button variant="outline" size="sm" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100" disabled={downloadingPdf} onClick={async () => {
-                  setDownloadingPdf(true)
-                  try {
-                    const url = `/api/reports/report-card?studentId=${selectedStudent}&termId=${selectedTerm}`
-                    const printWindow = window.open(url, '_blank', 'width=800,height=600')
-                    if (!printWindow) {
-                      window.open(url, '_blank')
+            <ModuleToolbar
+              filters={
+                <div className="flex items-center gap-3">
+                  <Button variant="ghost" size="sm" onClick={handleClosePreview}>
+                    <X className="mr-1 h-4 w-4" />
+                    Close Preview
+                  </Button>
+                  <Separator orientation="vertical" className="h-6" />
+                  <h2 className="text-sm font-semibold">Student Report Card</h2>
+                </div>
+              }
+              actions={
+                <>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const headers = ['Subject', 'Mid-Term', 'Test', 'Exam', 'Grade']
+                    const rows = reportCardSubjects.map(s => [s.subject, String(s.midTerm), String(s.test), String(s.exam), s.grade])
+                    printReport(`Report Card - ${selectedStudentData?.name || 'Student'}`, buildHTMLTable(headers, rows))
+                  }}>
+                    <Printer className="mr-2 h-3.5 w-3.5" />
+                    Print Report Card
+                  </Button>
+                  <Button variant="outline" size="sm" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100" disabled={downloadingPdf} onClick={async () => {
+                    setDownloadingPdf(true)
+                    try {
+                      const url = `/api/reports/report-card?studentId=${selectedStudent}&termId=${selectedTerm}`
+                      const printWindow = window.open(url, '_blank', 'width=800,height=600')
+                      if (!printWindow) {
+                        window.open(url, '_blank')
+                      }
+                    } catch {
+                      // fallback
                     }
-                  } catch {
-                    // fallback
-                  }
-                  setDownloadingPdf(false)
-                }}>
-                  {downloadingPdf ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-2 h-3.5 w-3.5" />}
-                  Download PDF
-                </Button>
-              </div>
-            </div>
+                    setDownloadingPdf(false)
+                  }}>
+                    {downloadingPdf ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-2 h-3.5 w-3.5" />}
+                    Download PDF
+                  </Button>
+                </>
+              }
+            />
 
             {/* Student Selector */}
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-4">
-                <div className="flex flex-wrap items-end gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Student</label>
+            <ModuleToolbar
+              filters={
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-medium text-muted-foreground shrink-0">Student:</label>
                     <SelectComponent value={selectedStudent} onValueChange={setSelectedStudent}>
-                      <SelectTrigger className="w-[250px]">
+                      <SelectTrigger className="w-[200px] h-8">
                         <SelectValue placeholder="Select student" />
                       </SelectTrigger>
                       <SelectContent>
@@ -604,10 +607,10 @@ export default function ReportsModule() {
                       </SelectContent>
                     </SelectComponent>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Term</label>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-medium text-muted-foreground shrink-0">Term:</label>
                     <SelectComponent value={selectedTerm} onValueChange={setSelectedTerm}>
-                      <SelectTrigger className="w-[150px]">
+                      <SelectTrigger className="w-[100px] h-8">
                         <SelectValue placeholder="Select term" />
                       </SelectTrigger>
                       <SelectContent>
@@ -618,8 +621,8 @@ export default function ReportsModule() {
                     </SelectComponent>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              }
+            />
 
             {/* Report Card Preview */}
             <Card className="border-0 shadow-md overflow-hidden">
@@ -657,48 +660,50 @@ export default function ReportsModule() {
                 </div>
 
                 {/* Subject Grades Table */}
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-emerald-50/50">
-                      <TableHead className="text-xs font-semibold">Subject</TableHead>
-                      <TableHead className="text-xs font-semibold text-center">Mid-Term (30%)</TableHead>
-                      <TableHead className="text-xs font-semibold text-center">Test (20%)</TableHead>
-                      <TableHead className="text-xs font-semibold text-center">Exam (50%)</TableHead>
-                      <TableHead className="text-xs font-semibold text-center">Grade</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {reportCardSubjects.map((s, i) => (
-                      <TableRow key={i} className="hover:bg-muted/30">
-                        <TableCell className="text-sm font-medium">{s.subject}</TableCell>
-                        <TableCell className="text-sm text-center">{s.midTerm}</TableCell>
-                        <TableCell className="text-sm text-center">{s.test}</TableCell>
-                        <TableCell className="text-sm text-center font-semibold">{s.exam}</TableCell>
+                <TableShell>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-emerald-50/50">
+                        <TableHead className="text-xs font-semibold">Subject</TableHead>
+                        <TableHead className="text-xs font-semibold text-center">Mid-Term (30%)</TableHead>
+                        <TableHead className="text-xs font-semibold text-center">Test (20%)</TableHead>
+                        <TableHead className="text-xs font-semibold text-center">Exam (50%)</TableHead>
+                        <TableHead className="text-xs font-semibold text-center">Grade</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {reportCardSubjects.map((s, i) => (
+                        <TableRow key={i} className="hover:bg-muted/30">
+                          <TableCell className="text-sm font-medium">{s.subject}</TableCell>
+                          <TableCell className="text-sm text-center">{s.midTerm}</TableCell>
+                          <TableCell className="text-sm text-center">{s.test}</TableCell>
+                          <TableCell className="text-sm text-center font-semibold">{s.exam}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge className={cn(
+                              'text-xs font-bold border-0',
+                              s.grade === 'A' || s.grade === 'A*' ? 'bg-emerald-100 text-emerald-700' :
+                              s.grade === 'B' ? 'bg-teal-100 text-teal-700' :
+                              s.grade === 'C' ? 'bg-amber-100 text-amber-700' :
+                              s.grade === 'D' ? 'bg-orange-100 text-orange-700' :
+                              'bg-red-100 text-red-700'
+                            )}>
+                              {s.grade}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="bg-emerald-50/30 font-semibold">
+                        <TableCell>Total / Average</TableCell>
+                        <TableCell className="text-center">{(reportCardSubjects.reduce((sum, s) => sum + s.midTerm, 0)).toString()}</TableCell>
+                        <TableCell className="text-center">{(reportCardSubjects.reduce((sum, s) => sum + s.test, 0)).toString()}</TableCell>
+                        <TableCell className="text-center">{totalScore}</TableCell>
                         <TableCell className="text-center">
-                          <Badge className={cn(
-                            'text-xs font-bold border-0',
-                            s.grade === 'A' || s.grade === 'A*' ? 'bg-emerald-100 text-emerald-700' :
-                            s.grade === 'B' ? 'bg-teal-100 text-teal-700' :
-                            s.grade === 'C' ? 'bg-amber-100 text-amber-700' :
-                            s.grade === 'D' ? 'bg-orange-100 text-orange-700' :
-                            'bg-red-100 text-red-700'
-                          )}>
-                            {s.grade}
-                          </Badge>
+                          <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs font-bold">Avg: {avgScore}</Badge>
                         </TableCell>
                       </TableRow>
-                    ))}
-                    <TableRow className="bg-emerald-50/30 font-semibold">
-                      <TableCell>Total / Average</TableCell>
-                      <TableCell className="text-center">{(reportCardSubjects.reduce((sum, s) => sum + s.midTerm, 0)).toString()}</TableCell>
-                      <TableCell className="text-center">{(reportCardSubjects.reduce((sum, s) => sum + s.test, 0)).toString()}</TableCell>
-                      <TableCell className="text-center">{totalScore}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs font-bold">Avg: {avgScore}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
+                    </TableBody>
+                  </Table>
+                </TableShell>
 
                 {/* Behavioral Assessment */}
                 <div className="mt-6 p-4 rounded-xl border bg-muted/20">
@@ -793,53 +798,57 @@ export default function ReportsModule() {
             className="space-y-4"
           >
             {/* ZIMSEC Header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Button variant="ghost" size="sm" onClick={handleClosePreview}>
-                  <X className="mr-1 h-4 w-4" />
-                  Close Preview
-                </Button>
-                <Separator orientation="vertical" className="h-6" />
-                <h2 className="text-lg font-semibold">ZIMSEC Results Analysis</h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => {
-                  const headers = ['Subject', 'A*', 'A', 'B', 'C', 'D', 'E', 'U', 'Entries', 'Pass Rate']
-                  const rows = zimsecSubjectBreakdown.map(s => [s.subject, String(s.aStar), String(s.a), String(s.b), String(s.c), String(s.d), String(s.e), String(s.u), String(s.entries), s.passRate])
-                  printReport('ZIMSEC Results Analysis', buildHTMLTable(headers, rows))
-                }}>
-                  <Printer className="mr-2 h-3.5 w-3.5" />
-                  Print
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => {
-                  const csvData = zimsecSubjectBreakdown.map(s => ({
-                    Subject: s.subject,
-                    'A*': s.aStar,
-                    'A': s.a,
-                    'B': s.b,
-                    'C': s.c,
-                    'D': s.d,
-                    'E': s.e,
-                    'U': s.u,
-                    Entries: s.entries,
-                    'Pass Rate': s.passRate,
-                  }))
-                  exportToCSV(csvData, `ZIMSEC_Analysis_${zimsecYear}_${zimsecLevel}`)
-                }}>
-                  <FileSpreadsheet className="mr-2 h-3.5 w-3.5" />
-                  Export CSV
-                </Button>
-              </div>
-            </div>
+            <ModuleToolbar
+              filters={
+                <div className="flex items-center gap-3">
+                  <Button variant="ghost" size="sm" onClick={handleClosePreview}>
+                    <X className="mr-1 h-4 w-4" />
+                    Close Preview
+                  </Button>
+                  <Separator orientation="vertical" className="h-6" />
+                  <h2 className="text-sm font-semibold">ZIMSEC Results Analysis</h2>
+                </div>
+              }
+              actions={
+                <>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const headers = ['Subject', 'A*', 'A', 'B', 'C', 'D', 'E', 'U', 'Entries', 'Pass Rate']
+                    const rows = zimsecSubjectBreakdown.map(s => [s.subject, String(s.aStar), String(s.a), String(s.b), String(s.c), String(s.d), String(s.e), String(s.u), String(s.entries), s.passRate])
+                    printReport('ZIMSEC Results Analysis', buildHTMLTable(headers, rows))
+                  }}>
+                    <Printer className="mr-2 h-3.5 w-3.5" />
+                    Print
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const csvData = zimsecSubjectBreakdown.map(s => ({
+                      Subject: s.subject,
+                      'A*': s.aStar,
+                      'A': s.a,
+                      'B': s.b,
+                      'C': s.c,
+                      'D': s.d,
+                      'E': s.e,
+                      'U': s.u,
+                      Entries: s.entries,
+                      'Pass Rate': s.passRate,
+                    }))
+                    exportToCSV(csvData, `ZIMSEC_Analysis_${zimsecYear}_${zimsecLevel}`)
+                  }}>
+                    <FileSpreadsheet className="mr-2 h-3.5 w-3.5" />
+                    Export CSV
+                  </Button>
+                </>
+              }
+            />
 
             {/* ZIMSEC Selectors */}
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-4">
-                <div className="flex flex-wrap items-end gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Year</label>
+            <ModuleToolbar
+              filters={
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-medium text-muted-foreground">Year:</label>
                     <SelectComponent value={zimsecYear} onValueChange={setZimsecYear}>
-                      <SelectTrigger className="w-[120px]">
+                      <SelectTrigger className="w-[100px] h-8">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -849,10 +858,10 @@ export default function ReportsModule() {
                       </SelectContent>
                     </SelectComponent>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Level</label>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-medium text-muted-foreground">Level:</label>
                     <SelectComponent value={zimsecLevel} onValueChange={setZimsecLevel}>
-                      <SelectTrigger className="w-[150px]">
+                      <SelectTrigger className="w-[120px] h-8">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -862,163 +871,122 @@ export default function ReportsModule() {
                     </SelectComponent>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              }
+            />
 
             {/* ZIMSEC Summary Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <Card className="border-0 shadow-md">
-                <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Overall Pass Rate</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <p className="text-xl font-bold">87.3%</p>
-                    <TrendingUp className="h-4 w-4 text-emerald-600" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow-md">
-                <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Candidates</p>
-                  <p className="text-xl font-bold mt-1">205</p>
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow-md">
-                <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">5+ Passes</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <p className="text-xl font-bold">72.1%</p>
-                    <TrendingUp className="h-4 w-4 text-emerald-600" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow-md">
-                <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Subjects Offered</p>
-                  <p className="text-xl font-bold mt-1">10</p>
-                </CardContent>
-              </Card>
-            </div>
+            <StatGrid cols={4}>
+              <ModuleStatCard icon={TrendingUp} label="Overall Pass Rate" value="87.3%" accentGradient="from-emerald-400 to-teal-500" bgColor="bg-emerald-50" iconColor="text-emerald-600" />
+              <ModuleStatCard icon={Users} label="Total Candidates" value="205" accentGradient="from-teal-400 to-cyan-500" bgColor="bg-teal-50" iconColor="text-teal-600" />
+              <ModuleStatCard icon={Award} label="5+ Passes" value="72.1%" accentGradient="from-amber-400 to-orange-500" bgColor="bg-amber-50" iconColor="text-amber-600" />
+              <ModuleStatCard icon={BookOpen} label="Subjects Offered" value="10" accentGradient="from-violet-400 to-purple-500" bgColor="bg-violet-50" iconColor="text-violet-600" />
+            </StatGrid>
 
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Pass Rate by Subject Chart */}
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-semibold">Pass Rate by Subject vs Previous Year</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ChartContainer config={zimsecChartConfig} className="h-[280px] w-full">
-                    <BarChart data={zimsecPassRateData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="subject" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={60} />
-                      <YAxis domain={[0, 100]} tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="prevYear" fill="#d1d5db" radius={[4, 4, 0, 0]} maxBarSize={24} />
-                      <Bar dataKey="passRate" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={24} />
-                    </BarChart>
-                  </ChartContainer>
-                  <div className="flex items-center justify-center gap-6 mt-2">
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-full bg-emerald-500" />
-                      <span className="text-xs text-muted-foreground">Current Year</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-full bg-gray-300" />
-                      <span className="text-xs text-muted-foreground">Previous Year</span>
-                    </div>
+              <SectionCard title="Pass Rate by Subject vs Previous Year">
+                <ChartContainer config={zimsecChartConfig} className="h-[280px] w-full">
+                  <BarChart data={zimsecPassRateData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="subject" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={60} />
+                    <YAxis domain={[0, 100]} tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="prevYear" fill="#d1d5db" radius={[4, 4, 0, 0]} maxBarSize={24} />
+                    <Bar dataKey="passRate" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={24} />
+                  </BarChart>
+                </ChartContainer>
+                <div className="flex items-center justify-center gap-6 mt-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-emerald-500" />
+                    <span className="text-xs text-muted-foreground">Current Year</span>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-gray-300" />
+                    <span className="text-xs text-muted-foreground">Previous Year</span>
+                  </div>
+                </div>
+              </SectionCard>
 
               {/* Grade Distribution Chart */}
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-semibold">Grade Distribution (A*-U)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ChartContainer config={gradeDistChartConfig} className="h-[280px] w-full">
-                    <PieChart>
-                      <ChartTooltip content={<ChartTooltipContent nameKey="grade" />} />
-                      <Pie
-                        data={zimsecGradeDistribution}
-                        dataKey="count"
-                        nameKey="grade"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={3}
-                        strokeWidth={0}
-                      >
-                        {zimsecGradeDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ChartContainer>
-                  <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
-                    {zimsecGradeDistribution.map((g) => (
-                      <div key={g.grade} className="flex items-center gap-1.5">
-                        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: g.fill }} />
-                        <span className="text-xs text-muted-foreground">{g.grade} ({g.count})</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <SectionCard title="Grade Distribution (A*-U)">
+                <ChartContainer config={gradeDistChartConfig} className="h-[280px] w-full">
+                  <PieChart>
+                    <ChartTooltip content={<ChartTooltipContent nameKey="grade" />} />
+                    <Pie
+                      data={zimsecGradeDistribution}
+                      dataKey="count"
+                      nameKey="grade"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={3}
+                      strokeWidth={0}
+                    >
+                      {zimsecGradeDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ChartContainer>
+                <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
+                  {zimsecGradeDistribution.map((g) => (
+                    <div key={g.grade} className="flex items-center gap-1.5">
+                      <div className="h-3 w-3 rounded-full" style={{ backgroundColor: g.fill }} />
+                      <span className="text-xs text-muted-foreground">{g.grade} ({g.count})</span>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
             </div>
 
             {/* Subject-by-Subject Breakdown Table */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold">Subject-by-Subject Breakdown (A*-E Percentages)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="w-full">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-emerald-50/50">
-                        <TableHead className="text-xs font-semibold">Subject</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">A*</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">A</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">B</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">C</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">D</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">E</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">U</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">Entries</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">Pass Rate</TableHead>
+            <SectionCard title="Subject-by-Subject Breakdown (A*-E Percentages)" noPadding>
+              <TableShell>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-emerald-50/50">
+                      <TableHead className="text-xs font-semibold">Subject</TableHead>
+                      <TableHead className="text-xs font-semibold text-center">A*</TableHead>
+                      <TableHead className="text-xs font-semibold text-center">A</TableHead>
+                      <TableHead className="text-xs font-semibold text-center">B</TableHead>
+                      <TableHead className="text-xs font-semibold text-center">C</TableHead>
+                      <TableHead className="text-xs font-semibold text-center">D</TableHead>
+                      <TableHead className="text-xs font-semibold text-center">E</TableHead>
+                      <TableHead className="text-xs font-semibold text-center">U</TableHead>
+                      <TableHead className="text-xs font-semibold text-center">Entries</TableHead>
+                      <TableHead className="text-xs font-semibold text-center">Pass Rate</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {zimsecSubjectBreakdown.map((s, i) => (
+                      <TableRow key={i} className="hover:bg-muted/30">
+                        <TableCell className="text-sm font-medium">{s.subject}</TableCell>
+                        <TableCell className="text-sm text-center">{s.aStar}</TableCell>
+                        <TableCell className="text-sm text-center">{s.a}</TableCell>
+                        <TableCell className="text-sm text-center">{s.b}</TableCell>
+                        <TableCell className="text-sm text-center">{s.c}</TableCell>
+                        <TableCell className="text-sm text-center">{s.d}</TableCell>
+                        <TableCell className="text-sm text-center">{s.e}</TableCell>
+                        <TableCell className="text-sm text-center text-red-500">{s.u}</TableCell>
+                        <TableCell className="text-sm text-center">{s.entries}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge className={cn(
+                            'text-xs font-bold border-0',
+                            parseFloat(s.passRate) >= 90 ? 'bg-emerald-100 text-emerald-700' :
+                            parseFloat(s.passRate) >= 80 ? 'bg-teal-100 text-teal-700' :
+                            'bg-amber-100 text-amber-700'
+                          )}>
+                            {s.passRate}
+                          </Badge>
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {zimsecSubjectBreakdown.map((s, i) => (
-                        <TableRow key={i} className="hover:bg-muted/30">
-                          <TableCell className="text-sm font-medium">{s.subject}</TableCell>
-                          <TableCell className="text-sm text-center">{s.aStar}</TableCell>
-                          <TableCell className="text-sm text-center">{s.a}</TableCell>
-                          <TableCell className="text-sm text-center">{s.b}</TableCell>
-                          <TableCell className="text-sm text-center">{s.c}</TableCell>
-                          <TableCell className="text-sm text-center">{s.d}</TableCell>
-                          <TableCell className="text-sm text-center">{s.e}</TableCell>
-                          <TableCell className="text-sm text-center text-red-500">{s.u}</TableCell>
-                          <TableCell className="text-sm text-center">{s.entries}</TableCell>
-                          <TableCell className="text-center">
-                            <Badge className={cn(
-                              'text-xs font-bold border-0',
-                              parseFloat(s.passRate) >= 90 ? 'bg-emerald-100 text-emerald-700' :
-                              parseFloat(s.passRate) >= 80 ? 'bg-teal-100 text-teal-700' :
-                              'bg-amber-100 text-amber-700'
-                            )}>
-                              {s.passRate}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              </CardContent>
-            </Card>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableShell>
+            </SectionCard>
           </motion.div>
         ) : showEmisCensus ? (
           <motion.div
@@ -1030,87 +998,71 @@ export default function ReportsModule() {
             className="space-y-4"
           >
             {/* EMIS Census Header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Button variant="ghost" size="sm" onClick={handleClosePreview}>
-                  <X className="mr-1 h-4 w-4" />
-                  Close Preview
-                </Button>
-                <Separator orientation="vertical" className="h-6" />
-                <h2 className="text-lg font-semibold">Annual EMIS Census Return</h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => {
-                  const headers = ['Section', 'Field', 'Value']
-                  const rows = emisCensusSections.flatMap(section =>
-                    section.rows.map(row => [section.section, row.field, row.value])
-                  )
-                  printReport('Annual EMIS Census Return - ZimSchool Academy', buildHTMLTable(headers, rows))
-                }}>
-                  <Printer className="mr-2 h-3.5 w-3.5" />
-                  Print
-                </Button>
-                <Button variant="outline" size="sm" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100" onClick={() => {
-                  const csvData = emisCensusSections.flatMap(section =>
-                    section.rows.map(row => ({
-                      Section: section.section,
-                      Field: row.field,
-                      Value: row.value,
-                    }))
-                  )
-                  exportToCSV(csvData, `EMIS_Census_Return_${new Date().getFullYear()}`)
-                }}>
-                  <Download className="mr-2 h-3.5 w-3.5" />
-                  Export for EMIS
-                </Button>
-                <Button variant="outline" size="sm" className="bg-teal-50 text-teal-700 hover:bg-teal-100" disabled={exportingEmis} onClick={async () => {
-                  setExportingEmis(true)
-                  try {
-                    const url = `/api/reports/emis-export`
-                    const a = document.createElement('a')
-                    a.href = url
-                    a.download = `EMIS_Census_${new Date().getFullYear()}.xlsx`
-                    document.body.appendChild(a)
-                    a.click()
-                    document.body.removeChild(a)
-                  } catch {
-                    // fallback
-                  }
-                  setExportingEmis(false)
-                }}>
-                  {exportingEmis ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="mr-2 h-3.5 w-3.5" />}
-                  Export EMIS Excel
-                </Button>
-              </div>
-            </div>
+            <ModuleToolbar
+              filters={
+                <div className="flex items-center gap-3">
+                  <Button variant="ghost" size="sm" onClick={handleClosePreview}>
+                    <X className="mr-1 h-4 w-4" />
+                    Close Preview
+                  </Button>
+                  <Separator orientation="vertical" className="h-6" />
+                  <h2 className="text-sm font-semibold">Annual EMIS Census Return</h2>
+                </div>
+              }
+              actions={
+                <>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const headers = ['Section', 'Field', 'Value']
+                    const rows = emisCensusSections.flatMap(section =>
+                      section.rows.map(row => [section.section, row.field, row.value])
+                    )
+                    printReport('Annual EMIS Census Return - ZimSchool Academy', buildHTMLTable(headers, rows))
+                  }}>
+                    <Printer className="mr-2 h-3.5 w-3.5" />
+                    Print
+                  </Button>
+                  <Button variant="outline" size="sm" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100" onClick={() => {
+                    const csvData = emisCensusSections.flatMap(section =>
+                      section.rows.map(row => ({
+                        Section: section.section,
+                        Field: row.field,
+                        Value: row.value,
+                      }))
+                    )
+                    exportToCSV(csvData, `EMIS_Census_Return_${new Date().getFullYear()}`)
+                  }}>
+                    <Download className="mr-2 h-3.5 w-3.5" />
+                    Export for EMIS
+                  </Button>
+                  <Button variant="outline" size="sm" className="bg-teal-50 text-teal-700 hover:bg-teal-100" disabled={exportingEmis} onClick={async () => {
+                    setExportingEmis(true)
+                    try {
+                      const url = `/api/reports/emis-export`
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `EMIS_Census_${new Date().getFullYear()}.xlsx`
+                      document.body.appendChild(a)
+                      a.click()
+                      document.body.removeChild(a)
+                    } catch {
+                      // fallback
+                    }
+                    setExportingEmis(false)
+                  }}>
+                    {exportingEmis ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="mr-2 h-3.5 w-3.5" />}
+                    Export EMIS Excel
+                  </Button>
+                </>
+              }
+            />
 
             {/* EMIS Summary Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <Card className="border-0 shadow-md">
-                <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Enrollment</p>
-                  <p className="text-xl font-bold mt-1">568</p>
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow-md">
-                <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Staff</p>
-                  <p className="text-xl font-bold mt-1">44</p>
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow-md">
-                <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Pupil:Teacher Ratio</p>
-                  <p className="text-xl font-bold mt-1">20:1</p>
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow-md">
-                <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Collection Rate</p>
-                  <p className="text-xl font-bold mt-1">87.5%</p>
-                </CardContent>
-              </Card>
-            </div>
+            <StatGrid cols={4}>
+              <ModuleStatCard icon={Users} label="Total Enrollment" value="568" accentGradient="from-emerald-400 to-teal-500" bgColor="bg-emerald-50" iconColor="text-emerald-600" />
+              <ModuleStatCard icon={Users} label="Total Staff" value="44" accentGradient="from-teal-400 to-cyan-500" bgColor="bg-teal-50" iconColor="text-teal-600" />
+              <ModuleStatCard icon={BookOpen} label="Pupil:Teacher Ratio" value="20:1" accentGradient="from-amber-400 to-orange-500" bgColor="bg-amber-50" iconColor="text-amber-600" />
+              <ModuleStatCard icon={DollarSign} label="Collection Rate" value="87.5%" accentGradient="from-violet-400 to-purple-500" bgColor="bg-violet-50" iconColor="text-violet-600" />
+            </StatGrid>
 
             {/* EMIS Census Data Sections */}
             {emisCensusSections.map((section, sectionIndex) => (
@@ -1120,16 +1072,8 @@ export default function ReportsModule() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: sectionIndex * 0.1 }}
               >
-                <Card className="border-0 shadow-md">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100">
-                        <span className="text-xs font-bold text-emerald-700">{sectionIndex + 1}</span>
-                      </div>
-                      <CardTitle className="text-base font-semibold">{section.section}</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
+                <SectionCard title={`${sectionIndex + 1}. ${section.section}`} noPadding>
+                  <TableShell>
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-emerald-50/30">
@@ -1146,8 +1090,8 @@ export default function ReportsModule() {
                         ))}
                       </TableBody>
                     </Table>
-                  </CardContent>
-                </Card>
+                  </TableShell>
+                </SectionCard>
               </motion.div>
             ))}
           </motion.div>
@@ -1161,111 +1105,106 @@ export default function ReportsModule() {
             className="space-y-4"
           >
             {/* Preview Header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Button variant="ghost" size="sm" onClick={handleClosePreview}>
-                  <X className="mr-1 h-4 w-4" />
-                  Close Preview
-                </Button>
-                <Separator orientation="vertical" className="h-6" />
-                <h2 className="text-lg font-semibold">{reportData.title}</h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => {
-                  if (!reportData) return
-                  const headers = ['Item', ...reportData.table[0] && reportData.table[0].passRate ? ['Value'] : [], ...reportData.table[0] && reportData.table[0].avgMark > 0 ? ['Average'] : [], ...reportData.table[0] && reportData.table[0].entries > 0 ? ['Entries'] : []]
-                  const rows = reportData.table.map(row => {
-                    const cells: string[] = [row.subject]
-                    if (reportData!.table[0].passRate) cells.push(row.passRate)
-                    if (reportData!.table[0].avgMark > 0) cells.push(String(row.avgMark))
-                    if (reportData!.table[0].entries > 0) cells.push(String(row.entries))
-                    return cells
-                  })
-                  printReport(reportData.title, buildHTMLTable(headers.filter(Boolean), rows))
-                }}>
-                  <Printer className="mr-2 h-3.5 w-3.5" />
-                  Print
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => {
-                  if (!reportData) return
-                  const csvData = reportData.table.map(row => {
-                    const obj: Record<string, string> = { Item: row.subject }
-                    if (reportData!.table[0].passRate) obj['Value'] = row.passRate
-                    if (reportData!.table[0].avgMark > 0) obj['Average'] = String(row.avgMark)
-                    if (reportData!.table[0].entries > 0) obj['Entries'] = String(row.entries)
-                    return obj
-                  })
-                  exportToCSV(csvData, `${reportData.title.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}`)
-                }}>
-                  <FileSpreadsheet className="mr-2 h-3.5 w-3.5" />
-                  Export CSV
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => {
-                  if (!reportData) return
-                  const headers = ['Item']
-                  if (reportData.table[0]?.passRate) headers.push('Value')
-                  if (reportData.table[0]?.avgMark > 0) headers.push('Average')
-                  if (reportData.table[0]?.entries > 0) headers.push('Entries')
-                  const rows = reportData.table.map(row => {
-                    const cells: string[] = [row.subject]
-                    if (reportData!.table[0]?.passRate) cells.push(row.passRate)
-                    if (reportData!.table[0]?.avgMark > 0) cells.push(String(row.avgMark))
-                    if (reportData!.table[0]?.entries > 0) cells.push(String(row.entries))
-                    return cells
-                  })
-                  printReport(`${reportData.title} (PDF View)`, buildHTMLTable(headers, rows))
-                }}>
-                  <Download className="mr-2 h-3.5 w-3.5" />
-                  Export PDF
-                </Button>
-              </div>
-            </div>
+            <ModuleToolbar
+              filters={
+                <div className="flex items-center gap-3">
+                  <Button variant="ghost" size="sm" onClick={handleClosePreview}>
+                    <X className="mr-1 h-4 w-4" />
+                    Close Preview
+                  </Button>
+                  <Separator orientation="vertical" className="h-6" />
+                  <h2 className="text-sm font-semibold">{reportData.title}</h2>
+                </div>
+              }
+              actions={
+                <>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    if (!reportData) return
+                    const headers = ['Item', ...reportData.table[0] && reportData.table[0].passRate ? ['Value'] : [], ...reportData.table[0] && reportData.table[0].avgMark > 0 ? ['Average'] : [], ...reportData.table[0] && reportData.table[0].entries > 0 ? ['Entries'] : []]
+                    const rows = reportData.table.map(row => {
+                      const cells: string[] = [row.subject]
+                      if (reportData!.table[0].passRate) cells.push(row.passRate)
+                      if (reportData!.table[0].avgMark > 0) cells.push(String(row.avgMark))
+                      if (reportData!.table[0].entries > 0) cells.push(String(row.entries))
+                      return cells
+                    })
+                    printReport(reportData.title, buildHTMLTable(headers.filter(Boolean), rows))
+                  }}>
+                    <Printer className="mr-2 h-3.5 w-3.5" />
+                    Print
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    if (!reportData) return
+                    const csvData = reportData.table.map(row => {
+                      const obj: Record<string, string> = { Item: row.subject }
+                      if (reportData!.table[0].passRate) obj['Value'] = row.passRate
+                      if (reportData!.table[0].avgMark > 0) obj['Average'] = String(row.avgMark)
+                      if (reportData!.table[0].entries > 0) obj['Entries'] = String(row.entries)
+                      return obj
+                    })
+                    exportToCSV(csvData, `${reportData.title.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}`)
+                  }}>
+                    <FileSpreadsheet className="mr-2 h-3.5 w-3.5" />
+                    Export CSV
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    if (!reportData) return
+                    const headers = ['Item']
+                    if (reportData.table[0]?.passRate) headers.push('Value')
+                    if (reportData.table[0]?.avgMark > 0) headers.push('Average')
+                    if (reportData.table[0]?.entries > 0) headers.push('Entries')
+                    const rows = reportData.table.map(row => {
+                      const cells: string[] = [row.subject]
+                      if (reportData!.table[0]?.passRate) cells.push(row.passRate)
+                      if (reportData!.table[0]?.avgMark > 0) cells.push(String(row.avgMark))
+                      if (reportData!.table[0]?.entries > 0) cells.push(String(row.entries))
+                      return cells
+                    })
+                    printReport(`${reportData.title} (PDF View)`, buildHTMLTable(headers, rows))
+                  }}>
+                    <Download className="mr-2 h-3.5 w-3.5" />
+                    Export PDF
+                  </Button>
+                </>
+              }
+            />
 
             {/* Summary Cards */}
             {reportData.summary.length > 0 && (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <StatGrid cols={4}>
                 {reportData.summary.map((item, i) => (
-                  <Card key={i} className="border-0 shadow-md">
-                    <CardContent className="p-4">
-                      <p className="text-xs text-muted-foreground uppercase tracking-wide">{item.label}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <p className="text-xl font-bold">{item.value}</p>
-                        {item.trend === 'up' && <TrendingUp className="h-4 w-4 text-emerald-600" />}
-                        {item.trend === 'down' && <TrendingDown className="h-4 w-4 text-red-500" />}
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <ModuleStatCard
+                    key={i}
+                    icon={item.trend === 'up' ? TrendingUp : TrendingDown}
+                    label={item.label}
+                    value={item.value}
+                    accentGradient={item.trend === 'up' ? 'from-emerald-400 to-teal-500' : 'from-rose-400 to-red-500'}
+                    bgColor={item.trend === 'up' ? 'bg-emerald-50' : 'bg-rose-50'}
+                    iconColor={item.trend === 'up' ? 'text-emerald-600' : 'text-rose-600'}
+                  />
                 ))}
-              </div>
+              </StatGrid>
             )}
 
             {/* Chart + Table */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {reportData.chart.length > 0 && (
-                <Card className="border-0 shadow-md">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base font-semibold">Visual Analysis</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ChartContainer config={barChartConfig} className="h-[250px] w-full">
-                      <BarChart data={reportData.chart} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                        <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                        <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Bar dataKey="value" fill="var(--color-value)" radius={[6, 6, 0, 0]} maxBarSize={48} />
-                      </BarChart>
-                    </ChartContainer>
-                  </CardContent>
-                </Card>
+                <SectionCard title="Visual Analysis">
+                  <ChartContainer config={barChartConfig} className="h-[250px] w-full">
+                    <BarChart data={reportData.chart} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                      <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="value" fill="var(--color-value)" radius={[6, 6, 0, 0]} maxBarSize={48} />
+                    </BarChart>
+                  </ChartContainer>
+                </SectionCard>
               )}
 
               {reportData.table.length > 0 && (
-                <Card className="border-0 shadow-md">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base font-semibold">Detailed Breakdown</CardTitle>
-                  </CardHeader>
-                  <CardContent>
+                <SectionCard title="Detailed Breakdown" noPadding>
+                  <TableShell>
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -1286,8 +1225,8 @@ export default function ReportsModule() {
                         ))}
                       </TableBody>
                     </Table>
-                  </CardContent>
-                </Card>
+                  </TableShell>
+                </SectionCard>
               )}
             </div>
           </motion.div>
@@ -1299,30 +1238,25 @@ export default function ReportsModule() {
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.3 }}
           >
-            <Card className="border-0 shadow-md">
-              <CardHeader>
-                <CardTitle className="text-base font-semibold">
-                  {reportCategories.find((c) => c.id === activeCategory)?.label} Reports
-                </CardTitle>
-                <CardDescription>Select a report to generate and preview</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {currentReports().map((report) => (
-                    <div key={report.id} className="flex items-start gap-4 p-4 rounded-xl border hover:shadow-md hover:border-emerald-200 transition-all group cursor-pointer" onClick={() => handleGenerate(report.id)}>
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 shrink-0">
-                        <FileText className="h-5 w-5 text-emerald-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium group-hover:text-emerald-700 transition-colors">{report.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{report.description}</p>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-emerald-600 transition-colors shrink-0 mt-1" />
+            <SectionCard
+              title={`${reportCategories.find((c) => c.id === activeCategory)?.label} Reports`}
+              description="Select a report to generate and preview"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {currentReports().map((report) => (
+                  <div key={report.id} className="flex items-start gap-4 p-4 rounded-xl border hover:shadow-md hover:border-emerald-200 transition-all group cursor-pointer" onClick={() => handleGenerate(report.id)}>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 shrink-0">
+                      <FileText className="h-5 w-5 text-emerald-600" />
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium group-hover:text-emerald-700 transition-colors">{report.name}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{report.description}</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-emerald-600 transition-colors shrink-0 mt-1" />
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1341,6 +1275,6 @@ export default function ReportsModule() {
           </Card>
         </div>
       )}
-    </motion.div>
+    </ModuleContainer>
   )
 }
