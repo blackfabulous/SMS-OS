@@ -1,11 +1,12 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
-import { getRequestTenant } from '@/lib/tenant'
+import { requireContext } from '@/server/context'
 
 export async function GET(request: Request) {
-  const tenantResult = await getRequestTenant()
-  if ('error' in tenantResult) return tenantResult.error
-  const { schoolId } = tenantResult
+  // Management reporting (finance/HR/welfare aggregates) — restrict to staff.
+  const result = await requireContext({ roles: ['ADMIN', 'SUPER_ADMIN', 'BURSAR'] })
+  if ('error' in result) return result.error
+  const { schoolId } = result.ctx
 
   try {
     const { searchParams } = new URL(request.url)
@@ -69,9 +70,11 @@ export async function GET(request: Request) {
       case 'finance': {
         const [invoices, payments] = await Promise.all([
           db.feeInvoice.findMany({
+            where: { student: { schoolId } },
             include: { student: true, items: true },
           }),
           db.feePayment.findMany({
+            where: { student: { schoolId } },
             include: { student: true },
           }),
         ])
@@ -108,9 +111,9 @@ export async function GET(request: Request) {
 
       case 'hr': {
         const [staff, payslips, leaveRecords] = await Promise.all([
-          db.staff.findMany({ where: { schoolId: school?.id } }),
-          db.payslip.findMany({ take: 50, orderBy: { createdAt: 'desc' } }),
-          db.leaveRecord.findMany({ take: 50, orderBy: { createdAt: 'desc' } }),
+          db.staff.findMany({ where: { schoolId } }),
+          db.payslip.findMany({ where: { staff: { schoolId } }, take: 50, orderBy: { createdAt: 'desc' } }),
+          db.leaveRecord.findMany({ where: { staff: { schoolId } }, take: 50, orderBy: { createdAt: 'desc' } }),
         ])
 
         const staffByType: Record<string, number> = {}
@@ -133,9 +136,9 @@ export async function GET(request: Request) {
 
       case 'welfare': {
         const [welfareRecords, beamApps, disciplineRecords] = await Promise.all([
-          db.welfareRecord.findMany({ include: { student: true } }),
-          db.beamApplication.findMany({ include: { student: true } }),
-          db.disciplineRecord.findMany({ take: 50, orderBy: { createdAt: 'desc' } }),
+          db.welfareRecord.findMany({ where: { student: { schoolId } }, include: { student: true } }),
+          db.beamApplication.findMany({ where: { student: { schoolId } }, include: { student: true } }),
+          db.disciplineRecord.findMany({ where: { student: { schoolId } }, take: 50, orderBy: { createdAt: 'desc' } }),
         ])
 
         const welfareByCategory: Record<string, number> = {}
@@ -210,7 +213,7 @@ export async function GET(request: Request) {
         const [studentCount, staffCount, invoiceData] = await Promise.all([
           db.student.count({ where: { schoolId: school?.id } }),
           db.staff.count({ where: { schoolId: school?.id } }),
-          db.feeInvoice.aggregate({ _sum: { totalAmount: true, amountPaid: true } }),
+          db.feeInvoice.aggregate({ where: { student: { schoolId } }, _sum: { totalAmount: true, amountPaid: true } }),
         ])
 
         return NextResponse.json({

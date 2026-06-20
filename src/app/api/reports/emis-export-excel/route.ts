@@ -1,36 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
 import { db } from '@/lib/db'
-import { getRequestTenant } from '@/lib/tenant'
+import { requireContext } from '@/server/context'
 
 export async function GET(request: NextRequest) {
-  const tenantResult = await getRequestTenant()
-  if ('error' in tenantResult) return tenantResult.error
+  // EMIS census is an administrative (head/admin) export. Restrict to admins.
+  const result = await requireContext({ roles: ['ADMIN', 'SUPER_ADMIN'] })
+  if ('error' in result) return result.error
+  const { schoolId } = result.ctx
 
   try {
     const { searchParams } = new URL(request.url)
     const academicYearId = searchParams.get('academicYearId')
     const termId = searchParams.get('termId')
 
-    // ── Fetch all required data from the database ────────────────────────
-    const school = await db.school.findFirst()
+    // ── Fetch all required data — every query MUST be scoped to schoolId.
+    // (Previously unscoped: returned ALL tenants' rows — a cross-tenant breach.)
+    const school = await db.school.findUnique({ where: { id: schoolId } })
 
-    // Determine the academic year
+    // Determine the academic year (scoped to this school)
     let academicYear: { id: string; name: string; startDate: Date } | null = null
     if (academicYearId) {
-      academicYear = await db.academicYear.findUnique({ where: { id: academicYearId } })
+      academicYear = await db.academicYear.findFirst({ where: { id: academicYearId, schoolId } })
     }
     if (!academicYear) {
-      academicYear = await db.academicYear.findFirst({ where: { isCurrent: true } })
+      academicYear = await db.academicYear.findFirst({ where: { isCurrent: true, schoolId } })
     }
     if (!academicYear) {
-      academicYear = await db.academicYear.findFirst()
+      academicYear = await db.academicYear.findFirst({ where: { schoolId } })
     }
 
-    // Determine the term
+    // Determine the term (scoped via its academic year → school)
     let targetTerm: { id: string; name: string; termNumber: number; startDate: Date; endDate: Date } | null = null
     if (termId) {
-      targetTerm = await db.term.findUnique({ where: { id: termId } })
+      targetTerm = await db.term.findFirst({ where: { id: termId, academicYear: { schoolId } } })
     }
     if (!targetTerm && academicYear) {
       targetTerm = await db.term.findFirst({
@@ -46,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch students with enrollment info
     const students = await db.student.findMany({
-      where: { enrollmentStatus: 'ACTIVE' },
+      where: { schoolId, enrollmentStatus: 'ACTIVE' },
       include: {
         enrollments: {
           where: { status: 'ACTIVE' },
@@ -59,26 +62,27 @@ export async function GET(request: NextRequest) {
 
     // Fetch staff
     const staffMembers = await db.staff.findMany({
-      where: { isActive: true },
+      where: { schoolId, isActive: true },
     })
 
     // Fetch grades
     const grades = await db.grade.findMany({
-      where: { isActive: true },
+      where: { schoolId, isActive: true },
       orderBy: { sequence: 'asc' },
       include: { classes: { where: { isActive: true } } },
     })
 
     // Fetch assets / infrastructure
-    const assets = await db.asset.findMany()
+    const assets = await db.asset.findMany({ where: { schoolId } })
 
     // Fetch hostels and dormitories
     const hostels = await db.hostel.findMany({
+      where: { schoolId },
       include: { dormitories: true },
     })
 
-    // Fetch fee invoices
-    const invoiceWhere: Record<string, unknown> = {}
+    // Fetch fee invoices (always scoped to the school via the student relation)
+    const invoiceWhere: Record<string, unknown> = { student: { schoolId } }
     if (targetTerm) {
       invoiceWhere.termId = targetTerm.id
     } else if (academicYear) {
@@ -88,7 +92,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch BEAM applications
     const beamApplications = await db.beamApplication.findMany({
-      where: { status: 'APPROVED' },
+      where: { status: 'APPROVED', student: { schoolId } },
       include: { student: true },
     })
 

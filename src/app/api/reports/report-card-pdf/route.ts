@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { validateAuth } from '@/lib/api-auth'
-import { getRequestTenant } from '@/lib/tenant'
+import { requireContext } from '@/server/context'
+import { canAccessStudent } from '@/server/student-access'
 import { getSetting } from '@/lib/settings'
 import { symbolForMark, computeFinalMark } from '@/lib/grading'
 
 export async function GET(request: NextRequest) {
-  const authResult = await validateAuth()
-  if ('error' in authResult) return authResult.error
-  const tenant = await getRequestTenant()
-  if ('error' in tenant) return tenant.error
+  const result = await requireContext()
+  if ('error' in result) return result.error
+  const { ctx } = result
 
   try {
     const { searchParams } = new URL(request.url)
@@ -23,9 +22,16 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Ownership: staff may view any student in their school; a parent only their
+    // children; a student only themselves. (Previously any authed user could
+    // fetch ANY student's report card by id — cross-family PII leak.)
+    if (!(await canAccessStudent(ctx, studentId))) {
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+    }
+
     // Fetch student with all related data — SCOPED to the caller's school.
     const student = await db.student.findFirst({
-      where: { id: studentId, schoolId: tenant.schoolId },
+      where: { id: studentId, schoolId: ctx.schoolId },
       include: {
         enrollments: {
           where: { status: 'ACTIVE' },
@@ -60,20 +66,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 })
     }
 
-    // Fetch school info
-    const school = await db.school.findFirst()
+    // Fetch school info (scoped to the caller's school)
+    const school = await db.school.findUnique({ where: { id: ctx.schoolId } })
 
-    // Fetch current term if termId not provided
+    // Fetch current term if termId not provided — all scoped to this school.
     let term = termId
-      ? await db.term.findUnique({ where: { id: termId }, include: { academicYear: true } })
+      ? await db.term.findFirst({ where: { id: termId, academicYear: { schoolId: ctx.schoolId } }, include: { academicYear: true } })
       : await db.term.findFirst({
-          where: { isCurrent: true },
+          where: { isCurrent: true, academicYear: { schoolId: ctx.schoolId } },
           include: { academicYear: true },
         })
 
-    // If still no term, get the most recent one
+    // If still no term, get the most recent one for this school
     if (!term) {
       term = await db.term.findFirst({
+        where: { academicYear: { schoolId: ctx.schoolId } },
         include: { academicYear: true },
         orderBy: { startDate: 'desc' },
       })

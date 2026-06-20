@@ -1,18 +1,21 @@
 import { NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
 import { db } from '@/lib/db'
-import { getRequestTenant } from '@/lib/tenant'
+import { requireContext } from '@/server/context'
 
 export async function GET() {
-  const tenantResult = await getRequestTenant()
-  if ('error' in tenantResult) return tenantResult.error
-  const { schoolId } = tenantResult
+  // EMIS census is an administrative (head/admin) export. Restrict to admins.
+  const result = await requireContext({ roles: ['ADMIN', 'SUPER_ADMIN'] })
+  if ('error' in result) return result.error
+  const { schoolId } = result.ctx
 
   try {
-    // Fetch school data
-    const school = await db.school.findFirst()
+    // Fetch school data — every query MUST be scoped to schoolId. (Previously
+    // unscoped: findFirst() returned an arbitrary school and the rest returned
+    // ALL tenants' rows — a cross-tenant data breach.)
+    const school = await db.school.findUnique({ where: { id: schoolId } })
     const students = await db.student.findMany({
-      where: { enrollmentStatus: 'ACTIVE' },
+      where: { schoolId, enrollmentStatus: 'ACTIVE' },
       include: {
         enrollments: {
           where: { status: 'ACTIVE' },
@@ -22,10 +25,10 @@ export async function GET() {
       },
     })
     const staffMembers = await db.staff.findMany({
-      where: { isActive: true },
+      where: { schoolId, isActive: true },
     })
-    const assets = await db.asset.findMany()
-    const invoices = await db.feeInvoice.findMany()
+    const assets = await db.asset.findMany({ where: { schoolId } })
+    const invoices = await db.feeInvoice.findMany({ where: { student: { schoolId } } })
 
     // Create workbook
     const workbook = new ExcelJS.Workbook()

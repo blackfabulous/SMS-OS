@@ -1,11 +1,13 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
-import { getRequestTenant } from '@/lib/tenant'
+import { requireContext } from '@/server/context'
 
 export async function GET(request: Request) {
-  const tenantResult = await getRequestTenant()
-  if ('error' in tenantResult) return tenantResult.error
-  const { schoolId } = tenantResult
+  // Global directory search (students incl. national IDs, staff incl. emails)
+  // is a staff feature — not exposed to parents/students.
+  const result = await requireContext({ roles: ['ADMIN', 'SUPER_ADMIN', 'BURSAR', 'TEACHER'] })
+  if ('error' in result) return result.error
+  const { schoolId } = result.ctx
 
   try {
     const { searchParams } = new URL(request.url)
