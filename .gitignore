@@ -56,3 +56,12 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# test artifacts
+/test-results/
+/playwright-report/
+
+# editor/scratch
+*.bak
+/ecommerce/
+/current poor hero section.png
