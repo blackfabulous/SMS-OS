@@ -1,8 +1,8 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
 import { logAudit } from '@/lib/audit'
-import { getRequestTenant } from '@/lib/tenant'
-import { validateRole } from '@/lib/api-auth'
+import { requireContext } from '@/server/context'
+import { financeStudentScope } from '@/server/finance/scope'
 import { CreatePaymentSchema, type CreatePaymentInput } from '@/lib/validations'
 import { applyPayment, reversePayment, toBaseAmount } from '@/lib/finance-calc'
 import { getSetting } from '@/lib/settings'
@@ -60,9 +60,13 @@ async function createPaymentTxn(
 
 export async function GET(request: Request) {
   try {
-    const tenantResult = await getRequestTenant()
-    if ('error' in tenantResult) return tenantResult.error
-    const { schoolId } = tenantResult
+    const result = await requireContext()
+    if ('error' in result) return result.error
+    // Role-aware scope: staff see the whole school; parents/students only their
+    // own. Returns null → no finance visibility → empty result (never leak).
+    const scope = await financeStudentScope(result.ctx)
+    if (!scope) return NextResponse.json({ data: [], total: 0, page: 1, totalPages: 0 })
+
     const { searchParams } = new URL(request.url)
     const studentId = searchParams.get('studentId') || ''
     const paymentMethod = searchParams.get('paymentMethod') || ''
@@ -71,8 +75,9 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
 
-    const where: Record<string, unknown> = { student: { schoolId } }
-    if (studentId) where.studentId = studentId
+    const where: Record<string, unknown> = { ...scope.where }
+    // Only staff may narrow to an arbitrary student; non-staff are pinned to their own.
+    if (scope.staff && studentId) where.studentId = studentId
     if (paymentMethod) where.paymentMethod = paymentMethod
     if (startDate || endDate) {
       where.createdAt = {}
@@ -103,9 +108,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const authResult = await validateRole(['ADMIN', 'BURSAR'])
+  const authResult = await requireContext({ roles: ['ADMIN', 'BURSAR'] })
   if ('error' in authResult) return authResult.error
-  const { session } = authResult
+  const { ctx } = authResult
 
   try {
     const rawBody = await request.json()
@@ -121,7 +126,7 @@ export async function POST(request: Request) {
 
     // Enforce the school's accepted payment methods (settings-driven).
     if (data.paymentMethod) {
-      const allowed = await getSetting(session.user.schoolId, 'finance.paymentMethods')
+      const allowed = await getSetting(ctx.schoolId, 'finance.paymentMethods')
       if (!allowed.includes(data.paymentMethod.toUpperCase() as (typeof allowed)[number])) {
         return NextResponse.json(
           { error: `Payment method "${data.paymentMethod}" is not enabled. Allowed: ${allowed.join(', ')}` },
@@ -132,7 +137,7 @@ export async function POST(request: Request) {
 
     // Verify student belongs to the caller's school
     const student = await db.student.findUnique({
-      where: { id: data.studentId, schoolId: session.user.schoolId },
+      where: { id: data.studentId, schoolId: ctx.schoolId },
       select: { id: true },
     })
     if (!student) {
@@ -142,7 +147,7 @@ export async function POST(request: Request) {
     // Validate amount (in base currency) against invoice balance before any writes
     if (data.invoiceId) {
       const invoice = await db.feeInvoice.findUnique({
-        where: { id: data.invoiceId, student: { schoolId: session.user.schoolId } },
+        where: { id: data.invoiceId, student: { schoolId: ctx.schoolId } },
       })
       if (!invoice) {
         return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
@@ -179,7 +184,7 @@ export async function POST(request: Request) {
 
     // Send a receipt acknowledgement to the guardian (fire-and-forget, original currency).
     const receiptNumber = payment.receiptNumber
-    void notifyStudentGuardian(session.user.schoolId, data.studentId, (studentName) => ({
+    void notifyStudentGuardian(ctx.schoolId, data.studentId, (studentName) => ({
       type: 'payment.received',
       studentName,
       amount,
@@ -195,9 +200,9 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const authResult = await validateRole(['ADMIN', 'BURSAR'])
+  const authResult = await requireContext({ roles: ['ADMIN', 'BURSAR'] })
   if ('error' in authResult) return authResult.error
-  const { session } = authResult
+  const { ctx } = authResult
 
   try {
     const body = await request.json()
@@ -209,7 +214,7 @@ export async function PUT(request: Request) {
       where: { id },
       select: { student: { select: { schoolId: true } } },
     })
-    if (!existing || existing.student.schoolId !== session.user.schoolId) {
+    if (!existing || existing.student.schoolId !== ctx.schoolId) {
       return NextResponse.json({ error: 'Payment not found' }, { status: 404 })
     }
 
@@ -228,9 +233,9 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const authResult = await validateRole(['ADMIN', 'BURSAR'])
+  const authResult = await requireContext({ roles: ['ADMIN', 'BURSAR'] })
   if ('error' in authResult) return authResult.error
-  const { session } = authResult
+  const { ctx } = authResult
 
   try {
     const { searchParams } = new URL(request.url)
@@ -242,7 +247,7 @@ export async function DELETE(request: Request) {
       where: { id },
       select: { isReversed: true, student: { select: { schoolId: true } } },
     })
-    if (!existing || existing.student.schoolId !== session.user.schoolId) {
+    if (!existing || existing.student.schoolId !== ctx.schoolId) {
       return NextResponse.json({ error: 'Payment not found' }, { status: 404 })
     }
     if (existing.isReversed) {

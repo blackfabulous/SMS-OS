@@ -1,15 +1,18 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
 import { logAudit } from '@/lib/audit'
-import { getRequestTenant } from '@/lib/tenant'
-import { validateRole } from '@/lib/api-auth'
+import { requireContext } from '@/server/context'
+import { financeStudentScope } from '@/server/finance/scope'
 import { CreateInvoiceSchema } from '@/lib/validations'
 
 export async function GET(request: Request) {
   try {
-    const tenantResult = await getRequestTenant()
-    if ('error' in tenantResult) return tenantResult.error
-    const { schoolId } = tenantResult
+    const result = await requireContext()
+    if ('error' in result) return result.error
+    // Role-aware scope: staff see the whole school; parents/students only their own.
+    const scope = await financeStudentScope(result.ctx)
+    if (!scope) return NextResponse.json({ data: [], total: 0, page: 1, totalPages: 0 })
+
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status') || ''
     const studentId = searchParams.get('studentId') || ''
@@ -17,9 +20,10 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
 
-    const where: Record<string, unknown> = { student: { schoolId } }
+    const where: Record<string, unknown> = { ...scope.where }
     if (status) where.status = status
-    if (studentId) where.studentId = studentId
+    // Only staff may narrow to an arbitrary student; non-staff are pinned to their own.
+    if (scope.staff && studentId) where.studentId = studentId
     if (termId) where.termId = termId
 
     const [data, total] = await Promise.all([
@@ -49,9 +53,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const authResult = await validateRole(['ADMIN', 'BURSAR'])
+  const authResult = await requireContext({ roles: ['ADMIN', 'BURSAR'] })
   if ('error' in authResult) return authResult.error
-  const { session } = authResult
+  const { ctx } = authResult
 
   try {
     const rawBody = await request.json()
@@ -64,7 +68,7 @@ export async function POST(request: Request) {
 
     // Verify student belongs to caller's school
     const student = await db.student.findUnique({
-      where: { id: data.studentId, schoolId: session.user.schoolId },
+      where: { id: data.studentId, schoolId: ctx.schoolId },
       select: { id: true },
     })
     if (!student) {
@@ -116,9 +120,9 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const authResult = await validateRole(['ADMIN', 'BURSAR'])
+  const authResult = await requireContext({ roles: ['ADMIN', 'BURSAR'] })
   if ('error' in authResult) return authResult.error
-  const { session } = authResult
+  const { ctx } = authResult
 
   try {
     const body = await request.json()
@@ -127,7 +131,7 @@ export async function PUT(request: Request) {
 
     // Verify invoice belongs to a student in the caller's school
     const existing = await db.feeInvoice.findUnique({
-      where: { id, student: { schoolId: session.user.schoolId } },
+      where: { id, student: { schoolId: ctx.schoolId } },
       select: { id: true },
     })
     if (!existing) {
@@ -152,9 +156,9 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const authResult = await validateRole(['ADMIN', 'BURSAR'])
+  const authResult = await requireContext({ roles: ['ADMIN', 'BURSAR'] })
   if ('error' in authResult) return authResult.error
-  const { session } = authResult
+  const { ctx } = authResult
 
   try {
     const { searchParams } = new URL(request.url)
@@ -162,7 +166,7 @@ export async function DELETE(request: Request) {
     if (!id) return NextResponse.json({ error: 'Invoice ID is required' }, { status: 400 })
 
     const invoice = await db.feeInvoice.findUnique({
-      where: { id, student: { schoolId: session.user.schoolId } },
+      where: { id, student: { schoolId: ctx.schoolId } },
     })
     if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
     if (invoice.amountPaid > 0) return NextResponse.json({ error: 'Cannot delete invoice with payments' }, { status: 400 })
