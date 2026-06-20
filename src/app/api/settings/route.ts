@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { validateAuth, validateRole } from '@/lib/api-auth'
-import { getRequestTenant } from '@/lib/tenant'
+import { requireContext } from '@/server/context'
 import { logAudit } from '@/lib/audit'
 import { getAllSettings, setSettings } from '@/lib/settings'
 import {
@@ -17,10 +16,11 @@ import {
  * Any authenticated user may read settings.
  */
 export async function GET(request: Request) {
-  const auth = await validateAuth()
-  if ('error' in auth) return auth.error
-  const tenant = await getRequestTenant()
-  if ('error' in tenant) return tenant.error
+  // Unified auth + tenant + policy in one call (blueprint §3.2). Any authenticated
+  // member of the school may read settings (dashboard is readable by all roles).
+  const result = await requireContext({ module: 'dashboard', action: 'read' })
+  if ('error' in result) return result.error
+  const { ctx } = result
 
   const { searchParams } = new URL(request.url)
   const categoryParam = searchParams.get('category')
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     ? (categoryParam as SettingCategory)
     : undefined
 
-  const values = await getAllSettings(tenant.schoolId, category)
+  const values = await getAllSettings(ctx.schoolId, category)
 
   const meta = (Object.keys(SETTINGS_REGISTRY) as SettingKey[])
     .filter((k) => !category || SETTINGS_REGISTRY[k].category === category)
@@ -51,10 +51,12 @@ export async function GET(request: Request) {
  * persisted, invalid/unknown keys are reported back with a 207-style payload.
  */
 export async function PUT(request: Request) {
-  const auth = await validateRole(['ADMIN', 'SUPER_ADMIN'])
-  if ('error' in auth) return auth.error
-  const tenant = await getRequestTenant()
-  if ('error' in tenant) return tenant.error
+  // Writing settings is restricted to admins. NOTE: rbac.ts also grants BURSAR
+  // settings:update — reconcile that matrix discrepancy under RA-B2 before
+  // switching this to a pure module/action gate. Preserve the stricter behavior:
+  const result = await requireContext({ roles: ['ADMIN', 'SUPER_ADMIN'], module: 'settings', action: 'update' })
+  if ('error' in result) return result.error
+  const { ctx } = result
 
   let body: unknown
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
@@ -64,17 +66,17 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Body must be { settings: { key: value } }' }, { status: 400 })
   }
 
-  const result = await setSettings(tenant.schoolId, entries)
+  const outcome = await setSettings(ctx.schoolId, entries)
 
-  if (result.updated.length > 0) {
+  if (outcome.updated.length > 0) {
     logAudit({
       action: 'UPDATE',
       entity: 'settings',
-      entityId: tenant.schoolId,
-      afterValue: { updated: result.updated },
+      entityId: ctx.schoolId,
+      afterValue: { updated: outcome.updated },
     }).catch(() => {})
   }
 
-  const status = result.errors.length > 0 ? (result.updated.length > 0 ? 207 : 400) : 200
-  return NextResponse.json(result, { status })
+  const status = outcome.errors.length > 0 ? (outcome.updated.length > 0 ? 207 : 400) : 200
+  return NextResponse.json(outcome, { status })
 }
