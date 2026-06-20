@@ -12,6 +12,7 @@ interface EmptyStateProps {
   description: string
   actionLabel?: string
   onAction?: () => void
+  action?: React.ReactNode
   className?: string
 }
 
@@ -21,6 +22,7 @@ export function EmptyState({
   description,
   actionLabel,
   onAction,
+  action,
   className,
 }: EmptyStateProps) {
   return (
@@ -63,6 +65,7 @@ export function EmptyState({
           {actionLabel}
         </Button>
       )}
+      {action && <div className="mt-2">{action}</div>}
     </motion.div>
   )
 }

@@ -9,8 +9,8 @@ import {
   BedDouble, Bus, Library, Package, Heart, Scale, HeartPulse,
   Building, MessageSquare, Settings, Clock, Trophy, Coffee,
   ShoppingCart, Shield, Monitor, Calculator, FileText, UsersRound,
-  ClipboardCheck, School, BellRing, ArrowRightLeft, Bell, ShoppingBag, Printer, Globe, Palette,
-  Search, HandHeart,
+  ClipboardCheck, School, BellRing, ArrowRightLeft, Bell, ShoppingBag, Printer, Globe,
+  HandHeart,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSession, signOut } from 'next-auth/react'
@@ -98,8 +98,6 @@ const navGroups: NavGroup[] = [
     label: 'Website',
     items: [
       { id: 'website-cms', label: 'Website CMS', icon: Globe },
-      { id: 'admin-cms', label: 'Admin CMS', icon: Palette },
-      { id: 'seo', label: 'SEO Settings', icon: Search },
     ],
   },
   {

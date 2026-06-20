@@ -8,11 +8,11 @@ import {
 
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { StatGrid, ModuleStatCard, ModuleContainer, SectionCard, ModuleToolbar, TableShell, KitEmptyState } from '@/components/module-ui'
+import { StatGrid, ModuleStatCard, ModuleContainer, SectionCard, ModuleToolbar, TableShell, KitEmptyState, ModulePageLayout } from '@/components/module-ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -159,13 +159,17 @@ export default function TimetableModule() {
         <Card className="border-amber-200 bg-amber-50/50"><CardContent className="p-4 text-sm text-amber-800">Set up <span className="font-medium">classes</span> and <span className="font-medium">subjects</span> in the Academics module before building the timetable.</CardContent></Card>
       )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Overview</TabsTrigger>
-          <TabsTrigger value="weekly" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Weekly View</TabsTrigger>
-          <TabsTrigger value="schedule" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Teacher Schedule</TabsTrigger>
-          <TabsTrigger value="manage" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Manage</TabsTrigger>
-        </TabsList>
+      <ModulePageLayout
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="weekly">Weekly View</TabsTrigger>
+            <TabsTrigger value="schedule">Teacher Schedule</TabsTrigger>
+            <TabsTrigger value="manage">Manage</TabsTrigger>
+          </>}
+      >
+
 
         {/* ─── Overview ─── */}
         <TabsContent value="overview" className="space-y-4">
@@ -366,7 +370,7 @@ export default function TimetableModule() {
             </ScrollArea>
           </TableShell>
         </TabsContent>
-      </Tabs>
+      </ModulePageLayout>
 
       {/* ─── Add/Edit Dialog ─── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

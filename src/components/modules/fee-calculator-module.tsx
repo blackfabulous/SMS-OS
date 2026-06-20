@@ -30,12 +30,12 @@ import {
 
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { ModuleContainer, TableShell } from '@/components/module-ui'
+import { ModuleContainer, TableShell, ModulePageLayout } from '@/components/module-ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import {
@@ -244,36 +244,25 @@ export default function FeeCalculatorModule() {
     <ModuleContainer>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50 p-1 flex flex-wrap">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Info className="mr-1.5 h-3.5 w-3.5" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="calculator" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Calculator className="mr-1.5 h-3.5 w-3.5" />
-            Fee Calculator
-          </TabsTrigger>
-          <TabsTrigger value="currency" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
-            Currency Converter
-          </TabsTrigger>
-          <TabsTrigger value="payments" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <CreditCard className="mr-1.5 h-3.5 w-3.5" />
-            Payment Plans
-          </TabsTrigger>
-          <TabsTrigger value="scholarships" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Award className="mr-1.5 h-3.5 w-3.5" />
-            Scholarships
-          </TabsTrigger>
-        </TabsList>
+      <ModulePageLayout
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="calculator">Fee Calculator</TabsTrigger>
+            <TabsTrigger value="currency">Currency Converter</TabsTrigger>
+            <TabsTrigger value="payments">Payment Plans</TabsTrigger>
+            <TabsTrigger value="scholarships">Scholarships</TabsTrigger>
+          </>}
+      >
+
 
         <TabsContent value="overview"><OverviewTab onNavigate={setActiveTab} /></TabsContent>
         <TabsContent value="calculator"><FeeCalculatorTab /></TabsContent>
         <TabsContent value="currency"><CurrencyConverterTab /></TabsContent>
         <TabsContent value="payments"><PaymentPlansTab /></TabsContent>
         <TabsContent value="scholarships"><ScholarshipsTab /></TabsContent>
-      </Tabs>
+      </ModulePageLayout>
     </ModuleContainer>
   )
 }

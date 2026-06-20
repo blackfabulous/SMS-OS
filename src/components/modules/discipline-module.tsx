@@ -1,5 +1,6 @@
 'use client'
 
+import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -43,7 +44,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -629,27 +630,22 @@ export default function DisciplineModule() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2"><Scale className="h-6 w-6 text-orange-500" /> Discipline & Behaviour</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage disciplinary incidents and student behaviour</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setViewMode('settings')}><Settings className="mr-2 h-4 w-4" /> Settings</Button>
+<ModulePageLayout
+        actions={<>
           <Button onClick={() => setViewMode('add')} className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-md">
             <Plus className="mr-2 h-4 w-4" /> Add Incident
           </Button>
-        </div>
-      </div>
+          <ModuleSettingsButton onClick={() => setViewMode('settings')} />
+        </>}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="incidents">Incidents</TabsTrigger>
+            <TabsTrigger value="merit">Merit Board</TabsTrigger>
+          </>}
+      >
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Overview</TabsTrigger>
-          <TabsTrigger value="incidents" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Incidents</TabsTrigger>
-          <TabsTrigger value="merit" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Merit Board</TabsTrigger>
-        </TabsList>
 
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
@@ -861,7 +857,7 @@ export default function DisciplineModule() {
             </Card>
           )}
         </TabsContent>
-      </Tabs>
+      </ModulePageLayout>
     </motion.div>
   )
 }

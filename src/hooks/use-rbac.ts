@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useEffect, useCallback, useMemo } from 'react'
+import { useAppStore } from '@/lib/store'
 import {
   hasPermission,
   canPerformAction,
@@ -17,7 +18,18 @@ import {
 // ─── Hook ───────────────────────────────────────────────────────────────────
 
 export function useRBAC(initialRole: UserRole = 'ADMIN') {
-  const [currentRole, setCurrentRole] = useState<UserRole>(initialRole)
+  const storeRole = useAppStore((state) => state.currentRole)
+  const storeSetRole = useAppStore((state) => state.setCurrentRole)
+
+  const currentRole = storeRole || initialRole
+
+  useEffect(() => {
+    if (!storeRole && initialRole) {
+      storeSetRole(initialRole)
+    }
+  }, [initialRole, storeRole, storeSetRole])
+
+  const setCurrentRole = storeSetRole
 
   const accessibleModules = useMemo(() => getAccessibleModules(currentRole), [currentRole])
   const rolePermissions = useMemo(() => getRolePermissions(currentRole), [currentRole])
@@ -45,7 +57,9 @@ export function useRBAC(initialRole: UserRole = 'ADMIN') {
   )
 
   const filterNavGroups = useCallback(
-    (groups: Array<{ label: string; items: Array<{ id: string; [key: string]: unknown }> }>) => {
+    <T extends { id: string }>(
+      groups: Array<{ label: string; items: T[] }>
+    ): Array<{ label: string; items: T[] }> => {
       return groups
         .map((group) => ({
           ...group,

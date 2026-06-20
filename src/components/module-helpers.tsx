@@ -9,7 +9,7 @@ import {
   Building, MessageSquare, Settings, Clock, Trophy, Coffee,
   ShoppingCart, Shield, Monitor, Calculator, FileText, UsersRound,
   ClipboardCheck, School, BellRing, ArrowRightLeft, AlertCircle,
-  CheckCircle2, ChevronRight, Globe, Printer, ShoppingBag, Palette,
+  CheckCircle2, ChevronRight, Globe, Printer, ShoppingBag,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
@@ -54,9 +54,8 @@ export const moduleInfo: Record<string, { title: string; description: string; ic
   'notification-center': { title: 'Notification Center', description: 'SMS, WhatsApp, and email notification management', icon: BellRing, gradient: 'from-teal-500 to-cyan-600' },
   'bulk-operations': { title: 'Bulk Operations', description: 'Mass promotion, fee assignment, attendance, and data import', icon: ArrowRightLeft, gradient: 'from-emerald-500 to-teal-600' },
   'premium-templates': { title: 'Print Templates', description: 'Professional invoices, receipts, statements, and payslips', icon: Printer, gradient: 'from-emerald-500 to-teal-600' },
-  'website-cms': { title: 'Website CMS', description: 'Manage your public school website content and pages', icon: Globe, gradient: 'from-emerald-500 to-teal-600' },
+  'website-cms': { title: 'Website CMS', description: 'Public website content, About page, staff, FAQs, partners, news, gallery and SEO', icon: Globe, gradient: 'from-emerald-500 to-teal-600' },
   'school-shop': { title: 'School Shop', description: 'Uniforms, stationery, textbooks, and school supplies', icon: ShoppingBag, gradient: 'from-emerald-500 to-teal-600' },
-  'admin-cms': { title: 'Admin CMS', description: 'Comprehensive website content management, SEO, and branding', icon: Palette, gradient: 'from-teal-500 to-emerald-600' },
 }
 
 // ─── Module Breadcrumb Mapping ────────────────────────────────────────────────
@@ -100,7 +99,6 @@ const moduleGroupMap: Record<string, { group: string; path: string[] }> = {
   settings: { group: 'Admin', path: ['Admin', 'Settings'] },
   'setup-wizard': { group: 'Admin', path: ['Admin', 'Setup Wizard'] },
   'website-cms': { group: 'Admin', path: ['Admin', 'Website CMS'] },
-  'admin-cms': { group: 'Admin', path: ['Admin', 'Admin CMS'] },
 }
 
 // ─── Module Header Component ──────────────────────────────────────────────────
@@ -147,33 +145,33 @@ export function ModuleHeader({ moduleId }: { moduleId: string }) {
       </motion.nav>
 
       {/* Module Title with gradient accent */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 sm:gap-4">
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.15 }}
           className={cn(
-            'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-md relative overflow-hidden',
+            'flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden',
             info.gradient
           )}
         >
-          <info.icon className="h-5 w-5 relative z-10" />
-          <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
+          <info.icon className="h-5 w-5 sm:h-6 sm:w-6 relative z-10" />
+          <div className="absolute inset-0 bg-gradient-to-br from-white/25 to-transparent" />
         </motion.div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold tracking-tight">{info.title}</h2>
-            <Badge variant="outline" className="text-[9px] h-4 px-1.5 shrink-0 bg-emerald-50/50 text-emerald-600 border-emerald-200/50 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{info.title}</h1>
+            <Badge variant="outline" className="text-[9px] h-4 px-1.5 shrink-0 bg-emerald-50/60 text-emerald-600 border-emerald-200/60 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50">
               {breadcrumb.group}
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">{info.description}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 line-clamp-1">{info.description}</p>
           {/* Gradient accent bar under title */}
           <motion.div
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
             transition={{ duration: 0.5, delay: 0.2, ease: 'easeOut' }}
-            className={cn('mt-1.5 h-[2px] w-24 rounded-full origin-left bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400 bg-[length:200%_100%] animate-gradient-x', info.gradient)}
+            className={cn('mt-2 h-[3px] w-28 rounded-full origin-left bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400 bg-[length:200%_100%] animate-gradient-x', info.gradient)}
           />
         </div>
       </div>

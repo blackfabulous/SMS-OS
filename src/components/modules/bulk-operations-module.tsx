@@ -24,7 +24,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { exportToCSV } from '@/lib/export-utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { StatGrid, ModuleStatCard, ModuleContainer } from '@/components/module-ui'
+import { StatGrid, ModuleStatCard, ModuleContainer, ModulePageLayout } from '@/components/module-ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -478,21 +478,17 @@ export default function BulkOperationsModule() {
       </StatGrid>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="promotion" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <ArrowRightLeft className="mr-2 h-4 w-4" /> Student Promotion
-          </TabsTrigger>
-          <TabsTrigger value="fees" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <DollarSign className="mr-2 h-4 w-4" /> Fee Assignment
-          </TabsTrigger>
-          <TabsTrigger value="attendance" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <CalendarCheck className="mr-2 h-4 w-4" /> Bulk Attendance
-          </TabsTrigger>
-          <TabsTrigger value="import" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Upload className="mr-2 h-4 w-4" /> Bulk Import
-          </TabsTrigger>
-        </TabsList>
+      <ModulePageLayout
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="promotion">Student Promotion</TabsTrigger>
+            <TabsTrigger value="fees">Fee Assignment</TabsTrigger>
+            <TabsTrigger value="attendance">Bulk Attendance</TabsTrigger>
+            <TabsTrigger value="import">Bulk Import</TabsTrigger>
+          </>}
+      >
+
 
         {/* ─── Promotion Tab ───────────────────────────────────────────── */}
         <TabsContent value="promotion" className="space-y-4">
@@ -1054,7 +1050,7 @@ export default function BulkOperationsModule() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+      </ModulePageLayout>
 
       {/* Import Dialog */}
       <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>

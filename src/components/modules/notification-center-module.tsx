@@ -53,6 +53,7 @@ import {
   Info,
   AlertCircle,
   BarChart3,
+  ArrowLeft,
 } from 'lucide-react'
 import {
   LineChart,
@@ -69,12 +70,12 @@ import {
 
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
-import { StatGrid, ModuleStatCard, ModuleContainer, ModuleToolbar } from '@/components/module-ui'
+import { StatGrid, ModuleStatCard, ModuleContainer, ModuleToolbar, ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -306,6 +307,7 @@ const categoryConfig: Record<string, { label: string; badgeClass: string }> = {
 
 export default function NotificationCenterModule() {
   const [activeTab, setActiveTab] = useState('overview')
+  const [viewMode, setViewMode] = useState<'list' | 'settings'>('list')
   const [confirmSendOpen, setConfirmSendOpen] = useState(false)
   const [templateDetailOpen, setTemplateDetailOpen] = useState<string | null>(null)
   const [createTemplateOpen, setCreateTemplateOpen] = useState(false)
@@ -397,6 +399,383 @@ export default function NotificationCenterModule() {
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
+  
+  if (viewMode === 'settings') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+            onClick={() => setViewMode('list')}
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to Notifications
+          </Button>
+        </div>
+        <div className="max-w-7xl space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 space-y-4">
+              {/* SMS Gateway Config */}
+              <Card className="border-0 shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Globe className="h-5 w-5 text-emerald-600" />
+                    SMS Gateway - Africa&apos;s Talking
+                  </CardTitle>
+                  <CardDescription>Configure Africa&apos;s Talking SMS integration for Zimbabwe</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-sm">API Key</Label>
+                      <div className="relative">
+                        <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input type="password" defaultValue="atsk_xxxxxxxxxxxxxxxxxxxx" className="pl-9" />
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-sm">Username</Label>
+                      <Input defaultValue="zimschool_pro" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-sm">Sender ID</Label>
+                      <Input defaultValue="ZimSchool" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-sm">Shortcode</Label>
+                      <Input defaultValue="22045" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 border border-emerald-100">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span className="text-xs text-emerald-700">API connection verified - Last checked 5 min ago</span>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button variant="outline" className="mr-2" onClick={() => toast.info('Testing connection...')}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Test Connection
+                    </Button>
+                    <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white" onClick={() => toast.success('SMS gateway settings saved')}>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Settings
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* WhatsApp Business API Config */}
+              <Card className="border-0 shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Phone className="h-5 w-5 text-teal-600" />
+                    WhatsApp Business API
+                  </CardTitle>
+                  <CardDescription>WhatsApp Business integration for parent communications</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-sm">Phone Number ID</Label>
+                      <Input defaultValue="105xxxxxxxxxxxx" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-sm">Business Account ID</Label>
+                      <Input defaultValue="1234567890" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-sm">Access Token</Label>
+                      <div className="relative">
+                        <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input type="password" defaultValue="EAAxxxxxxxxxxxxxxxxx" className="pl-9" />
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-sm">Webhook Verify Token</Label>
+                      <Input type="password" defaultValue="zimschool_verify_xxxx" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-teal-50 border border-teal-100">
+                    <CheckCircle2 className="h-4 w-4 text-teal-600 shrink-0" />
+                    <span className="text-xs text-teal-700">WhatsApp Business API connected - +263 773 800 900</span>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white" onClick={() => toast.success('WhatsApp settings saved')}>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Settings
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Email SMTP Config */}
+              <Card className="border-0 shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Mail className="h-5 w-5 text-amber-600" />
+                    Email SMTP Configuration
+                  </CardTitle>
+                  <CardDescription>SMTP settings for email notifications</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-sm">SMTP Host</Label>
+                      <div className="relative">
+                        <Server className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input defaultValue="smtp.zimschool.co.zw" className="pl-9" />
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-sm">Port</Label>
+                      <Input defaultValue="587" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-sm">Username</Label>
+                      <Input defaultValue="notifications@zimschool.co.zw" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-sm">Password</Label>
+                      <Input type="password" defaultValue="smtp_password_xxxx" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-sm">From Name</Label>
+                      <Input defaultValue="ZimSchool Pro" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-sm">From Email</Label>
+                      <Input defaultValue="notifications@zimschool.co.zw" />
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white" onClick={() => toast.success('SMTP settings saved')}>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Settings
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Auto-Notification Rules */}
+              <Card className="border-0 shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-emerald-600" />
+                    Auto-Notification Rules
+                  </CardTitle>
+                  <CardDescription>Automated notifications triggered by school events</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {[
+                    {
+                      id: 'rule1',
+                      name: 'Fee Reminder',
+                      description: 'Send fee reminder 7 days before due date',
+                      channel: 'SMS + WhatsApp',
+                      icon: DollarSign,
+                      enabled: true,
+                      color: 'bg-emerald-50 text-emerald-600',
+                    },
+                    {
+                      id: 'rule2',
+                      name: 'Attendance Alert',
+                      description: 'Alert parents after 3+ consecutive absences',
+                      channel: 'SMS + WhatsApp',
+                      icon: AlertTriangle,
+                      enabled: true,
+                      color: 'bg-amber-50 text-amber-600',
+                    },
+                    {
+                      id: 'rule3',
+                      name: 'Exam Reminder',
+                      description: 'Send exam reminder 3 days before exam date',
+                      channel: 'WhatsApp + Email',
+                      icon: FileText,
+                      enabled: true,
+                      color: 'bg-teal-50 text-teal-600',
+                    },
+                    {
+                      id: 'rule4',
+                      name: 'Payment Confirmation',
+                      description: 'Auto-confirm when fee payment is recorded',
+                      channel: 'SMS',
+                      icon: CheckCircle2,
+                      enabled: true,
+                      color: 'bg-emerald-50 text-emerald-600',
+                    },
+                    {
+                      id: 'rule5',
+                      name: 'Report Card Available',
+                      description: 'Notify parents when term results are published',
+                      channel: 'WhatsApp + Email',
+                      icon: BarChart3,
+                      enabled: false,
+                      color: 'bg-violet-50 text-violet-600',
+                    },
+                    {
+                      id: 'rule6',
+                      name: 'EcoCash Payment Link',
+                      description: 'Include EcoCash payment link in fee reminders',
+                      channel: 'SMS + WhatsApp',
+                      icon: DollarSign,
+                      enabled: false,
+                      color: 'bg-amber-50 text-amber-600',
+                    },
+                  ].map((rule) => (
+                    <div key={rule.id} className="flex items-center justify-between p-4 rounded-xl border hover:shadow-sm transition-shadow">
+                      <div className="flex items-center gap-3">
+                        <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', rule.color)}>
+                          <rule.icon className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{rule.name}</p>
+                          <p className="text-xs text-muted-foreground">{rule.description}</p>
+                          <Badge variant="outline" className="text-[10px] mt-1">{rule.channel}</Badge>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={rule.enabled}
+                        onCheckedChange={() => toast.success(`${rule.name} ${rule.enabled ? 'disabled' : 'enabled'}`)}
+                      />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right Column */}
+            <div className="space-y-4">
+              {/* SMS Credit Balance */}
+              <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <CreditCard className="h-5 w-5" />
+                    <span className="text-sm font-medium opacity-90">SMS Credit Balance</span>
+                  </div>
+                  <p className="text-4xl font-bold mb-1">2,350</p>
+                  <p className="text-sm opacity-80 mb-4">of 5,000 credits</p>
+                  <Progress value={47} className="h-2 bg-white/20 [&>div]:bg-white" />
+                  <p className="text-xs opacity-70 mt-2">Expires: Dec 2025</p>
+                  <Button
+                    className="w-full mt-4 bg-white text-emerald-700 hover:bg-white/90 font-semibold"
+                    onClick={() => toast.info('Redirecting to Africa\'s Talking dashboard to purchase credits...')}
+                  >
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Purchase Credits (USD)
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Delivery Report Settings */}
+              <Card className="border-0 shadow-md">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Delivery Reports
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Daily Digest</p>
+                      <p className="text-xs text-muted-foreground">Email summary at 5:00 PM</p>
+                    </div>
+                    <Switch defaultChecked onCheckedChange={() => toast.success('Setting updated')} />
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Failure Alerts</p>
+                      <p className="text-xs text-muted-foreground">Immediate notification on failures</p>
+                    </div>
+                    <Switch defaultChecked onCheckedChange={() => toast.success('Setting updated')} />
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Weekly Report</p>
+                      <p className="text-xs text-muted-foreground">Comprehensive weekly analytics</p>
+                    </div>
+                    <Switch defaultChecked onCheckedChange={() => toast.success('Setting updated')} />
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Report Email</p>
+                      <p className="text-xs text-muted-foreground">admin@zimschool.co.zw</p>
+                    </div>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-emerald-600">Change</Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Opt-Out Management */}
+              <Card className="border-0 shadow-md">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    Opt-Out Management
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="p-2 rounded-lg bg-emerald-50 text-center">
+                      <p className="text-lg font-bold text-emerald-600">520</p>
+                      <p className="text-[10px] text-emerald-600">Subscribed</p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-red-50 text-center">
+                      <p className="text-lg font-bold text-red-600">8</p>
+                      <p className="text-[10px] text-red-600">Opted Out</p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-amber-50 text-center">
+                      <p className="text-lg font-bold text-amber-600">3</p>
+                      <p className="text-[10px] text-amber-600">Pending</p>
+                    </div>
+                  </div>
+                  <Separator />
+                  <p className="text-xs text-muted-foreground">
+                    Parents can opt out by replying &quot;STOP&quot; to SMS or WhatsApp messages.
+                    Opted-out contacts are excluded from all bulk communications.
+                  </p>
+                  <div className="space-y-2">
+                    {[
+                      { name: 'Mai Chimbwido', phone: '+263 773 456 789', channel: 'SMS', date: '2025-02-15' },
+                      { name: 'Baba Hunzvi', phone: '+263 712 567 890', channel: 'WhatsApp', date: '2025-02-20' },
+                      { name: 'Mai Mugaragumbo', phone: '+263 782 678 901', channel: 'SMS', date: '2025-03-01' },
+                    ].map((opt, i) => (
+                      <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg bg-red-50/50 border border-red-100">
+                        <div>
+                          <p className="text-xs font-medium">{opt.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{opt.phone}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[10px] bg-red-50 text-red-600 border-red-200">
+                            {opt.channel}
+                          </Badge>
+                          <Button variant="ghost" size="sm" className="h-6 text-[10px] text-emerald-600" onClick={() => toast.success('Contact re-subscribed')}>
+                            Re-subscribe
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <ModuleContainer>
       <ModuleToolbar
@@ -415,29 +794,17 @@ export default function NotificationCenterModule() {
       />
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50 p-1 h-auto flex-wrap">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
-            <BarChart3 className="h-4 w-4" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="compose" className="data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
-            <Send className="h-4 w-4" />
-            Compose
-          </TabsTrigger>
-          <TabsTrigger value="history" className="data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
-            <Clock className="h-4 w-4" />
-            History
-          </TabsTrigger>
-          <TabsTrigger value="templates" className="data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
-            <FileText className="h-4 w-4" />
-            Templates
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
-            <Settings className="h-4 w-4" />
-            Settings
-          </TabsTrigger>
-        </TabsList>
+      <ModulePageLayout
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="compose">Compose</TabsTrigger>
+            <TabsTrigger value="history">History</TabsTrigger>
+            <TabsTrigger value="templates">Templates</TabsTrigger>
+                      </>}
+      >
+
 
         {/* ─── Overview Tab ──────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
@@ -1431,366 +1798,7 @@ export default function NotificationCenterModule() {
         </TabsContent>
 
         {/* ─── Settings Tab ──────────────────────────────────────────────── */}
-        <TabsContent value="settings" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2 space-y-4">
-              {/* SMS Gateway Config */}
-              <Card className="border-0 shadow-md">
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Globe className="h-5 w-5 text-emerald-600" />
-                    SMS Gateway - Africa&apos;s Talking
-                  </CardTitle>
-                  <CardDescription>Configure Africa&apos;s Talking SMS integration for Zimbabwe</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label className="text-sm">API Key</Label>
-                      <div className="relative">
-                        <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input type="password" defaultValue="atsk_xxxxxxxxxxxxxxxxxxxx" className="pl-9" />
-                      </div>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label className="text-sm">Username</Label>
-                      <Input defaultValue="zimschool_pro" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label className="text-sm">Sender ID</Label>
-                      <Input defaultValue="ZimSchool" />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label className="text-sm">Shortcode</Label>
-                      <Input defaultValue="22045" />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 border border-emerald-100">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <span className="text-xs text-emerald-700">API connection verified - Last checked 5 min ago</span>
-                  </div>
-                  <div className="flex justify-end">
-                    <Button variant="outline" className="mr-2" onClick={() => toast.info('Testing connection...')}>
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Test Connection
-                    </Button>
-                    <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white" onClick={() => toast.success('SMS gateway settings saved')}>
-                      <Save className="mr-2 h-4 w-4" />
-                      Save Settings
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* WhatsApp Business API Config */}
-              <Card className="border-0 shadow-md">
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Phone className="h-5 w-5 text-teal-600" />
-                    WhatsApp Business API
-                  </CardTitle>
-                  <CardDescription>WhatsApp Business integration for parent communications</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label className="text-sm">Phone Number ID</Label>
-                      <Input defaultValue="105xxxxxxxxxxxx" />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label className="text-sm">Business Account ID</Label>
-                      <Input defaultValue="1234567890" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label className="text-sm">Access Token</Label>
-                      <div className="relative">
-                        <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input type="password" defaultValue="EAAxxxxxxxxxxxxxxxxx" className="pl-9" />
-                      </div>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label className="text-sm">Webhook Verify Token</Label>
-                      <Input type="password" defaultValue="zimschool_verify_xxxx" />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 p-3 rounded-lg bg-teal-50 border border-teal-100">
-                    <CheckCircle2 className="h-4 w-4 text-teal-600 shrink-0" />
-                    <span className="text-xs text-teal-700">WhatsApp Business API connected - +263 773 800 900</span>
-                  </div>
-                  <div className="flex justify-end">
-                    <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white" onClick={() => toast.success('WhatsApp settings saved')}>
-                      <Save className="mr-2 h-4 w-4" />
-                      Save Settings
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Email SMTP Config */}
-              <Card className="border-0 shadow-md">
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Mail className="h-5 w-5 text-amber-600" />
-                    Email SMTP Configuration
-                  </CardTitle>
-                  <CardDescription>SMTP settings for email notifications</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label className="text-sm">SMTP Host</Label>
-                      <div className="relative">
-                        <Server className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input defaultValue="smtp.zimschool.co.zw" className="pl-9" />
-                      </div>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label className="text-sm">Port</Label>
-                      <Input defaultValue="587" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label className="text-sm">Username</Label>
-                      <Input defaultValue="notifications@zimschool.co.zw" />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label className="text-sm">Password</Label>
-                      <Input type="password" defaultValue="smtp_password_xxxx" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label className="text-sm">From Name</Label>
-                      <Input defaultValue="ZimSchool Pro" />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label className="text-sm">From Email</Label>
-                      <Input defaultValue="notifications@zimschool.co.zw" />
-                    </div>
-                  </div>
-                  <div className="flex justify-end">
-                    <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white" onClick={() => toast.success('SMTP settings saved')}>
-                      <Save className="mr-2 h-4 w-4" />
-                      Save Settings
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Auto-Notification Rules */}
-              <Card className="border-0 shadow-md">
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-emerald-600" />
-                    Auto-Notification Rules
-                  </CardTitle>
-                  <CardDescription>Automated notifications triggered by school events</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {[
-                    {
-                      id: 'rule1',
-                      name: 'Fee Reminder',
-                      description: 'Send fee reminder 7 days before due date',
-                      channel: 'SMS + WhatsApp',
-                      icon: DollarSign,
-                      enabled: true,
-                      color: 'bg-emerald-50 text-emerald-600',
-                    },
-                    {
-                      id: 'rule2',
-                      name: 'Attendance Alert',
-                      description: 'Alert parents after 3+ consecutive absences',
-                      channel: 'SMS + WhatsApp',
-                      icon: AlertTriangle,
-                      enabled: true,
-                      color: 'bg-amber-50 text-amber-600',
-                    },
-                    {
-                      id: 'rule3',
-                      name: 'Exam Reminder',
-                      description: 'Send exam reminder 3 days before exam date',
-                      channel: 'WhatsApp + Email',
-                      icon: FileText,
-                      enabled: true,
-                      color: 'bg-teal-50 text-teal-600',
-                    },
-                    {
-                      id: 'rule4',
-                      name: 'Payment Confirmation',
-                      description: 'Auto-confirm when fee payment is recorded',
-                      channel: 'SMS',
-                      icon: CheckCircle2,
-                      enabled: true,
-                      color: 'bg-emerald-50 text-emerald-600',
-                    },
-                    {
-                      id: 'rule5',
-                      name: 'Report Card Available',
-                      description: 'Notify parents when term results are published',
-                      channel: 'WhatsApp + Email',
-                      icon: BarChart3,
-                      enabled: false,
-                      color: 'bg-violet-50 text-violet-600',
-                    },
-                    {
-                      id: 'rule6',
-                      name: 'EcoCash Payment Link',
-                      description: 'Include EcoCash payment link in fee reminders',
-                      channel: 'SMS + WhatsApp',
-                      icon: DollarSign,
-                      enabled: false,
-                      color: 'bg-amber-50 text-amber-600',
-                    },
-                  ].map((rule) => (
-                    <div key={rule.id} className="flex items-center justify-between p-4 rounded-xl border hover:shadow-sm transition-shadow">
-                      <div className="flex items-center gap-3">
-                        <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', rule.color)}>
-                          <rule.icon className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">{rule.name}</p>
-                          <p className="text-xs text-muted-foreground">{rule.description}</p>
-                          <Badge variant="outline" className="text-[10px] mt-1">{rule.channel}</Badge>
-                        </div>
-                      </div>
-                      <Switch
-                        checked={rule.enabled}
-                        onCheckedChange={() => toast.success(`${rule.name} ${rule.enabled ? 'disabled' : 'enabled'}`)}
-                      />
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Right Column */}
-            <div className="space-y-4">
-              {/* SMS Credit Balance */}
-              <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <CreditCard className="h-5 w-5" />
-                    <span className="text-sm font-medium opacity-90">SMS Credit Balance</span>
-                  </div>
-                  <p className="text-4xl font-bold mb-1">2,350</p>
-                  <p className="text-sm opacity-80 mb-4">of 5,000 credits</p>
-                  <Progress value={47} className="h-2 bg-white/20 [&>div]:bg-white" />
-                  <p className="text-xs opacity-70 mt-2">Expires: Dec 2025</p>
-                  <Button
-                    className="w-full mt-4 bg-white text-emerald-700 hover:bg-white/90 font-semibold"
-                    onClick={() => toast.info('Redirecting to Africa\'s Talking dashboard to purchase credits...')}
-                  >
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Purchase Credits (USD)
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Delivery Report Settings */}
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Delivery Reports
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Daily Digest</p>
-                      <p className="text-xs text-muted-foreground">Email summary at 5:00 PM</p>
-                    </div>
-                    <Switch defaultChecked onCheckedChange={() => toast.success('Setting updated')} />
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Failure Alerts</p>
-                      <p className="text-xs text-muted-foreground">Immediate notification on failures</p>
-                    </div>
-                    <Switch defaultChecked onCheckedChange={() => toast.success('Setting updated')} />
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Weekly Report</p>
-                      <p className="text-xs text-muted-foreground">Comprehensive weekly analytics</p>
-                    </div>
-                    <Switch defaultChecked onCheckedChange={() => toast.success('Setting updated')} />
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Report Email</p>
-                      <p className="text-xs text-muted-foreground">admin@zimschool.co.zw</p>
-                    </div>
-                    <Button variant="ghost" size="sm" className="h-7 text-xs text-emerald-600">Change</Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Opt-Out Management */}
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Shield className="h-4 w-4" />
-                    Opt-Out Management
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="p-2 rounded-lg bg-emerald-50 text-center">
-                      <p className="text-lg font-bold text-emerald-600">520</p>
-                      <p className="text-[10px] text-emerald-600">Subscribed</p>
-                    </div>
-                    <div className="p-2 rounded-lg bg-red-50 text-center">
-                      <p className="text-lg font-bold text-red-600">8</p>
-                      <p className="text-[10px] text-red-600">Opted Out</p>
-                    </div>
-                    <div className="p-2 rounded-lg bg-amber-50 text-center">
-                      <p className="text-lg font-bold text-amber-600">3</p>
-                      <p className="text-[10px] text-amber-600">Pending</p>
-                    </div>
-                  </div>
-                  <Separator />
-                  <p className="text-xs text-muted-foreground">
-                    Parents can opt out by replying &quot;STOP&quot; to SMS or WhatsApp messages.
-                    Opted-out contacts are excluded from all bulk communications.
-                  </p>
-                  <div className="space-y-2">
-                    {[
-                      { name: 'Mai Chimbwido', phone: '+263 773 456 789', channel: 'SMS', date: '2025-02-15' },
-                      { name: 'Baba Hunzvi', phone: '+263 712 567 890', channel: 'WhatsApp', date: '2025-02-20' },
-                      { name: 'Mai Mugaragumbo', phone: '+263 782 678 901', channel: 'SMS', date: '2025-03-01' },
-                    ].map((opt, i) => (
-                      <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg bg-red-50/50 border border-red-100">
-                        <div>
-                          <p className="text-xs font-medium">{opt.name}</p>
-                          <p className="text-[10px] text-muted-foreground">{opt.phone}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-[10px] bg-red-50 text-red-600 border-red-200">
-                            {opt.channel}
-                          </Badge>
-                          <Button variant="ghost" size="sm" className="h-6 text-[10px] text-emerald-600" onClick={() => toast.success('Contact re-subscribed')}>
-                            Re-subscribe
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
+        </ModulePageLayout>
 
       {/* Send Confirmation Dialog */}
       <AlertDialog open={confirmSendOpen} onOpenChange={setConfirmSendOpen}>

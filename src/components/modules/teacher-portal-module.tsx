@@ -1,6 +1,10 @@
 'use client'
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import { ModulePageLayout, ModuleSettingsButton, ModuleContainer, StatGrid, ModuleStatCard, SectionCard, TableShell } from '@/components/module-ui'
+import { useSession } from 'next-auth/react'
+import { useRBAC } from '@/hooks/use-rbac'
+import { type UserRole } from '@/lib/rbac'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users,
@@ -37,7 +41,6 @@ import {
   ArrowLeft,
   Settings,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -68,7 +71,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -318,7 +321,7 @@ const mockAssignments: Assignment[] = [
 const performanceAlerts = [
   { id: 1, student: 'Munashe Zvambe', class: 'Form 3A', type: 'critical' as const, message: 'Average mark dropped to 45% (E grade). At risk of failing.' },
   { id: 2, student: 'Shamiso Bera', class: 'Form 3A', type: 'critical' as const, message: 'Consistent U grade. Needs immediate intervention.' },
-  { id: 3, student: 'Rumbidzai Dube', class: 'Form 3A', type: 'positive' as const, message: 'Outstanding performance! 91% average - A* grade.' },
+  { id: 3, student: 'Rutendo Moyo', class: 'Form 3A', type: 'positive' as const, message: 'Outstanding performance! 91% average - A* grade.' },
   { id: 4, student: 'Zweli Khumalo', class: 'Form 4A', type: 'warning' as const, message: 'Attendance at 80%. Marks declining - was C, now E.' },
   { id: 5, student: 'Panashe Chikumba', class: 'Form 3A', type: 'positive' as const, message: 'Improved from C to A. Great progress this term!' },
   { id: 6, student: 'Rumbidzai Jambaya', class: 'Form 6A', type: 'critical' as const, message: 'Physics mark at 33%. Chronic absenteeism (75% attendance).' },
@@ -394,6 +397,10 @@ const gradeDistChartConfig = {
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 export default function TeacherPortalModule() {
+  const { data: session } = useSession()
+  const rbac = useRBAC((session?.user?.role as UserRole) || 'TEACHER')
+  const isAdmin = rbac.currentRole === 'ADMIN' || rbac.currentRole === 'SUPER_ADMIN'
+
   const [activeTab, setActiveTab] = useState('overview')
   const [expandedClass, setExpandedClass] = useState<string | null>(null)
 
@@ -492,6 +499,15 @@ export default function TeacherPortalModule() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [addType, setAddType] = useState<'assignment' | 'grade'>('assignment')
   const [assignmentMarks, setAssignmentMarks] = useState<Record<string, string>>({})
+  const [createAssignOpen, setCreateAssignOpen] = useState(false)
+  const [gradeAssignOpen, setGradeAssignOpen] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (viewMode === 'settings' && !isAdmin) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setViewMode('list')
+    }
+  }, [viewMode, isAdmin])
 
   // Attendance State
   const [attendanceClass, setAttendanceClass] = useState('Form 3A')
@@ -643,10 +659,10 @@ export default function TeacherPortalModule() {
     }
   }
 
-  // ─── Render ────────────────────────────────────────────────────────────────  // Settings view
+  // Settings view
   if (viewMode === 'settings') {
     return (
-      <div className="space-y-6">
+      <ModuleContainer>
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
         </div>
@@ -655,9 +671,8 @@ export default function TeacherPortalModule() {
           <p className="text-sm text-muted-foreground mt-1">Configure your teaching preferences</p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="border-0 shadow-md">
-            <CardHeader><CardTitle className="text-base">Class Management</CardTitle><CardDescription>Default settings for class operations</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
+          <SectionCard title="Class Management" description="Default settings for class operations">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div><p className="text-sm font-medium">Grade Entry Lock</p><p className="text-xs text-muted-foreground">Lock grade entry after term ends</p></div>
                 <Switch checked={settings.gradeEntryLock} onCheckedChange={(v) => setSettings({...settings, gradeEntryLock: v})} />
@@ -667,11 +682,10 @@ export default function TeacherPortalModule() {
                 <div><p className="text-sm font-medium">Class Notifications</p><p className="text-xs text-muted-foreground">Receive class-related notifications</p></div>
                 <Switch checked={settings.classNotifications} onCheckedChange={(v) => setSettings({...settings, classNotifications: v})} />
               </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-md">
-            <CardHeader><CardTitle className="text-base">Grading & Reports</CardTitle><CardDescription>Grade entry and report settings</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
+            </div>
+          </SectionCard>
+          <SectionCard title="Grading & Reports" description="Grade entry and report settings">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div><p className="text-sm font-medium">Auto-Generate Reports</p><p className="text-xs text-muted-foreground">Generate reports after grade entry</p></div>
                 <Switch checked={settings.reportAutoGenerate} onCheckedChange={(v) => setSettings({...settings, reportAutoGenerate: v})} />
@@ -688,11 +702,10 @@ export default function TeacherPortalModule() {
                   </SelectContent>
                 </Select>
               </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-md">
-            <CardHeader><CardTitle className="text-base">Attendance & Resources</CardTitle><CardDescription>Attendance and resource sharing settings</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
+            </div>
+          </SectionCard>
+          <SectionCard title="Attendance & Resources" description="Attendance and resource sharing settings">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div><p className="text-sm font-medium">Attendance Reminders</p><p className="text-xs text-muted-foreground">Remind to submit attendance</p></div>
                 <Switch checked={settings.attendanceReminder} onCheckedChange={(v) => setSettings({...settings, attendanceReminder: v})} />
@@ -702,52 +715,36 @@ export default function TeacherPortalModule() {
                 <div><p className="text-sm font-medium">Resource Sharing</p><p className="text-xs text-muted-foreground">Share resources with students</p></div>
                 <Switch checked={settings.resourceSharing} onCheckedChange={(v) => setSettings({...settings, resourceSharing: v})} />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
         </div>
         <div className="flex justify-end">
           <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { toast.success('Settings saved successfully'); setViewMode('list') }}>Save Settings</Button>
         </div>
-      </div>
+      </ModuleContainer>
     )
   }
 
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600">
-            <GraduationCap className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold tracking-tight">Teacher Portal</h2>
-            <p className="text-sm text-muted-foreground">Welcome back, {teacherName}</p>
-          </div>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => { setViewMode('settings'); setSelectedId(null) }} className="gap-1.5">
-          <Settings className="h-4 w-4" />
-          <span className="hidden sm:inline">Settings</span>
-        </Button>
-      </motion.div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+    <ModuleContainer>
+      <ModulePageLayout
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="classes">My Classes</TabsTrigger>
           <TabsTrigger value="marks">Marks Entry</TabsTrigger>
           <TabsTrigger value="assignments">Assignments</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="attendance">Attendance & Schedule</TabsTrigger>
-        </TabsList>
+        </>}
+        actions={isAdmin ? <ModuleSettingsButton onClick={() => { setViewMode('settings'); setSelectedId(null) }} /> : undefined}
+      >
 
-        {/* ═══════════════════════════════════════════════════════════════════════
-            OVERVIEW TAB
-        ═══════════════════════════════════════════════════════════════════════ */}
+        {/* ─── Overview Tab ─────────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
           {/* Welcome Banner */}
-          <Card className="border-0 shadow-md overflow-hidden">
+          <SectionCard noPadding className="border-0 shadow-md overflow-hidden">
             <div className="bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 p-6 text-white relative">
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3" />
               <div className="absolute bottom-0 right-20 w-32 h-32 bg-white/5 rounded-full translate-y-1/2" />
@@ -777,189 +774,124 @@ export default function TeacherPortalModule() {
                 </div>
               </div>
             </div>
-          </Card>
+          </SectionCard>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">My Classes</p>
-                    <p className="text-2xl font-bold">4</p>
-                    <div className="flex items-center gap-1">
-                      <BookOpen className="h-3 w-3 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-600">2 subjects</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
-                    <BookOpen className="h-5 w-5 text-emerald-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Students Taught</p>
-                    <p className="text-2xl font-bold">128</p>
-                    <div className="flex items-center gap-1">
-                      <Users className="h-3 w-3 text-teal-600" />
-                      <span className="text-xs font-medium text-teal-600">Across 4 classes</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50">
-                    <Users className="h-5 w-5 text-teal-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assignments Pending</p>
-                    <p className="text-2xl font-bold">6</p>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3 text-amber-600" />
-                      <span className="text-xs font-medium text-amber-600">4 active, 2 grading</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
-                    <Clock className="h-5 w-5 text-amber-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Avg Class Performance</p>
-                    <p className="text-2xl font-bold">72%</p>
-                    <div className="flex items-center gap-1">
-                      <TrendingUp className="h-3 w-3 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-600">+3% from last term</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-50">
-                    <BarChart3 className="h-5 w-5 text-violet-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <StatGrid cols={4}>
+            <ModuleStatCard
+              icon={GraduationCap}
+              label="Classes Taught"
+              value="4"
+              trend={{ value: 'Form 3A - 6A', positive: true }}
+              accentGradient="from-emerald-400 to-teal-500"
+              bgColor="bg-emerald-50 dark:bg-emerald-950/40"
+            />
+            <ModuleStatCard
+              icon={Users}
+              label="Students Taught"
+              value="128"
+              trend={{ value: 'Across 4 classes', positive: true }}
+              accentGradient="from-teal-400 to-emerald-500"
+              bgColor="bg-teal-50 dark:bg-teal-950/40"
+            />
+            <ModuleStatCard
+              icon={Clock}
+              label="Assignments Pending"
+              value="6"
+              trend={{ value: '4 active, 2 grading', positive: false }}
+              accentGradient="from-amber-400 to-orange-500"
+              bgColor="bg-amber-50 dark:bg-amber-950/40"
+            />
+            <ModuleStatCard
+              icon={BarChart3}
+              label="Avg Class Performance"
+              value="72%"
+              trend={{ value: '+3% from last term', positive: true }}
+              accentGradient="from-violet-400 to-indigo-500"
+              bgColor="bg-violet-50 dark:bg-violet-950/40"
+            />
+          </StatGrid>
 
           {/* Today's Schedule + Quick Actions */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Today's Schedule */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-emerald-600" />
-                  Today&apos;s Schedule
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {todaySchedule.map((slot) => (
-                    <div key={slot.period} className={cn(
-                      'flex items-center gap-3 p-3 rounded-lg transition-all hover:shadow-sm',
-                      slot.subject.includes('Free') ? 'bg-gray-50 dark:bg-gray-800/30' : 'bg-background hover:bg-muted/50'
-                    )}>
-                      <div className={cn('h-10 w-1.5 rounded-full', slot.color)} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-muted-foreground">P{slot.period}</span>
-                          <span className="text-xs text-muted-foreground">{slot.time}</span>
-                        </div>
-                        <p className={cn('text-sm font-medium', slot.subject.includes('Free') ? 'text-muted-foreground italic' : '')}>
-                          {slot.subject}
-                        </p>
+            <SectionCard title="Today's Schedule" icon={Clock}>
+              <div className="space-y-2">
+                {todaySchedule.map((slot) => (
+                  <div key={slot.period} className={cn(
+                    'flex items-center gap-3 p-3 rounded-lg transition-all hover:shadow-sm',
+                    slot.subject.includes('Free') ? 'bg-gray-50 dark:bg-gray-800/30' : 'bg-background hover:bg-muted/50'
+                  )}>
+                    <div className={cn('h-10 w-1.5 rounded-full', slot.color)} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-muted-foreground">P{slot.period}</span>
+                        <span className="text-xs text-muted-foreground">{slot.time}</span>
                       </div>
-                      {!slot.subject.includes('Free') && (
-                        <div className="text-right">
-                          <p className="text-xs font-medium">{slot.class}</p>
-                          <p className="text-[10px] text-muted-foreground">{slot.room}</p>
-                        </div>
-                      )}
+                      <p className={cn('text-sm font-medium', slot.subject.includes('Free') ? 'text-muted-foreground italic' : '')}>
+                        {slot.subject}
+                      </p>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Quick Actions */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-emerald-600" />
-                  Quick Actions
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { icon: ClipboardCheck, label: 'Take Attendance', color: 'bg-emerald-50 text-emerald-600', action: () => setActiveTab('attendance') },
-                    { icon: Edit3, label: 'Enter Marks', color: 'bg-teal-50 text-teal-600', action: () => setActiveTab('marks') },
-                    { icon: Calendar, label: 'View Schedule', color: 'bg-violet-50 text-violet-600', action: () => setActiveTab('attendance') },
-                    { icon: FileText, label: 'Assign Homework', color: 'bg-amber-50 text-amber-600', action: () => { setActiveTab('assignments'); setCreateAssignOpen(true) } },
-                    { icon: MessageSquare, label: 'Message Parents', color: 'bg-rose-50 text-rose-600', action: () => toast.info('Opening parent messaging...') },
-                    { icon: CalendarCheck, label: 'Request Leave', color: 'bg-cyan-50 text-cyan-600', action: () => toast.info('Leave request form opened') },
-                  ].map((action, idx) => (
-                    <button key={idx} onClick={action.action} className="flex flex-col items-center gap-2 rounded-xl p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 border border-transparent hover:border-muted bg-muted/30 hover:bg-white group">
-                      <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', action.color)}>
-                        <action.icon className="h-5 w-5" />
+                    {!slot.subject.includes('Free') && (
+                      <div className="text-right">
+                        <p className="text-xs font-medium">{slot.class}</p>
+                        <p className="text-[10px] text-muted-foreground">{slot.room}</p>
                       </div>
-                      <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">{action.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Quick Actions" icon={Zap}>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { icon: ClipboardCheck, label: 'Take Attendance', color: 'bg-emerald-50 text-emerald-600', action: () => setActiveTab('attendance') },
+                  { icon: Edit3, label: 'Enter Marks', color: 'bg-teal-50 text-teal-600', action: () => setActiveTab('marks') },
+                  { icon: Calendar, label: 'View Schedule', color: 'bg-violet-50 text-violet-600', action: () => setActiveTab('attendance') },
+                  { icon: FileText, label: 'Assign Homework', color: 'bg-amber-50 text-amber-600', action: () => { setActiveTab('assignments'); setCreateAssignOpen(true) } },
+                  { icon: MessageSquare, label: 'Message Parents', color: 'bg-rose-50 text-rose-600', action: () => toast.info('Opening parent messaging...') },
+                  { icon: CalendarCheck, label: 'Request Leave', color: 'bg-cyan-50 text-cyan-600', action: () => toast.info('Leave request form opened') },
+                ].map((action, idx) => (
+                  <button key={idx} onClick={action.action} className="flex flex-col items-center gap-2 rounded-xl p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 border border-transparent hover:border-muted bg-muted/30 hover:bg-white group">
+                    <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', action.color)}>
+                      <action.icon className="h-5 w-5" />
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">{action.label}</span>
+                  </button>
+                ))}
+              </div>
+            </SectionCard>
           </div>
 
           {/* Student Performance Alerts */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-amber-600" />
-                Student Performance Alerts
-              </CardTitle>
-              <CardDescription>Students requiring attention based on recent performance</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {performanceAlerts.map((alert) => (
-                  <motion.div key={alert.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: alert.id * 0.05 }}>
-                    <div className={cn('rounded-lg p-3', alertTypeStyle(alert.type))}>
-                      <div className="flex items-start gap-2">
-                        {alertIcon(alert.type)}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold">{alert.student}</p>
-                            <Badge variant="outline" className="text-[10px] shrink-0">{alert.class}</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">{alert.message}</p>
+          <SectionCard title="Student Performance Alerts" description="Students requiring attention based on recent performance" icon={AlertCircle}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {performanceAlerts.map((alert) => (
+                <motion.div key={alert.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: alert.id * 0.05 }}>
+                  <div className={cn('rounded-lg p-3', alertTypeStyle(alert.type))}>
+                    <div className="flex items-start gap-2">
+                      {alertIcon(alert.type)}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold">{alert.student}</p>
+                          <Badge variant="outline" className="text-[10px] shrink-0">{alert.class}</Badge>
                         </div>
+                        <p className="text-xs text-muted-foreground mt-1">{alert.message}</p>
                       </div>
                     </div>
-                  </motion.div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </SectionCard>
         </TabsContent>
 
-        {/* ═══════════════════════════════════════════════════════════════════════
-            MY CLASSES TAB
-        ═══════════════════════════════════════════════════════════════════════ */}
+        {/* ─── My Classes Tab ────────────────────────────────────────────────── */}
         <TabsContent value="classes" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {classes.map((cls, idx) => (
               <motion.div key={cls.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }}>
-                <Card className="border-0 shadow-md overflow-hidden">
+                <SectionCard noPadding className="border-0 shadow-md overflow-hidden">
                   {/* Class Header */}
                   <div className={cn(
                     'p-4 text-white',
@@ -976,7 +908,7 @@ export default function TeacherPortalModule() {
                     </div>
                   </div>
 
-                  <CardContent className="p-4 space-y-4">
+                  <div className="p-4 space-y-4">
                     {/* Stats Row */}
                     <div className="grid grid-cols-3 gap-3">
                       <div className="text-center">
@@ -1030,7 +962,7 @@ export default function TeacherPortalModule() {
                                 g.grade === 'D' ? 'bg-orange-400' :
                                 'bg-red-400'
                               )}
-                              style={{ height: `${Math.max((g.count / cls.studentCount) * 100, 4)}%` }}
+                              style={{ height: `${Math.max((g.count / (cls.studentCount || 1)) * 100, 4)}%` }}
                             />
                             <span className="text-[8px] text-muted-foreground">{g.grade}</span>
                           </div>
@@ -1048,14 +980,14 @@ export default function TeacherPortalModule() {
                       {expandedClass === cls.id ? 'Hide Students' : 'View Students'}
                       {expandedClass === cls.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </Button>
-                  </CardContent>
+                  </div>
 
                   {/* Expanded Student List */}
                   <AnimatePresence>
                     {expandedClass === cls.id && (
                       <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                         <div className="border-t bg-muted/20 p-4">
-                          <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                          <TableShell>
                             <Table>
                               <TableHeader>
                                 <TableRow>
@@ -1088,9 +1020,9 @@ export default function TeacherPortalModule() {
                                 ))}
                               </TableBody>
                             </Table>
-                          </div>
+                          </TableShell>
                           <div className="mt-3 flex justify-end">
-                            <Button size="sm" className="gap-1" onClick={() => { setActiveTab('marks'); setSelectedGrade(cls.name); setSelectedSubject(cls.subject) }}>
+                            <Button size="sm" className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => { setActiveTab('marks'); setSelectedGrade(cls.name); setSelectedSubject(cls.subject) }}>
                               <Edit3 className="h-3 w-3" /> Enter Marks for {cls.name}
                             </Button>
                           </div>
@@ -1098,97 +1030,89 @@ export default function TeacherPortalModule() {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </Card>
+                </SectionCard>
               </motion.div>
             ))}
           </div>
         </TabsContent>
 
-        {/* ═══════════════════════════════════════════════════════════════════════
-            MARKS ENTRY TAB
-        ═══════════════════════════════════════════════════════════════════════ */}
+        {/* ─── Marks Entry Tab ───────────────────────────────────────────────── */}
         <TabsContent value="marks" className="space-y-4">
           {/* Selectors Row */}
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-xs font-medium mb-1.5 block">Class</Label>
-                  <Select value={selectedGrade} onValueChange={(v) => { setSelectedGrade(v); setStudentMarks({}); setMarksSaved(false) }}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Form 3A">Form 3A</SelectItem>
-                      <SelectItem value="Form 4A">Form 4A</SelectItem>
-                      <SelectItem value="Form 5A">Form 5A</SelectItem>
-                      <SelectItem value="Form 6A">Form 6A</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs font-medium mb-1.5 block">Subject</Label>
-                  <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {selectedGrade === 'Form 6A' ? (
-                        <SelectItem value="Physics">Physics</SelectItem>
-                      ) : (
-                        <>
-                          <SelectItem value="Mathematics">Mathematics</SelectItem>
-                          <SelectItem value="English">English</SelectItem>
-                          <SelectItem value="Shona">Shona</SelectItem>
-                          <SelectItem value="Physics">Physics</SelectItem>
-                          <SelectItem value="Chemistry">Chemistry</SelectItem>
-                          <SelectItem value="Biology">Biology</SelectItem>
-                          <SelectItem value="History">History</SelectItem>
-                          <SelectItem value="Geography">Geography</SelectItem>
-                          <SelectItem value="Accounts">Accounts</SelectItem>
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs font-medium mb-1.5 block">Assessment Type</Label>
-                  <Select value={selectedAssessment} onValueChange={setSelectedAssessment}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Mid-Term">Mid-Term</SelectItem>
-                      <SelectItem value="Test">Test</SelectItem>
-                      <SelectItem value="Exam">Exam</SelectItem>
-                      <SelectItem value="Assignment">Assignment</SelectItem>
-                      <SelectItem value="Practical">Practical</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          <SectionCard>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <Label className="text-xs font-medium mb-1.5 block">Class</Label>
+                <Select value={selectedGrade} onValueChange={(v) => { setSelectedGrade(v); setStudentMarks({}); setMarksSaved(false) }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Form 3A">Form 3A</SelectItem>
+                    <SelectItem value="Form 4A">Form 4A</SelectItem>
+                    <SelectItem value="Form 5A">Form 5A</SelectItem>
+                    <SelectItem value="Form 6A">Form 6A</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <Label className="text-xs font-medium mb-1.5 block">Subject</Label>
+                <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {selectedGrade === 'Form 6A' ? (
+                      <SelectItem value="Physics">Physics</SelectItem>
+                    ) : (
+                      <>
+                        <SelectItem value="Mathematics">Mathematics</SelectItem>
+                        <SelectItem value="English">English</SelectItem>
+                        <SelectItem value="Shona">Shona</SelectItem>
+                        <SelectItem value="Physics">Physics</SelectItem>
+                        <SelectItem value="Chemistry">Chemistry</SelectItem>
+                        <SelectItem value="Biology">Biology</SelectItem>
+                        <SelectItem value="History">History</SelectItem>
+                        <SelectItem value="Geography">Geography</SelectItem>
+                        <SelectItem value="Accounts">Accounts</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs font-medium mb-1.5 block">Assessment Type</Label>
+                <Select value={selectedAssessment} onValueChange={setSelectedAssessment}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Mid-Term">Mid-Term</SelectItem>
+                    <SelectItem value="Test">Test</SelectItem>
+                    <SelectItem value="Exam">Exam</SelectItem>
+                    <SelectItem value="Assignment">Assignment</SelectItem>
+                    <SelectItem value="Practical">Practical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </SectionCard>
 
           {/* Marks Entry Table + Chart */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Student Marks Table */}
-            <Card className="border-0 shadow-md lg:col-span-2">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-base font-semibold">
-                      {selectedGrade} - {selectedSubject} ({selectedAssessment})
-                    </CardTitle>
-                    <CardDescription>Enter marks out of 100 • ZIMSEC grading applied automatically</CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {marksSaved && (
-                      <Badge className="bg-emerald-100 text-emerald-700 gap-1">
-                        <CheckCircle2 className="h-3 w-3" /> Saved
-                      </Badge>
-                    )}
-                    <Button size="sm" className="gap-1" onClick={handleSaveMarks}>
-                      <Save className="h-3 w-3" /> Save Marks
-                    </Button>
-                  </div>
+            <SectionCard
+              title={`${selectedGrade} - ${selectedSubject} (${selectedAssessment})`}
+              description="Enter marks out of 100 • ZIMSEC grading applied automatically"
+              actions={
+                <div className="flex items-center gap-2">
+                  {marksSaved && (
+                    <Badge className="bg-emerald-100 text-emerald-700 gap-1 border-emerald-200">
+                      <CheckCircle2 className="h-3 w-3" /> Saved
+                    </Badge>
+                  )}
+                  <Button size="sm" className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleSaveMarks}>
+                    <Save className="h-3 w-3" /> Save Marks
+                  </Button>
                 </div>
-              </CardHeader>
-              <CardContent>
+              }
+              className="lg:col-span-2"
+            >
+              <TableShell>
                 <ScrollArea className="max-h-[480px]">
                   <Table>
                     <TableHeader>
@@ -1233,73 +1157,65 @@ export default function TeacherPortalModule() {
                     </TableBody>
                   </Table>
                 </ScrollArea>
+              </TableShell>
 
-                {/* Class Average */}
-                {classAverage > 0 && (
-                  <div className="mt-4 p-3 bg-muted/50 rounded-lg flex items-center justify-between">
-                    <span className="text-sm font-medium">Class Average</span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg font-bold">{classAverage}%</span>
-                      <Badge className={cn('text-sm', gradeColor(getZimsecGrade(classAverage)))}>
-                        {getZimsecGrade(classAverage)}
-                      </Badge>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Grade Distribution Chart */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold">Performance Distribution</CardTitle>
-                <CardDescription>ZIMSEC grade breakdown</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {gradeDistribution.some(g => g.count > 0) ? (
-                  <ChartContainer config={gradeDistChartConfig} className="h-[300px] w-full">
-                    <BarChart data={gradeDistribution} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="grade" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                      <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} allowDecimals={false} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="count" fill="var(--color-count)" radius={[4, 4, 0, 0]} maxBarSize={36} />
-                    </BarChart>
-                  </ChartContainer>
-                ) : (
-                  <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">
-                    Enter marks to see distribution
-                  </div>
-                )}
-
-                {/* ZIMSEC Grading Scale */}
-                <div className="mt-4 pt-4 border-t">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">ZIMSEC Grading Scale</p>
-                  <div className="grid grid-cols-2 gap-1.5 text-xs">
-                    {[
-                      { grade: 'A*', range: '90-100', color: 'text-emerald-600' },
-                      { grade: 'A', range: '80-89', color: 'text-emerald-600' },
-                      { grade: 'B', range: '70-79', color: 'text-teal-600' },
-                      { grade: 'C', range: '60-69', color: 'text-amber-600' },
-                      { grade: 'D', range: '50-59', color: 'text-orange-600' },
-                      { grade: 'E', range: '40-49', color: 'text-red-500' },
-                      { grade: 'U', range: '0-39', color: 'text-red-700' },
-                    ].map((g) => (
-                      <div key={g.grade} className="flex items-center justify-between bg-muted/50 rounded px-2 py-1">
-                        <span className={cn('font-semibold', g.color)}>{g.grade}</span>
-                        <span className="text-muted-foreground">{g.range}</span>
-                      </div>
-                    ))}
+              {/* Class Average */}
+              {classAverage > 0 && (
+                <div className="mt-4 p-3 bg-muted/50 rounded-lg flex items-center justify-between">
+                  <span className="text-sm font-medium">Class Average</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-bold">{classAverage}%</span>
+                    <Badge className={cn('text-sm', gradeColor(getZimsecGrade(classAverage)))}>
+                      {getZimsecGrade(classAverage)}
+                    </Badge>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </SectionCard>
+
+            {/* Grade Distribution Chart */}
+            <SectionCard title="Performance Distribution" description="ZIMSEC grade breakdown">
+              {gradeDistribution.some(g => g.count > 0) ? (
+                <ChartContainer config={gradeDistChartConfig} className="h-[250px] w-full">
+                  <BarChart data={gradeDistribution} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="grade" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} allowDecimals={false} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="count" fill="var(--color-count)" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                  </BarChart>
+                </ChartContainer>
+              ) : (
+                <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm border border-dashed rounded-lg bg-muted/20">
+                  Enter marks to see distribution
+                </div>
+              )}
+
+              {/* ZIMSEC Grading Scale */}
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-xs font-medium text-muted-foreground mb-2">ZIMSEC Grading Scale</p>
+                <div className="grid grid-cols-2 gap-1.5 text-xs">
+                  {[
+                    { grade: 'A*', range: '90-100', color: 'text-emerald-600 font-bold' },
+                    { grade: 'A', range: '80-89', color: 'text-emerald-600' },
+                    { grade: 'B', range: '70-79', color: 'text-teal-600' },
+                    { grade: 'C', range: '60-69', color: 'text-amber-600' },
+                    { grade: 'D', range: '50-59', color: 'text-orange-600' },
+                    { grade: 'E', range: '40-49', color: 'text-red-500' },
+                    { grade: 'U', range: '0-39', color: 'text-red-700' },
+                  ].map((g) => (
+                    <div key={g.grade} className="flex items-center justify-between bg-muted/50 rounded px-2 py-1">
+                      <span className={cn('', g.color)}>{g.grade}</span>
+                      <span className="text-muted-foreground">{g.range}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </SectionCard>
           </div>
         </TabsContent>
 
-        {/* ═══════════════════════════════════════════════════════════════════════
-            ASSIGNMENTS TAB
-        ═══════════════════════════════════════════════════════════════════════ */}
+        {/* ─── Assignments Tab ───────────────────────────────────────────────── */}
         <TabsContent value="assignments" className="space-y-4">
           {/* Header with Create Button */}
           <div className="flex items-center justify-between">
@@ -1307,7 +1223,7 @@ export default function TeacherPortalModule() {
               <h3 className="text-base font-semibold">Assignment Management</h3>
               <p className="text-sm text-muted-foreground">8 assignments • 4 active, 2 grading, 2 closed</p>
             </div>
-            <Button className="gap-1" onClick={() => { setAddType('assignment'); setViewMode('add') }}>
+            <Button className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => { setAddType('assignment'); setViewMode('add') }}>
               <Plus className="h-4 w-4" /> Create Assignment
             </Button>
           </div>
@@ -1316,15 +1232,15 @@ export default function TeacherPortalModule() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {teacherAssignments.map((assignment, idx) => (
               <motion.div key={assignment.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}>
-                <Card className="border-0 shadow-md">
-                  <CardContent className="p-4 space-y-3">
+                <SectionCard>
+                  <div className="space-y-3">
                     {/* Header */}
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
                         <h4 className="text-sm font-semibold truncate">{assignment.title}</h4>
                         <p className="text-xs text-muted-foreground">{assignment.subject} • {assignment.className}</p>
                       </div>
-                      <Badge className={cn('text-[10px] shrink-0 ml-2', statusBadge(assignment.status))}>
+                      <Badge className={cn('text-[10px] shrink-0 ml-2 shadow-none', statusBadge(assignment.status))}>
                         {assignment.status}
                       </Badge>
                     </div>
@@ -1332,10 +1248,10 @@ export default function TeacherPortalModule() {
                     {/* Details */}
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" /> Due: {new Date(assignment.dueDate).toLocaleDateString('en-ZW', { month: 'short', day: 'numeric' })}
+                        <Calendar className="h-3 w-3 text-emerald-600" /> Due: {new Date(assignment.dueDate).toLocaleDateString('en-ZW', { month: 'short', day: 'numeric' })}
                       </span>
                       <span className="flex items-center gap-1">
-                        <FileText className="h-3 w-3" /> Max: {assignment.maxMarks}
+                        <FileText className="h-3 w-3 text-emerald-600" /> Max: {assignment.maxMarks}
                       </span>
                     </div>
 
@@ -1345,7 +1261,7 @@ export default function TeacherPortalModule() {
                         <span>Submissions</span>
                         <span className="font-medium">{assignment.submitted}/{assignment.total}</span>
                       </div>
-                      <Progress value={(assignment.submitted / assignment.total) * 100} className="h-2" />
+                      <Progress value={(assignment.submitted / (assignment.total || 1)) * 100} className="h-2" />
                     </div>
 
                     {/* Average Score (if available) */}
@@ -1370,348 +1286,331 @@ export default function TeacherPortalModule() {
                     )}
 
                     {/* Actions */}
-                    <div className="flex items-center gap-2 pt-1">
+                    <div className="flex items-center gap-2 pt-1 border-t">
                       {assignment.status === 'Active' && (
-                        <Button variant="outline" size="sm" className="gap-1 text-xs">
+                        <Button variant="outline" size="sm" className="gap-1 text-xs h-8">
                           <Eye className="h-3 w-3" /> View Submissions
                         </Button>
                       )}
                       {assignment.status === 'Grading' && (
-                        <Button size="sm" className="gap-1 text-xs" onClick={() => { setGradeAssignOpen(assignment.id); setAssignmentMarks({}) }}>
+                        <Button size="sm" className="gap-1 text-xs h-8 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => { setGradeAssignOpen(assignment.id); setAssignmentMarks({}) }}>
                           <Edit3 className="h-3 w-3" /> Grade Submissions
                         </Button>
                       )}
                       {assignment.status === 'Closed' && (
-                        <Button variant="outline" size="sm" className="gap-1 text-xs">
+                        <Button variant="outline" size="sm" className="gap-1 text-xs h-8">
                           <Download className="h-3 w-3" /> Export Results
                         </Button>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </SectionCard>
               </motion.div>
             ))}
           </div>
-
-
         </TabsContent>
 
-        {/* ═══════════════════════════════════════════════════════════════════════
-            RESOURCES TAB
-        ═══════════════════════════════════════════════════════════════════════ */}
+        {/* ─── Resources Tab ─────────────────────────────────────────────────── */}
         <TabsContent value="resources" className="space-y-4">
-          <Card className="border-0 shadow-md overflow-hidden">
+          <SectionCard noPadding className="border-0 shadow-md overflow-hidden animate-in fade-in">
             <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 text-white">
               <h3 className="text-lg font-bold flex items-center gap-2"><FolderOpen className="h-5 w-5" /> Teaching Resources</h3>
               <p className="text-emerald-100 text-sm mt-1">Upload, share, and manage learning materials for your classes</p>
             </div>
-          </Card>
+          </SectionCard>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase">Total Resources</p>
-                    <p className="text-2xl font-bold">24</p>
-                    <span className="text-xs text-emerald-600">6 this month</span>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50"><FolderOpen className="h-5 w-5 text-emerald-600" /></div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase">Total Downloads</p>
-                    <p className="text-2xl font-bold">342</p>
-                    <span className="text-xs text-teal-600">by students</span>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50"><Download className="h-5 w-5 text-teal-600" /></div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase">Shared Classes</p>
-                    <p className="text-2xl font-bold">4</p>
-                    <span className="text-xs text-amber-600">all active classes</span>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50"><BookOpen className="h-5 w-5 text-amber-600" /></div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <StatGrid cols={3}>
+            <ModuleStatCard
+              icon={FolderOpen}
+              label="Total Resources"
+              value="24"
+              trend={{ value: '6 this month', positive: true }}
+              accentGradient="from-emerald-400 to-teal-500"
+              bgColor="bg-emerald-50 dark:bg-emerald-950/40"
+            />
+            <ModuleStatCard
+              icon={Download}
+              label="Total Downloads"
+              value="342"
+              trend={{ value: 'by students', positive: true }}
+              accentGradient="from-teal-400 to-emerald-500"
+              bgColor="bg-teal-50 dark:bg-teal-950/40"
+            />
+            <ModuleStatCard
+              icon={BookOpen}
+              label="Shared Classes"
+              value="4"
+              trend={{ value: 'all active classes', positive: true }}
+              accentGradient="from-amber-400 to-orange-500"
+              bgColor="bg-amber-50 dark:bg-amber-950/40"
+            />
+          </StatGrid>
 
           {/* Upload Button */}
           <div className="flex items-center justify-between">
             <div className="flex gap-2">
               {['All', 'Mathematics', 'Physics'].map(s => (
-                <Button key={s} variant="outline" size="sm" className={cn('text-xs', s === 'All' && 'bg-emerald-50 border-emerald-200 text-emerald-700')}>{s}</Button>
+                <Button key={s} variant="outline" size="sm" className={cn('text-xs', s === 'All' && 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100')}>{s}</Button>
               ))}
             </div>
-            <Button className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={() => toast.info('Upload dialog opening...')}>
+            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2" onClick={() => toast.info('Upload dialog opening...')}>
               <Upload className="h-4 w-4" /> Upload Resource
             </Button>
           </div>
 
           {/* Resources List */}
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {[
-                  { name: 'Quadratic Equations Chapter 7 Notes', subject: 'Mathematics', classes: ['Form 3A', 'Form 4A'], type: 'PDF', size: '2.4 MB', downloads: 89, date: 'Feb 15, 2026' },
-                  { name: 'ZIMSEC 2024 Maths Paper 1', subject: 'Mathematics', classes: ['Form 4A'], type: 'PDF', size: '1.8 MB', downloads: 156, date: 'Feb 10, 2026' },
-                  { name: 'Newton\'s Laws Video Series', subject: 'Physics', classes: ['Form 6A'], type: 'Video', size: '120 MB', downloads: 33, date: 'Feb 8, 2026' },
-                  { name: 'Trigonometry Worksheet Set', subject: 'Mathematics', classes: ['Form 3A', 'Form 4A'], type: 'DOC', size: '0.5 MB', downloads: 67, date: 'Feb 5, 2026' },
-                  { name: 'Calculus: Derivatives Notes', subject: 'Mathematics', classes: ['Form 5A'], type: 'PDF', size: '3.1 MB', downloads: 28, date: 'Feb 2, 2026' },
-                  { name: 'Electromagnetism Problem Set', subject: 'Physics', classes: ['Form 6A'], type: 'PDF', size: '1.2 MB', downloads: 22, date: 'Jan 28, 2026' },
-                  { name: 'Algebra Revision Pack', subject: 'Mathematics', classes: ['Form 3A', 'Form 4A', 'Form 5A'], type: 'PDF', size: '4.5 MB', downloads: 134, date: 'Jan 20, 2026' },
-                  { name: 'Mechanics Practical Guide', subject: 'Physics', classes: ['Form 6A'], type: 'PDF', size: '2.8 MB', downloads: 19, date: 'Jan 15, 2026' },
-                ].map((resource, idx) => (
-                  <div key={idx} className="flex items-center gap-4 p-4 hover:bg-muted/30 transition-colors">
-                    <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg shrink-0',
-                      resource.type === 'PDF' ? 'bg-red-100' : resource.type === 'DOC' ? 'bg-blue-100' : 'bg-purple-100'
-                    )}>
-                      <FileText className={cn('h-5 w-5', resource.type === 'PDF' ? 'text-red-600' : resource.type === 'DOC' ? 'text-blue-600' : 'text-purple-600')} />
+          <SectionCard noPadding>
+            <div className="divide-y divide-border/60">
+              {[
+                { name: 'Quadratic Equations Chapter 7 Notes', subject: 'Mathematics', classes: ['Form 3A', 'Form 4A'], type: 'PDF', size: '2.4 MB', downloads: 89, date: 'Feb 15, 2026' },
+                { name: 'ZIMSEC 2024 Maths Paper 1', subject: 'Mathematics', classes: ['Form 4A'], type: 'PDF', size: '1.8 MB', downloads: 156, date: 'Feb 10, 2026' },
+                { name: 'Newton\'s Laws Video Series', subject: 'Physics', classes: ['Form 6A'], type: 'Video', size: '120 MB', downloads: 33, date: 'Feb 8, 2026' },
+                { name: 'Trigonometry Worksheet Set', subject: 'Mathematics', classes: ['Form 3A', 'Form 4A'], type: 'DOC', size: '0.5 MB', downloads: 67, date: 'Feb 5, 2026' },
+                { name: 'Calculus: Derivatives Notes', subject: 'Mathematics', classes: ['Form 5A'], type: 'PDF', size: '3.1 MB', downloads: 28, date: 'Feb 2, 2026' },
+                { name: 'Electromagnetism Problem Set', subject: 'Physics', classes: ['Form 6A'], type: 'PDF', size: '1.2 MB', downloads: 22, date: 'Jan 28, 2026' },
+                { name: 'Algebra Revision Pack', subject: 'Mathematics', classes: ['Form 3A', 'Form 4A', 'Form 5A'], type: 'PDF', size: '4.5 MB', downloads: 134, date: 'Jan 20, 2026' },
+                { name: 'Mechanics Practical Guide', subject: 'Physics', classes: ['Form 6A'], type: 'PDF', size: '2.8 MB', downloads: 19, date: 'Jan 15, 2026' },
+              ].map((resource, idx) => (
+                <div key={idx} className="flex items-center gap-4 p-4 hover:bg-muted/30 transition-colors">
+                  <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg shrink-0',
+                    resource.type === 'PDF' ? 'bg-red-100 dark:bg-red-950/40' : resource.type === 'DOC' ? 'bg-blue-100 dark:bg-blue-950/40' : 'bg-purple-100 dark:bg-purple-950/40'
+                  )}>
+                    <FileText className={cn('h-5 w-5', resource.type === 'PDF' ? 'text-red-600' : resource.type === 'DOC' ? 'text-blue-600' : 'text-purple-600')} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{resource.name}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="outline" className="text-[9px] shadow-none">{resource.subject}</Badge>
+                      <Badge variant="outline" className="text-[9px] shadow-none">{resource.type}</Badge>
+                      <span className="text-[10px] text-muted-foreground">{resource.size}</span>
+                      <span className="text-[10px] text-muted-foreground">•</span>
+                      <span className="text-[10px] text-muted-foreground">{resource.downloads} downloads</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{resource.name}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="outline" className="text-[9px]">{resource.subject}</Badge>
-                        <Badge variant="outline" className="text-[9px]">{resource.type}</Badge>
-                        <span className="text-[10px] text-muted-foreground">{resource.size}</span>
-                        <span className="text-[10px] text-muted-foreground">•</span>
-                        <span className="text-[10px] text-muted-foreground">{resource.downloads} downloads</span>
-                      </div>
-                      <div className="flex gap-1 mt-1">
-                        {resource.classes.map(c => (
-                          <Badge key={c} variant="secondary" className="text-[8px] px-1.5 py-0">{c}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs text-muted-foreground">{resource.date}</span>
-                      <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={() => toast.info(`Editing ${resource.name}`)}>
-                        <Edit3 className="h-3 w-3" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="text-xs gap-1 text-red-500 hover:text-red-700" onClick={() => toast.success(`Resource deleted`)}>
-                        <X className="h-3 w-3" />
-                      </Button>
+                    <div className="flex gap-1 mt-1">
+                      {resource.classes.map(c => (
+                        <Badge key={c} variant="secondary" className="text-[8px] px-1.5 py-0 shadow-none">{c}</Badge>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-muted-foreground">{resource.date}</span>
+                    <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={() => toast.info(`Editing ${resource.name}`)}>
+                      <Edit3 className="h-3 w-3" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-xs gap-1 text-red-500 hover:text-red-700" onClick={() => toast.success(`Resource deleted`)}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
         </TabsContent>
 
-        {/* ═══════════════════════════════════════════════════════════════════════
-            ATTENDANCE & SCHEDULE TAB
-        ═══════════════════════════════════════════════════════════════════════ */}
+        {/* ─── Attendance & Schedule Tab ─────────────────────────────────────── */}
         <TabsContent value="attendance" className="space-y-4">
           {/* Take Attendance Section */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <ClipboardCheck className="h-4 w-4 text-emerald-600" />
-                    Take Attendance
-                  </CardTitle>
-                  <CardDescription>Mark student attendance for today&apos;s class</CardDescription>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Select value={attendanceClass} onValueChange={(v) => { setAttendanceClass(v); setAttendanceData({}) }}>
-                    <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Form 3A">Form 3A</SelectItem>
-                      <SelectItem value="Form 4A">Form 4A</SelectItem>
-                      <SelectItem value="Form 5A">Form 5A</SelectItem>
-                      <SelectItem value="Form 6A">Form 6A</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button className="gap-1" onClick={handleSubmitAttendance}>
-                    <Save className="h-3 w-3" /> Submit Attendance
-                  </Button>
-                </div>
+          <SectionCard
+            title="Take Attendance"
+            description="Mark student attendance for today's class"
+            icon={ClipboardCheck}
+            actions={
+              <div className="flex items-center gap-3">
+                <Select value={attendanceClass} onValueChange={(v) => { setAttendanceClass(v); setAttendanceData({}) }}>
+                  <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Form 3A">Form 3A</SelectItem>
+                    <SelectItem value="Form 4A">Form 4A</SelectItem>
+                    <SelectItem value="Form 5A">Form 5A</SelectItem>
+                    <SelectItem value="Form 6A">Form 6A</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button className="gap-1 h-9 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleSubmitAttendance}>
+                  <Save className="h-3 w-3" /> Submit Attendance
+                </Button>
               </div>
-            </CardHeader>
-            <CardContent>
-              {/* Attendance Summary */}
-              <div className="grid grid-cols-4 gap-3 mb-4">
-                {[
-                  { label: 'Present', icon: UserCheck, color: 'text-emerald-600 bg-emerald-50', count: Object.values(attendanceData).filter(v => v === 'Present').length },
-                  { label: 'Absent', icon: UserX, color: 'text-red-600 bg-red-50', count: Object.values(attendanceData).filter(v => v === 'Absent').length },
-                  { label: 'Late', icon: Timer, color: 'text-amber-600 bg-amber-50', count: Object.values(attendanceData).filter(v => v === 'Late').length },
-                  { label: 'Excused', icon: Smile, color: 'text-teal-600 bg-teal-50', count: Object.values(attendanceData).filter(v => v === 'Excused').length },
-                ].map((s) => (
-                  <div key={s.label} className={cn('rounded-lg p-3 flex items-center gap-3', s.color)}>
-                    <s.icon className="h-5 w-5 shrink-0" />
-                    <div>
-                      <p className="text-xs font-medium opacity-70">{s.label}</p>
-                      <p className="text-lg font-bold">{s.count}</p>
+            }
+          >
+            {/* Attendance Summary */}
+            <div className="grid grid-cols-4 gap-3 mb-4">
+              {[
+                { label: 'Present', icon: UserCheck, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20', count: Object.values(attendanceData).filter(v => v === 'Present').length },
+                { label: 'Absent', icon: UserX, color: 'text-red-600 bg-red-50 dark:bg-red-950/20', count: Object.values(attendanceData).filter(v => v === 'Absent').length },
+                { label: 'Late', icon: Timer, color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/20', count: Object.values(attendanceData).filter(v => v === 'Late').length },
+                { label: 'Excused', icon: Smile, color: 'text-teal-600 bg-teal-50 dark:bg-teal-950/20', count: Object.values(attendanceData).filter(v => v === 'Excused').length },
+              ].map((s) => (
+                <div key={s.label} className={cn('rounded-lg p-3 flex items-center gap-3', s.color)}>
+                  <s.icon className="h-5 w-5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium opacity-70">{s.label}</p>
+                    <p className="text-lg font-bold">{s.count}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Student Attendance List */}
+            <ScrollArea className="max-h-[400px] pr-1">
+              <div className="space-y-1">
+                {currentClassForAttendance?.students.map((student, idx) => (
+                  <div key={student.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                    <span className="text-xs text-muted-foreground w-6">{idx + 1}</span>
+                    <Avatar className="h-8 w-8 border border-emerald-100">
+                      <AvatarFallback className="text-[10px] bg-emerald-100 text-emerald-700">{student.initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{student.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{student.studentNumber}</p>
                     </div>
+                    <RadioGroup
+                      value={attendanceData[student.id] || ''}
+                      onValueChange={(value) => handleAttendanceChange(student.id, value)}
+                      className="flex items-center gap-2"
+                    >
+                      {[
+                        { value: 'Present', label: 'P', color: 'text-emerald-600 border-emerald-300' },
+                        { value: 'Absent', label: 'A', color: 'text-red-600 border-red-300' },
+                        { value: 'Late', label: 'L', color: 'text-amber-600 border-amber-300' },
+                        { value: 'Excused', label: 'E', color: 'text-teal-600 border-teal-300' },
+                      ].map((option) => (
+                        <div key={option.value} className="flex items-center gap-1">
+                          <RadioGroupItem
+                            value={option.value}
+                            id={`${student.id}-${option.value}`}
+                            className={cn('h-4 w-4', option.color)}
+                          />
+                          <Label htmlFor={`${student.id}-${option.value}`} className={cn('text-[10px] font-semibold cursor-pointer', option.color.split(' ')[0])}>
+                            {option.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
                   </div>
                 ))}
               </div>
-
-              {/* Student Attendance List */}
-              <ScrollArea className="max-h-[400px]">
-                <div className="space-y-1">
-                  {currentClassForAttendance?.students.map((student, idx) => (
-                    <div key={student.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                      <span className="text-xs text-muted-foreground w-6">{idx + 1}</span>
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="text-[10px] bg-emerald-100 text-emerald-700">{student.initials}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{student.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{student.studentNumber}</p>
-                      </div>
-                      <RadioGroup
-                        value={attendanceData[student.id] || ''}
-                        onValueChange={(value) => handleAttendanceChange(student.id, value)}
-                        className="flex items-center gap-2"
-                      >
-                        {[
-                          { value: 'Present', label: 'P', color: 'text-emerald-600 border-emerald-300' },
-                          { value: 'Absent', label: 'A', color: 'text-red-600 border-red-300' },
-                          { value: 'Late', label: 'L', color: 'text-amber-600 border-amber-300' },
-                          { value: 'Excused', label: 'E', color: 'text-teal-600 border-teal-300' },
-                        ].map((option) => (
-                          <div key={option.value} className="flex items-center gap-1">
-                            <RadioGroupItem
-                              value={option.value}
-                              id={`${student.id}-${option.value}`}
-                              className={cn('h-4 w-4', option.color)}
-                            />
-                            <Label htmlFor={`${student.id}-${option.value}`} className={cn('text-[10px] font-semibold cursor-pointer', option.color.split(' ')[0])}>
-                              {option.label}
-                            </Label>
-                          </div>
-                        ))}
-                      </RadioGroup>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+            </ScrollArea>
+          </SectionCard>
 
           {/* Weekly Schedule Grid */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-emerald-600" />
-                    Weekly Schedule
-                  </CardTitle>
-                  <CardDescription>Mr. Tendai Hove — Mathematics & Physics</CardDescription>
-                </div>
-                <div className="flex items-center gap-4 text-xs">
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-3 w-3 rounded bg-emerald-200 dark:bg-emerald-800" /> Mathematics
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-3 w-3 rounded bg-violet-200 dark:bg-violet-800" /> Physics
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-3 w-3 rounded bg-amber-200 dark:bg-amber-800" /> Substitute
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-3 w-3 rounded bg-gray-200 dark:bg-gray-700" /> Free
-                  </span>
-                </div>
+          <SectionCard
+            title="Weekly Schedule"
+            description="Mr. Tendai Hove — Mathematics & Physics"
+            icon={Calendar}
+            actions={
+              <div className="flex items-center gap-4 text-xs">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded bg-emerald-100 border border-emerald-300 dark:bg-emerald-900/30" /> Mathematics
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded bg-violet-100 border border-violet-300 dark:bg-violet-900/30" /> Physics
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded bg-amber-100 border border-amber-300 dark:bg-amber-900/30" /> Substitute
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded bg-gray-100 border border-gray-300 dark:bg-gray-800" /> Free
+                </span>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <div className="min-w-[800px]">
-                  {/* Header Row */}
-                  <div className="grid grid-cols-[80px_repeat(5,1fr)] gap-1 mb-1">
-                    <div className="text-xs font-medium text-muted-foreground p-2 text-center">Period</div>
-                    {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
-                      <div key={day} className="text-xs font-medium text-muted-foreground p-2 text-center">{day}</div>
-                    ))}
-                  </div>
-
-                  {/* Schedule Grid */}
-                  {Array.from({ length: 8 }, (_, i) => i + 1).map(period => (
-                    <div key={period} className="grid grid-cols-[80px_repeat(5,1fr)] gap-1 mb-1">
-                      {/* Period Label */}
-                      <div className="p-2 text-center">
-                        <p className="text-xs font-semibold">P{period}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {['7:30', '8:20', '9:10', '10:10', '11:00', '11:50', '12:40', '1:30'][period - 1]}
-                        </p>
-                      </div>
-
-                      {/* Day Cells */}
-                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => {
-                        const slot = weeklySchedule[day]?.[period]
-                        if (!slot) return <div key={day} className="p-2 rounded bg-muted/30" />
-
-                        return (
-                          <div
-                            key={day}
-                            className={cn(
-                              'p-2 rounded border transition-all hover:shadow-sm min-h-[60px]',
-                              getSlotColor(slot),
-                              slot.isFree ? 'border-transparent' : 'border'
-                            )}
-                          >
-                            {slot.isFree ? (
-                              <div className="flex items-center justify-center h-full">
-                                <span className="text-xs text-muted-foreground italic">Free</span>
-                              </div>
-                            ) : (
-                              <div className={getSlotTextColor(slot)}>
-                                <p className="text-xs font-semibold">{slot.subject}</p>
-                                <p className="text-[10px] opacity-80">{slot.class}</p>
-                                <p className="text-[10px] opacity-60">{slot.room}</p>
-                                {slot.isSubstitute && (
-                                  <div className="mt-1 flex items-center gap-0.5">
-                                    <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
-                                    <span className="text-[9px] text-amber-600 dark:text-amber-400">Sub for {slot.originalTeacher}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
+            }
+          >
+            <div className="overflow-x-auto no-scrollbar">
+              <div className="min-w-[800px]">
+                {/* Header Row */}
+                <div className="grid grid-cols-[80px_repeat(5,1fr)] gap-1 mb-1">
+                  <div className="text-xs font-medium text-muted-foreground p-2 text-center">Period</div>
+                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
+                    <div key={day} className="text-xs font-medium text-muted-foreground p-2 text-center">{day}</div>
                   ))}
                 </div>
-              </div>
 
-              {/* Workload Summary */}
-              <div className="mt-4 pt-4 border-t grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {[
-                  { label: 'Periods/Week', value: '20', icon: Clock, color: 'text-emerald-600' },
-                  { label: 'Classes', value: '4', icon: Users, color: 'text-teal-600' },
-                  { label: 'Subjects', value: '2', icon: BookOpen, color: 'text-violet-600' },
-                  { label: 'Free Periods', value: '20', icon: Smile, color: 'text-amber-600' },
-                ].map((item) => (
-                  <div key={item.label} className="flex items-center gap-3 bg-muted/30 rounded-lg p-3">
-                    <item.icon className={cn('h-5 w-5', item.color)} />
-                    <div>
-                      <p className="text-xs text-muted-foreground">{item.label}</p>
-                      <p className="text-lg font-bold">{item.value}</p>
+                {/* Schedule Grid */}
+                {Array.from({ length: 8 }, (_, i) => i + 1).map(period => (
+                  <div key={period} className="grid grid-cols-[80px_repeat(5,1fr)] gap-1 mb-1">
+                    {/* Period Label */}
+                    <div className="p-2 text-center">
+                      <p className="text-xs font-semibold">P{period}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {['7:30', '8:20', '9:10', '10:10', '11:00', '11:50', '12:40', '1:30'][period - 1]}
+                      </p>
                     </div>
+
+                    {/* Day Cells */}
+                    {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => {
+                      const slot = weeklySchedule[day]?.[period]
+                      if (!slot) return <div key={day} className="p-2 rounded bg-muted/30" />
+
+                      return (
+                        <div
+                          key={day}
+                          className={cn(
+                            'p-2 rounded border transition-all hover:shadow-sm min-h-[60px]',
+                            getSlotColor(slot),
+                            slot.isFree ? 'border-transparent' : 'border'
+                          )}
+                        >
+                          {slot.isFree ? (
+                            <div className="flex items-center justify-center h-full">
+                              <span className="text-xs text-muted-foreground italic">Free</span>
+                            </div>
+                          ) : (
+                            <div className={getSlotTextColor(slot)}>
+                              <p className="text-xs font-semibold">{slot.subject}</p>
+                              <p className="text-[10px] opacity-80">{slot.class}</p>
+                              <p className="text-[10px] opacity-60">{slot.room}</p>
+                              {slot.isSubstitute && (
+                                <div className="mt-1 flex items-center gap-0.5">
+                                  <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
+                                  <span className="text-[9px] text-amber-600 dark:text-amber-400">Sub for {slot.originalTeacher}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            {/* Workload Summary */}
+            <div className="mt-4 pt-4 border-t">
+              <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Workload Summary</p>
+              <StatGrid cols={4}>
+                <ModuleStatCard
+                  icon={Clock}
+                  label="Periods/Week"
+                  value="20"
+                  accentGradient="from-emerald-400 to-teal-500"
+                  bgColor="bg-emerald-50 dark:bg-emerald-950/40"
+                />
+                <ModuleStatCard
+                  icon={Users}
+                  label="Classes"
+                  value="4"
+                  accentGradient="from-teal-400 to-emerald-500"
+                  bgColor="bg-teal-50 dark:bg-teal-950/40"
+                />
+                <ModuleStatCard
+                  icon={BookOpen}
+                  label="Subjects"
+                  value="2"
+                  accentGradient="from-violet-400 to-indigo-500"
+                  bgColor="bg-violet-50 dark:bg-violet-950/40"
+                />
+                <ModuleStatCard
+                  icon={Smile}
+                  label="Free Periods"
+                  value="20"
+                  accentGradient="from-amber-400 to-orange-500"
+                  bgColor="bg-amber-50 dark:bg-amber-950/40"
+                />
+              </StatGrid>
+            </div>
+          </SectionCard>
         </TabsContent>
-      </Tabs>
-    </div>
+      </ModulePageLayout>
+    </ModuleContainer>
   )
 }

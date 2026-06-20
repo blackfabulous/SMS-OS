@@ -1,5 +1,6 @@
 'use client'
 
+import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -43,7 +44,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -672,30 +673,23 @@ export default function CommunicationModule() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Communication & CRM</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage school communications and parent engagement</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setViewMode('settings')} className="gap-2 border-gray-200 dark:border-gray-700">
-            <Settings className="h-4 w-4" /> Settings
-          </Button>
+<ModulePageLayout
+        actions={<>
           <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md" onClick={() => setViewMode('compose')}>
             <Send className="mr-2 h-4 w-4" /> Compose Message
           </Button>
-        </div>
-      </div>
+          <ModuleSettingsButton onClick={() => setViewMode('settings')} />
+        </>}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="sent">Sent Messages</TabsTrigger>
+            <TabsTrigger value="templates">Templates</TabsTrigger>
+            <TabsTrigger value="complaints">Complaints</TabsTrigger>
+          </>}
+      >
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Overview</TabsTrigger>
-          <TabsTrigger value="sent" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Sent Messages</TabsTrigger>
-          <TabsTrigger value="templates" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Templates</TabsTrigger>
-          <TabsTrigger value="complaints" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Complaints</TabsTrigger>
-        </TabsList>
 
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
@@ -933,7 +927,7 @@ export default function CommunicationModule() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+      </ModulePageLayout>
     </motion.div>
   )
 }

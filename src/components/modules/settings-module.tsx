@@ -1,5 +1,6 @@
 'use client'
 
+import { ModulePageLayout } from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -54,7 +55,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import { SettingsRegistryPanel } from '@/components/modules/settings-registry-panel'
 import {
   Table,
@@ -344,68 +345,38 @@ export default function SettingsModule() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">System Settings</h1>
-          <p className="text-sm text-muted-foreground mt-1">Configure school profile, academic setup, and system preferences</p>
-        </div>
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md"
-        >
-          {saving ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : saved ? (
-            <CheckCircle2 className="mr-2 h-4 w-4" />
-          ) : (
-            <Save className="mr-2 h-4 w-4" />
-          )}
-          {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Changes'}
-        </Button>
-      </div>
+<ModulePageLayout
+        actions={<>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md"
+          >
+            {saving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : saved ? (
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Changes'}
+          </Button>
+        </>}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="setup-wizard">Setup Wizard</TabsTrigger>
+            <TabsTrigger value="profile">School Profile</TabsTrigger>
+            <TabsTrigger value="academic">Academic Setup</TabsTrigger>
+            <TabsTrigger value="fees">Fee Structure</TabsTrigger>
+            <TabsTrigger value="users">User Management</TabsTrigger>
+            <TabsTrigger value="audit">Audit Trail</TabsTrigger>
+            <TabsTrigger value="compliance">Compliance</TabsTrigger>
+            <TabsTrigger value="system">System</TabsTrigger>
+            <TabsTrigger value="advanced">Advanced</TabsTrigger>
+          </>}
+      >
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50 p-1 flex flex-wrap">
-          <TabsTrigger value="setup-wizard" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Wand2 className="mr-1.5 h-3.5 w-3.5" />
-            Setup Wizard
-          </TabsTrigger>
-          <TabsTrigger value="profile" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <School className="mr-1.5 h-3.5 w-3.5" />
-            School Profile
-          </TabsTrigger>
-          <TabsTrigger value="academic" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <BookOpen className="mr-1.5 h-3.5 w-3.5" />
-            Academic Setup
-          </TabsTrigger>
-          <TabsTrigger value="fees" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <DollarSign className="mr-1.5 h-3.5 w-3.5" />
-            Fee Structure
-          </TabsTrigger>
-          <TabsTrigger value="users" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Users className="mr-1.5 h-3.5 w-3.5" />
-            User Management
-          </TabsTrigger>
-          <TabsTrigger value="audit" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Activity className="mr-1.5 h-3.5 w-3.5" />
-            Audit Trail
-          </TabsTrigger>
-          <TabsTrigger value="compliance" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Flag className="mr-1.5 h-3.5 w-3.5" />
-            Compliance
-          </TabsTrigger>
-          <TabsTrigger value="system" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Database className="mr-1.5 h-3.5 w-3.5" />
-            System
-          </TabsTrigger>
-          <TabsTrigger value="advanced" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Settings className="mr-1.5 h-3.5 w-3.5" />
-            Advanced
-          </TabsTrigger>
-        </TabsList>
 
         {/* ─── Advanced (registry-driven) Tab ───────────────────────────── */}
         <TabsContent value="advanced" className="space-y-4">
@@ -1679,7 +1650,7 @@ export default function SettingsModule() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+      </ModulePageLayout>
     </motion.div>
   )
 }

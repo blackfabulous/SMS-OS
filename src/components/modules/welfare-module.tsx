@@ -1,5 +1,6 @@
 'use client'
 
+import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -41,7 +42,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -569,20 +570,8 @@ export default function WelfareModule() {
       transition={{ duration: 0.4 }}
       className="space-y-6"
     >
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Heart className="h-6 w-6 text-rose-500" />
-            Student Welfare & BEAM
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage student welfare cases and BEAM applications</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => { setViewMode('settings'); setSelectedId(null) }} className="gap-1.5">
-            <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline">Settings</span>
-          </Button>
+<ModulePageLayout
+        actions={<>
           <Button
             variant="outline"
             size="sm"
@@ -596,32 +585,24 @@ export default function WelfareModule() {
             {showConfidential ? 'Confidential Visible' : 'Show Confidential'}
           </Button>
           <Button className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-md" onClick={() => { setAddType('welfare'); setViewMode('add') }}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Welfare Record
-              </Button>
-
-
+            <Plus className="mr-2 h-4 w-4" />
+            Add Welfare Record
+          </Button>
           <Button variant="outline" className="border-rose-200 text-rose-700 hover:bg-rose-50" onClick={() => { setAddType('beam'); setViewMode('add') }}>
-                <HandHeart className="mr-2 h-4 w-4" />
-                Apply for BEAM
-              </Button>
+            <HandHeart className="mr-2 h-4 w-4" />
+            Apply for BEAM
+          </Button>
+          <ModuleSettingsButton onClick={() => { setViewMode('settings'); setSelectedId(null) }} />
+        </>}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="welfare">Welfare Cases</TabsTrigger>
+            <TabsTrigger value="beam">BEAM</TabsTrigger>
+          </>}
+      >
 
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="welfare" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            Welfare Cases
-          </TabsTrigger>
-          <TabsTrigger value="beam" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            BEAM
-          </TabsTrigger>
-        </TabsList>
 
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
@@ -1008,7 +989,7 @@ export default function WelfareModule() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+      </ModulePageLayout>
     </motion.div>
   )
 }

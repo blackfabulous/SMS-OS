@@ -81,6 +81,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { ModulePageLayout, ModuleSettingsButton, ModuleStatCard } from '@/components/module-ui'
 
 // ─── View Mode Type ──────────────────────────────────────────────────────────
 type ViewMode = 'list' | 'add' | 'edit' | 'detail' | 'settings'
@@ -292,39 +293,7 @@ function PayslipStatusBadge({ status }: { status: string }) {
   )
 }
 
-// ─── Stat Card Component ──────────────────────────────────────────────────────
-function ModuleStatCard({
-  icon: Icon,
-  label,
-  value,
-  accentGradient,
-  bgColor,
-  iconColor,
-}: {
-  icon: React.ElementType
-  label: string
-  value: string | number
-  accentGradient: string
-  bgColor: string
-  iconColor?: string
-}) {
-  return (
-    <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow duration-300">
-      <CardContent className="p-3 sm:p-4">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className={cn('flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl', bgColor)}>
-            <Icon className={cn('h-4 w-4 sm:h-5 sm:w-5', iconColor || 'text-teal-600')} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
-            <p className="text-lg sm:text-xl font-bold tracking-tight">{value}</p>
-          </div>
-        </div>
-      </CardContent>
-      <div className={cn('absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r', accentGradient)} />
-    </Card>
-  )
-}
+
 
 // ─── Staff List View ──────────────────────────────────────────────────────────
 function StaffListView({
@@ -336,6 +305,7 @@ function StaffListView({
   onAddStaff: () => void
   onOpenSettings: () => void
 }) {
+  const [activeTab, setActiveTab] = useState('directory')
   const [staff, setStaff] = useState<StaffMember[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -431,45 +401,35 @@ function StaffListView({
 
   return (
     <div className="space-y-5">
-      {/* Stats Bar */}
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="grid grid-cols-2 sm:grid-cols-4 gap-3"
+      <ModulePageLayout
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+          <TabsTrigger value="directory">Staff Directory</TabsTrigger>
+        </>}
+        actions={<>
+          <Button className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white shadow-md gap-2" onClick={onAddStaff}>
+            <UserPlus className="h-4 w-4" />
+            Add Staff
+          </Button>
+          <ModuleSettingsButton onClick={onOpenSettings} />
+        </>}
       >
-        <ModuleStatCard icon={Users} label="Total Staff" value={stats.total} accentGradient="from-teal-400 to-cyan-500" bgColor="bg-teal-50" iconColor="text-teal-600" />
-        <ModuleStatCard icon={GraduationCap} label="Teaching" value={stats.teaching} accentGradient="from-emerald-400 to-teal-500" bgColor="bg-emerald-50" iconColor="text-emerald-600" />
-        <ModuleStatCard icon={Briefcase} label="Non-Teaching" value={stats.nonTeaching} accentGradient="from-amber-400 to-orange-500" bgColor="bg-amber-50" iconColor="text-amber-600" />
-        <ModuleStatCard icon={Plane} label="On Leave" value={stats.onLeave} accentGradient="from-cyan-400 to-sky-500" bgColor="bg-cyan-50" iconColor="text-cyan-600" />
-      </motion.div>
+        <TabsContent value="directory" className="space-y-4">
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="grid grid-cols-2 sm:grid-cols-4 gap-3"
+          >
+            <ModuleStatCard icon={Users} label="Total Staff" value={stats.total} accentGradient="from-teal-400 to-cyan-500" bgColor="bg-teal-50" iconColor="text-teal-600" />
+            <ModuleStatCard icon={GraduationCap} label="Teaching" value={stats.teaching} accentGradient="from-emerald-400 to-teal-500" bgColor="bg-emerald-50" iconColor="text-emerald-600" />
+            <ModuleStatCard icon={Briefcase} label="Non-Teaching" value={stats.nonTeaching} accentGradient="from-amber-400 to-orange-500" bgColor="bg-amber-50" iconColor="text-amber-600" />
+            <ModuleStatCard icon={Plane} label="On Leave" value={stats.onLeave} accentGradient="from-cyan-400 to-sky-500" bgColor="bg-cyan-50" iconColor="text-cyan-600" />
+          </motion.div>
 
-      {/* Main Content Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
-      >
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <CardTitle className="text-lg font-semibold">Staff Directory</CardTitle>
-                <CardDescription>{total} staff member{total !== 1 ? 's' : ''} found</CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="gap-2" onClick={onOpenSettings}>
-                  <Settings className="h-4 w-4" />
-                  <span className="hidden sm:inline">Settings</span>
-                </Button>
-                <Button className="bg-teal-600 hover:bg-teal-700 text-white gap-2" onClick={onAddStaff}>
-                  <UserPlus className="h-4 w-4" />
-                  Add Staff
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          <Card className="border-0 shadow-md">
+            <CardContent className="p-4 sm:p-5 space-y-4">
             {/* Search & Filters */}
             <div className="flex flex-col gap-3">
               <div className="relative flex-1 max-w-md">
@@ -644,7 +604,8 @@ function StaffListView({
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </TabsContent>
+    </ModulePageLayout>
     </div>
   )
 }

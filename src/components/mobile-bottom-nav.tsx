@@ -10,7 +10,7 @@ import {
   Clock, Trophy, Coffee, ShoppingCart, Shield, Monitor,
   Calculator, FileText, UsersRound, BellRing, School,
   ClipboardCheck, ArrowRightLeft, X, ChevronDown, ChevronUp,
-  Home, ShoppingBag, Globe, Palette, Printer,
+  Home, ShoppingBag, Globe, Printer,
 } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
@@ -110,7 +110,6 @@ const allCategories = [
       { id: 'documents', label: 'Documents', icon: FileText },
       { id: 'security', label: 'Security', icon: Shield },
       { id: 'website-cms', label: 'Website', icon: Globe },
-      { id: 'admin-cms', label: 'Admin CMS', icon: Palette },
       { id: 'settings', label: 'Settings', icon: Settings },
       { id: 'setup-wizard', label: 'Setup', icon: School },
     ],

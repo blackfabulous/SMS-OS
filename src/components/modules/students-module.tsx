@@ -86,13 +86,9 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { ModulePageLayout, ModuleSettingsButton, ModuleStatCard } from '@/components/module-ui'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { exportToCSV, printReport, buildHTMLTable } from '@/lib/export-utils'
@@ -348,38 +344,6 @@ function AttendanceStatusBadge({ status }: { status: string }) {
   )
 }
 
-// ─── Stat Card Component ──────────────────────────────────────────────────────
-function ModuleStatCard({
-  icon: Icon,
-  label,
-  value,
-  accentGradient,
-  bgColor,
-}: {
-  icon: React.ElementType
-  label: string
-  value: string | number
-  accentGradient: string
-  bgColor: string
-}) {
-  return (
-    <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow duration-300">
-      <CardContent className="p-3 sm:p-4">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className={cn('flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl', bgColor)}>
-            <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
-            <p className="text-lg sm:text-xl font-bold tracking-tight">{value}</p>
-          </div>
-        </div>
-      </CardContent>
-      <div className={cn('absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r', accentGradient)} />
-    </Card>
-  )
-}
-
 // ─── Student List View ────────────────────────────────────────────────────────
 function StudentListView({
   onSelectStudent,
@@ -390,6 +354,7 @@ function StudentListView({
   onAddStudent: () => void
   onOpenSettings: () => void
 }) {
+  const [activeTab, setActiveTab] = useState('directory')
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -491,88 +456,78 @@ function StudentListView({
 
   return (
     <div className="space-y-5">
-      {/* Stats Bar */}
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"
+      <ModulePageLayout
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+          <TabsTrigger value="directory">Student Directory</TabsTrigger>
+        </>}
+        actions={<>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => {
+                const csvData = sortedStudents.map(s => ({
+                  'Student Number': s.studentNumber,
+                  'First Name': s.firstName,
+                  'Last Name': s.lastName,
+                  'Gender': s.gender === 'MALE' ? 'Male' : 'Female',
+                  'Grade': s.enrollments[0]?.class?.grade?.name || '',
+                  'Class': s.enrollments[0]?.class?.name || '',
+                  'Boarding Status': s.boardingStatus === 'BOARDER' ? 'Boarder' : s.boardingStatus === 'DAY_SCHOLAR' ? 'Day Scholar' : '',
+                  'Enrollment Status': s.enrollmentStatus,
+                }))
+                exportToCSV(csvData, `students_export_${new Date().toISOString().slice(0, 10)}`)
+              }}>
+                <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" />
+                Export to CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                const headers = ['Student #', 'Name', 'Gender', 'Grade', 'Class', 'Boarding', 'Status']
+                const rows = sortedStudents.map(s => [
+                  s.studentNumber,
+                  `${s.firstName} ${s.lastName}`,
+                  s.gender === 'MALE' ? 'Male' : 'Female',
+                  s.enrollments[0]?.class?.grade?.name || '-',
+                  s.enrollments[0]?.class?.name || '-',
+                  s.boardingStatus === 'BOARDER' ? 'Boarder' : s.boardingStatus === 'DAY_SCHOLAR' ? 'Day Scholar' : '-',
+                  s.enrollmentStatus,
+                ])
+                printReport('Student List', buildHTMLTable(headers, rows))
+              }}>
+                <Printer className="mr-2 h-4 w-4 text-teal-600" />
+                Print List
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md gap-2" onClick={onAddStudent}>
+            <UserPlus className="h-4 w-4" />
+            Add Student
+          </Button>
+          <ModuleSettingsButton onClick={onOpenSettings} />
+        </>}
       >
-        <ModuleStatCard icon={GraduationCap} label="Total Students" value={stats.total} accentGradient="from-emerald-400 to-teal-500" bgColor="bg-emerald-50" />
-        <ModuleStatCard icon={CheckCircle2} label="Active" value={stats.active} accentGradient="from-teal-400 to-cyan-500" bgColor="bg-teal-50" />
-        <ModuleStatCard icon={BedDouble} label="Boarders" value={stats.boarders} accentGradient="from-cyan-400 to-sky-500" bgColor="bg-cyan-50" />
-        <ModuleStatCard icon={Sun} label="Day Scholars" value={stats.dayScholars} accentGradient="from-amber-400 to-orange-500" bgColor="bg-amber-50" />
-        <ModuleStatCard icon={Shield} label="BEAM" value={stats.beam} accentGradient="from-emerald-400 to-green-500" bgColor="bg-emerald-50" />
-      </motion.div>
+        <TabsContent value="directory" className="space-y-4">
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"
+          >
+            <ModuleStatCard icon={GraduationCap} label="Total Students" value={stats.total} accentGradient="from-emerald-400 to-teal-500" bgColor="bg-emerald-50" />
+            <ModuleStatCard icon={CheckCircle2} label="Active" value={stats.active} accentGradient="from-teal-400 to-cyan-500" bgColor="bg-teal-50" />
+            <ModuleStatCard icon={BedDouble} label="Boarders" value={stats.boarders} accentGradient="from-cyan-400 to-sky-500" bgColor="bg-cyan-50" />
+            <ModuleStatCard icon={Sun} label="Day Scholars" value={stats.dayScholars} accentGradient="from-amber-400 to-orange-500" bgColor="bg-amber-50" />
+            <ModuleStatCard icon={Shield} label="BEAM" value={stats.beam} accentGradient="from-emerald-400 to-green-500" bgColor="bg-emerald-50" />
+          </motion.div>
 
-      {/* Main Content Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
-      >
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <CardTitle className="text-lg font-semibold">Student Records</CardTitle>
-                <CardDescription>{total} student{total !== 1 ? 's' : ''} found</CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-                      <Download className="h-4 w-4" />
-                      Export
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => {
-                      const csvData = sortedStudents.map(s => ({
-                        'Student Number': s.studentNumber,
-                        'First Name': s.firstName,
-                        'Last Name': s.lastName,
-                        'Gender': s.gender === 'MALE' ? 'Male' : 'Female',
-                        'Grade': s.enrollments[0]?.class?.grade?.name || '',
-                        'Class': s.enrollments[0]?.class?.name || '',
-                        'Boarding Status': s.boardingStatus === 'BOARDER' ? 'Boarder' : s.boardingStatus === 'DAY_SCHOLAR' ? 'Day Scholar' : '',
-                        'Enrollment Status': s.enrollmentStatus,
-                      }))
-                      exportToCSV(csvData, `students_export_${new Date().toISOString().slice(0, 10)}`)
-                    }}>
-                      <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" />
-                      Export to CSV
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => {
-                      const headers = ['Student #', 'Name', 'Gender', 'Grade', 'Class', 'Boarding', 'Status']
-                      const rows = sortedStudents.map(s => [
-                        s.studentNumber,
-                        `${s.firstName} ${s.lastName}`,
-                        s.gender === 'MALE' ? 'Male' : 'Female',
-                        s.enrollments[0]?.class?.grade?.name || '-',
-                        s.enrollments[0]?.class?.name || '-',
-                        s.boardingStatus === 'BOARDER' ? 'Boarder' : s.boardingStatus === 'DAY_SCHOLAR' ? 'Day Scholar' : '-',
-                        s.enrollmentStatus,
-                      ])
-                      printReport('Student List', buildHTMLTable(headers, rows))
-                    }}>
-                      <Printer className="mr-2 h-4 w-4 text-teal-600" />
-                      Print List
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button variant="outline" size="sm" className="gap-2" onClick={onOpenSettings}>
-                  <Settings className="h-4 w-4" />
-                  <span className="hidden sm:inline">Settings</span>
-                </Button>
-                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2" onClick={onAddStudent}>
-                  <UserPlus className="h-4 w-4" />
-                  Add Student
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          <Card className="border-0 shadow-md">
+            <CardContent className="p-4 sm:p-5 space-y-4">
             {/* Search & Filters */}
             <div className="flex flex-col gap-3">
               <div className="relative flex-1 max-w-md">
@@ -757,8 +712,9 @@ function StudentListView({
               </div>
             </div>
           </CardContent>
-        </Card>
-      </motion.div>
+          </Card>
+        </TabsContent>
+      </ModulePageLayout>
     </div>
   )
 }

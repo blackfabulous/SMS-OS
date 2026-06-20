@@ -58,14 +58,14 @@
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.75rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: oklch(0.596 0.145 163.225);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -76,7 +76,7 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: oklch(0.696 0.17 162.48);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -84,12 +84,12 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary: oklch(0.596 0.145 163.225);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-ring: oklch(0.696 0.17 162.48);
 }
 
 .dark {
@@ -99,8 +99,8 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: oklch(0.696 0.17 162.48);
+  --primary-foreground: oklch(0.18 0.02 170);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -110,7 +110,7 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: oklch(0.696 0.17 162.48);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -118,12 +118,12 @@
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-primary: oklch(0.696 0.17 162.48);
+  --sidebar-primary-foreground: oklch(0.18 0.02 170);
+  --sidebar-accent: oklch(0.3 0.04 168);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: oklch(0.696 0.17 162.48);
 }
 
 @layer base {
@@ -678,6 +678,38 @@
   animation: fade-in 0.15s ease-out;
 }
 
+/* ─── Hide scrollbar (used by horizontally-scrolling tab strips on mobile) ──── */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Consistent elevated surface for module cards (bolder restyle) ─────────── */
+.surface-card {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 2px 0 rgba(16, 24, 40, 0.04), 0 1px 3px 0 rgba(16, 24, 40, 0.06);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.surface-card:hover {
+  box-shadow: 0 4px 16px -4px rgba(16, 185, 129, 0.12), 0 2px 6px -2px rgba(16, 24, 40, 0.08);
+}
+.dark .surface-card {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Sticky table header for long lists ───────────────────────────────────── */
+.table-sticky-head thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--card);
+}
+
 /* ─── Smooth Scrollbar for Sidebar ─────────────────────────────────────────── */
 .sidebar-scroll::-webkit-scrollbar {
   width: 3px;
@@ -689,3 +721,162 @@
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(16, 185, 129, 0.4);
 }
+
+/* ─── Premium Dashboard UI Enhancements & Consistency ─────────────────────── */
+
+/* 1. Standardized Premium Forms (Inputs, Textareas, Select Triggers) */
+[data-slot="input"],
+[data-slot="textarea"],
+[data-slot="select-trigger"] {
+  border-radius: 12px !important; /* Premium rounded style */
+  background-color: rgba(248, 250, 252, 0.6) !important; /* Soft slate/neutral background */
+  border: 1px solid rgba(203, 213, 225, 0.6) !important;
+  color: var(--foreground) !important;
+  font-size: 0.875rem !important; /* Consistent text size */
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+}
+
+.dark [data-slot="input"],
+.dark [data-slot="textarea"],
+.dark [data-slot="select-trigger"] {
+  background-color: rgba(30, 41, 59, 0.45) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-slot="input"]:hover,
+[data-slot="textarea"]:hover,
+[data-slot="select-trigger"]:hover {
+  border-color: rgba(16, 185, 129, 0.4) !important; /* Subtle emerald hover border */
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.04) !important;
+}
+
+.dark [data-slot="input"]:hover,
+.dark [data-slot="textarea"]:hover,
+.dark [data-slot="select-trigger"]:hover {
+  border-color: rgba(52, 211, 153, 0.3) !important;
+}
+
+[data-slot="input"]:focus,
+[data-slot="input"]:focus-visible,
+[data-slot="textarea"]:focus,
+[data-slot="textarea"]:focus-visible,
+[data-slot="select-trigger"]:focus,
+[data-slot="select-trigger"][data-state="open"] {
+  outline: none !important;
+  border-color: #10b981 !important; /* Emerald active border */
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15) !important; /* Soft emerald focus ring */
+  background-color: var(--card) !important;
+}
+
+.dark [data-slot="input"]:focus,
+.dark [data-slot="input"]:focus-visible,
+.dark [data-slot="textarea"]:focus,
+.dark [data-slot="textarea"]:focus-visible,
+.dark [data-slot="select-trigger"]:focus,
+.dark [data-slot="select-trigger"][data-state="open"] {
+  border-color: #34d399 !important;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.15) !important;
+}
+
+/* 2. Premium Form Labels */
+[data-slot="label"] {
+  font-size: 0.725rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.075em !important;
+  color: var(--muted-foreground) !important;
+  opacity: 0.85;
+  margin-bottom: 0.35rem !important;
+  display: block;
+}
+
+/* 3. Hide Redundant Headers Inside Modules */
+.dashboard-module-content > div > div > h1,
+.dashboard-module-content > div > h1,
+.dashboard-module-content h1.text-2xl.font-bold,
+.dashboard-module-content h1.text-2xl.font-bold.tracking-tight,
+.dashboard-module-content h1.text-xl.font-bold,
+.dashboard-module-content h1.text-xl.font-bold.tracking-tight,
+.dashboard-module-content .flex.flex-col.sm\:flex-row.sm\:items-center.sm\:justify-between.gap-4 > div:first-child:has(h1) {
+  display: none !important;
+}
+
+.dashboard-module-content > div > div > p.text-sm.text-muted-foreground:first-of-type,
+.dashboard-module-content > div > p.text-sm.text-muted-foreground:first-of-type,
+.dashboard-module-content .flex.flex-col.sm\:flex-row.sm\:items-center.sm\:justify-between.gap-4 > div:first-child > p.text-sm.text-muted-foreground {
+  display: none !important;
+}
+
+/* Cleanup layout when left header is hidden but actions are kept */
+.dashboard-module-content .flex.flex-col.sm\:flex-row.sm\:items-center.sm\:justify-between.gap-4 {
+  display: flex !important;
+  justify-content: flex-end !important;
+  margin-bottom: 0.5rem !important;
+}
+
+/* 4. Elegant Card Styling overrides for consistency */
+.card-premium-glow {
+  box-shadow: 0 4px 20px -2px rgba(16, 185, 129, 0.04), 0 2px 8px -1px rgba(0, 0, 0, 0.02) !important;
+  border: 1px solid rgba(226, 232, 240, 0.7) !important;
+  border-radius: 16px !important;
+}
+.dark .card-premium-glow {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* 5. Switch & Checkbox refinements */
+[data-slot="switch"] {
+  border-radius: 9999px !important;
+  background-color: var(--muted) !important;
+  border: 1px solid var(--border) !important;
+  transition: all 0.2s ease !important;
+}
+[data-slot="switch"][data-state="checked"] {
+  background-color: #10b981 !important;
+  border-color: #10b981 !important;
+}
+
+[data-slot="checkbox"] {
+  border-radius: 6px !important;
+  border: 1.5px solid rgba(203, 213, 225, 0.8) !important;
+  transition: all 0.2s ease !important;
+}
+[data-slot="checkbox"][data-state="checked"] {
+  background-color: #10b981 !important;
+  border-color: #10b981 !important;
+  color: white !important;
+}
+
+/* 6. Partner Carousel Card Style */
+.partner-glass-card {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.01);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+}
+.dark .partner-glass-card {
+  background: rgba(30, 41, 59, 0.45);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.partner-glass-card:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(16, 185, 129, 0.3);
+  box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.12);
+}
+.dark .partner-glass-card:hover {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(52, 211, 153, 0.2);
+  box-shadow: 0 10px 25px -5px rgba(52, 211, 153, 0.08);
+}
+

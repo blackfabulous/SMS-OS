@@ -1,5 +1,6 @@
 'use client'
 
+import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
 import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -47,7 +48,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -381,29 +382,20 @@ export default function SecurityModule() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
-            <Shield className="h-5 w-5 text-emerald-600" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold tracking-tight">Security & Visitor Management</h2>
-            <p className="text-sm text-muted-foreground">Manage campus security, visitor access, and incident reports</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setViewMode('settings')} className="gap-1.5"><Settings className="h-3.5 w-3.5" /><span className="hidden sm:inline">Settings</span></Button>
-        </div>
-      </motion.div>
+<ModulePageLayout
+        actions={<>
+          <ModuleSettingsButton onClick={() => setViewMode('settings')} />
+        </>}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="visitors">Visitor Log</TabsTrigger>
+            <TabsTrigger value="access">Access Control</TabsTrigger>
+            <TabsTrigger value="incidents">Incidents</TabsTrigger>
+          </>}
+      >
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="visitors">Visitor Log</TabsTrigger>
-          <TabsTrigger value="access">Access Control</TabsTrigger>
-          <TabsTrigger value="incidents">Incidents</TabsTrigger>
-        </TabsList>
 
         {/* ─── Overview Tab ─────────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
@@ -871,7 +863,7 @@ export default function SecurityModule() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+      </ModulePageLayout>
     </div>
   )
 }

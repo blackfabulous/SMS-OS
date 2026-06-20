@@ -46,8 +46,6 @@ export function AppHeader({
   onMarkRead,
   userName,
   userInitials,
-  wsConnected,
-  wsStatus,
   exchangeRate,
   currentRole,
   unreadCount,
@@ -58,8 +56,6 @@ export function AppHeader({
   onMarkRead: (id: string) => void
   userName: string
   userInitials: string
-  wsConnected: boolean
-  wsStatus: string
   exchangeRate: number
   currentRole: UserRole
   unreadCount: number
@@ -78,17 +74,6 @@ export function AppHeader({
         <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-[10px] font-medium text-amber-700 dark:text-amber-400">
           <DollarSign className="h-3 w-3" />
           <span>1 USD = {exchangeRate.toFixed(1)} ZiG</span>
-        </div>
-
-        {/* WebSocket Connection Status */}
-        <div className={cn(
-          'hidden sm:flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium border',
-          wsConnected 
-            ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400'
-            : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-400'
-        )}>
-          <div className={cn('h-1.5 w-1.5 rounded-full', wsConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500')} />
-          <span>{wsConnected ? 'Live' : wsStatus === 'reconnecting' ? 'Reconnecting' : 'Offline'}</span>
         </div>
 
         {/* Role Badge */}

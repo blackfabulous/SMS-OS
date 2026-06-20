@@ -1,5 +1,6 @@
 'use client'
 
+import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -46,7 +47,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -753,35 +754,30 @@ export default function HealthModule() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2"><HeartPulse className="h-6 w-6 text-red-500" /> Health & Clinic</h1>
-          <p className="text-sm text-muted-foreground mt-1">Student health records, sick bay, and wellness management</p>
-        </div>
-        <div className="flex items-center gap-2">
+<ModulePageLayout
+        actions={<>
           <Button variant="outline" size="sm" className={cn('border-red-200', showConfidential ? 'text-red-700 bg-red-50' : 'text-muted-foreground')} onClick={() => setShowConfidential(!showConfidential)}>
             {showConfidential ? <Eye className="mr-2 h-4 w-4" /> : <EyeOff className="mr-2 h-4 w-4" />}
             {showConfidential ? 'Confidential Visible' : 'Show Confidential'}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setViewMode('settings')}><Settings className="mr-2 h-4 w-4" /> Settings</Button>
           <Button variant="outline" className="border-red-200 text-red-700 hover:bg-red-50" onClick={() => setViewMode('quick-sickbay')}>
             <Thermometer className="mr-2 h-4 w-4" /> Quick Sick Bay
           </Button>
           <Button className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-md" onClick={() => setViewMode('add')}>
             <Plus className="mr-2 h-4 w-4" /> Add Health Record
           </Button>
-        </div>
-      </div>
+          <ModuleSettingsButton onClick={() => setViewMode('settings')} />
+        </>}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="records">Records</TabsTrigger>
+            <TabsTrigger value="sickbay">Sick Bay Today</TabsTrigger>
+            <TabsTrigger value="profiles">Medical Profiles</TabsTrigger>
+          </>}
+      >
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Overview</TabsTrigger>
-          <TabsTrigger value="records" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Records</TabsTrigger>
-          <TabsTrigger value="sickbay" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Sick Bay Today</TabsTrigger>
-          <TabsTrigger value="profiles" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Medical Profiles</TabsTrigger>
-        </TabsList>
 
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
@@ -1027,7 +1023,7 @@ export default function HealthModule() {
             )}
           </div>
         </TabsContent>
-      </Tabs>
+      </ModulePageLayout>
     </motion.div>
   )
 }

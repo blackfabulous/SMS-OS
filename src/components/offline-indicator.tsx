@@ -79,11 +79,11 @@ export function OfflineIndicator() {
   // Expose addPendingOp for other components
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      (window as Record<string, unknown>).__zimschool_addPendingOp = addPendingOp
+      (window as unknown as Record<string, unknown>).__zimschool_addPendingOp = addPendingOp
     }
     return () => {
       if (typeof window !== 'undefined') {
-        delete (window as Record<string, unknown>).__zimschool_addPendingOp
+        delete (window as unknown as Record<string, unknown>).__zimschool_addPendingOp
       }
     }
   }, [addPendingOp])

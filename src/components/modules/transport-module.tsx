@@ -1,5 +1,6 @@
 'use client'
 
+import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -38,7 +39,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -772,30 +773,23 @@ export default function TransportModule() {
       transition={{ duration: 0.4 }}
       className="space-y-6"
     >
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Transport Management</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage routes, vehicles, and student transport</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setViewMode('settings')}>
-            <Settings className="mr-2 h-4 w-4" /> Settings
-          </Button>
+<ModulePageLayout
+        actions={<>
           <Button className="bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white shadow-md" onClick={() => setViewMode('add-assignment')}>
             <Plus className="mr-2 h-4 w-4" /> Assign Route
           </Button>
-        </div>
-      </div>
+          <ModuleSettingsButton onClick={() => setViewMode('settings')} />
+        </>}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="routes">Routes</TabsTrigger>
+            <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
+            <TabsTrigger value="students">Students</TabsTrigger>
+          </>}
+      >
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Overview</TabsTrigger>
-          <TabsTrigger value="routes" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Routes</TabsTrigger>
-          <TabsTrigger value="vehicles" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Vehicles</TabsTrigger>
-          <TabsTrigger value="students" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Students</TabsTrigger>
-        </TabsList>
 
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
@@ -1033,7 +1027,7 @@ export default function TransportModule() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+      </ModulePageLayout>
     </motion.div>
   )
 }

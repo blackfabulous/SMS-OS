@@ -1,5 +1,6 @@
 'use client'
 
+import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
 import React, { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -37,7 +38,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
   SelectContent,
@@ -448,45 +449,21 @@ export default function AlumniModule() {
 
   return (
     <div className="space-y-6">
-      {/* Module Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <UsersRound className="h-6 w-6 text-emerald-600" />
-            Alumni Network
-          </h2>
-          <p className="text-muted-foreground text-sm mt-1">Connect with former students, track contributions, and manage alumni events</p>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => { setViewMode('settings'); setSelectedId(null) }} className="gap-1.5">
-          <Settings className="h-4 w-4" />
-          <span className="hidden sm:inline">Settings</span>
-        </Button>
-      </div>
+<ModulePageLayout
+        actions={<>
+          <ModuleSettingsButton onClick={() => { setViewMode('settings'); setSelectedId(null) }} />
+        </>}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="overview"><span className="hidden sm:inline">Overview</span></TabsTrigger>
+            <TabsTrigger value="directory"><span className="hidden sm:inline">Directory</span></TabsTrigger>
+            <TabsTrigger value="contributions"><span className="hidden sm:inline">Contributions</span></TabsTrigger>
+            <TabsTrigger value="events"><span className="hidden sm:inline">Events</span></TabsTrigger>
+            <TabsTrigger value="communications"><span className="hidden sm:inline">Communications</span></TabsTrigger>
+          </>}
+      >
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
-          <TabsTrigger value="overview" className="gap-1.5">
-            <BarChart3 className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Overview</span>
-          </TabsTrigger>
-          <TabsTrigger value="directory" className="gap-1.5">
-            <UsersRound className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Directory</span>
-          </TabsTrigger>
-          <TabsTrigger value="contributions" className="gap-1.5">
-            <DollarSign className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Contributions</span>
-          </TabsTrigger>
-          <TabsTrigger value="events" className="gap-1.5">
-            <Calendar className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Events</span>
-          </TabsTrigger>
-          <TabsTrigger value="communications" className="gap-1.5">
-            <Mail className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Communications</span>
-          </TabsTrigger>
-        </TabsList>
 
         {/* ─── Overview Tab ────────────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-6 mt-4">
@@ -1175,7 +1152,7 @@ export default function AlumniModule() {
             </Card>
           </div>
         </TabsContent>
-      </Tabs>
+      </ModulePageLayout>
     </div>
   )
 }

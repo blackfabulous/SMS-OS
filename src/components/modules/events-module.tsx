@@ -1,5 +1,6 @@
 'use client'
 
+import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
 import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -17,7 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -1214,13 +1215,8 @@ export default function EventsModule() {
       transition={{ duration: 0.4 }}
       className="space-y-6"
     >
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Events & Sports</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage school events, sports fixtures and activities</p>
-        </div>
-        <div className="flex items-center gap-2">
+<ModulePageLayout
+        actions={<>
           <Button variant="outline" size="sm" onClick={handleAddFixture}>
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             Add Fixture
@@ -1229,29 +1225,17 @@ export default function EventsModule() {
             <Plus className="mr-2 h-4 w-4" />
             Add Event
           </Button>
-        </div>
-      </div>
+        </>}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        tabs={<>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="events">Events</TabsTrigger>
+            <TabsTrigger value="sports">Sports</TabsTrigger>
+            <TabsTrigger value="calendar">Calendar</TabsTrigger>
+                      </>}
+      >
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-        <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="events" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            Events
-          </TabsTrigger>
-          <TabsTrigger value="sports" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            Sports
-          </TabsTrigger>
-          <TabsTrigger value="calendar" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            Calendar
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Settings className="h-3.5 w-3.5 mr-1.5" />
-            Settings
-          </TabsTrigger>
-        </TabsList>
 
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
@@ -1800,27 +1784,7 @@ export default function EventsModule() {
         </TabsContent>
 
         {/* ─── Settings Tab ─────────────────────────────────────────────── */}
-        <TabsContent value="settings">
-          <PageTransition pageKey="settings-tab">
-            <div className="flex items-center justify-center py-12">
-              <Card className="border-0 shadow-md w-full max-w-md text-center">
-                <CardContent className="p-8">
-                  <Settings className="h-12 w-12 text-violet-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Events Settings</h3>
-                  <p className="text-sm text-muted-foreground mb-4">Configure default views, event types, notifications, calendar options, and more.</p>
-                  <Button
-                    onClick={() => navigateTo('settings')}
-                    className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
-                  >
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Open Settings
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </PageTransition>
-        </TabsContent>
-      </Tabs>
+        </ModulePageLayout>
     </motion.div>
   )
 }

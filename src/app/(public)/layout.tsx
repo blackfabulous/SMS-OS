@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
-import { getSchool, SITE_FALLBACK } from '@/lib/public-data'
+import type { CSSProperties, ReactNode } from 'react'
+import { getSchool, getSiteTheme, SITE_FALLBACK } from '@/lib/public-data'
+import { resolveTheme } from '@/lib/site-theme'
 import { PublicHeader } from './_components/public-header'
 import { PublicFooter } from './_components/public-footer'
 
@@ -7,8 +8,17 @@ import { PublicFooter } from './_components/public-footer'
 export const dynamic = 'force-dynamic'
 
 export default async function PublicLayout({ children }: { children: ReactNode }) {
-  const school = await getSchool()
+  const [school, themeRow] = await Promise.all([getSchool(), getSiteTheme()])
   const name = school?.name ?? SITE_FALLBACK.name
+  const theme = resolveTheme(themeRow)
+
+  // Brand tokens exposed site-wide for theme-driven accents.
+  const brandVars = {
+    '--bp': theme.primaryColor,
+    '--bs': theme.secondaryColor,
+    '--ba': theme.accentColor,
+    '--bd': theme.darkColor,
+  } as CSSProperties
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -27,7 +37,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-white dark:bg-background">
+    <div className="flex min-h-screen flex-col bg-white dark:bg-background" style={brandVars}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <PublicHeader schoolName={name} />
       <main className="flex-1">{children}</main>

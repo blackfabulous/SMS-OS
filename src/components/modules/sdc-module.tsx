@@ -1,5 +1,6 @@
 'use client'
 
+import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -34,7 +35,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -386,40 +387,29 @@ export default function SDCModule() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">SDC/SDA Governance</h1>
-          <p className="text-sm text-muted-foreground mt-1">School Development Committee management</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => { setViewMode('settings'); setSelectedId(null) }} className="gap-1.5">
-            <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline">Settings</span>
-          </Button>
+<ModulePageLayout
+        actions={<>
           <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md" onClick={() => { setAddType('member'); setViewMode('add') }}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Member
-              </Button>
-
-
+            <Plus className="mr-2 h-4 w-4" />
+            Add Member
+          </Button>
           <Button variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => { setAddType('meeting'); setViewMode('add') }}>
-                <Calendar className="mr-2 h-4 w-4" />
-                Add Meeting
-              </Button>
+            <Calendar className="mr-2 h-4 w-4" />
+            Add Meeting
+          </Button>
+          <ModuleSettingsButton onClick={() => { setViewMode('settings'); setSelectedId(null) }} />
+        </>}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="members">Members</TabsTrigger>
+            <TabsTrigger value="meetings">Meetings</TabsTrigger>
+            <TabsTrigger value="projects">Projects</TabsTrigger>
+            <TabsTrigger value="finances">Finances</TabsTrigger>
+          </>}
+      >
 
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Overview</TabsTrigger>
-          <TabsTrigger value="members" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Members</TabsTrigger>
-          <TabsTrigger value="meetings" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Meetings</TabsTrigger>
-          <TabsTrigger value="projects" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Projects</TabsTrigger>
-          <TabsTrigger value="finances" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Finances</TabsTrigger>
-        </TabsList>
 
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
@@ -768,7 +758,7 @@ export default function SDCModule() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+      </ModulePageLayout>
     </motion.div>
   )
 }

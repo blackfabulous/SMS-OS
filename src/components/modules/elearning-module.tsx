@@ -1,6 +1,17 @@
 'use client'
 
-import React, { useState } from 'react'
+import {
+  ModuleContainer,
+  StatGrid,
+  ModuleStatCard,
+  SectionCard,
+  TableShell,
+  ModulePageLayout,
+  ModuleSettingsButton,
+  KitEmptyState,
+  ModuleToolbar,
+} from '@/components/module-ui'
+import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   Monitor,
@@ -25,6 +36,7 @@ import {
   ArrowLeft,
   Settings,
   Save,
+  Loader2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -55,7 +67,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -101,71 +113,67 @@ interface Assignment {
   maxMarks: number
 }
 
-interface StudentProgress {
-  id: string
-  studentName: string
-  form: string
-  courses: { subject: string; progress: number; grade: string }[]
-  overallProgress: number
+// ─── Mappings ─────────────────────────────────────────────────────────────────
+
+const mapDbCourse = (c: any): Course => {
+  return {
+    id: c.id,
+    subject: c.name,
+    teacher: c.instructor || 'Unknown',
+    enrollmentCount: c.enrollmentCount || 0,
+    maxEnrollment: 50,
+    progress: c.syllabusCompletion || 0,
+    category: 'Sciences',
+    status: c.isActive ? 'Active' : 'Completed',
+    description: c.description || '',
+  }
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const mockCourses: Course[] = [
-  { id: '1', subject: 'Mathematics', teacher: 'Mr. Hove', enrollmentCount: 42, maxEnrollment: 50, progress: 68, category: 'Sciences', status: 'Active', description: 'O-Level Mathematics covering algebra, geometry, and statistics' },
-  { id: '2', subject: 'English Language', teacher: 'Mrs. Mlambo', enrollmentCount: 48, maxEnrollment: 50, progress: 72, category: 'Languages', status: 'Active', description: 'O-Level English Language with focus on comprehension and composition' },
-  { id: '3', subject: 'Shona', teacher: 'Mr. Gumbo', enrollmentCount: 38, maxEnrollment: 45, progress: 55, category: 'Languages', status: 'Active', description: 'O-Level Shona language and literature' },
-  { id: '4', subject: 'Physics', teacher: 'Mrs. Ncube', enrollmentCount: 28, maxEnrollment: 35, progress: 45, category: 'Sciences', status: 'Active', description: 'O-Level Physics covering mechanics, electricity, and optics' },
-  { id: '5', subject: 'Chemistry', teacher: 'Mr. Zvambe', enrollmentCount: 30, maxEnrollment: 35, progress: 50, category: 'Sciences', status: 'Active', description: 'O-Level Chemistry with practical lab sessions' },
-  { id: '6', subject: 'Biology', teacher: 'Mrs. Dube', enrollmentCount: 35, maxEnrollment: 40, progress: 62, category: 'Sciences', status: 'Active', description: 'O-Level Biology covering human biology, plants, and ecology' },
-  { id: '7', subject: 'History', teacher: 'Mr. Moyo', enrollmentCount: 40, maxEnrollment: 45, progress: 78, category: 'Humanities', status: 'Active', description: 'Zimbabwe and African history with world history components' },
-  { id: '8', subject: 'Geography', teacher: 'Ms. Chikumba', enrollmentCount: 32, maxEnrollment: 40, progress: 58, category: 'Humanities', status: 'Active', description: 'Physical and human geography with Zimbabwe case studies' },
-  { id: '9', subject: 'Accounts', teacher: 'Mr. Tafara', enrollmentCount: 22, maxEnrollment: 30, progress: 40, category: 'Commercial', status: 'Active', description: 'O-Level Accounting principles and bookkeeping' },
-  { id: '10', subject: 'Computer Science', teacher: 'Mr. Kufa', enrollmentCount: 25, maxEnrollment: 30, progress: 35, category: 'Sciences', status: 'Active', description: 'Introduction to programming, databases, and computer systems' },
-  { id: '11', subject: 'A-Level Mathematics', teacher: 'Mr. Hove', enrollmentCount: 15, maxEnrollment: 20, progress: 82, category: 'A-Level', status: 'Active', description: 'A-Level Pure Mathematics and Statistics' },
-  { id: '12', subject: 'A-Level Physics', teacher: 'Mrs. Ncube', enrollmentCount: 12, maxEnrollment: 20, progress: 70, category: 'A-Level', status: 'Active', description: 'A-Level Advanced Physics' },
-]
+const mapDbResource = (r: any): Resource => {
+  const mapType = (t: string): Resource['type'] => {
+    switch (t?.toUpperCase()) {
+      case 'NOTES': return 'Notes'
+      case 'VIDEO': return 'Video'
+      case 'PAST_EXAM_PAPER': return 'Past Exam Paper'
+      case 'WORKSHEET': return 'Worksheet'
+      default: return 'Notes'
+    }
+  }
+  return {
+    id: r.id,
+    title: r.title,
+    subject: r.course?.name || 'General',
+    type: mapType(r.resourceType),
+    uploadDate: r.createdAt ? new Date(r.createdAt).toISOString().split('T')[0] : '',
+    uploadedBy: r.uploadedBy || 'Admin',
+    fileSize: typeof r.fileSize === 'number' ? (r.fileSize >= 1024 * 1024 ? `${(r.fileSize / (1024 * 1024)).toFixed(1)} MB` : `${(r.fileSize / 1024).toFixed(0)} KB`) : String(r.fileSize || '1.0 MB'),
+    downloads: r.downloads || 0,
+    description: r.description || '',
+  }
+}
 
-const mockResources: Resource[] = [
-  { id: '1', title: 'Algebra & Functions - Notes Pack', subject: 'Mathematics', type: 'Notes', uploadDate: '2026-02-28', uploadedBy: 'Mr. Hove', fileSize: '2.4 MB', downloads: 89, description: 'Complete notes on algebraic expressions, equations, and functions for O-Level' },
-  { id: '2', title: 'Quadratic Equations Video Tutorial', subject: 'Mathematics', type: 'Video', uploadDate: '2026-02-25', uploadedBy: 'Mr. Hove', fileSize: '45 MB', downloads: 67, description: 'Step-by-step video solving quadratic equations' },
-  { id: '3', title: 'ZIMSEC 2024 Maths Paper 1', subject: 'Mathematics', type: 'Past Exam Paper', uploadDate: '2026-01-15', uploadedBy: 'Admin', fileSize: '1.8 MB', downloads: 156, description: 'November 2024 ZIMSEC O-Level Mathematics Paper 1' },
-  { id: '4', title: 'Geometry Worksheet - Triangles', subject: 'Mathematics', type: 'Worksheet', uploadDate: '2026-02-20', uploadedBy: 'Mr. Hove', fileSize: '0.5 MB', downloads: 42, description: 'Practice problems on triangle properties and theorems' },
-  { id: '5', title: 'English Comprehension Skills', subject: 'English Language', type: 'Notes', uploadDate: '2026-02-27', uploadedBy: 'Mrs. Mlambo', fileSize: '3.1 MB', downloads: 78, description: 'Techniques for answering comprehension questions at O-Level' },
-  { id: '6', title: 'Descriptive Essay Writing Video', subject: 'English Language', type: 'Video', uploadDate: '2026-02-22', uploadedBy: 'Mrs. Mlambo', fileSize: '52 MB', downloads: 45, description: 'How to write high-scoring descriptive essays' },
-  { id: '7', title: 'ZIMSEC 2024 English Paper 2', subject: 'English Language', type: 'Past Exam Paper', uploadDate: '2026-01-15', uploadedBy: 'Admin', fileSize: '2.0 MB', downloads: 134, description: 'November 2024 ZIMSEC O-Level English Language Paper 2' },
-  { id: '8', title: "Newton's Laws Video Series", subject: 'Physics', type: 'Video', uploadDate: '2026-02-18', uploadedBy: 'Mrs. Ncube', fileSize: '120 MB', downloads: 33, description: "Complete video series on Newton's three laws of motion" },
-  { id: '9', title: 'Electricity & Magnetism Notes', subject: 'Physics', type: 'Notes', uploadDate: '2026-02-26', uploadedBy: 'Mrs. Ncube', fileSize: '4.2 MB', downloads: 28, description: 'Comprehensive notes on circuits, resistance, and electromagnetic induction' },
-  { id: '10', title: 'ZIMSEC 2024 Physics Paper', subject: 'Physics', type: 'Past Exam Paper', uploadDate: '2026-01-12', uploadedBy: 'Admin', fileSize: '1.5 MB', downloads: 87, description: 'November 2024 ZIMSEC O-Level Physics Paper' },
-  { id: '11', title: 'Organic Chemistry Worksheet', subject: 'Chemistry', type: 'Worksheet', uploadDate: '2026-02-24', uploadedBy: 'Mr. Zvambe', fileSize: '0.8 MB', downloads: 25, description: 'Naming organic compounds and reaction mechanisms' },
-  { id: '12', title: 'Zimbabwe Independence History', subject: 'History', type: 'Notes', uploadDate: '2026-02-15', uploadedBy: 'Mr. Moyo', fileSize: '5.1 MB', downloads: 52, description: "Detailed notes on Zimbabwe's path to independence 1890-1980" },
-  { id: '13', title: 'Map Reading & Interpretation', subject: 'Geography', type: 'Video', uploadDate: '2026-02-20', uploadedBy: 'Ms. Chikumba', fileSize: '38 MB', downloads: 30, description: 'How to read and interpret topographical maps for O-Level' },
-  { id: '14', title: 'Shona Novel Study Guide - Rudo Ibofu', subject: 'Shona', type: 'Notes', uploadDate: '2026-02-10', uploadedBy: 'Mr. Gumbo', fileSize: '2.8 MB', downloads: 38, description: 'Character analysis and themes for the set Shona novel' },
-  { id: '15', title: 'Double Entry Bookkeeping', subject: 'Accounts', type: 'Notes', uploadDate: '2026-02-22', uploadedBy: 'Mr. Tafara', fileSize: '1.9 MB', downloads: 20, description: 'Introduction to double entry bookkeeping principles' },
-]
-
-const mockAssignments: Assignment[] = [
-  { id: '1', title: 'Quadratic Equations Test', course: 'Mathematics', dueDate: '2026-03-07', totalStudents: 42, submitted: 28, graded: 15, avgScore: 62, status: 'Open', maxMarks: 100 },
-  { id: '2', title: 'Comprehension Exercise 3', course: 'English Language', dueDate: '2026-03-05', totalStudents: 48, submitted: 45, graded: 40, avgScore: 71, status: 'Grading', maxMarks: 50 },
-  { id: '3', title: 'Forces & Motion Practical Report', course: 'Physics', dueDate: '2026-03-03', totalStudents: 28, submitted: 22, graded: 22, avgScore: 58, status: 'Closed', maxMarks: 30 },
-  { id: '4', title: 'Shona Essay - Ngano', course: 'Shona', dueDate: '2026-03-10', totalStudents: 38, submitted: 10, graded: 0, avgScore: null, status: 'Open', maxMarks: 40 },
-  { id: '5', title: 'Chemical Reactions Worksheet', course: 'Chemistry', dueDate: '2026-03-06', totalStudents: 30, submitted: 30, graded: 25, avgScore: 65, status: 'Grading', maxMarks: 25 },
-  { id: '6', title: 'Cell Biology Diagram Test', course: 'Biology', dueDate: '2026-03-08', totalStudents: 35, submitted: 20, graded: 8, avgScore: 55, status: 'Open', maxMarks: 40 },
-  { id: '7', title: 'Zimbabwe History Essay', course: 'History', dueDate: '2026-03-04', totalStudents: 40, submitted: 38, graded: 38, avgScore: 68, status: 'Closed', maxMarks: 50 },
-  { id: '8', title: 'Map Skills Assessment', course: 'Geography', dueDate: '2026-03-12', totalStudents: 32, submitted: 5, graded: 0, avgScore: null, status: 'Open', maxMarks: 30 },
-  { id: '9', title: 'Trial Balance Exercise', course: 'Accounts', dueDate: '2026-03-09', totalStudents: 22, submitted: 18, graded: 12, avgScore: 60, status: 'Open', maxMarks: 50 },
-  { id: '10', title: 'Programming Fundamentals Quiz', course: 'Computer Science', dueDate: '2026-03-11', totalStudents: 25, submitted: 8, graded: 0, avgScore: null, status: 'Open', maxMarks: 20 },
-]
-
-const mockStudentProgress: StudentProgress[] = [
-  { id: '1', studentName: 'Tendai Moyo', form: 'Form 4A', courses: [{ subject: 'Mathematics', progress: 85, grade: 'A' }, { subject: 'Physics', progress: 72, grade: 'B' }, { subject: 'Chemistry', progress: 68, grade: 'B' }, { subject: 'English', progress: 78, grade: 'B' }], overallProgress: 76 },
-  { id: '2', studentName: 'Chido Ndlovu', form: 'Form 4B', courses: [{ subject: 'Mathematics', progress: 92, grade: 'A*' }, { subject: 'Biology', progress: 88, grade: 'A' }, { subject: 'Chemistry', progress: 80, grade: 'A' }, { subject: 'English', progress: 75, grade: 'B' }], overallProgress: 84 },
-  { id: '3', studentName: 'Rumbidzai Dube', form: 'Form 3A', courses: [{ subject: 'Mathematics', progress: 65, grade: 'C' }, { subject: 'English', progress: 82, grade: 'A' }, { subject: 'History', progress: 78, grade: 'B' }, { subject: 'Shona', progress: 90, grade: 'A*' }], overallProgress: 79 },
-  { id: '4', studentName: 'Kudzai Chiweshe', form: 'Form 4A', courses: [{ subject: 'Mathematics', progress: 45, grade: 'D' }, { subject: 'Physics', progress: 38, grade: 'E' }, { subject: 'English', progress: 62, grade: 'C' }, { subject: 'Geography', progress: 70, grade: 'B' }], overallProgress: 54 },
-  { id: '5', studentName: 'Tafara Gumbo', form: 'Form 5', courses: [{ subject: 'A-Level Maths', progress: 78, grade: 'B' }, { subject: 'A-Level Physics', progress: 72, grade: 'B' }], overallProgress: 75 },
-  { id: '6', studentName: 'Nyasha Chikumbu', form: 'Form 3B', courses: [{ subject: 'Mathematics', progress: 88, grade: 'A' }, { subject: 'Biology', progress: 82, grade: 'A' }, { subject: 'English', progress: 70, grade: 'B' }, { subject: 'Accounts', progress: 95, grade: 'A*' }], overallProgress: 84 },
-  { id: '7', studentName: 'Panashe Zvambe', form: 'Form 4A', courses: [{ subject: 'Mathematics', progress: 55, grade: 'C' }, { subject: 'Chemistry', progress: 50, grade: 'C' }, { subject: 'Biology', progress: 62, grade: 'C' }, { subject: 'English', progress: 58, grade: 'C' }], overallProgress: 56 },
-  { id: '8', studentName: 'Tariro Machingaidze', form: 'Form 6', courses: [{ subject: 'A-Level Maths', progress: 90, grade: 'A*' }, { subject: 'A-Level Physics', progress: 85, grade: 'A' }], overallProgress: 88 },
-]
+const mapDbAssignment = (a: any): Assignment => {
+  const mapStatus = (s: string): Assignment['status'] => {
+    switch (s?.toUpperCase()) {
+      case 'OPEN': return 'Open'
+      case 'CLOSED': return 'Closed'
+      case 'GRADING': return 'Grading'
+      default: return 'Open'
+    }
+  }
+  return {
+    id: a.id,
+    title: a.title,
+    course: a.course?.name || 'General',
+    dueDate: a.dueDate ? new Date(a.dueDate).toISOString().split('T')[0] : '',
+    totalStudents: 50,
+    submitted: a.submissionsCount || 0,
+    graded: a.submissionsCount || 0,
+    avgScore: a.avgScore || null,
+    status: mapStatus(a.status),
+    maxMarks: a.maxMarks || 100,
+  }
+}
 
 const recentActivity = [
   { id: '1', action: 'New assignment posted', detail: 'Quadratic Equations Test - Mathematics', time: '2 hours ago', type: 'assignment' },
@@ -180,19 +188,17 @@ const completionChartConfig = {
   progress: { label: 'Completion %', color: '#10b981' },
 } satisfies ChartConfig
 
-const completionChartData = mockCourses.slice(0, 8).map(c => ({
-  subject: c.subject.length > 10 ? c.subject.substring(0, 10) + '...' : c.subject,
-  progress: c.progress,
-}))
-
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ElearningModule() {
   const { schoolName } = useAppStore()
   const [activeTab, setActiveTab] = useState('overview')
-  const [courses, setCourses] = useState<Course[]>(mockCourses)
-  const [resources, setResources] = useState<Resource[]>(mockResources)
-  const [assignments] = useState<Assignment[]>(mockAssignments)
-  const [studentProgress] = useState<StudentProgress[]>(mockStudentProgress)
+  const [courses, setCourses] = useState<Course[]>([])
+  const [resources, setResources] = useState<Resource[]>([])
+  const [assignments, setAssignments] = useState<Assignment[]>([])
+  const [stats, setStats] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+
   const [searchCourse, setSearchCourse] = useState('')
   const [searchResource, setSearchResource] = useState('')
   const [searchAssignment, setSearchAssignment] = useState('')
@@ -212,9 +218,16 @@ export default function ElearningModule() {
 
   // Form state for new resource
   const [newResTitle, setNewResTitle] = useState('')
-  const [newResSubject, setNewResSubject] = useState('Mathematics')
+  const [newResCourseId, setNewResCourseId] = useState('')
   const [newResType, setNewResType] = useState<Resource['type']>('Notes')
   const [newResDesc, setNewResDesc] = useState('')
+
+  // Form state for new assignment
+  const [newAsgTitle, setNewAsgTitle] = useState('')
+  const [newAsgCourseId, setNewAsgCourseId] = useState('')
+  const [newAsgMaxMarks, setNewAsgMaxMarks] = useState('100')
+  const [newAsgDueDate, setNewAsgDueDate] = useState('')
+  const [newAsgDesc, setNewAsgDesc] = useState('')
 
   // Settings state
   const [defaultVideoQuality, setDefaultVideoQuality] = useState('720p')
@@ -226,13 +239,54 @@ export default function ElearningModule() {
   const [defaultAssignmentDueDays, setDefaultAssignmentDueDays] = useState('7')
   const [platformName, setPlatformName] = useState(`${schoolName} LMS`)
 
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true)
+      const coursesRes = await fetch('/api/elearning')
+      if (!coursesRes.ok) throw new Error('Failed to fetch courses')
+      const coursesData = await coursesRes.json()
+      const mappedCourses = (coursesData.data || []).map(mapDbCourse)
+      setCourses(mappedCourses)
+      if (coursesData.stats) setStats(coursesData.stats)
+
+      if (coursesData.data?.length > 0) {
+        setNewResCourseId(prev => prev || coursesData.data[0].id)
+        setNewAsgCourseId(prev => prev || coursesData.data[0].id)
+      }
+
+      const resourcesRes = await fetch('/api/elearning?type=resources')
+      if (!resourcesRes.ok) throw new Error('Failed to fetch resources')
+      const resourcesData = await resourcesRes.json()
+      setResources((resourcesData.data || []).map(mapDbResource))
+
+      const assignmentsRes = await fetch('/api/elearning?type=assignments')
+      if (!assignmentsRes.ok) throw new Error('Failed to fetch assignments')
+      const assignmentsData = await assignmentsRes.json()
+      setAssignments((assignmentsData.data || []).map(mapDbAssignment))
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || 'Failed to load e-learning data')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
   // Computed values
-  const activeCourses = courses.filter(c => c.status === 'Active').length
-  const totalEnrolled = courses.reduce((sum, c) => sum + c.enrollmentCount, 0)
-  const avgCompletion = Math.round(courses.reduce((sum, c) => sum + c.progress, 0) / courses.length)
-  const totalResources = resources.length
+  const activeCourses = stats?.activeCourses || courses.filter(c => c.status === 'Active').length
+  const totalEnrolled = stats?.totalEnrollments || courses.reduce((sum, c) => sum + c.enrollmentCount, 0)
+  const avgCompletion = stats ? Math.round(stats.avgCompletion) : (courses.length > 0 ? Math.round(courses.reduce((sum, c) => sum + c.progress, 0) / courses.length) : 0)
+  const totalResources = stats?.totalResources || resources.length
 
   const popularCourses = [...courses].sort((a, b) => b.enrollmentCount - a.enrollmentCount).slice(0, 5)
+
+  const completionChartData = courses.slice(0, 8).map(c => ({
+    subject: c.subject.length > 10 ? c.subject.substring(0, 10) + '...' : c.subject,
+    progress: c.progress,
+  }))
 
   const filteredCourses = courses.filter(c =>
     c.subject.toLowerCase().includes(searchCourse.toLowerCase()) ||
@@ -256,116 +310,205 @@ export default function ElearningModule() {
   const uniqueSubjects = ['All', ...Array.from(new Set(resources.map(r => r.subject)))]
   const resourceTypes = ['All', 'Notes', 'Video', 'Past Exam Paper', 'Worksheet']
 
-  const handleAddCourse = () => {
-    if (!newCourseSubject || !newCourseTeacher || !newCourseMaxEnroll) return
-    const newCourse: Course = {
-      id: String(courses.length + 1),
-      subject: newCourseSubject,
-      teacher: newCourseTeacher,
-      enrollmentCount: 0,
-      maxEnrollment: parseInt(newCourseMaxEnroll),
-      progress: 0,
-      category: newCourseCategory,
-      status: 'Upcoming',
-      description: newCourseDesc,
+  const handleAddCourse = async () => {
+    if (!newCourseSubject || !newCourseTeacher || !newCourseMaxEnroll) {
+      toast.error('Subject, Teacher, and Max Enrollment are required')
+      return
     }
-    setCourses(prev => [...prev, newCourse])
-    setNewCourseSubject('')
-    setNewCourseTeacher('')
-    setNewCourseMaxEnroll('')
-    setNewCourseDesc('')
-    setViewMode('list')
-    toast.success(`Course "${newCourse.subject}" created`)
+    try {
+      setSubmitting(true)
+      const res = await fetch('/api/elearning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'addCourse',
+          name: newCourseSubject,
+          instructor: newCourseTeacher,
+          description: newCourseDesc,
+          enrollmentCount: 0,
+          syllabusCompletion: 0,
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to create course')
+      }
+
+      toast.success(`Course "${newCourseSubject}" created successfully`)
+      setNewCourseSubject('')
+      setNewCourseTeacher('')
+      setNewCourseMaxEnroll('')
+      setNewCourseDesc('')
+      setViewMode('list')
+      loadData()
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || 'Failed to create course')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const handleAddResource = () => {
-    if (!newResTitle || !newResSubject || !newResDesc) return
-    const newResource: Resource = {
-      id: String(resources.length + 1),
-      title: newResTitle,
-      subject: newResSubject,
-      type: newResType,
-      uploadDate: new Date().toISOString().split('T')[0],
-      uploadedBy: 'Admin',
-      fileSize: '1.0 MB',
-      downloads: 0,
-      description: newResDesc,
+  const handleAddResource = async () => {
+    if (!newResTitle || !newResCourseId || !newResDesc) {
+      toast.error('Title, Course and Description are required')
+      return
     }
-    setResources(prev => [newResource, ...prev])
-    setNewResTitle('')
-    setNewResDesc('')
-    setViewMode('list')
-    toast.success(`Resource "${newResource.title}" uploaded`)
+    try {
+      setSubmitting(true)
+      const res = await fetch('/api/elearning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'addResource',
+          courseId: newResCourseId,
+          title: newResTitle,
+          resourceType: newResType.toUpperCase().replace(/ /g, '_'),
+          url: '',
+          fileSize: 1024 * 1024 * 1.5,
+          uploadedBy: 'Admin',
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to upload resource')
+      }
+
+      toast.success(`Resource "${newResTitle}" uploaded successfully`)
+      setNewResTitle('')
+      setNewResDesc('')
+      setViewMode('list')
+      loadData()
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || 'Failed to upload resource')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleAddAssignment = async () => {
+    if (!newAsgTitle || !newAsgCourseId || !newAsgDueDate) {
+      toast.error('Title, Course, and Due Date are required')
+      return
+    }
+    try {
+      setSubmitting(true)
+      const res = await fetch('/api/elearning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'addAssignment',
+          courseId: newAsgCourseId,
+          title: newAsgTitle,
+          description: newAsgDesc,
+          maxMarks: parseInt(newAsgMaxMarks) || 100,
+          dueDate: newAsgDueDate,
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to create assignment')
+      }
+
+      toast.success(`Assignment "${newAsgTitle}" created successfully`)
+      setNewAsgTitle('')
+      setNewAsgDesc('')
+      setNewAsgMaxMarks('100')
+      setNewAsgDueDate('')
+      setViewMode('list')
+      loadData()
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || 'Failed to create assignment')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const resourceTypeIcon = (type: string) => {
     switch (type) {
-      case 'Notes': return <FileText className="h-4 w-4 text-emerald-600" />
+      case 'Notes': return <FileText className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
       case 'Video': return <Video className="h-4 w-4 text-red-500" />
-      case 'Past Exam Paper': return <FileText className="h-4 w-4 text-amber-600" />
-      case 'Worksheet': return <FileText className="h-4 w-4 text-teal-600" />
+      case 'Past Exam Paper': return <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+      case 'Worksheet': return <FileText className="h-4 w-4 text-teal-600 dark:text-teal-400" />
       default: return <FileText className="h-4 w-4" />
     }
   }
 
   const resourceTypeColor = (type: string) => {
     switch (type) {
-      case 'Notes': return 'bg-emerald-100 text-emerald-700'
-      case 'Video': return 'bg-red-100 text-red-700'
-      case 'Past Exam Paper': return 'bg-amber-100 text-amber-700'
-      case 'Worksheet': return 'bg-teal-100 text-teal-700'
+      case 'Notes': return 'bg-emerald-100/80 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-500/20'
+      case 'Video': return 'bg-rose-100/80 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border-rose-500/20'
+      case 'Past Exam Paper': return 'bg-amber-100/80 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border-amber-500/20'
+      case 'Worksheet': return 'bg-teal-100/80 text-teal-800 dark:bg-teal-950/40 dark:text-teal-300 border-teal-500/20'
       default: return 'bg-muted text-muted-foreground'
     }
   }
 
   const assignmentStatusColor = (status: string) => {
     switch (status) {
-      case 'Open': return 'bg-emerald-100 text-emerald-700'
-      case 'Grading': return 'bg-amber-100 text-amber-700'
+      case 'Open': return 'bg-emerald-100/80 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-500/20'
+      case 'Grading': return 'bg-amber-100/80 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border-amber-500/20'
       case 'Closed': return 'bg-muted text-muted-foreground'
       default: return 'bg-muted text-muted-foreground'
     }
   }
 
   const gradeColor = (grade: string) => {
-    if (grade.startsWith('A')) return 'text-emerald-600'
-    if (grade.startsWith('B')) return 'text-teal-600'
-    if (grade.startsWith('C')) return 'text-amber-600'
-    return 'text-red-600'
+    if (grade.startsWith('A')) return 'text-emerald-600 dark:text-emerald-400'
+    if (grade.startsWith('B')) return 'text-teal-600 dark:text-teal-400'
+    if (grade.startsWith('C')) return 'text-amber-600 dark:text-amber-400'
+    return 'text-rose-600 dark:text-rose-400'
   }
 
   const selectedCourse = courses.find(c => c.id === selectedId)
   const selectedResource = resources.find(r => r.id === selectedId)
 
+  if (loading) {
+    return (
+      <ModuleContainer>
+        <div className="flex items-center justify-between">
+          <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+          <div className="h-10 w-40 bg-muted animate-pulse rounded" />
+        </div>
+        <StatGrid cols={4}>
+          {[1, 2, 3, 4].map((i) => (<div key={i} className="h-32 bg-muted animate-pulse rounded-xl" />))}
+        </StatGrid>
+      </ModuleContainer>
+    )
+  }
+
   // ─── Settings View ──────────────────────────────────────────────────────
   if (viewMode === 'settings') {
     return (
-      <div className="space-y-6">
+      <ModuleContainer>
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="gap-1" onClick={() => setViewMode('list')}>
-            <ArrowLeft className="h-4 w-4" /> Back
+          <Button variant="ghost" size="sm" className="gap-1 px-2.5 hover:bg-accent" onClick={() => setViewMode('list')}>
+            <ArrowLeft className="h-4 w-4" /> Back to LMS
           </Button>
         </div>
-        <div>
-          <h2 className="text-xl font-bold tracking-tight">E-Learning Settings</h2>
-          <p className="text-sm text-muted-foreground">Configure platform defaults, content, and notifications</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">E-Learning Settings</h2>
+            <p className="text-sm text-muted-foreground">Configure platform defaults, content, and notifications</p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">Platform Settings</CardTitle>
-              <CardDescription>General platform configuration</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <SectionCard title="Platform Settings" description="General platform configuration" icon={Monitor}>
+            <div className="space-y-4">
               <div className="grid gap-2">
                 <Label>Platform Name</Label>
-                <Input value={platformName} onChange={e => setPlatformName(e.target.value)} />
+                <Input value={platformName} onChange={e => setPlatformName(e.target.value)} className="h-9" />
               </div>
               <div className="grid gap-2">
                 <Label>Default Video Quality</Label>
                 <Select value={defaultVideoQuality} onValueChange={setDefaultVideoQuality}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="480p">480p</SelectItem>
                     <SelectItem value="720p">720p</SelectItem>
@@ -375,60 +518,52 @@ export default function ElearningModule() {
               </div>
               <div className="grid gap-2">
                 <Label>Max File Upload Size (MB)</Label>
-                <Input type="number" value={maxFileSize} onChange={e => setMaxFileSize(e.target.value)} />
+                <Input type="number" value={maxFileSize} onChange={e => setMaxFileSize(e.target.value)} className="h-9" />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
 
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">Assignment & Content Defaults</CardTitle>
-              <CardDescription>Default settings for new assignments</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <SectionCard title="Assignment & Content Defaults" description="Default settings for new assignments" icon={FileText}>
+            <div className="space-y-4">
               <div className="grid gap-2">
                 <Label>Default Assignment Due (Days)</Label>
-                <Input type="number" value={defaultAssignmentDueDays} onChange={e => setDefaultAssignmentDueDays(e.target.value)} />
+                <Input type="number" value={defaultAssignmentDueDays} onChange={e => setDefaultAssignmentDueDays(e.target.value)} className="h-9" />
               </div>
-              <div className="flex items-center justify-between p-3 rounded-lg border">
+              <div className="flex items-center justify-between p-3 rounded-lg border border-border/60">
                 <div>
                   <p className="text-sm font-medium">Auto-save Assignments</p>
                   <p className="text-xs text-muted-foreground">Automatically save student progress</p>
                 </div>
                 <Switch checked={autoSaveAssignments} onCheckedChange={setAutoSaveAssignments} />
               </div>
-              <div className="flex items-center justify-between p-3 rounded-lg border">
+              <div className="flex items-center justify-between p-3 rounded-lg border border-border/60">
                 <div>
                   <p className="text-sm font-medium">Plagiarism Check</p>
                   <p className="text-xs text-muted-foreground">Enable plagiarism detection on submissions</p>
                 </div>
                 <Switch checked={enablePlagiarismCheck} onCheckedChange={setEnablePlagiarismCheck} />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
 
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">Notification Preferences</CardTitle>
-              <CardDescription>Manage notification settings</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-3 rounded-lg border">
+          <SectionCard title="Notification Preferences" description="Manage notification settings" icon={Settings}>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 rounded-lg border border-border/60">
                 <div>
                   <p className="text-sm font-medium">New Submission Alerts</p>
                   <p className="text-xs text-muted-foreground">Notify teachers of new submissions</p>
                 </div>
                 <Switch checked={notifyNewSubmission} onCheckedChange={setNotifyNewSubmission} />
               </div>
-              <div className="flex items-center justify-between p-3 rounded-lg border">
+              <div className="flex items-center justify-between p-3 rounded-lg border border-border/60">
                 <div>
                   <p className="text-sm font-medium">Student Messaging</p>
                   <p className="text-xs text-muted-foreground">Allow students to message teachers</p>
                 </div>
                 <Switch checked={enableStudentMessaging} onCheckedChange={setEnableStudentMessaging} />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
         </div>
 
         <div className="flex justify-end">
@@ -436,314 +571,362 @@ export default function ElearningModule() {
             <Save className="mr-2 h-4 w-4" /> Save Settings
           </Button>
         </div>
-      </div>
+      </ModuleContainer>
     )
   }
 
   // ─── Add Course View ────────────────────────────────────────────────────
   if (viewMode === 'add' && activeTab === 'courses') {
     return (
-      <div className="space-y-6">
+      <ModuleContainer>
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="gap-1" onClick={() => setViewMode('list')}>
-            <ArrowLeft className="h-4 w-4" /> Back
+          <Button variant="ghost" size="sm" className="gap-1 px-2.5 hover:bg-accent" onClick={() => setViewMode('list')}>
+            <ArrowLeft className="h-4 w-4" /> Back to LMS
           </Button>
         </div>
-        <div>
-          <h2 className="text-xl font-bold tracking-tight">Add New Course</h2>
-          <p className="text-sm text-muted-foreground">Create a new course for the e-learning platform</p>
-        </div>
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-6">
-            <div className="space-y-4 max-w-2xl">
-              <div className="space-y-2">
-                <Label>Subject Name *</Label>
-                <Input value={newCourseSubject} onChange={e => setNewCourseSubject(e.target.value)} placeholder="e.g. Mathematics" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Teacher *</Label>
-                  <Input value={newCourseTeacher} onChange={e => setNewCourseTeacher(e.target.value)} placeholder="Teacher name" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Select value={newCourseCategory} onValueChange={setNewCourseCategory}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Sciences">Sciences</SelectItem>
-                      <SelectItem value="Languages">Languages</SelectItem>
-                      <SelectItem value="Humanities">Humanities</SelectItem>
-                      <SelectItem value="Commercial">Commercial</SelectItem>
-                      <SelectItem value="A-Level">A-Level</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Max Enrollment *</Label>
-                <Input type="number" value={newCourseMaxEnroll} onChange={e => setNewCourseMaxEnroll(e.target.value)} placeholder="e.g. 40" />
-              </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea value={newCourseDesc} onChange={e => setNewCourseDesc(e.target.value)} placeholder="Course description..." rows={3} />
-              </div>
-              <div className="flex items-center gap-3 pt-2">
-                <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
-                <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleAddCourse} disabled={!newCourseSubject || !newCourseTeacher || !newCourseMaxEnroll}>Create Course</Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        <SectionCard title="Add New Course" description="Create a new course for the e-learning platform" icon={BookOpen}>
+          <div className="space-y-4 max-w-2xl">
+             <div className="space-y-2">
+               <Label>Subject Name *</Label>
+               <Input value={newCourseSubject} onChange={e => setNewCourseSubject(e.target.value)} placeholder="e.g. Mathematics" className="h-9" />
+             </div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               <div className="space-y-2">
+                 <Label>Teacher *</Label>
+                 <Input value={newCourseTeacher} onChange={e => setNewCourseTeacher(e.target.value)} placeholder="Teacher name" className="h-9" />
+               </div>
+               <div className="space-y-2">
+                 <Label>Category</Label>
+                 <Select value={newCourseCategory} onValueChange={setNewCourseCategory}>
+                   <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="Sciences">Sciences</SelectItem>
+                     <SelectItem value="Languages">Languages</SelectItem>
+                     <SelectItem value="Humanities">Humanities</SelectItem>
+                     <SelectItem value="Commercial">Commercial</SelectItem>
+                     <SelectItem value="A-Level">A-Level</SelectItem>
+                   </SelectContent>
+                 </Select>
+               </div>
+             </div>
+             <div className="space-y-2">
+               <Label>Max Enrollment *</Label>
+               <Input type="number" value={newCourseMaxEnroll} onChange={e => setNewCourseMaxEnroll(e.target.value)} placeholder="e.g. 40" className="h-9" />
+             </div>
+             <div className="space-y-2">
+               <Label>Description</Label>
+               <Textarea value={newCourseDesc} onChange={e => setNewCourseDesc(e.target.value)} placeholder="Course description..." rows={3} />
+             </div>
+             <div className="flex items-center gap-3 pt-2">
+               <Button variant="outline" size="sm" onClick={() => setViewMode('list')}>Cancel</Button>
+               <Button className="bg-emerald-600 hover:bg-emerald-700" size="sm" onClick={handleAddCourse} disabled={!newCourseSubject || !newCourseTeacher || !newCourseMaxEnroll || submitting}>
+                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                 Create Course
+               </Button>
+             </div>
+          </div>
+        </SectionCard>
+      </ModuleContainer>
     )
   }
 
   // ─── Upload Resource View ───────────────────────────────────────────────
   if (viewMode === 'add' && activeTab === 'resources') {
     return (
-      <div className="space-y-6">
+      <ModuleContainer>
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="gap-1" onClick={() => setViewMode('list')}>
-            <ArrowLeft className="h-4 w-4" /> Back
+          <Button variant="ghost" size="sm" className="gap-1 px-2.5 hover:bg-accent" onClick={() => setViewMode('list')}>
+            <ArrowLeft className="h-4 w-4" /> Back to LMS
           </Button>
         </div>
-        <div>
-          <h2 className="text-xl font-bold tracking-tight">Upload Learning Resource</h2>
-          <p className="text-sm text-muted-foreground">Add a new resource for students and teachers</p>
+        <SectionCard title="Upload Learning Resource" description="Add a new resource for students and teachers" icon={Upload}>
+          <div className="space-y-4 max-w-2xl">
+             <div className="space-y-2">
+               <Label>Resource Title *</Label>
+               <Input value={newResTitle} onChange={e => setNewResTitle(e.target.value)} placeholder="e.g. Algebra Notes - Form 4" className="h-9" />
+             </div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               <div className="space-y-2">
+                 <Label>Course *</Label>
+                 <Select value={newResCourseId} onValueChange={setNewResCourseId}>
+                   <SelectTrigger className="h-9"><SelectValue placeholder="Select course" /></SelectTrigger>
+                   <SelectContent>
+                     {courses.map(c => (
+                       <SelectItem key={c.id} value={c.id}>{c.subject}</SelectItem>
+                     ))}
+                   </SelectContent>
+                 </Select>
+               </div>
+               <div className="space-y-2">
+                 <Label>Resource Type</Label>
+                 <Select value={newResType} onValueChange={v => setNewResType(v as Resource['type'])}>
+                   <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="Notes">Notes</SelectItem>
+                     <SelectItem value="Video">Video</SelectItem>
+                     <SelectItem value="Past Exam Paper">Past Exam Paper</SelectItem>
+                     <SelectItem value="Worksheet">Worksheet</SelectItem>
+                   </SelectContent>
+                 </Select>
+               </div>
+             </div>
+             <div className="space-y-2">
+               <Label>Description *</Label>
+               <Textarea value={newResDesc} onChange={e => setNewResDesc(e.target.value)} placeholder="Brief description of the resource..." rows={3} />
+             </div>
+             <div className="flex items-center gap-3 pt-2">
+               <Button variant="outline" size="sm" onClick={() => setViewMode('list')}>Cancel</Button>
+               <Button className="bg-emerald-600 hover:bg-emerald-700" size="sm" onClick={handleAddResource} disabled={!newResTitle || !newResDesc || submitting}>
+                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                 Upload
+               </Button>
+             </div>
+          </div>
+        </SectionCard>
+      </ModuleContainer>
+    )
+  }
+
+  // ─── Add Assignment View ────────────────────────────────────────────────
+  if (viewMode === 'add' && activeTab === 'assignments') {
+    return (
+      <ModuleContainer>
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" className="gap-1 px-2.5 hover:bg-accent" onClick={() => setViewMode('list')}>
+            <ArrowLeft className="h-4 w-4" /> Back to LMS
+          </Button>
         </div>
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-6">
-            <div className="space-y-4 max-w-2xl">
-              <div className="space-y-2">
-                <Label>Resource Title *</Label>
-                <Input value={newResTitle} onChange={e => setNewResTitle(e.target.value)} placeholder="e.g. Algebra Notes - Form 4" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Subject</Label>
-                  <Select value={newResSubject} onValueChange={setNewResSubject}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Mathematics">Mathematics</SelectItem>
-                      <SelectItem value="English Language">English Language</SelectItem>
-                      <SelectItem value="Physics">Physics</SelectItem>
-                      <SelectItem value="Chemistry">Chemistry</SelectItem>
-                      <SelectItem value="Biology">Biology</SelectItem>
-                      <SelectItem value="History">History</SelectItem>
-                      <SelectItem value="Geography">Geography</SelectItem>
-                      <SelectItem value="Shona">Shona</SelectItem>
-                      <SelectItem value="Accounts">Accounts</SelectItem>
-                      <SelectItem value="Computer Science">Computer Science</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Resource Type</Label>
-                  <Select value={newResType} onValueChange={v => setNewResType(v as Resource['type'])}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Notes">Notes</SelectItem>
-                      <SelectItem value="Video">Video</SelectItem>
-                      <SelectItem value="Past Exam Paper">Past Exam Paper</SelectItem>
-                      <SelectItem value="Worksheet">Worksheet</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Description *</Label>
-                <Textarea value={newResDesc} onChange={e => setNewResDesc(e.target.value)} placeholder="Brief description of the resource..." rows={3} />
-              </div>
-              <div className="flex items-center gap-3 pt-2">
-                <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
-                <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleAddResource} disabled={!newResTitle || !newResDesc}>Upload</Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        <SectionCard title="Create New Assignment" description="Add a new assignment for students" icon={Plus}>
+          <div className="space-y-4 max-w-2xl">
+             <div className="space-y-2">
+               <Label>Assignment Title *</Label>
+               <Input value={newAsgTitle} onChange={e => setNewAsgTitle(e.target.value)} placeholder="e.g. Mid-term Exam Paper" className="h-9" />
+             </div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               <div className="space-y-2">
+                 <Label>Course *</Label>
+                 <Select value={newAsgCourseId} onValueChange={setNewAsgCourseId}>
+                   <SelectTrigger className="h-9"><SelectValue placeholder="Select course" /></SelectTrigger>
+                   <SelectContent>
+                     {courses.map(c => (
+                       <SelectItem key={c.id} value={c.id}>{c.subject}</SelectItem>
+                     ))}
+                   </SelectContent>
+                 </Select>
+               </div>
+               <div className="space-y-2">
+                 <Label>Max Marks</Label>
+                 <Input type="number" value={newAsgMaxMarks} onChange={e => setNewAsgMaxMarks(e.target.value)} className="h-9" />
+               </div>
+             </div>
+             <div className="space-y-2">
+               <Label>Due Date *</Label>
+               <Input type="date" value={newAsgDueDate} onChange={e => setNewAsgDueDate(e.target.value)} className="h-9" />
+             </div>
+             <div className="space-y-2">
+               <Label>Description</Label>
+               <Textarea value={newAsgDesc} onChange={e => setNewAsgDesc(e.target.value)} placeholder="Assignment details and instructions..." rows={3} />
+             </div>
+             <div className="flex items-center gap-3 pt-2">
+               <Button variant="outline" size="sm" onClick={() => setViewMode('list')}>Cancel</Button>
+               <Button className="bg-emerald-600 hover:bg-emerald-700" size="sm" onClick={handleAddAssignment} disabled={!newAsgTitle || !newAsgDueDate || submitting}>
+                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                 Create Assignment
+               </Button>
+             </div>
+          </div>
+        </SectionCard>
+      </ModuleContainer>
     )
   }
 
   // ─── Course Detail View ─────────────────────────────────────────────────
   if (viewMode === 'detail' && selectedCourse) {
     return (
-      <div className="space-y-6">
+      <ModuleContainer>
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="gap-1" onClick={() => setViewMode('list')}>
-            <ArrowLeft className="h-4 w-4" /> Back
+          <Button variant="ghost" size="sm" className="gap-1 px-2.5 hover:bg-accent" onClick={() => setViewMode('list')}>
+            <ArrowLeft className="h-4 w-4" /> Back to LMS
           </Button>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-50">
-            <BookOpen className="h-6 w-6 text-emerald-600" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
+              <BookOpen className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold tracking-tight text-foreground">{selectedCourse.subject}</h2>
+              <p className="text-sm text-muted-foreground">{selectedCourse.teacher} &middot; {selectedCourse.category}</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold tracking-tight">{selectedCourse.subject}</h2>
-            <p className="text-sm text-muted-foreground">{selectedCourse.teacher} &middot; {selectedCourse.category}</p>
-          </div>
-          <Badge variant={selectedCourse.status === 'Active' ? 'default' : selectedCourse.status === 'Upcoming' ? 'secondary' : 'outline'} className="ml-auto">
+          <Badge variant={selectedCourse.status === 'Active' ? 'default' : selectedCourse.status === 'Upcoming' ? 'secondary' : 'outline'} className="self-start sm:self-center">
             {selectedCourse.status}
           </Badge>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="border-0 shadow-md">
-            <CardHeader><CardTitle className="text-base font-semibold">Course Details</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between"><span className="text-sm text-muted-foreground">Description</span></div>
-              <p className="text-sm">{selectedCourse.description}</p>
-              <Separator />
-              <div className="flex justify-between"><span className="text-sm text-muted-foreground">Enrollment</span><span className="text-sm font-semibold">{selectedCourse.enrollmentCount}/{selectedCourse.maxEnrollment}</span></div>
-              <Separator />
-              <div className="flex justify-between"><span className="text-sm text-muted-foreground">Category</span><Badge variant="outline" className="text-xs">{selectedCourse.category}</Badge></div>
-              <Separator />
-              <div className="flex justify-between items-center"><span className="text-sm text-muted-foreground">Enrollment Rate</span>
-                <div className="w-32 bg-muted rounded-full h-2"><div className="h-2 rounded-full bg-emerald-500" style={{ width: `${(selectedCourse.enrollmentCount / selectedCourse.maxEnrollment) * 100}%` }} /></div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <SectionCard title="Course Details" icon={BookOpen}>
+            <div className="space-y-4">
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description</span>
+                <p className="text-sm mt-1 text-foreground">{selectedCourse.description}</p>
               </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-md">
-            <CardHeader><CardTitle className="text-base font-semibold">Syllabus Progress</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
+              <Separator className="bg-border/60" />
+              <div className="flex justify-between items-center py-0.5">
+                <span className="text-sm text-muted-foreground">Enrollment Limit</span>
+                <span className="text-sm font-semibold">{selectedCourse.enrollmentCount}/{selectedCourse.maxEnrollment} students</span>
+              </div>
+              <Separator className="bg-border/60" />
+              <div className="flex justify-between items-center py-0.5">
+                <span className="text-sm text-muted-foreground">Category</span>
+                <Badge variant="outline" className="text-xs font-medium">{selectedCourse.category}</Badge>
+              </div>
+              <Separator className="bg-border/60" />
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Enrollment Capacity</span>
+                  <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{Math.round((selectedCourse.enrollmentCount / selectedCourse.maxEnrollment) * 100)}%</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${(selectedCourse.enrollmentCount / selectedCourse.maxEnrollment) * 100}%` }} />
+                </div>
+              </div>
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Syllabus Progress" icon={BarChart3}>
+            <div className="flex flex-col items-center justify-center py-4 space-y-4">
               <div className="text-center">
-                <p className={cn('text-5xl font-bold', selectedCourse.progress >= 70 ? 'text-emerald-600' : selectedCourse.progress >= 40 ? 'text-amber-600' : 'text-red-500')}>{selectedCourse.progress}%</p>
-                <p className="text-sm text-muted-foreground mt-1">Syllabus Completed</p>
+                <p className={cn('text-6xl font-extrabold tracking-tight', selectedCourse.progress >= 70 ? 'text-emerald-600 dark:text-emerald-400' : selectedCourse.progress >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-500')}>{selectedCourse.progress}%</p>
+                <p className="text-sm font-medium text-muted-foreground mt-2">Syllabus Completed</p>
               </div>
-              <div className="w-full bg-muted rounded-full h-3">
-                <div className={cn('h-3 rounded-full transition-all', selectedCourse.progress >= 70 ? 'bg-emerald-500' : selectedCourse.progress >= 40 ? 'bg-amber-500' : 'bg-red-400')} style={{ width: `${selectedCourse.progress}%` }} />
+              <div className="w-full bg-muted rounded-full h-3 max-w-sm">
+                <div className={cn('h-3 rounded-full transition-all', selectedCourse.progress >= 70 ? 'bg-emerald-500' : selectedCourse.progress >= 40 ? 'bg-amber-500' : 'bg-rose-400')} style={{ width: `${selectedCourse.progress}%` }} />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
         </div>
-      </div>
+      </ModuleContainer>
     )
   }
 
   // ─── Resource Detail View ───────────────────────────────────────────────
   if (viewMode === 'detail' && selectedResource) {
     return (
-      <div className="space-y-6">
+      <ModuleContainer>
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="gap-1" onClick={() => setViewMode('list')}>
-            <ArrowLeft className="h-4 w-4" /> Back
+          <Button variant="ghost" size="sm" className="gap-1 px-2.5 hover:bg-accent" onClick={() => setViewMode('list')}>
+            <ArrowLeft className="h-4 w-4" /> Back to LMS
           </Button>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-cyan-50">
-            {resourceTypeIcon(selectedResource.type)}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-cyan-50 dark:bg-cyan-950/40">
+              {resourceTypeIcon(selectedResource.type)}
+            </div>
+            <div>
+              <h2 className="text-xl font-bold tracking-tight text-foreground">{selectedResource.title}</h2>
+              <p className="text-sm text-muted-foreground">{selectedResource.subject} &middot; {selectedResource.type}</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold tracking-tight">{selectedResource.title}</h2>
-            <p className="text-sm text-muted-foreground">{selectedResource.subject} &middot; {selectedResource.type}</p>
-          </div>
-          <Badge className={cn('text-xs ml-auto', resourceTypeColor(selectedResource.type))}>{selectedResource.type}</Badge>
+          <Badge className={cn('text-xs', resourceTypeColor(selectedResource.type))}>{selectedResource.type}</Badge>
         </div>
-        <Card className="border-0 shadow-md">
-          <CardHeader><CardTitle className="text-base font-semibold">Resource Details</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between"><span className="text-sm text-muted-foreground">Description</span></div>
-            <p className="text-sm">{selectedResource.description}</p>
-            <Separator />
-            <div className="flex justify-between"><span className="text-sm text-muted-foreground">Uploaded By</span><span className="text-sm font-medium">{selectedResource.uploadedBy}</span></div>
-            <Separator />
-            <div className="flex justify-between"><span className="text-sm text-muted-foreground">Upload Date</span><span className="text-sm">{selectedResource.uploadDate}</span></div>
-            <Separator />
-            <div className="flex justify-between"><span className="text-sm text-muted-foreground">File Size</span><span className="text-sm">{selectedResource.fileSize}</span></div>
-            <Separator />
-            <div className="flex justify-between"><span className="text-sm text-muted-foreground">Downloads</span><span className="text-sm font-semibold">{selectedResource.downloads}</span></div>
-          </CardContent>
-        </Card>
-      </div>
+        <SectionCard title="Resource Details" icon={FileText}>
+          <div className="space-y-4 max-w-2xl">
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description</span>
+              <p className="text-sm mt-1 text-foreground">{selectedResource.description}</p>
+            </div>
+            <Separator className="bg-border/60" />
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">Uploaded By</span>
+                <p className="font-semibold mt-0.5 text-foreground">{selectedResource.uploadedBy}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Upload Date</span>
+                <p className="font-semibold mt-0.5 text-foreground">{selectedResource.uploadDate}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">File Size</span>
+                <p className="font-semibold mt-0.5 text-foreground">{selectedResource.fileSize}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Downloads</span>
+                <p className="font-semibold mt-0.5 text-foreground">{selectedResource.downloads}</p>
+              </div>
+            </div>
+            <div className="pt-2">
+              <Button className="bg-emerald-600 hover:bg-emerald-700 gap-2" size="sm" onClick={() => toast.success('Resource download initiated')}>
+                <Download className="h-4 w-4" /> Download File
+              </Button>
+            </div>
+          </div>
+        </SectionCard>
+      </ModuleContainer>
     )
   }
 
   // ─── List View (Main) ──────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
-              <Monitor className="h-5 w-5 text-emerald-600" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold tracking-tight">E-Learning & LMS</h2>
-              <p className="text-sm text-muted-foreground">Manage online courses, resources, and student progress</p>
-            </div>
-          </div>
-          <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => setViewMode('settings')}>
-            <Settings className="h-4 w-4" />
-          </Button>
-        </div>
-      </motion.div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+    <ModuleContainer>
+      <ModulePageLayout
+        actions={<>
+          <ModuleSettingsButton onClick={() => setViewMode('settings')} />
+        </>}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="courses">Courses</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="assignments">Assignments</TabsTrigger>
           <TabsTrigger value="progress">Progress</TabsTrigger>
-        </TabsList>
-
+        </>}
+      >
         {/* ─── Overview Tab ─────────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Active Courses</p>
-                    <p className="text-2xl font-bold">{activeCourses}</p>
-                    <div className="flex items-center gap-1"><TrendingUp className="h-3 w-3 text-emerald-600" /><span className="text-xs font-medium text-emerald-600">+2 this term</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50"><BookOpen className="h-5 w-5 text-emerald-600" /></div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Enrolled Students</p>
-                    <p className="text-2xl font-bold">{totalEnrolled}</p>
-                    <div className="flex items-center gap-1"><Users className="h-3 w-3 text-teal-600" /><span className="text-xs font-medium text-teal-600">Across all courses</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50"><GraduationCap className="h-5 w-5 text-teal-600" /></div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Avg. Completion</p>
-                    <p className="text-2xl font-bold">{avgCompletion}%</p>
-                    <div className="flex items-center gap-1"><TrendingUp className="h-3 w-3 text-emerald-600" /><span className="text-xs font-medium text-emerald-600">+8% vs last month</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50"><BarChart3 className="h-5 w-5 text-amber-600" /></div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Digital Resources</p>
-                    <p className="text-2xl font-bold">{totalResources}</p>
-                    <div className="flex items-center gap-1"><Download className="h-3 w-3 text-cyan-600" /><span className="text-xs font-medium text-cyan-600">{resources.reduce((s, r) => s + r.downloads, 0)} downloads</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50"><FileText className="h-5 w-5 text-cyan-600" /></div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <StatGrid cols={4}>
+            <ModuleStatCard
+              icon={BookOpen}
+              label="Active Courses"
+              value={activeCourses}
+              trend={{ value: "+2 this term", positive: true }}
+              bgColor="bg-emerald-50 dark:bg-emerald-950/40"
+              iconColor="text-emerald-600 dark:text-emerald-400"
+              index={0}
+            />
+            <ModuleStatCard
+              icon={GraduationCap}
+              label="Enrolled Students"
+              value={totalEnrolled}
+              trend={{ value: "Across all courses", positive: true }}
+              bgColor="bg-teal-50 dark:bg-teal-950/40"
+              iconColor="text-teal-600 dark:text-teal-400"
+              index={1}
+            />
+            <ModuleStatCard
+              icon={BarChart3}
+              label="Avg. Completion"
+              value={`${avgCompletion}%`}
+              trend={{ value: "+8% vs last month", positive: true }}
+              bgColor="bg-amber-50 dark:bg-amber-950/40"
+              iconColor="text-amber-600 dark:text-amber-400"
+              index={2}
+            />
+            <ModuleStatCard
+              icon={FileText}
+              label="Digital Resources"
+              value={totalResources}
+              trend={{ value: `${resources.reduce((s, r) => s + r.downloads, 0)} downloads`, positive: true }}
+              bgColor="bg-cyan-50 dark:bg-cyan-950/40"
+              iconColor="text-cyan-600 dark:text-cyan-400"
+              index={3}
+            />
+          </StatGrid>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3"><CardTitle className="text-base font-semibold flex items-center gap-2"><Star className="h-4 w-4 text-amber-500" />Popular Courses</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
+            <SectionCard title="Popular Courses" icon={Star}>
+              <div className="space-y-3.5">
                 {popularCourses.map((course, idx) => (
                   <div key={course.id} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -756,69 +939,66 @@ export default function ElearningModule() {
                     </div>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+              </div>
+            </SectionCard>
 
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3"><CardTitle className="text-base font-semibold flex items-center gap-2"><Clock className="h-4 w-4 text-emerald-600" />Recent Activity</CardTitle></CardHeader>
-              <CardContent className="space-y-3 max-h-72 overflow-y-auto">
+            <SectionCard title="Recent Activity" icon={Clock}>
+              <div className="space-y-3.5 max-h-72 overflow-y-auto pr-1 no-scrollbar">
                 {recentActivity.map(act => (
                   <div key={act.id} className="flex items-start gap-3">
-                    <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full mt-0.5', act.type === 'assignment' ? 'bg-emerald-100' : act.type === 'resource' ? 'bg-cyan-100' : act.type === 'submission' ? 'bg-teal-100' : act.type === 'grade' ? 'bg-amber-100' : 'bg-muted')}>
-                      {act.type === 'assignment' ? <BookOpen className="h-3.5 w-3.5 text-emerald-600" /> : act.type === 'resource' ? <FileText className="h-3.5 w-3.5 text-cyan-600" /> : act.type === 'submission' ? <Users className="h-3.5 w-3.5 text-teal-600" /> : act.type === 'grade' ? <BarChart3 className="h-3.5 w-3.5 text-amber-600" /> : <GraduationCap className="h-3.5 w-3.5 text-muted-foreground" />}
+                    <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full mt-0.5', act.type === 'assignment' ? 'bg-emerald-100 dark:bg-emerald-950/60' : act.type === 'resource' ? 'bg-cyan-100 dark:bg-cyan-950/60' : act.type === 'submission' ? 'bg-teal-100 dark:bg-teal-950/60' : act.type === 'grade' ? 'bg-amber-100 dark:bg-amber-950/60' : 'bg-muted')}>
+                      {act.type === 'assignment' ? <BookOpen className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> : act.type === 'resource' ? <FileText className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" /> : act.type === 'submission' ? <Users className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" /> : act.type === 'grade' ? <BarChart3 className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" /> : <GraduationCap className="h-3.5 w-3.5 text-muted-foreground" />}
                     </div>
-                    <div><p className="text-sm font-medium">{act.action}</p><p className="text-xs text-muted-foreground">{act.detail}</p><p className="text-[10px] text-muted-foreground/70 mt-0.5">{act.time}</p></div>
+                    <div><p className="text-sm font-medium text-foreground">{act.action}</p><p className="text-xs text-muted-foreground">{act.detail}</p><p className="text-[10px] text-muted-foreground/70 mt-0.5">{act.time}</p></div>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+              </div>
+            </SectionCard>
           </div>
 
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-2"><CardTitle className="text-base font-semibold">Course Completion Progress</CardTitle><CardDescription>Percentage of syllabus covered by course</CardDescription></CardHeader>
-            <CardContent>
-              <ChartContainer config={completionChartConfig} className="h-[280px] w-full">
-                <BarChart data={completionChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                  <XAxis dataKey="subject" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} domain={[0, 100]} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="progress" fill="var(--color-progress)" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                </BarChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
+          <SectionCard title="Course Completion Progress" description="Percentage of syllabus covered by course">
+            <ChartContainer config={completionChartConfig} className="h-[280px] w-full">
+              <BarChart data={completionChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(var(--border), 0.3)" />
+                <XAxis dataKey="subject" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} domain={[0, 100]} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="progress" fill="var(--color-progress)" radius={[6, 6, 0, 0]} maxBarSize={40} />
+              </BarChart>
+            </ChartContainer>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Courses Tab ──────────────────────────────────────────────────── */}
         <TabsContent value="courses" className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search courses..." className="pl-9 h-9" value={searchCourse} onChange={e => setSearchCourse(e.target.value)} />
-            </div>
-            <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => setViewMode('add')}>
-              <Plus className="h-4 w-4" /> Add Course
-            </Button>
-          </div>
+          <ModuleToolbar
+            search={searchCourse}
+            onSearch={setSearchCourse}
+            searchPlaceholder="Search courses..."
+            actions={
+              <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" size="sm" onClick={() => setViewMode('add')}>
+                <Plus className="h-4 w-4" /> Add Course
+              </Button>
+            }
+          />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredCourses.map(course => (
-              <Card key={course.id} className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer" onClick={() => { setSelectedId(course.id); setViewMode('detail') }}>
+              <Card key={course.id} className="border border-border/60 shadow-sm hover:shadow-md hover:border-emerald-500/30 transition-all duration-200 cursor-pointer" onClick={() => { setSelectedId(course.id); setViewMode('detail') }}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-2">
-                    <div><p className="text-sm font-semibold">{course.subject}</p><p className="text-xs text-muted-foreground">{course.teacher}</p></div>
+                    <div><p className="text-sm font-semibold text-foreground">{course.subject}</p><p className="text-xs text-muted-foreground">{course.teacher}</p></div>
                     <Badge variant={course.status === 'Active' ? 'default' : course.status === 'Upcoming' ? 'secondary' : 'outline'} className="text-[10px]">{course.status}</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{course.description}</p>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">Enrollment</span><span className="font-medium">{course.enrollmentCount}/{course.maxEnrollment}</span></div>
-                    <div className="w-full bg-muted rounded-full h-2"><div className="h-2 rounded-full bg-emerald-500 transition-all" style={{ width: `${(course.enrollmentCount / course.maxEnrollment) * 100}%` }} /></div>
-                    <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">Syllabus Progress</span><span className="font-medium">{course.progress}%</span></div>
-                    <div className="w-full bg-muted rounded-full h-2"><div className={cn('h-2 rounded-full transition-all', course.progress > 70 ? 'bg-emerald-500' : course.progress > 40 ? 'bg-amber-500' : 'bg-red-400')} style={{ width: `${course.progress}%` }} /></div>
+                    <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">Enrollment</span><span className="font-medium text-foreground">{course.enrollmentCount}/{course.maxEnrollment}</span></div>
+                    <div className="w-full bg-muted rounded-full h-1.5"><div className="h-1.5 rounded-full bg-emerald-500 transition-all" style={{ width: `${(course.enrollmentCount / course.maxEnrollment) * 100}%` }} /></div>
+                    <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">Syllabus Progress</span><span className="font-medium text-foreground">{course.progress}%</span></div>
+                    <div className="w-full bg-muted rounded-full h-1.5"><div className={cn('h-1.5 rounded-full transition-all', course.progress > 70 ? 'bg-emerald-500' : course.progress > 40 ? 'bg-amber-500' : 'bg-rose-400')} style={{ width: `${course.progress}%` }} /></div>
                   </div>
-                  <div className="flex items-center justify-between mt-3 pt-2 border-t">
+                  <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-border/60">
                     <Badge variant="outline" className="text-[10px]">{course.category}</Badge>
-                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">View <ChevronRight className="h-3 w-3" /></Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 px-2 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400">View <ChevronRight className="h-3 w-3" /></Button>
                   </div>
                 </CardContent>
               </Card>
@@ -828,156 +1008,128 @@ export default function ElearningModule() {
 
         {/* ─── Resources Tab ────────────────────────────────────────────────── */}
         <TabsContent value="resources" className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex flex-col sm:flex-row gap-2 flex-1">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Search resources..." className="pl-9 h-9" value={searchResource} onChange={e => setSearchResource(e.target.value)} />
-              </div>
-              <Select value={resourceTypeFilter} onValueChange={setResourceTypeFilter}>
-                <SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Type" /></SelectTrigger>
-                <SelectContent>{resourceTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-              </Select>
-              <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-                <SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Subject" /></SelectTrigger>
-                <SelectContent>{uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => setViewMode('add')}>
-              <Upload className="h-4 w-4" /> Upload Resource
-            </Button>
-          </div>
+          <ModuleToolbar
+            search={searchResource}
+            onSearch={setSearchResource}
+            searchPlaceholder="Search resources..."
+            filters={
+              <>
+                <Select value={resourceTypeFilter} onValueChange={setResourceTypeFilter}>
+                  <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Type" /></SelectTrigger>
+                  <SelectContent>{resourceTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+                  <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Subject" /></SelectTrigger>
+                  <SelectContent>{uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                </Select>
+              </>
+            }
+            actions={
+              <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" size="sm" onClick={() => setViewMode('add')}>
+                <Upload className="h-4 w-4" /> Upload Resource
+              </Button>
+            }
+          />
 
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Resource</TableHead>
-                    <TableHead>Subject</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Uploaded By</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Downloads</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredResources.map(res => (
-                    <TableRow key={res.id} className="cursor-pointer hover:bg-muted/30" onClick={() => { setSelectedId(res.id); setViewMode('detail') }}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+          <TableShell isEmpty={filteredResources.length === 0} empty={<KitEmptyState icon={FileText} title="No resources found" description="Try adjusting your filters or search query." />}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Resource</TableHead>
+                  <TableHead>Subject</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Uploaded By</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Downloads</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredResources.map(res => (
+                  <TableRow key={res.id} className="cursor-pointer hover:bg-muted/30" onClick={() => { setSelectedId(res.id); setViewMode('detail') }}>
+                    <TableCell>
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-1.5 rounded bg-muted/60">
                           {resourceTypeIcon(res.type)}
-                          <div><p className="text-sm font-medium">{res.title}</p><p className="text-xs text-muted-foreground">{res.fileSize}</p></div>
                         </div>
-                      </TableCell>
-                      <TableCell><Badge variant="outline" className="text-xs">{res.subject}</Badge></TableCell>
-                      <TableCell><Badge className={cn('text-[10px]', resourceTypeColor(res.type))}>{res.type}</Badge></TableCell>
-                      <TableCell className="text-sm">{res.uploadedBy}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{res.uploadDate}</TableCell>
-                      <TableCell className="text-sm"><div className="flex items-center gap-1"><Download className="h-3 w-3 text-muted-foreground" />{res.downloads}</div></TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                        <div><p className="text-sm font-medium text-foreground">{res.title}</p><p className="text-xs text-muted-foreground">{res.fileSize}</p></div>
+                      </div>
+                    </TableCell>
+                    <TableCell><Badge variant="outline" className="text-xs">{res.subject}</Badge></TableCell>
+                    <TableCell><Badge className={cn('text-[10px]', resourceTypeColor(res.type))}>{res.type}</Badge></TableCell>
+                    <TableCell className="text-sm font-medium text-foreground">{res.uploadedBy}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{res.uploadDate}</TableCell>
+                    <TableCell className="text-sm text-foreground"><div className="flex items-center gap-1"><Download className="h-3 w-3 text-muted-foreground" />{res.downloads}</div></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableShell>
         </TabsContent>
 
         {/* ─── Assignments Tab ──────────────────────────────────────────────── */}
         <TabsContent value="assignments" className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search assignments..." className="pl-9 h-9" value={searchAssignment} onChange={e => setSearchAssignment(e.target.value)} />
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="gap-1"><Clock className="h-3 w-3" />{assignments.filter(a => a.status === 'Open').length} Open</Badge>
-              <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3 w-3" />{assignments.filter(a => a.status === 'Closed').length} Closed</Badge>
-            </div>
-          </div>
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Assignment</TableHead>
-                    <TableHead>Course</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead>Submissions</TableHead>
-                    <TableHead>Graded</TableHead>
-                    <TableHead>Avg Score</TableHead>
-                    <TableHead>Status</TableHead>
+          <ModuleToolbar
+            search={searchAssignment}
+            onSearch={setSearchAssignment}
+            searchPlaceholder="Search assignments..."
+            filters={
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="gap-1 bg-emerald-50/50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 border-emerald-500/20"><Clock className="h-3 w-3" />{assignments.filter(a => a.status === 'Open').length} Open</Badge>
+                <Badge variant="outline" className="gap-1 bg-muted/50 text-muted-foreground border-border/40"><CheckCircle2 className="h-3 w-3" />{assignments.filter(a => a.status === 'Closed').length} Closed</Badge>
+              </div>
+            }
+          />
+
+          <TableShell isEmpty={filteredAssignments.length === 0} empty={<KitEmptyState icon={BookOpen} title="No assignments found" description="Try adjusting your search query." />}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Assignment</TableHead>
+                  <TableHead>Course</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead>Submissions</TableHead>
+                  <TableHead>Graded</TableHead>
+                  <TableHead>Avg Score</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredAssignments.map(a => (
+                  <TableRow key={a.id}>
+                    <TableCell><div><p className="text-sm font-medium text-foreground">{a.title}</p><p className="text-xs text-muted-foreground">Max marks: {a.maxMarks}</p></div></TableCell>
+                    <TableCell><Badge variant="outline" className="text-xs">{a.course}</Badge></TableCell>
+                    <TableCell className="text-sm"><div className="flex items-center gap-1.5"><Calendar className="h-3 w-3 text-muted-foreground" />{a.dueDate}</div></TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 bg-muted rounded-full h-1.5"><div className={cn('h-1.5 rounded-full', a.submitted / a.totalStudents > 0.8 ? 'bg-emerald-500' : a.submitted / a.totalStudents > 0.5 ? 'bg-amber-500' : 'bg-rose-400')} style={{ width: `${(a.submitted / a.totalStudents) * 100}%` }} /></div>
+                        <span className="text-xs font-medium text-foreground">{a.submitted}/{a.totalStudents}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-foreground">{a.graded}/{a.submitted}</TableCell>
+                    <TableCell>
+                      {a.avgScore !== null ? (
+                        <span className={cn('text-sm font-semibold', a.avgScore / a.maxMarks > 0.7 ? 'text-emerald-600 dark:text-emerald-400' : a.avgScore / a.maxMarks > 0.5 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-500')}>{a.avgScore}/{a.maxMarks}</span>
+                      ) : (<span className="text-xs text-muted-foreground">{'\u2014'}</span>)}
+                    </TableCell>
+                    <TableCell><Badge className={cn('text-[10px]', assignmentStatusColor(a.status))}>{a.status}</Badge></TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAssignments.map(a => (
-                    <TableRow key={a.id}>
-                      <TableCell><div><p className="text-sm font-medium">{a.title}</p><p className="text-xs text-muted-foreground">Max marks: {a.maxMarks}</p></div></TableCell>
-                      <TableCell><Badge variant="outline" className="text-xs">{a.course}</Badge></TableCell>
-                      <TableCell className="text-sm"><div className="flex items-center gap-1"><Calendar className="h-3 w-3 text-muted-foreground" />{a.dueDate}</div></TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="w-16 bg-muted rounded-full h-1.5"><div className={cn('h-1.5 rounded-full', a.submitted / a.totalStudents > 0.8 ? 'bg-emerald-500' : a.submitted / a.totalStudents > 0.5 ? 'bg-amber-500' : 'bg-red-400')} style={{ width: `${(a.submitted / a.totalStudents) * 100}%` }} /></div>
-                          <span className="text-xs">{a.submitted}/{a.totalStudents}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">{a.graded}/{a.submitted}</TableCell>
-                      <TableCell>
-                        {a.avgScore !== null ? (
-                          <span className={cn('text-sm font-semibold', a.avgScore / a.maxMarks > 0.7 ? 'text-emerald-600' : a.avgScore / a.maxMarks > 0.5 ? 'text-amber-600' : 'text-red-600')}>{a.avgScore}/{a.maxMarks}</span>
-                        ) : (<span className="text-xs text-muted-foreground">{'\u2014'}</span>)}
-                      </TableCell>
-                      <TableCell><Badge className={cn('text-[10px]', assignmentStatusColor(a.status))}>{a.status}</Badge></TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                ))}
+              </TableBody>
+            </Table>
+          </TableShell>
         </TabsContent>
 
         {/* ─── Progress Tab ─────────────────────────────────────────────────── */}
         <TabsContent value="progress" className="space-y-4">
-          <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-50 to-teal-50">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div><p className="text-sm font-semibold">Overall Student Progress</p><p className="text-xs text-muted-foreground">Average across all courses and students</p></div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right"><p className="text-3xl font-bold text-emerald-600">{Math.round(studentProgress.reduce((s, p) => s + p.overallProgress, 0) / studentProgress.length)}%</p><p className="text-xs text-muted-foreground">Average</p></div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <div className="space-y-4">
-            {studentProgress.map(student => (
-              <Card key={student.id} className="border-0 shadow-md">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100"><GraduationCap className="h-4 w-4 text-emerald-600" /></div>
-                      <div><p className="text-sm font-semibold">{student.studentName}</p><p className="text-xs text-muted-foreground">{student.form}</p></div>
-                    </div>
-                    <div className="text-right">
-                      <p className={cn('text-lg font-bold', student.overallProgress >= 75 ? 'text-emerald-600' : student.overallProgress >= 55 ? 'text-amber-600' : 'text-red-600')}>{student.overallProgress}%</p>
-                      <p className="text-[10px] text-muted-foreground">Overall</p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {student.courses.map((course, idx) => (
-                      <div key={idx} className="flex items-center gap-3">
-                        <span className="text-xs w-28 shrink-0 text-muted-foreground">{course.subject}</span>
-                        <div className="flex-1 bg-muted rounded-full h-2"><div className={cn('h-2 rounded-full transition-all', course.progress >= 75 ? 'bg-emerald-500' : course.progress >= 55 ? 'bg-amber-500' : 'bg-red-400')} style={{ width: `${course.progress}%` }} /></div>
-                        <span className="text-xs font-medium w-10 text-right">{course.progress}%</span>
-                        <span className={cn('text-xs font-bold w-8', gradeColor(course.grade))}>{course.grade}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 px-6 py-12 text-center">
+            <KitEmptyState
+              icon={GraduationCap}
+              title="Student Grade & Syllabus Tracking"
+              description="Detailed student-specific grades, term reports, and academic syllabus progress tracking are managed centrally inside the core Academics, Gradebook, and Student Portal modules. This ensures data consistency across the ZimSchool Pro platform."
+            />
           </div>
         </TabsContent>
-      </Tabs>
-    </div>
+      </ModulePageLayout>
+    </ModuleContainer>
   )
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -37,7 +38,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -613,30 +614,23 @@ export default function BoardingModule() {
 
       {viewMode === 'list' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Boarding Management</h1>
-              <p className="text-sm text-muted-foreground mt-1">Manage hostels, dormitories, and boarding assignments</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setViewMode('settings')} className="gap-1">
-                <Settings className="h-4 w-4" /> Settings
-              </Button>
-              <Button className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white shadow-md" onClick={() => setViewMode('assign-boarder')}>
-                <Plus className="mr-2 h-4 w-4" />
-                Assign Boarder
-              </Button>
-            </div>
-          </div>
+<ModulePageLayout
+        actions={<>
+          <Button className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white shadow-md" onClick={() => setViewMode('assign-boarder')}>
+            <Plus className="mr-2 h-4 w-4" />
+            Assign Boarder
+          </Button>
+          <ModuleSettingsButton onClick={() => setViewMode('settings')} />
+        </>}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="hostels">Hostels</TabsTrigger>
+            <TabsTrigger value="boarders">Boarders</TabsTrigger>
+          </>}
+      >
 
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="bg-muted/50 p-1">
-              <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Overview</TabsTrigger>
-              <TabsTrigger value="hostels" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Hostels</TabsTrigger>
-              <TabsTrigger value="boarders" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Boarders</TabsTrigger>
-            </TabsList>
 
             {/* ─── Overview Tab ─────────────────────────────────────────────── */}
             <TabsContent value="overview" className="space-y-4">
@@ -897,7 +891,7 @@ export default function BoardingModule() {
                 </CardContent>
               </Card>
             </TabsContent>
-          </Tabs>
+          </ModulePageLayout>
         </motion.div>
       )}
     </motion.div>

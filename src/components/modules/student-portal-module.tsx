@@ -1,6 +1,10 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { ModulePageLayout, ModuleSettingsButton, ModuleContainer, StatGrid, ModuleStatCard, SectionCard, TableShell } from '@/components/module-ui'
+import { useSession } from 'next-auth/react'
+import { useRBAC } from '@/hooks/use-rbac'
+import { type UserRole } from '@/lib/rbac'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   GraduationCap,
@@ -63,6 +67,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Switch } from '@/components/ui/switch'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface TimetablePeriod {
@@ -319,17 +331,29 @@ const daysUntil = (dateStr: string) => {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function StudentPortalModule() {
+  const { data: session } = useSession()
+  const rbac = useRBAC((session?.user?.role as UserRole) || 'STUDENT')
+  const isAdmin = rbac.currentRole === 'ADMIN' || rbac.currentRole === 'SUPER_ADMIN'
+
   const [activeTab, setActiveTab] = useState('overview')
   const [viewMode, setViewMode] = useState<'list' | 'add' | 'edit' | 'detail' | 'settings'>('list')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null)
   const [addType, setAddType] = useState<'submit' | 'reserve' | 'report'>('submit')
+  const [reserveBookTitle, setReserveBookTitle] = useState('')
 
   // ─── API Data State ───────────────────────────────────────────────────────────
   const [assignments, setAssignments] = useState<Assignment[]>(mockAssignments)
   const [resources, setResources] = useState<DigitalResource[]>(digitalResources)
   const [attendanceRate, setAttendanceRate] = useState(94)
   const [loading, setLoading] = useState({ assignments: true, resources: true, attendance: true })
+
+  useEffect(() => {
+    if (viewMode === 'settings' && !isAdmin) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setViewMode('list')
+    }
+  }, [viewMode, isAdmin])
 
   // Settings state
   const [settings, setSettings] = useState({
@@ -435,7 +459,7 @@ export default function StudentPortalModule() {
   // Settings view
   if (viewMode === 'settings') {
     return (
-      <div className="space-y-6">
+      <ModuleContainer>
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
         </div>
@@ -444,9 +468,8 @@ export default function StudentPortalModule() {
           <p className="text-sm text-muted-foreground mt-1">Customize your student portal experience</p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="border-0 shadow-md">
-            <CardHeader><CardTitle className="text-base">Feature Access</CardTitle><CardDescription>Control which features are visible</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
+          <SectionCard title="Feature Access" description="Control which features are visible">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div><p className="text-sm font-medium">Grade Visibility</p><p className="text-xs text-muted-foreground">Show grades and academic records</p></div>
                 <Switch checked={settings.gradeVisibility} onCheckedChange={(v) => setSettings({...settings, gradeVisibility: v})} />
@@ -461,29 +484,28 @@ export default function StudentPortalModule() {
                 <div><p className="text-sm font-medium">Library Access</p><p className="text-xs text-muted-foreground">Enable library features</p></div>
                 <Switch checked={settings.libraryAccess} onCheckedChange={(v) => setSettings({...settings, libraryAccess: v})} />
               </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-md">
-            <CardHeader><CardTitle className="text-base">Notifications</CardTitle><CardDescription>Manage your notification preferences</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
+            </div>
+          </SectionCard>
+          <SectionCard title="Notifications" description="Manage your notification preferences">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div><p className="text-sm font-medium">Push Notifications</p><p className="text-xs text-muted-foreground">Receive assignment and event alerts</p></div>
                 <Switch checked={settings.notifications} onCheckedChange={(v) => setSettings({...settings, notifications: v})} />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
         </div>
         <div className="flex justify-end">
           <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { toast.success('Settings saved successfully'); setViewMode('list') }}>Save Settings</Button>
         </div>
-      </div>
+      </ModuleContainer>
     )
   }
 
   // Submit assignment view
   if (viewMode === 'add' && addType === 'submit') {
     return (
-      <div className="space-y-6">
+      <ModuleContainer>
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
         </div>
@@ -491,57 +513,56 @@ export default function StudentPortalModule() {
           <h2 className="text-xl font-bold tracking-tight">Submit Assignment</h2>
         </div>
         {selectedAssignment ? (
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-6 space-y-4">
-              <div><h3 className="text-lg font-semibold">{selectedAssignment.title}</h3><p className="text-sm text-muted-foreground">{selectedAssignment.subject} &middot; Due: {selectedAssignment.dueDate}</p></div>
+          <SectionCard title={selectedAssignment.title} description={`${selectedAssignment.subject} • Due: ${selectedAssignment.dueDate}`}>
+            <div className="space-y-4">
               <div className="grid gap-2"><Label>Comments</Label><Textarea placeholder="Add any comments for your teacher..." rows={4} /></div>
               <div className="grid gap-2"><Label>Attach Files</Label><div className="border-2 border-dashed rounded-lg p-8 text-center"><Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" /><p className="text-sm text-muted-foreground">Drag and drop files here, or click to browse</p></div></div>
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
         ) : <p>No assignment selected</p>}
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
           <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleSubmitAssignment}><Upload className="h-4 w-4 mr-2" /> Submit</Button>
         </div>
-      </div>
+      </ModuleContainer>
     )
   }
 
   // Reserve book view
   if (viewMode === 'add' && addType === 'reserve') {
     return (
-      <div className="space-y-6">
+      <ModuleContainer>
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
         </div>
         <div>
           <h2 className="text-xl font-bold tracking-tight">Reserve a Book</h2>
         </div>
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-6 space-y-4">
+        <SectionCard>
+          <div className="space-y-4">
             <div className="grid gap-2"><Label>Book Title</Label><Input placeholder="Enter the book title" value={reserveBookTitle} onChange={(e) => setReserveBookTitle(e.target.value)} /></div>
-          </CardContent>
-        </Card>
+          </div>
+        </SectionCard>
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
           <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleReserveBook}>Reserve Book</Button>
         </div>
-      </div>
+      </ModuleContainer>
     )
   }
 
   // Report card view
   if (viewMode === 'detail' && addType === 'report') {
     return (
-      <div className="space-y-6">
+      <ModuleContainer>
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
         </div>
         <div>
           <h2 className="text-xl font-bold tracking-tight flex items-center gap-2"><Award className="h-5 w-5 text-emerald-600" /> Report Card - Term 1 2026</h2>
         </div>
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-6">
+        <SectionCard>
+          <div className="p-2 space-y-6">
             <div className="text-center mb-6">
               <p className="text-lg font-bold">ZimSchool Pro Academy</p>
               <p className="text-sm text-muted-foreground">Term 1 2026 Academic Report</p>
@@ -558,48 +579,33 @@ export default function StudentPortalModule() {
                     <div className="text-right text-xs"><span className="text-muted-foreground">Mid:</span> <span className="font-medium">{sg.midTerm}%</span></div>
                     <div className="text-right text-xs"><span className="text-muted-foreground">Test:</span> <span className="font-medium">{sg.test}%</span></div>
                     <div className="text-right text-xs"><span className="text-muted-foreground">Exam:</span> <span className="font-medium">{sg.exam}%</span></div>
-                    <Badge className={cn('text-xs', gradeColor(sg.letterGrade))}>{sg.letterGrade}</Badge>
+                    <Badge className={cn('text-xs shadow-none', gradeColor(sg.letterGrade))}>{sg.letterGrade}</Badge>
                   </div>
                 </div>
               ))}
             </div>
             <Separator className="my-4" />
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center px-2">
               <span className="text-sm font-medium">Overall Average</span>
               <span className="text-lg font-bold text-emerald-600">{currentAverage}%</span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </SectionCard>
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={() => setViewMode('list')}>Close</Button>
           <Button variant="outline" className="gap-2"><Download className="h-4 w-4" /> Download PDF</Button>
         </div>
-      </div>
+      </ModuleContainer>
     )
   }
 
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600">
-            <GraduationCap className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold tracking-tight">Student Portal</h2>
-            <p className="text-sm text-muted-foreground">Welcome, {studentName}</p>
-          </div>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => { setViewMode('settings'); setSelectedId(null) }} className="gap-1.5">
-          <Settings className="h-4 w-4" />
-          <span className="hidden sm:inline">Settings</span>
-        </Button>
-      </motion.div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-7">
+    <ModuleContainer>
+<ModulePageLayout
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="grades">Grades</TabsTrigger>
           <TabsTrigger value="schedule">Timetable</TabsTrigger>
@@ -607,7 +613,9 @@ export default function StudentPortalModule() {
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="library">Library</TabsTrigger>
-        </TabsList>
+        </>}
+        actions={isAdmin ? <ModuleSettingsButton onClick={() => { setViewMode('settings'); setSelectedId(null) }} /> : undefined}
+      >
 
         {/* ─── Overview Tab ─────────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
@@ -641,150 +649,100 @@ export default function StudentPortalModule() {
           </Card>
 
           {/* Stat Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Attendance Rate</p>
-                    <p className="text-2xl font-bold">{attendanceRate}%</p>
-                    <div className="flex items-center gap-1">
-                      <TrendingUp className="h-3 w-3 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-600">+2% this term</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
-                    <Calendar className="h-5 w-5 text-emerald-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Average</p>
-                    <p className="text-2xl font-bold">{currentAverage}%</p>
-                    <div className="flex items-center gap-1">
-                      <TrendingUp className="h-3 w-3 text-teal-600" />
-                      <span className="text-xs font-medium text-teal-600">+3% from last term</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50">
-                    <BarChart3 className="h-5 w-5 text-teal-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Library Books Due</p>
-                    <p className="text-2xl font-bold">{libraryBooksDue}</p>
-                    <div className="flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3 text-amber-600" />
-                      <span className="text-xs font-medium text-amber-600">1 overdue</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
-                    <Library className="h-5 w-5 text-amber-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assignments Pending</p>
-                    <p className="text-2xl font-bold">{assignmentsPending}</p>
-                    <div className="flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3 text-red-500" />
-                      <span className="text-xs font-medium text-red-500">1 overdue</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-50">
-                    <FileText className="h-5 w-5 text-violet-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <StatGrid cols={4}>
+            <ModuleStatCard
+              icon={Calendar}
+              label="Attendance Rate"
+              value={`${attendanceRate}%`}
+              trend={{ value: '+2% this term', positive: true }}
+              accentGradient="from-emerald-400 to-teal-500"
+              bgColor="bg-emerald-50 dark:bg-emerald-950/40"
+            />
+            <ModuleStatCard
+              icon={BarChart3}
+              label="Current Average"
+              value={`${currentAverage}%`}
+              trend={{ value: '+3% from last term', positive: true }}
+              accentGradient="from-teal-400 to-emerald-500"
+              bgColor="bg-teal-50 dark:bg-teal-950/40"
+            />
+            <ModuleStatCard
+              icon={Library}
+              label="Library Books Due"
+              value={libraryBooksDue}
+              hint="1 overdue"
+              accentGradient="from-amber-400 to-orange-500"
+              bgColor="bg-amber-50 dark:bg-amber-950/40"
+            />
+            <ModuleStatCard
+              icon={FileText}
+              label="Assignments Pending"
+              value={assignmentsPending}
+              hint="1 overdue"
+              accentGradient="from-violet-400 to-indigo-500"
+              bgColor="bg-violet-50 dark:bg-violet-950/40"
+            />
+          </StatGrid>
 
           {/* Today's Timetable Preview */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-emerald-600" /> Today&apos;s Timetable
-                </CardTitle>
-                <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={() => setActiveTab('schedule')}>
-                  View Full Schedule <ChevronRight className="h-3 w-3" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {todaySchedule.map((period) => (
-                  <div key={period.period} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
-                    <div className={cn('w-1 h-10 rounded-full shrink-0', period.color)} />
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium truncate">{period.subject}</p>
-                      <p className="text-[10px] text-muted-foreground">{period.time.split(' - ')[0]}</p>
-                      <p className="text-[10px] text-muted-foreground">{period.room}</p>
-                    </div>
+          <SectionCard
+            title="Today's Timetable"
+            icon={Clock}
+            actions={
+              <Button variant="ghost" size="sm" className="text-xs gap-1 h-8" onClick={() => setActiveTab('schedule')}>
+                View Full Schedule <ChevronRight className="h-3 w-3" />
+              </Button>
+            }
+          >
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {todaySchedule.map((period) => (
+                <div key={period.period} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
+                  <div className={cn('w-1 h-10 rounded-full shrink-0', period.color)} />
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium truncate">{period.subject}</p>
+                    <p className="text-[10px] text-muted-foreground">{period.time.split(' - ')[0]}</p>
+                    <p className="text-[10px] text-muted-foreground">{period.room}</p>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
 
           {/* Quick Actions + Upcoming Deadlines */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { icon: BarChart3, label: 'View Grades', color: 'bg-emerald-50 text-emerald-600', action: () => setActiveTab('grades') },
-                    { icon: FileText, label: 'Assignments', color: 'bg-amber-50 text-amber-600', action: () => setActiveTab('assignments') },
-                    { icon: Library, label: 'Library', color: 'bg-teal-50 text-teal-600', action: () => setActiveTab('library') },
-                    { icon: Clock, label: 'Timetable', color: 'bg-violet-50 text-violet-600', action: () => setActiveTab('schedule') },
-                    { icon: Award, label: 'Report Card', color: 'bg-rose-50 text-rose-600', action: () => { setAddType('report'); setViewMode('detail') } },
-                    { icon: Target, label: 'Progress', color: 'bg-cyan-50 text-cyan-600', action: () => setActiveTab('grades') },
-                  ].map((action, idx) => (
-                    <button key={idx} onClick={action.action} className="flex flex-col items-center gap-2 rounded-xl p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 border border-transparent hover:border-muted bg-muted/30 hover:bg-white group">
-                      <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', action.color)}>
-                        <action.icon className="h-5 w-5" />
-                      </div>
-                      <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">{action.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <SectionCard title="Quick Actions">
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { icon: BarChart3, label: 'View Grades', color: 'bg-emerald-50 text-emerald-600', action: () => setActiveTab('grades') },
+                  { icon: FileText, label: 'Assignments', color: 'bg-amber-50 text-amber-600', action: () => setActiveTab('assignments') },
+                  { icon: Library, label: 'Library', color: 'bg-teal-50 text-teal-600', action: () => setActiveTab('library') },
+                  { icon: Clock, label: 'Timetable', color: 'bg-violet-50 text-violet-600', action: () => setActiveTab('schedule') },
+                  { icon: Award, label: 'Report Card', color: 'bg-rose-50 text-rose-600', action: () => { setAddType('report'); setViewMode('detail') } },
+                  { icon: Target, label: 'Progress', color: 'bg-cyan-50 text-cyan-600', action: () => setActiveTab('grades') },
+                ].map((action, idx) => (
+                  <button key={idx} onClick={action.action} className="flex flex-col items-center gap-2 rounded-xl p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 border border-transparent hover:border-muted bg-muted/30 hover:bg-white group">
+                    <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', action.color)}>
+                      <action.icon className="h-5 w-5" />
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">{action.label}</span>
+                  </button>
+                ))}
+              </div>
+            </SectionCard>
 
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Timer className="h-4 w-4 text-amber-600" /> Upcoming Deadlines
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="max-h-64 overflow-y-auto space-y-2">
+            <SectionCard title="Upcoming Deadlines" icon={Timer}>
+              <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
                 {pendingAssignments.map(a => {
                   const days = daysUntil(a.dueDate)
                   return (
                     <div key={a.id} className={cn(
                       'flex items-center justify-between p-3 rounded-lg transition-colors',
-                      a.status === 'overdue' ? 'bg-red-50 border border-red-100' : 'bg-muted/30'
+                      a.status === 'overdue' ? 'bg-red-50 border border-red-100 dark:bg-red-950/20 dark:border-red-900/30' : 'bg-muted/30'
                     )}>
                       <div className="flex items-center gap-3">
                         <div className={cn(
                           'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold',
-                          a.status === 'overdue' ? 'bg-red-100 text-red-700' : days <= 3 ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                          a.status === 'overdue' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : days <= 3 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
                         )}>
                           {days <= 0 ? '!' : days + 'd'}
                         </div>
@@ -796,7 +754,7 @@ export default function StudentPortalModule() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-xs gap-1"
+                        className="text-xs gap-1 h-8"
                         onClick={() => { setSelectedAssignment(a); setAddType('submit'); setViewMode('add') }}
                       >
                         <Upload className="h-3 w-3" /> Submit
@@ -804,22 +762,16 @@ export default function StudentPortalModule() {
                     </div>
                   )
                 })}
-              </CardContent>
-            </Card>
+              </div>
+            </SectionCard>
           </div>
         </TabsContent>
 
         {/* ─── My Schedule Tab ────────────────────────────────────────────────── */}
         <TabsContent value="schedule" className="space-y-4">
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Clock className="h-4 w-4 text-emerald-600" /> Weekly Timetable
-              </CardTitle>
-              <CardDescription>{studentClass} • {studentName}</CardDescription>
-            </CardHeader>
-            <CardContent className="overflow-x-auto">
-              <div className="min-w-[700px]">
+          <SectionCard title="Weekly Timetable" description={`${studentClass} • ${studentName}`} icon={Clock}>
+            <TableShell>
+              <div className="min-w-[800px] p-1">
                 {/* Period Header */}
                 <div className="grid grid-cols-9 gap-1 mb-1">
                   <div className="text-center text-xs font-medium text-muted-foreground py-2">Period</div>
@@ -862,210 +814,186 @@ export default function StudentPortalModule() {
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            </TableShell>
+          </SectionCard>
 
           {/* Subject Legend */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Subject Legend</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-3">
-                {[
-                  { subject: 'Mathematics', color: 'bg-emerald-500' },
-                  { subject: 'English', color: 'bg-teal-500' },
-                  { subject: 'Physics', color: 'bg-cyan-500' },
-                  { subject: 'Shona', color: 'bg-amber-500' },
-                  { subject: 'History', color: 'bg-violet-500' },
-                  { subject: 'Chemistry', color: 'bg-rose-500' },
-                  { subject: 'Biology', color: 'bg-orange-500' },
-                  { subject: 'Geography', color: 'bg-sky-500' },
-                  { subject: 'PE / Sports', color: 'bg-lime-500' },
-                  { subject: 'Club Activity', color: 'bg-lime-500' },
-                ].map(s => (
-                  <div key={s.subject} className="flex items-center gap-2">
-                    <div className={cn('w-3 h-3 rounded-sm', s.color)} />
-                    <span className="text-xs font-medium">{s.subject}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <SectionCard title="Subject Legend">
+            <div className="flex flex-wrap gap-3">
+              {[
+                { subject: 'Mathematics', color: 'bg-emerald-500' },
+                { subject: 'English', color: 'bg-teal-500' },
+                { subject: 'Physics', color: 'bg-cyan-500' },
+                { subject: 'Shona', color: 'bg-amber-500' },
+                { subject: 'History', color: 'bg-violet-500' },
+                { subject: 'Chemistry', color: 'bg-rose-500' },
+                { subject: 'Biology', color: 'bg-orange-500' },
+                { subject: 'Geography', color: 'bg-sky-500' },
+                { subject: 'PE / Sports', color: 'bg-lime-500' },
+                { subject: 'Club Activity', color: 'bg-lime-500' },
+              ].map(s => (
+                <div key={s.subject} className="flex items-center gap-2">
+                  <div className={cn('w-3 h-3 rounded-sm', s.color)} />
+                  <span className="text-xs font-medium">{s.subject}</span>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Grades & Reports Tab ────────────────────────────────────────────── */}
         <TabsContent value="grades" className="space-y-4">
           {/* Position Card */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
-              <CardContent className="p-5">
-                <div className="flex items-center gap-3">
-                  <Award className="h-8 w-8 text-white/80" />
-                  <div>
-                    <p className="text-xs text-emerald-100 uppercase tracking-wide">Class Position</p>
-                    <p className="text-3xl font-bold">{classPosition}<span className="text-lg text-emerald-200">/{classSize}</span></p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-center gap-3">
-                  <Target className="h-8 w-8 text-teal-600" />
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Current Average</p>
-                    <p className="text-3xl font-bold">{currentAverage}%</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5 flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Report Card</p>
-                  <p className="text-sm font-medium mt-1">Term 1 2026</p>
-                </div>
-                <Button className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={() => { setAddType('report'); setViewMode('detail') }}>
-                  <FileText className="h-4 w-4" /> Preview
+          <StatGrid cols={3}>
+            <ModuleStatCard
+              icon={Award}
+              label="Class Position"
+              value={`${classPosition}/${classSize}`}
+              accentGradient="from-emerald-500 to-teal-600"
+              bgColor="bg-emerald-100 dark:bg-emerald-950/40"
+            />
+            <ModuleStatCard
+              icon={Target}
+              label="Current Average"
+              value={`${currentAverage}%`}
+              accentGradient="from-teal-400 to-emerald-500"
+              bgColor="bg-teal-50 dark:bg-teal-950/40"
+            />
+            <ModuleStatCard
+              icon={FileText}
+              label="Report Card"
+              value="Term 1 2026"
+              footer={
+                <Button className="bg-emerald-600 hover:bg-emerald-700 gap-2 h-7 px-2.5 text-xs mt-1" onClick={() => { setAddType('report'); setViewMode('detail') }}>
+                  <FileText className="h-3 w-3" /> Preview
                 </Button>
-              </CardContent>
-            </Card>
-          </div>
+              }
+              accentGradient="from-violet-400 to-indigo-500"
+              bgColor="bg-violet-50 dark:bg-violet-950/40"
+            />
+          </StatGrid>
 
           {/* Grades Table */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-emerald-600" /> Current Term Grades
-              </CardTitle>
-              <CardDescription>Term 1, 2026</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {/* Header */}
-                <div className="grid grid-cols-6 gap-2 px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  <span>Subject</span>
-                  <span className="text-center">Mid-Term</span>
-                  <span className="text-center">Test</span>
-                  <span className="text-center">Exam</span>
-                  <span className="text-center">Grade</span>
-                  <span>Teacher</span>
-                </div>
-                {subjectGrades.map(sg => (
-                  <div key={sg.subject} className="grid grid-cols-6 gap-2 px-3 py-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors items-center">
-                    <span className="text-sm font-medium">{sg.subject}</span>
-                    <span className={cn('text-sm text-center font-medium', sg.midTerm >= 80 ? 'text-emerald-600' : sg.midTerm >= 60 ? 'text-amber-600' : 'text-red-600')}>{sg.midTerm}%</span>
-                    <span className={cn('text-sm text-center font-medium', sg.test >= 80 ? 'text-emerald-600' : sg.test >= 60 ? 'text-amber-600' : 'text-red-600')}>{sg.test}%</span>
-                    <span className={cn('text-sm text-center font-medium', sg.exam >= 80 ? 'text-emerald-600' : sg.exam >= 60 ? 'text-amber-600' : 'text-red-600')}>{sg.exam}%</span>
-                    <div className="flex justify-center">
-                      <span className={cn('px-2 py-0.5 rounded-md text-xs font-bold', gradeColor(sg.letterGrade))}>{sg.letterGrade}</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">{sg.teacher}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <SectionCard
+            title="Current Term Grades"
+            description="Term 1, 2026"
+            icon={BarChart3}
+          >
+            <TableShell>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Subject</TableHead>
+                    <TableHead className="text-center">Mid-Term</TableHead>
+                    <TableHead className="text-center">Test</TableHead>
+                    <TableHead className="text-center">Exam</TableHead>
+                    <TableHead className="text-center">Grade</TableHead>
+                    <TableHead>Teacher</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {subjectGrades.map(sg => (
+                    <TableRow key={sg.subject}>
+                      <TableCell className="font-medium">{sg.subject}</TableCell>
+                      <TableCell className={cn('text-center font-medium', sg.midTerm >= 80 ? 'text-emerald-600' : sg.midTerm >= 60 ? 'text-amber-600' : 'text-red-600')}>{sg.midTerm}%</TableCell>
+                      <TableCell className={cn('text-center font-medium', sg.test >= 80 ? 'text-emerald-600' : sg.test >= 60 ? 'text-amber-600' : 'text-red-600')}>{sg.test}%</TableCell>
+                      <TableCell className={cn('text-center font-medium', sg.exam >= 80 ? 'text-emerald-600' : sg.exam >= 60 ? 'text-amber-600' : 'text-red-600')}>{sg.exam}%</TableCell>
+                      <TableCell className="text-center">
+                        <Badge className={cn('px-2 py-0.5 rounded-md text-xs font-bold shadow-none', gradeColor(sg.letterGrade))}>{sg.letterGrade}</Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">{sg.teacher}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableShell>
+          </SectionCard>
 
           {/* Performance Trend */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Performance Trend</CardTitle>
-              <CardDescription>Your average across recent terms</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={trendChartConfig} className="h-[200px] w-full">
-                <AreaChart data={performanceTrend} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="avgGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                  <XAxis dataKey="term" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} domain={[50, 100]} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Area type="monotone" dataKey="average" stroke="var(--color-average)" fill="url(#avgGradient)" strokeWidth={2} />
-                </AreaChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
+          <SectionCard title="Performance Trend" description="Your average across recent terms">
+            <ChartContainer config={trendChartConfig} className="h-[200px] w-full">
+              <AreaChart data={performanceTrend} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="avgGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                <XAxis dataKey="term" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} domain={[50, 100]} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Area type="monotone" dataKey="average" stroke="var(--color-average)" fill="url(#avgGradient)" strokeWidth={2} />
+              </AreaChart>
+            </ChartContainer>
+          </SectionCard>
 
           {/* Subject Comparison Chart */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Subject Comparison</CardTitle>
-              <CardDescription>Mid-Term vs Test vs Exam marks</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={subjectChartConfig} className="h-[250px] w-full">
-                <BarChart data={subjectGrades.map(s => ({ subject: s.subject.length > 8 ? s.subject.substring(0, 8) + '...' : s.subject, midTerm: s.midTerm, test: s.test, exam: s.exam }))} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                  <XAxis dataKey="subject" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} domain={[0, 100]} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="midTerm" fill="var(--color-midTerm)" radius={[4, 4, 0, 0]} maxBarSize={20} />
-                  <Bar dataKey="test" fill="var(--color-test)" radius={[4, 4, 0, 0]} maxBarSize={20} />
-                  <Bar dataKey="exam" fill="var(--color-exam)" radius={[4, 4, 0, 0]} maxBarSize={20} />
-                </BarChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
+          <SectionCard title="Subject Comparison" description="Mid-Term vs Test vs Exam marks">
+            <ChartContainer config={subjectChartConfig} className="h-[250px] w-full">
+              <BarChart data={subjectGrades.map(s => ({ subject: s.subject.length > 8 ? s.subject.substring(0, 8) + '...' : s.subject, midTerm: s.midTerm, test: s.test, exam: s.exam }))} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                <XAxis dataKey="subject" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
+                <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} domain={[0, 100]} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="midTerm" fill="var(--color-midTerm)" radius={[4, 4, 0, 0]} maxBarSize={20} />
+                <Bar dataKey="test" fill="var(--color-test)" radius={[4, 4, 0, 0]} maxBarSize={20} />
+                <Bar dataKey="exam" fill="var(--color-exam)" radius={[4, 4, 0, 0]} maxBarSize={20} />
+              </BarChart>
+            </ChartContainer>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Assignments Tab ────────────────────────────────────────────────── */}
         <TabsContent value="assignments" className="space-y-4">
           {/* Assignment Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-blue-600">{assignments.filter(a => a.status === 'pending').length}</p>
-                <p className="text-xs text-muted-foreground">Pending</p>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-red-600">{assignments.filter(a => a.status === 'overdue').length}</p>
-                <p className="text-xs text-muted-foreground">Overdue</p>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-teal-600">{assignments.filter(a => a.status === 'submitted').length}</p>
-                <p className="text-xs text-muted-foreground">Submitted</p>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-emerald-600">{assignments.filter(a => a.status === 'graded').length}</p>
-                <p className="text-xs text-muted-foreground">Graded</p>
-              </CardContent>
-            </Card>
-          </div>
+          <StatGrid cols={4}>
+            <ModuleStatCard
+              icon={Clock}
+              label="Pending"
+              value={assignments.filter(a => a.status === 'pending').length}
+              accentGradient="from-blue-400 to-blue-600"
+              bgColor="bg-blue-50 dark:bg-blue-950/40"
+            />
+            <ModuleStatCard
+              icon={AlertCircle}
+              label="Overdue"
+              value={assignments.filter(a => a.status === 'overdue').length}
+              accentGradient="from-red-400 to-red-600"
+              bgColor="bg-red-50 dark:bg-red-950/40"
+            />
+            <ModuleStatCard
+              icon={Send}
+              label="Submitted"
+              value={assignments.filter(a => a.status === 'submitted').length}
+              accentGradient="from-teal-400 to-teal-600"
+              bgColor="bg-teal-50 dark:bg-teal-950/40"
+            />
+            <ModuleStatCard
+              icon={CheckCircle2}
+              label="Graded"
+              value={assignments.filter(a => a.status === 'graded').length}
+              accentGradient="from-emerald-400 to-emerald-600"
+              bgColor="bg-emerald-50 dark:bg-emerald-950/40"
+            />
+          </StatGrid>
 
           {/* Pending & Overdue */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Clock className="h-4 w-4 text-amber-600" /> Pending Assignments
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+          <SectionCard title="Pending Assignments" icon={Clock}>
+            <div className="space-y-3">
               {pendingAssignments.map(a => {
                 const days = daysUntil(a.dueDate)
                 const statusConf = assignmentStatusConfig(a.status)
                 return (
                   <div key={a.id} className={cn(
                     'p-4 rounded-lg border transition-colors',
-                    a.status === 'overdue' ? 'border-red-200 bg-red-50/50' : 'border-muted bg-muted/30'
+                    a.status === 'overdue' ? 'border-red-200 bg-red-50/50 dark:border-red-900/30 dark:bg-red-950/20' : 'border-muted bg-muted/30'
                   )}>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <p className="text-sm font-semibold">{a.title}</p>
-                          <Badge className={cn('text-[10px]', statusConf.color)}>{statusConf.label}</Badge>
+                          <Badge className={cn('text-[10px] shadow-none', statusConf.color)}>{statusConf.label}</Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">{a.subject} • {a.teacher}</p>
                         <p className="text-xs text-muted-foreground mt-1">{a.description}</p>
@@ -1096,17 +1024,12 @@ export default function StudentPortalModule() {
                   <p className="text-sm">All caught up! No pending assignments.</p>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
 
           {/* Completed */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Completed Assignments
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+          <SectionCard title="Completed Assignments" icon={CheckCircle2}>
+            <div className="space-y-3">
               {completedAssignments.map(a => {
                 const statusConf = assignmentStatusConfig(a.status)
                 return (
@@ -1115,7 +1038,7 @@ export default function StudentPortalModule() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <p className="text-sm font-semibold">{a.title}</p>
-                          <Badge className={cn('text-[10px]', statusConf.color)}>{statusConf.label}</Badge>
+                          <Badge className={cn('text-[10px] shadow-none', statusConf.color)}>{statusConf.label}</Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">{a.subject} • {a.teacher} • Due: {formatDate(a.dueDate)}</p>
                       </div>
@@ -1131,24 +1054,19 @@ export default function StudentPortalModule() {
                   </div>
                 )
               })}
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Library & Resources Tab ─────────────────────────────────────────── */}
         <TabsContent value="library" className="space-y-4">
           {/* Currently Borrowed */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <BookmarkCheck className="h-4 w-4 text-emerald-600" /> Currently Borrowed Books
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+          <SectionCard title="Currently Borrowed Books" icon={BookmarkCheck}>
+            <div className="space-y-3">
               {borrowedBooks.map(book => (
                 <div key={book.id} className={cn(
                   'flex items-center gap-4 p-4 rounded-lg border transition-colors',
-                  book.overdue ? 'border-red-200 bg-red-50/50' : 'bg-muted/30 border-transparent'
+                  book.overdue ? 'border-red-200 bg-red-50/50 dark:border-red-900/30 dark:bg-red-950/20' : 'bg-muted/30 border-transparent'
                 )}>
                   <div className={cn('w-10 h-14 rounded-md flex items-center justify-center text-white text-xs font-bold', book.coverColor)}>
                     <BookOpen className="h-5 w-5" />
@@ -1161,7 +1079,7 @@ export default function StudentPortalModule() {
                         Due: {formatDate(book.dueDate)}
                       </span>
                       {book.overdue && (
-                        <Badge className="bg-red-100 text-red-700 text-[10px]">Overdue</Badge>
+                        <Badge className="bg-red-100 text-red-700 text-[10px] shadow-none">Overdue</Badge>
                       )}
                     </div>
                   </div>
@@ -1176,222 +1094,180 @@ export default function StudentPortalModule() {
                   )}
                 </div>
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
 
           {/* Overdue Fines Summary */}
           {borrowedBooks.some(b => b.overdue && b.fineAmount) && (
-            <Card className="border-0 shadow-md border-l-4 border-l-red-400">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <AlertCircle className="h-5 w-5 text-red-600" />
-                    <div>
-                      <p className="text-sm font-semibold">Overdue Fines</p>
-                      <p className="text-xs text-muted-foreground">Total outstanding fines</p>
-                    </div>
+            <SectionCard className="border-l-4 border-l-red-500" noPadding>
+              <div className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-600" />
+                  <div>
+                    <p className="text-sm font-semibold">Overdue Fines</p>
+                    <p className="text-xs text-muted-foreground">Total outstanding fines</p>
                   </div>
-                  <p className="text-xl font-bold text-red-600">
-                    ${borrowedBooks.filter(b => b.overdue && b.fineAmount).reduce((s, b) => s + (b.fineAmount || 0), 0).toFixed(2)}
-                  </p>
                 </div>
-              </CardContent>
-            </Card>
+                <p className="text-xl font-bold text-red-600">
+                  ${borrowedBooks.filter(b => b.overdue && b.fineAmount).reduce((s, b) => s + (b.fineAmount || 0), 0).toFixed(2)}
+                </p>
+              </div>
+            </SectionCard>
           )}
 
           {/* Digital Resources */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Download className="h-4 w-4 text-teal-600" /> Digital Resources
-                </CardTitle>
-                <Badge variant="outline" className="text-[10px]">Form 4 Resources</Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {resources.map(res => (
-                  <div key={res.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-background">
-                      {resourceTypeIcon(res.type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{res.title}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <Badge className={cn('text-[9px]', resourceTypeColor(res.type))}>{res.type}</Badge>
-                        <span className="text-[10px] text-muted-foreground">{res.size}</span>
-                        <span className="text-[10px] text-muted-foreground">{res.downloads} downloads</span>
-                      </div>
-                    </div>
-                    <Button variant="ghost" size="sm" className="text-xs gap-1 shrink-0" onClick={() => toast.success('Download started!')}>
-                      <Download className="h-3 w-3" />
-                    </Button>
+          <SectionCard
+            title="Digital Resources"
+            icon={Download}
+            actions={<Badge variant="outline" className="text-[10px]">Form 4 Resources</Badge>}
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {resources.map(res => (
+                <div key={res.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-background">
+                    {resourceTypeIcon(res.type)}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{res.title}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <Badge className={cn('text-[9px] shadow-none', resourceTypeColor(res.type))}>{res.type}</Badge>
+                      <span className="text-[10px] text-muted-foreground">{res.size}</span>
+                      <span className="text-[10px] text-muted-foreground">{res.downloads} downloads</span>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" className="text-xs gap-1 shrink-0" onClick={() => toast.success('Download started!')}>
+                    <Download className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
 
           {/* Reserve a Book */}
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
-                    <Library className="h-5 w-5 text-emerald-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold">Reserve a Book</p>
-                    <p className="text-xs text-muted-foreground">Search and reserve books from the school library</p>
-                  </div>
+          <SectionCard noPadding>
+            <div className="p-4 sm:p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
+                  <Library className="h-5 w-5 text-emerald-600" />
                 </div>
-                <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => setReserveBookOpen(true)}>
-                  <Plus className="h-4 w-4" /> Reserve Book
-                </Button>
+                <div>
+                  <p className="text-sm font-semibold">Reserve a Book</p>
+                  <p className="text-xs text-muted-foreground">Search and reserve books from the school library</p>
+                </div>
               </div>
-            </CardContent>
-          </Card>
+              <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => { setAddType('reserve'); setViewMode('add'); setReserveBookTitle(''); }}>
+                <Plus className="h-4 w-4" /> Reserve Book
+              </Button>
+            </div>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Attendance Tab ───────────────────────────────────────────────── */}
         <TabsContent value="attendance" className="space-y-4">
           {/* Attendance Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase">Attendance Rate</p>
-                    <p className="text-2xl font-bold">94%</p>
-                    <span className="text-xs text-emerald-600">+2% this term</span>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
-                    <CalendarCheck className="h-5 w-5 text-emerald-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase">Days Present</p>
-                    <p className="text-2xl font-bold">47</p>
-                    <span className="text-xs text-muted-foreground">of 50 school days</span>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50">
-                    <CheckCircle2 className="h-5 w-5 text-teal-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase">Absences</p>
-                    <p className="text-2xl font-bold">3</p>
-                    <span className="text-xs text-amber-600">1 unexcused</span>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
-                    <XCircle className="h-5 w-5 text-amber-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase">Late Arrivals</p>
-                    <p className="text-2xl font-bold">2</p>
-                    <span className="text-xs text-muted-foreground">this term</span>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-50">
-                    <Clock className="h-5 w-5 text-violet-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <StatGrid cols={4}>
+            <ModuleStatCard
+              icon={CalendarCheck}
+              label="Attendance Rate"
+              value="94%"
+              trend={{ value: '+2% this term', positive: true }}
+              accentGradient="from-emerald-400 to-teal-500"
+              bgColor="bg-emerald-50 dark:bg-emerald-950/40"
+            />
+            <ModuleStatCard
+              icon={CheckCircle2}
+              label="Days Present"
+              value="47"
+              hint="of 50 school days"
+              accentGradient="from-teal-400 to-emerald-500"
+              bgColor="bg-teal-50 dark:bg-teal-950/40"
+            />
+            <ModuleStatCard
+              icon={XCircle}
+              label="Absences"
+              value="3"
+              hint="1 unexcused"
+              accentGradient="from-amber-400 to-orange-500"
+              bgColor="bg-amber-50 dark:bg-amber-950/40"
+            />
+            <ModuleStatCard
+              icon={Clock}
+              label="Late Arrivals"
+              value="2"
+              hint="this term"
+              accentGradient="from-violet-400 to-indigo-500"
+              bgColor="bg-violet-50 dark:bg-violet-950/40"
+            />
+          </StatGrid>
 
           {/* Monthly Calendar View */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-emerald-600" /> This Month&apos;s Attendance
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-7 gap-1">
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
-                  <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2">{d}</div>
-                ))}
-                {Array.from({ length: 31 }, (_, i) => {
-                  const day = i + 1
-                  const isWeekend = (day % 7 === 5) || (day % 7 === 6)
-                  const isAbsent = [5, 14, 22].includes(day)
-                  const isLate = [10, 19].includes(day)
-                  const isFuture = day > 5 // Simulating current date as March 5
-                  return (
-                    <div key={day} className={cn(
-                      'text-center py-2 rounded-lg text-xs font-medium transition-all',
-                      isFuture ? 'bg-muted/20 text-muted-foreground/40' :
-                      isAbsent ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
-                      isLate ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' :
-                      isWeekend ? 'bg-muted/10 text-muted-foreground/40' :
-                      'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                    )}>
-                      <div>{day}</div>
-                      {!isFuture && !isWeekend && (
-                        <div className="text-[8px] mt-0.5">
-                          {isAbsent ? 'ABS' : isLate ? 'LATE' : '✓'}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
+          <SectionCard title="This Month's Attendance" icon={Calendar}>
+            <div className="overflow-x-auto no-scrollbar">
+              <div className="min-w-[320px]">
+                <div className="grid grid-cols-7 gap-1">
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
+                    <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2">{d}</div>
+                  ))}
+                  {Array.from({ length: 31 }, (_, i) => {
+                    const day = i + 1
+                    const isWeekend = (day % 7 === 5) || (day % 7 === 6)
+                    const isAbsent = [5, 14, 22].includes(day)
+                    const isLate = [10, 19].includes(day)
+                    const isFuture = day > 5 // Simulating current date as March 5
+                    return (
+                      <div key={day} className={cn(
+                        'text-center py-2 rounded-lg text-xs font-medium transition-all',
+                        isFuture ? 'bg-muted/20 text-muted-foreground/40' :
+                        isAbsent ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
+                        isLate ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' :
+                        isWeekend ? 'bg-muted/10 text-muted-foreground/40' :
+                        'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                      )}>
+                        <div>{day}</div>
+                        {!isFuture && !isWeekend && (
+                          <div className="text-[8px] mt-0.5">
+                            {isAbsent ? 'ABS' : isLate ? 'LATE' : '✓'}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-              <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-emerald-100" /> Present</div>
-                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-amber-100" /> Late</div>
-                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-red-100" /> Absent</div>
-                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-muted/20" /> Future/Weekend</div>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="flex flex-wrap items-center gap-4 mt-4 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-emerald-100 dark:bg-emerald-900/30" /> Present</div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-amber-100 dark:bg-amber-900/30" /> Late</div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-red-100 dark:bg-red-900/30" /> Absent</div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-muted/20" /> Future/Weekend</div>
+            </div>
+          </SectionCard>
 
           {/* Absence Record */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Absence Record</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {[
-                  { date: 'Mar 5, 2026', type: 'Excused', reason: 'Medical appointment - doctor\'s note provided', status: 'Approved' },
-                  { date: 'Feb 14, 2026', type: 'Unexcused', reason: 'No notification received', status: 'Flagged' },
-                  { date: 'Jan 22, 2026', type: 'Excused', reason: 'Family emergency - parent notified school', status: 'Approved' },
-                ].map((absence, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                    <div className="flex items-center gap-3">
-                      <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold',
-                        absence.type === 'Excused' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                      )}>
-                        {absence.type === 'Excused' ? 'E' : 'U'}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{absence.date}</p>
-                        <p className="text-xs text-muted-foreground">{absence.reason}</p>
-                      </div>
+          <SectionCard title="Absence Record">
+            <div className="space-y-2">
+              {[
+                { date: 'Mar 5, 2026', type: 'Excused', reason: 'Medical appointment - doctor\'s note provided', status: 'Approved' },
+                { date: 'Feb 14, 2026', type: 'Unexcused', reason: 'No notification received', status: 'Flagged' },
+                { date: 'Jan 22, 2026', type: 'Excused', reason: 'Family emergency - parent notified school', status: 'Approved' },
+              ].map((absence, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                  <div className="flex items-center gap-3">
+                    <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold',
+                      absence.type === 'Excused' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                    )}>
+                      {absence.type === 'Excused' ? 'E' : 'U'}
                     </div>
-                    <Badge className={cn('text-xs', absence.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>{absence.status}</Badge>
+                    <div>
+                      <p className="text-sm font-medium">{absence.date}</p>
+                      <p className="text-xs text-muted-foreground">{absence.reason}</p>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <Badge className={cn('text-xs shadow-none', absence.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>{absence.status}</Badge>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Resources Tab ───────────────────────────────────────────────── */}
@@ -1448,10 +1324,8 @@ export default function StudentPortalModule() {
           </div>
         </TabsContent>
 
-      </Tabs>
+      </ModulePageLayout>
 
-
-
-    </div>
+    </ModuleContainer>
   )
 }

@@ -6,7 +6,7 @@ import {
   ShoppingCart, Package, ShoppingBag, FileText, Settings, Plus, Pencil, Trash2,
   AlertTriangle, DollarSign, TrendingUp, BarChart3, Shirt, BookOpen, Truck,
   Search, X, ChevronDown, Download, Eye, CheckCircle2, Clock, XCircle,
-  LayoutGrid, List, Star, ArrowUpRight, ArrowDownRight, Minus, Tag,
+  LayoutGrid, List, Star, ArrowUpRight, ArrowDownRight, Minus, Tag, ArrowLeft,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'

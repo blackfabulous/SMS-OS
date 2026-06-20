@@ -21,6 +21,7 @@ import {
   Printer,
   FileSpreadsheet,
   Settings,
+  ArrowLeft,
 } from 'lucide-react'
 import {
   BarChart,
@@ -36,6 +37,17 @@ import { cn } from '@/lib/utils'
 import { exportToCSV, printReport, buildHTMLTable } from '@/lib/export-utils'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/empty-state'
+import {
+  ModuleContainer,
+  StatGrid,
+  ModuleStatCard,
+  SectionCard,
+  TableShell,
+  ModulePageLayout,
+  ModuleSettingsButton,
+  KitEmptyState,
+  ModuleToolbar,
+} from '@/components/module-ui'
 import { ModuleSkeleton } from '@/components/module-skeleton'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -152,6 +164,7 @@ const classChartConfig = {
 
 export default function AttendanceModule() {
   const [activeTab, setActiveTab] = useState('overview')
+  const [viewMode, setViewMode] = useState<'list' | 'settings'>('list')
   const [loading, setLoading] = useState(true)
 
   // Overview data
@@ -389,7 +402,7 @@ export default function AttendanceModule() {
 
   // Simulated 7-day trend
   const trendData = (() => {
-    const days = []
+    const days: { day: string; rate: number }[] = []
     for (let i = 6; i >= 0; i--) {
       const d = new Date()
       d.setDate(d.getDate() - i)
@@ -426,285 +439,309 @@ export default function AttendanceModule() {
 
   // ─── Render ────────────────────────────────────────────────────────────
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="space-y-6"
-    >
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Attendance Management</h1>
-          <p className="text-sm text-muted-foreground mt-1">Track and manage student attendance</p>
+    if (viewMode === 'settings') {
+    return (
+      <ModuleContainer>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+            onClick={() => setViewMode('list')}
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to Attendance
+          </Button>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => {
-              const csvData = filteredRecords.map(r => ({
-                'Student': `${r.student?.firstName || ''} ${r.student?.lastName || ''}`,
-                'Student Number': r.student?.studentNumber || '',
-                'Date': r.date ? new Date(r.date).toLocaleDateString() : '',
-                'Status': r.status,
-                'Remarks': r.remarks || '',
-              }))
-              exportToCSV(csvData, `attendance_export_${new Date().toISOString().slice(0, 10)}`)
-            }}>
-              <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" />
-              Export to CSV
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => {
-              const headers = ['Student', 'Class', 'Date', 'Status', 'Remarks']
-              const rows = filteredRecords.map(r => [
-                `${r.student?.firstName || ''} ${r.student?.lastName || ''}`,
-                r.student?.enrollments?.[0]?.class?.name || '-',
-                r.date ? new Date(r.date).toLocaleDateString() : '-',
-                r.status,
-                r.remarks || '-',
-              ])
-              printReport('Attendance Report', buildHTMLTable(headers, rows))
-            }}>
-              <Printer className="mr-2 h-4 w-4 text-teal-600" />
-              Print Attendance Report
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm">
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="take" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm">
-            Take Attendance
-          </TabsTrigger>
-          <TabsTrigger value="records" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm">
-            Records
-          </TabsTrigger>
-          <TabsTrigger value="chronic" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm">
-            Chronic
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm">
-            <Settings className="h-3.5 w-3.5 mr-1" />
-            Settings
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ─── Overview Tab ─────────────────────────────────────────────── */}
-        <TabsContent value="overview" className="space-y-4">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-3 sm:p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1 sm:space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Present Today</p>
-                    <p className="text-lg sm:text-2xl font-bold tracking-tight">{summary?.present || 0}</p>
-                    <div className="flex items-center gap-1.5">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-600">Checked in</span>
-                    </div>
-                  </div>
-                  <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-emerald-50">
-                    <Users className="h-5 w-5 text-emerald-600" />
-                  </div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 to-teal-500" />
-            </Card>
-
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-3 sm:p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1 sm:space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Absent Today</p>
-                    <p className="text-lg sm:text-2xl font-bold tracking-tight">{summary?.absent || 0}</p>
-                    <div className="flex items-center gap-1.5">
-                      <XCircle className="h-3.5 w-3.5 text-red-500" />
-                      <span className="text-xs font-medium text-red-500">Needs follow-up</span>
-                    </div>
-                  </div>
-                  <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-red-50">
-                    <UserX className="h-5 w-5 text-red-500" />
-                  </div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-red-400 to-rose-500" />
-            </Card>
-
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-3 sm:p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1 sm:space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Late Today</p>
-                    <p className="text-lg sm:text-2xl font-bold tracking-tight">{summary?.late || 0}</p>
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5 text-amber-600" />
-                      <span className="text-xs font-medium text-amber-600">Arrived late</span>
-                    </div>
-                  </div>
-                  <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-amber-50">
-                    <Clock className="h-5 w-5 text-amber-600" />
-                  </div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-400 to-orange-500" />
-            </Card>
-
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-3 sm:p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1 sm:space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Attendance Rate</p>
-                    <p className="text-lg sm:text-2xl font-bold tracking-tight">{summary?.attendanceRate || '0'}%</p>
-                    <div className="flex items-center gap-1.5">
-                      {parseFloat(summary?.attendanceRate || '0') >= 90 ? (
-                        <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                      ) : (
-                        <TrendingDown className="h-3.5 w-3.5 text-red-500" />
-                      )}
-                      <span className={cn('text-xs font-medium', parseFloat(summary?.attendanceRate || '0') >= 90 ? 'text-emerald-600' : 'text-red-500')}>
-                        {parseFloat(summary?.attendanceRate || '0') >= 90 ? 'Good' : 'Below target'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-teal-50">
-                    <CalendarCheck className="h-5 w-5 text-teal-600" />
-                  </div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-teal-400 to-cyan-500" />
-            </Card>
+        <div className="max-w-2xl space-y-6">
+          <div>
+            <h3 className="text-lg font-semibold">Attendance Module Settings</h3>
+            <p className="text-sm text-muted-foreground">Configure attendance tracking preferences</p>
           </div>
 
-          {/* Charts Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Attendance Trend */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold">Attendance Trend</CardTitle>
-                <CardDescription>Last 7 days attendance rate</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer config={trendChartConfig} className="h-[240px] w-full">
-                  <LineChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                    <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                    <YAxis domain={[80, 100]} tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line
-                      type="monotone"
-                      dataKey="rate"
-                      stroke="var(--color-rate)"
-                      strokeWidth={2.5}
-                      dot={{ r: 4, fill: 'var(--color-rate)' }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-
-            {/* Class Attendance Summary */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold">Class Attendance</CardTitle>
-                <CardDescription>Today&apos;s attendance by class</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {classBarData.length > 0 ? (
-                  <ChartContainer config={classChartConfig} className="h-[240px] w-full">
-                    <BarChart data={classBarData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
-                      <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="present" fill="var(--color-present)" radius={[4, 4, 0, 0]} maxBarSize={28} stackId="a" />
-                      <Bar dataKey="late" fill="var(--color-late)" radius={[0, 0, 0, 0]} maxBarSize={28} stackId="a" />
-                      <Bar dataKey="absent" fill="var(--color-absent)" radius={[0, 0, 0, 0]} maxBarSize={28} stackId="a" />
-                    </BarChart>
-                  </ChartContainer>
-                ) : (
-                  <div className="h-[240px] flex items-center justify-center text-sm text-muted-foreground">
-                    No class data available
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Class Summary Table */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Class Attendance Summary</CardTitle>
-              <CardDescription>Detailed breakdown by class</CardDescription>
+          <Card className="border border-border/60 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">Attendance Preferences</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto max-h-96 overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Class</TableHead>
-                      <TableHead className="text-center">Total</TableHead>
-                      <TableHead className="text-center">Present</TableHead>
-                      <TableHead className="text-center">Absent</TableHead>
-                      <TableHead className="text-center">Late</TableHead>
-                      <TableHead className="text-center">Rate</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {Object.entries(attendanceData?.byClass || {}).map(([className, data]) => {
-                      const rate = data.total > 0 ? ((data.present / data.total) * 100).toFixed(1) : '0'
-                      return (
-                        <TableRow key={className} className="hover:bg-muted/30">
-                          <TableCell className="font-medium text-sm">{className}</TableCell>
-                          <TableCell className="text-center text-sm">{data.total}</TableCell>
-                          <TableCell className="text-center text-sm text-emerald-600 font-semibold">{data.present}</TableCell>
-                          <TableCell className="text-center text-sm text-red-500 font-semibold">{data.absent}</TableCell>
-                          <TableCell className="text-center text-sm text-amber-600 font-semibold">{data.late}</TableCell>
-                          <TableCell className="text-center">
-                            <Badge
-                              className={cn(
-                                'text-[10px] px-2 py-0.5 border',
-                                parseFloat(rate) >= 90
-                                  ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                                  : parseFloat(rate) >= 75
-                                  ? 'bg-amber-100 text-amber-700 border-amber-200'
-                                  : 'bg-red-100 text-red-700 border-red-200'
-                              )}
-                            >
-                              {rate}%
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                    {Object.keys(attendanceData?.byClass || {}).length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
-                          No class data available
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm font-medium">Default Attendance Type</Label>
+                  <p className="text-xs text-muted-foreground">Default type when taking attendance</p>
+                </div>
+                <Select value={attendanceSettings.defaultType} onValueChange={(v) => setAttendanceSettings((s) => ({ ...s, defaultType: v }))}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DAILY">Daily</SelectItem>
+                    <SelectItem value="PERIOD">Per Period</SelectItem>
+                    <SelectItem value="SUBJECT">Per Subject</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm font-medium">Auto-Mark Present</Label>
+                  <p className="text-xs text-muted-foreground">Automatically mark all students as present</p>
+                </div>
+                <Switch checked={attendanceSettings.autoMarkPresent} onCheckedChange={(v) => setAttendanceSettings((s) => ({ ...s, autoMarkPresent: v }))} />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm font-medium">Late Threshold (minutes)</Label>
+                  <p className="text-xs text-muted-foreground">Minutes after start time to mark as late</p>
+                </div>
+                <Input
+                  type="number"
+                  min="0"
+                  value={attendanceSettings.lateThreshold}
+                  onChange={(e) => setAttendanceSettings((s) => ({ ...s, lateThreshold: e.target.value }))}
+                  className="w-32"
+                />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm font-medium">Chronic Absence Threshold (%)</Label>
+                  <p className="text-xs text-muted-foreground">Absence rate above which a student is flagged chronic</p>
+                </div>
+                <div className="relative w-32">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={attendanceSettings.chronicAbsenceThreshold}
+                    onChange={(e) => setAttendanceSettings((s) => ({ ...s, chronicAbsenceThreshold: e.target.value }))}
+                    className="pr-8"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
+                </div>
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm font-medium">Notify Parents</Label>
+                  <p className="text-xs text-muted-foreground">Send SMS/email notification for absences</p>
+                </div>
+                <Switch checked={attendanceSettings.notifyParents} onCheckedChange={(v) => setAttendanceSettings((s) => ({ ...s, notifyParents: v }))} />
               </div>
             </CardContent>
           </Card>
+
+          <div className="flex justify-end">
+            <Button
+              className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
+              onClick={() => toast.success('Settings saved', { description: 'Attendance module settings have been updated' })}
+            >
+              Save Settings
+            </Button>
+          </div>
+        </div>
+      </ModuleContainer>
+    )
+  }
+
+  return (
+    <ModuleContainer>
+      <ModulePageLayout
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="take">Take Attendance</TabsTrigger>
+          <TabsTrigger value="records">Records</TabsTrigger>
+          <TabsTrigger value="chronic">Chronic</TabsTrigger>
+        </>}
+        actions={<>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => {
+                const csvData = filteredRecords.map(r => ({
+                  'Student': `${r.student?.firstName || ''} ${r.student?.lastName || ''}`,
+                  'Student Number': r.student?.studentNumber || '',
+                  'Date': r.date ? new Date(r.date).toLocaleDateString() : '',
+                  'Status': r.status,
+                  'Remarks': r.remarks || '',
+                }))
+                exportToCSV(csvData, `attendance_export_${new Date().toISOString().slice(0, 10)}`)
+              }}>
+                <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" />
+                Export to CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                const headers = ['Student', 'Class', 'Date', 'Status', 'Remarks']
+                const rows = filteredRecords.map(r => [
+                  `${r.student?.firstName || ''} ${r.student?.lastName || ''}`,
+                  r.student?.enrollments?.[0]?.class?.name || '-',
+                  r.date ? new Date(r.date).toLocaleDateString() : '-',
+                  r.status,
+                  r.remarks || '-',
+                ])
+                printReport('Attendance Report', buildHTMLTable(headers, rows))
+              }}>
+                <Printer className="mr-2 h-4 w-4 text-teal-600" />
+                Print Attendance Report
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <ModuleSettingsButton onClick={() => setViewMode('settings')} />
+        </>}
+      >
+
+        {/* ─── Overview Tab ─────────────────────────────────────────────── */}
+        <TabsContent value="overview" className="space-y-4">
+          <StatGrid cols={4}>
+            <ModuleStatCard
+              icon={Users}
+              label="Present Today"
+              value={summary?.present || 0}
+              accentGradient="from-emerald-400 to-teal-500"
+              trend={{ value: 'Checked in', positive: true }}
+              index={0}
+            />
+            <ModuleStatCard
+              icon={UserX}
+              label="Absent Today"
+              value={summary?.absent || 0}
+              accentGradient="from-red-400 to-rose-500"
+              bgColor="bg-red-50 dark:bg-red-950/40"
+              iconColor="text-red-500"
+              trend={{ value: 'Needs follow-up', positive: false }}
+              index={1}
+            />
+            <ModuleStatCard
+              icon={Clock}
+              label="Late Today"
+              value={summary?.late || 0}
+              accentGradient="from-amber-400 to-orange-500"
+              bgColor="bg-amber-50 dark:bg-amber-950/40"
+              iconColor="text-amber-600 dark:text-amber-400"
+              trend={{ value: 'Arrived late', positive: true }}
+              index={2}
+            />
+            <ModuleStatCard
+              icon={CalendarCheck}
+              label="Attendance Rate"
+              value={`${summary?.attendanceRate || '0'}%`}
+              accentGradient="from-teal-400 to-cyan-500"
+              bgColor="bg-teal-50 dark:bg-teal-950/40"
+              iconColor="text-teal-600 dark:text-teal-400"
+              trend={{
+                value: parseFloat(summary?.attendanceRate || '0') >= 90 ? 'Good' : 'Below target',
+                positive: parseFloat(summary?.attendanceRate || '0') >= 90
+              }}
+              index={3}
+            />
+          </StatGrid>
+
+          {/* Charts Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <SectionCard title="Attendance Trend" description="Last 7 days attendance rate">
+              <ChartContainer config={trendChartConfig} className="h-[240px] w-full">
+                <LineChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                  <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                  <YAxis domain={[80, 100]} tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Line
+                    type="monotone"
+                    dataKey="rate"
+                    stroke="var(--color-rate)"
+                    strokeWidth={2.5}
+                    dot={{ r: 4, fill: 'var(--color-rate)' }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ChartContainer>
+            </SectionCard>
+
+            <SectionCard title="Class Attendance" description="Today's attendance by class">
+              {classBarData.length > 0 ? (
+                <ChartContainer config={classChartConfig} className="h-[240px] w-full">
+                  <BarChart data={classBarData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="present" fill="var(--color-present)" radius={[4, 4, 0, 0]} maxBarSize={28} stackId="a" />
+                    <Bar dataKey="late" fill="var(--color-late)" radius={[0, 0, 0, 0]} maxBarSize={28} stackId="a" />
+                    <Bar dataKey="absent" fill="var(--color-absent)" radius={[0, 0, 0, 0]} maxBarSize={28} stackId="a" />
+                  </BarChart>
+                </ChartContainer>
+              ) : (
+                <div className="h-[240px] flex items-center justify-center text-sm text-muted-foreground">
+                  No class data available
+                </div>
+              )}
+            </SectionCard>
+          </div>
+
+          <SectionCard title="Class Attendance Summary" description="Detailed breakdown by class">
+            <TableShell
+              isEmpty={Object.keys(attendanceData?.byClass || {}).length === 0}
+              empty={
+                <KitEmptyState
+                  icon={Users}
+                  title="No class data available"
+                />
+              }
+              maxHeight="96"
+            >
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Class</TableHead>
+                    <TableHead className="text-center">Total</TableHead>
+                    <TableHead className="text-center">Present</TableHead>
+                    <TableHead className="text-center">Absent</TableHead>
+                    <TableHead className="text-center">Late</TableHead>
+                    <TableHead className="text-center">Rate</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.entries(attendanceData?.byClass || {}).map(([className, data]) => {
+                    const rate = data.total > 0 ? ((data.present / data.total) * 100).toFixed(1) : '0'
+                    return (
+                      <TableRow key={className} className="hover:bg-muted/30">
+                        <TableCell className="font-medium text-sm">{className}</TableCell>
+                        <TableCell className="text-center text-sm">{data.total}</TableCell>
+                        <TableCell className="text-center text-sm text-emerald-600 font-semibold">{data.present}</TableCell>
+                        <TableCell className="text-center text-sm text-red-500 font-semibold">{data.absent}</TableCell>
+                        <TableCell className="text-center text-sm text-amber-600 font-semibold">{data.late}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            className={cn(
+                              'text-[10px] px-2 py-0.5 border',
+                              parseFloat(rate) >= 90
+                                ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                                : parseFloat(rate) >= 75
+                                ? 'bg-amber-100 text-amber-700 border-amber-200'
+                                : 'bg-red-100 text-red-700 border-red-200'
+                            )}
+                          >
+                            {rate}%
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </TableShell>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Take Attendance Tab ───────────────────────────────────────── */}
         <TabsContent value="take" className="space-y-4">
-          <Card className="border-0 shadow-md">
+          <Card className="border border-border/60 shadow-sm overflow-hidden">
             <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
@@ -765,7 +802,7 @@ export default function AttendanceModule() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="max-h-[450px] overflow-y-auto">
+                  <TableShell maxHeight="450px">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -822,7 +859,7 @@ export default function AttendanceModule() {
                         })}
                       </TableBody>
                     </Table>
-                  </div>
+                  </TableShell>
                   <Separator />
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -856,335 +893,235 @@ export default function AttendanceModule() {
 
         {/* ─── Records Tab ───────────────────────────────────────────────── */}
         <TabsContent value="records" className="space-y-4">
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <CardTitle className="text-base font-semibold">Attendance Records</CardTitle>
-                  <CardDescription>View and filter attendance history</CardDescription>
+          <SectionCard
+            title="Attendance Records"
+            description="View and filter attendance history"
+            actions={
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+                <div className="grid gap-1 w-full sm:w-auto">
+                  <Label className="text-xs">Date</Label>
+                  <Input
+                    type="date"
+                    value={recordsDateFilter}
+                    onChange={(e) => setRecordsDateFilter(e.target.value)}
+                    className="h-9 w-full sm:w-40"
+                  />
                 </div>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
-                  <div className="grid gap-1 w-full sm:w-auto">
-                    <Label className="text-xs">Date</Label>
-                    <Input
-                      type="date"
-                      value={recordsDateFilter}
-                      onChange={(e) => setRecordsDateFilter(e.target.value)}
-                      className="h-9 w-full sm:w-40"
-                    />
-                  </div>
-                  <div className="grid gap-1 w-full sm:w-auto">
-                    <Label className="text-xs">Class</Label>
-                    <Select value={recordsClassFilter} onValueChange={setRecordsClassFilter}>
-                      <SelectTrigger className="h-9 w-full sm:w-40">
-                        <SelectValue placeholder="All classes" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ALL">All Classes</SelectItem>
-                        {classList.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-1 w-full sm:w-auto">
-                    <Label className="text-xs">Status</Label>
-                    <Select value={recordsStatusFilter} onValueChange={setRecordsStatusFilter}>
-                      <SelectTrigger className="h-9 w-full sm:w-32">
-                        <SelectValue placeholder="All" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ALL">All</SelectItem>
-                        <SelectItem value="PRESENT">Present</SelectItem>
-                        <SelectItem value="ABSENT">Absent</SelectItem>
-                        <SelectItem value="LATE">Late</SelectItem>
-                        <SelectItem value="EXCUSED">Excused</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="grid gap-1 w-full sm:w-auto">
+                  <Label className="text-xs">Class</Label>
+                  <Select value={recordsClassFilter} onValueChange={setRecordsClassFilter}>
+                    <SelectTrigger className="h-9 w-full sm:w-40">
+                      <SelectValue placeholder="All classes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Classes</SelectItem>
+                      {classList.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-1 w-full sm:w-auto">
+                  <Label className="text-xs">Status</Label>
+                  <Select value={recordsStatusFilter} onValueChange={setRecordsStatusFilter}>
+                    <SelectTrigger className="h-9 w-full sm:w-32">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All</SelectItem>
+                      <SelectItem value="PRESENT">Present</SelectItem>
+                      <SelectItem value="ABSENT">Absent</SelectItem>
+                      <SelectItem value="LATE">Late</SelectItem>
+                      <SelectItem value="EXCUSED">Excused</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              {/* Summary stats for filtered period */}
-              {recordsData?.summary && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                  <div className="rounded-lg border p-3 bg-emerald-50/50">
-                    <p className="text-xs text-muted-foreground">Present</p>
-                    <p className="text-lg font-bold text-emerald-600">{recordsData.summary.present}</p>
-                  </div>
-                  <div className="rounded-lg border p-3 bg-red-50/50">
-                    <p className="text-xs text-muted-foreground">Absent</p>
-                    <p className="text-lg font-bold text-red-600">{recordsData.summary.absent}</p>
-                  </div>
-                  <div className="rounded-lg border p-3 bg-amber-50/50">
-                    <p className="text-xs text-muted-foreground">Late</p>
-                    <p className="text-lg font-bold text-amber-600">{recordsData.summary.late}</p>
-                  </div>
-                  <div className="rounded-lg border p-3 bg-teal-50/50">
-                    <p className="text-xs text-muted-foreground">Rate</p>
-                    <p className="text-lg font-bold text-teal-600">{recordsData.summary.attendanceRate}%</p>
-                  </div>
+            }
+          >
+            {/* Summary stats for filtered period */}
+            {recordsData?.summary && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div className="rounded-lg border border-border/60 p-3 bg-emerald-50/50 dark:bg-emerald-950/20">
+                  <p className="text-xs text-muted-foreground">Present</p>
+                  <p className="text-lg font-bold text-emerald-600">{recordsData.summary.present}</p>
                 </div>
-              )}
+                <div className="rounded-lg border border-border/60 p-3 bg-red-50/50 dark:bg-red-950/20">
+                  <p className="text-xs text-muted-foreground">Absent</p>
+                  <p className="text-lg font-bold text-red-600">{recordsData.summary.absent}</p>
+                </div>
+                <div className="rounded-lg border border-border/60 p-3 bg-amber-50/50 dark:bg-amber-950/20">
+                  <p className="text-xs text-muted-foreground">Late</p>
+                  <p className="text-lg font-bold text-amber-600">{recordsData.summary.late}</p>
+                </div>
+                <div className="rounded-lg border border-border/60 p-3 bg-teal-50/50 dark:bg-teal-950/20">
+                  <p className="text-xs text-muted-foreground">Rate</p>
+                  <p className="text-lg font-bold text-teal-600">{recordsData.summary.attendanceRate}%</p>
+                </div>
+              </div>
+            )}
 
+            <TableShell
+              isEmpty={!recordsLoading && filteredRecords.length === 0}
+              empty={
+                <KitEmptyState
+                  icon={CalendarCheck}
+                  title="No records found"
+                  description="No attendance records match the selected filters. Try adjusting the date, class, or status."
+                />
+              }
+              maxHeight="400px"
+            >
               {recordsLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
                   <span className="ml-2 text-sm text-muted-foreground">Loading records...</span>
                 </div>
               ) : (
-                <div className="max-h-[400px] overflow-y-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Student</TableHead>
-                        <TableHead>Class</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Remarks</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredRecords.map((record) => {
-                        const statusInfo = statusConfig[record.status] || statusConfig.PRESENT
-                        const className = record.student?.enrollments?.[0]?.class?.name || 'Unknown'
-                        return (
-                          <TableRow key={record.id} className="hover:bg-muted/30">
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-semibold">
-                                  {record.student?.firstName?.[0]}{record.student?.lastName?.[0]}
-                                </div>
-                                <div>
-                                  <p className="text-sm font-medium">{record.student?.firstName} {record.student?.lastName}</p>
-                                  <p className="text-xs text-muted-foreground">{record.student?.studentNumber}</p>
-                                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Student</TableHead>
+                      <TableHead>Class</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Remarks</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRecords.map((record) => {
+                      const statusInfo = statusConfig[record.status] || statusConfig.PRESENT
+                      const className = record.student?.enrollments?.[0]?.class?.name || 'Unknown'
+                      return (
+                        <TableRow key={record.id} className="hover:bg-muted/30">
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-semibold">
+                                {record.student?.firstName?.[0]}{record.student?.lastName?.[0]}
                               </div>
-                            </TableCell>
-                            <TableCell className="text-sm">{className}</TableCell>
-                            <TableCell className="text-sm text-muted-foreground">{formatDate(record.date)}</TableCell>
-                            <TableCell>
-                              <Badge className={cn('text-[10px] px-2 py-0.5 border', statusInfo.bgColor, statusInfo.color)}>
-                                {statusInfo.label}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
-                              {record.remarks || '-'}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                      {filteredRecords.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={5} className="py-0 px-0">
-                            <EmptyState
-                              icon={CalendarCheck}
-                              title="No records found"
-                              description="No attendance records match the selected filters. Try adjusting the date, class, or status."
-                            />
+                              <div>
+                                <p className="text-sm font-medium">{record.student?.firstName} {record.student?.lastName}</p>
+                                <p className="text-xs text-muted-foreground">{record.student?.studentNumber}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">{className}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{formatDate(record.date)}</TableCell>
+                          <TableCell>
+                            <Badge className={cn('text-[10px] px-2 py-0.5 border', statusInfo.bgColor, statusInfo.color)}>
+                              {statusInfo.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                            {record.remarks || '-'}
                           </TableCell>
                         </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
               )}
-            </CardContent>
-          </Card>
+            </TableShell>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Chronic Absenteeism Tab ───────────────────────────────────── */}
         <TabsContent value="chronic" className="space-y-4">
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base font-semibold">Chronic Absenteeism</CardTitle>
-                  <CardDescription>Students with absence rate above 20%</CardDescription>
-                </div>
-                <Badge variant="secondary" className="bg-red-50 text-red-700 border border-red-200">
-                  {chronicAbsentees.length} students
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
+          <SectionCard
+            title="Chronic Absenteeism"
+            description="Students with absence rate above 20%"
+            actions={
+              <Badge variant="secondary" className="bg-red-50 text-red-700 border border-red-200">
+                {chronicAbsentees.length} students
+              </Badge>
+            }
+          >
+            <TableShell
+              isEmpty={!chronicLoading && chronicAbsentees.length === 0}
+              empty={
+                <KitEmptyState
+                  icon={CheckCircle2}
+                  title="No chronic absentees"
+                  description="All students have acceptable attendance rates"
+                />
+              }
+              maxHeight="500px"
+            >
               {chronicLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
                   <span className="ml-2 text-sm text-muted-foreground">Analyzing attendance data...</span>
                 </div>
-              ) : chronicAbsentees.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 mb-4">
-                    <CheckCircle2 className="h-8 w-8 text-emerald-500" />
-                  </div>
-                  <p className="text-sm font-medium text-muted-foreground">No chronic absentees</p>
-                  <p className="text-xs text-muted-foreground mt-1">All students have acceptable attendance rates</p>
-                </div>
               ) : (
-                <div className="max-h-[500px] overflow-y-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Student</TableHead>
-                        <TableHead>Class</TableHead>
-                        <TableHead className="text-center">Total Absences</TableHead>
-                        <TableHead className="text-center">Absence Rate</TableHead>
-                        <TableHead>Last Attended</TableHead>
-                        <TableHead>Risk</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {chronicAbsentees.map((item, idx) => {
-                        const className = item.student?.enrollments?.[0]?.class?.name || 'Unknown'
-                        const riskLevel = item.absenceRate > 50 ? 'Critical' : item.absenceRate > 30 ? 'High' : 'Moderate'
-                        const riskColor = item.absenceRate > 50
-                          ? 'bg-red-100 text-red-700 border-red-200'
-                          : item.absenceRate > 30
-                          ? 'bg-orange-100 text-orange-700 border-orange-200'
-                          : 'bg-amber-100 text-amber-700 border-amber-200'
-                        return (
-                          <TableRow key={idx} className="hover:bg-muted/30">
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-50 text-red-700 text-xs font-semibold">
-                                  {item.student?.firstName?.[0]}{item.student?.lastName?.[0]}
-                                </div>
-                                <div>
-                                  <p className="text-sm font-medium">{item.student?.firstName} {item.student?.lastName}</p>
-                                  <p className="text-xs text-muted-foreground">{item.student?.studentNumber}</p>
-                                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Student</TableHead>
+                      <TableHead>Class</TableHead>
+                      <TableHead className="text-center">Total Absences</TableHead>
+                      <TableHead className="text-center">Absence Rate</TableHead>
+                      <TableHead>Last Attended</TableHead>
+                      <TableHead>Risk</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {chronicAbsentees.map((item, idx) => {
+                      const className = item.student?.enrollments?.[0]?.class?.name || 'Unknown'
+                      const riskLevel = item.absenceRate > 50 ? 'Critical' : item.absenceRate > 30 ? 'High' : 'Moderate'
+                      const riskColor = item.absenceRate > 50
+                        ? 'bg-red-100 text-red-700 border-red-200'
+                        : item.absenceRate > 30
+                        ? 'bg-orange-100 text-orange-700 border-orange-200'
+                        : 'bg-amber-100 text-amber-700 border-amber-200'
+                      return (
+                        <TableRow key={idx} className="hover:bg-muted/30">
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-50 text-red-700 text-xs font-semibold">
+                                {item.student?.firstName?.[0]}{item.student?.lastName?.[0]}
                               </div>
-                            </TableCell>
-                            <TableCell className="text-sm">{className}</TableCell>
-                            <TableCell className="text-center text-sm font-semibold text-red-600">
-                              {item.totalAbsences}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <div className="flex items-center justify-center gap-2">
-                                <div className="w-16 h-2 rounded-full bg-muted overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full bg-gradient-to-r from-red-400 to-rose-500"
-                                    style={{ width: `${Math.min(item.absenceRate, 100)}%` }}
-                                  />
-                                </div>
-                                <span className="text-sm font-semibold text-red-600">{item.absenceRate}%</span>
+                              <div>
+                                <p className="text-sm font-medium">{item.student?.firstName} {item.student?.lastName}</p>
+                                <p className="text-xs text-muted-foreground">{item.student?.studentNumber}</p>
                               </div>
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {item.lastAttended ? formatDate(item.lastAttended) : 'Never'}
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={cn('text-[10px] px-2 py-0.5 border', riskColor)}>
-                                <AlertTriangle className="h-3 w-3 mr-1" />
-                                {riskLevel}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">{className}</TableCell>
+                          <TableCell className="text-center text-sm font-semibold text-red-600">
+                            {item.totalAbsences}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <div className="w-16 h-2 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-gradient-to-r from-red-400 to-rose-500"
+                                  style={{ width: `${Math.min(item.absenceRate, 100)}%` }}
+                                />
+                              </div>
+                              <span className="text-sm font-semibold text-red-600">{item.absenceRate}%</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {item.lastAttended ? formatDate(item.lastAttended) : 'Never'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={cn('text-[10px] px-2 py-0.5 border', riskColor)}>
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              {riskLevel}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
               )}
-            </CardContent>
-          </Card>
+            </TableShell>
+          </SectionCard>
         </TabsContent>
-
-        {/* ─── Settings Tab ─────────────────────────────────────────────── */}
-        <TabsContent value="settings" className="space-y-4">
-          <div className="max-w-2xl space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold">Attendance Module Settings</h3>
-              <p className="text-sm text-muted-foreground">Configure attendance tracking preferences</p>
-            </div>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold">Attendance Preferences</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Default Attendance Type</Label>
-                    <p className="text-xs text-muted-foreground">Default type when taking attendance</p>
-                  </div>
-                  <Select value={attendanceSettings.defaultType} onValueChange={(v) => setAttendanceSettings((s) => ({ ...s, defaultType: v }))}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="DAILY">Daily</SelectItem>
-                      <SelectItem value="PERIOD">Per Period</SelectItem>
-                      <SelectItem value="SUBJECT">Per Subject</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Auto-Mark Present</Label>
-                    <p className="text-xs text-muted-foreground">Automatically mark all students as present</p>
-                  </div>
-                  <Switch checked={attendanceSettings.autoMarkPresent} onCheckedChange={(v) => setAttendanceSettings((s) => ({ ...s, autoMarkPresent: v }))} />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Late Threshold (minutes)</Label>
-                    <p className="text-xs text-muted-foreground">Minutes after start time to mark as late</p>
-                  </div>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={attendanceSettings.lateThreshold}
-                    onChange={(e) => setAttendanceSettings((s) => ({ ...s, lateThreshold: e.target.value }))}
-                    className="w-32"
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Chronic Absence Threshold (%)</Label>
-                    <p className="text-xs text-muted-foreground">Absence rate above which a student is flagged chronic</p>
-                  </div>
-                  <div className="relative w-32">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={attendanceSettings.chronicAbsenceThreshold}
-                      onChange={(e) => setAttendanceSettings((s) => ({ ...s, chronicAbsenceThreshold: e.target.value }))}
-                      className="pr-8"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
-                  </div>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Notify Parents</Label>
-                    <p className="text-xs text-muted-foreground">Send SMS/email notification for absences</p>
-                  </div>
-                  <Switch checked={attendanceSettings.notifyParents} onCheckedChange={(v) => setAttendanceSettings((s) => ({ ...s, notifyParents: v }))} />
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex justify-end">
-              <Button
-                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
-                onClick={() => toast.success('Settings saved', { description: 'Attendance module settings have been updated' })}
-              >
-                Save Settings
-              </Button>
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
-    </motion.div>
+      </ModulePageLayout>
+    </ModuleContainer>
   )
 }

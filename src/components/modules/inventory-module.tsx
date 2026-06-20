@@ -1,5 +1,6 @@
 'use client'
 
+import { ModuleContainer, StatGrid, ModuleStatCard, SectionCard, TableShell, ModulePageLayout, ModuleSettingsButton, KitEmptyState, ModuleToolbar } from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -40,7 +41,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -340,21 +341,21 @@ export default function InventoryModule() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <ModuleContainer>
         <div className="flex items-center justify-between">
           <div className="h-8 w-52 bg-muted animate-pulse rounded" />
           <div className="h-10 w-40 bg-muted animate-pulse rounded" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatGrid cols={4}>
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-32 bg-muted animate-pulse rounded-xl" />
           ))}
-        </div>
+        </StatGrid>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="h-80 bg-muted animate-pulse rounded-xl" />
           <div className="h-80 bg-muted animate-pulse rounded-xl" />
         </div>
-      </div>
+      </ModuleContainer>
     )
   }
 
@@ -733,34 +734,27 @@ export default function InventoryModule() {
 
       {viewMode === 'list' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Inventory & Assets</h1>
-              <p className="text-sm text-muted-foreground mt-1">Track school assets, supplies, and maintenance</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setViewMode('settings')} className="gap-1">
-                <Settings className="h-4 w-4" /> Settings
-              </Button>
-              <Button variant="outline" className="border-amber-200 text-amber-700 hover:bg-amber-50" onClick={() => setViewMode('request-maintenance')}>
-                <Wrench className="mr-2 h-4 w-4" />
-                Request Maintenance
-              </Button>
-              <Button className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white shadow-md" onClick={() => setViewMode('add-asset')}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Asset
-              </Button>
-            </div>
-          </div>
+<ModulePageLayout
+        actions={<>
+          <Button variant="outline" className="border-amber-200 text-amber-700 hover:bg-amber-50" onClick={() => setViewMode('request-maintenance')}>
+            <Wrench className="mr-2 h-4 w-4" />
+            Request Maintenance
+          </Button>
+          <Button className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white shadow-md" onClick={() => setViewMode('add-asset')}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Asset
+          </Button>
+          <ModuleSettingsButton onClick={() => setViewMode('settings')} />
+        </>}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="assets">Assets</TabsTrigger>
+            <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+          </>}
+      >
 
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="bg-muted/50 p-1">
-              <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Overview</TabsTrigger>
-              <TabsTrigger value="assets" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Assets</TabsTrigger>
-              <TabsTrigger value="maintenance" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Maintenance</TabsTrigger>
-            </TabsList>
 
             {/* ─── Overview Tab ─────────────────────────────────────────────── */}
             <TabsContent value="overview" className="space-y-4">
@@ -1060,7 +1054,7 @@ export default function InventoryModule() {
                 </CardContent>
               </Card>
             </TabsContent>
-          </Tabs>
+          </ModulePageLayout>
         </motion.div>
       )}
     </motion.div>

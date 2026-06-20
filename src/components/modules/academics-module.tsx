@@ -1,5 +1,16 @@
 'use client'
 
+import {
+  ModuleContainer,
+  StatGrid,
+  ModuleStatCard,
+  SectionCard,
+  TableShell,
+  ModulePageLayout,
+  ModuleSettingsButton,
+  KitEmptyState,
+  ModuleToolbar,
+} from '@/components/module-ui'
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -43,7 +54,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -236,6 +247,7 @@ export default function AcademicsModule() {
   // Subjects filter
   const [subjectDeptFilter, setSubjectDeptFilter] = useState('ALL')
   const [subjectCoreFilter, setSubjectCoreFilter] = useState('ALL')
+  const [subjectSearch, setSubjectSearch] = useState('')
 
   // Expanded grades
   const [expandedGrades, setExpandedGrades] = useState<Set<string>>(new Set())
@@ -408,6 +420,7 @@ export default function AcademicsModule() {
     if (subjectDeptFilter !== 'ALL' && s.department !== subjectDeptFilter) return false
     if (subjectCoreFilter === 'CORE' && !s.isCore) return false
     if (subjectCoreFilter === 'OPTIONAL' && s.isCore) return false
+    if (subjectSearch && !s.name.toLowerCase().includes(subjectSearch.toLowerCase()) && !s.code.toLowerCase().includes(subjectSearch.toLowerCase())) return false
     return true
   }) || []
 
@@ -443,14 +456,9 @@ export default function AcademicsModule() {
 
   // ─── Add Assessment Inline View ─────────────────────────────────────────────
 
-  if (viewMode === 'add') {
+    if (viewMode === 'add') {
     return (
-      <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.3 }}
-        className="space-y-6"
-      >
+      <ModuleContainer>
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
@@ -462,7 +470,7 @@ export default function AcademicsModule() {
           </Button>
         </div>
 
-        <Card className="border-0 shadow-md overflow-hidden">
+        <Card className="border border-border/60 shadow-sm overflow-hidden">
           <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6">
             <h2 className="text-xl font-bold">Create Assessment</h2>
             <p className="text-emerald-100 text-sm mt-1">Add a new test, exam, or assignment for a class</p>
@@ -582,7 +590,7 @@ export default function AcademicsModule() {
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </ModuleContainer>
     )
   }
 
@@ -590,12 +598,7 @@ export default function AcademicsModule() {
 
   if (viewMode === 'settings') {
     return (
-      <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.3 }}
-        className="space-y-6"
-      >
+      <ModuleContainer>
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
@@ -607,14 +610,14 @@ export default function AcademicsModule() {
           </Button>
         </div>
 
-        <Card className="border-0 shadow-md overflow-hidden">
+        <Card className="border border-border/60 shadow-sm overflow-hidden">
           <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6">
             <h2 className="text-xl font-bold">Academics Settings</h2>
             <p className="text-emerald-100 text-sm mt-1">Configure grading scales, pass marks, and display preferences</p>
           </div>
           <CardContent className="p-6 space-y-6">
             {/* Grading Scale */}
-            <Card className="border">
+            <Card className="border border-border/60 shadow-sm bg-card text-card-foreground">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Grading Scale</CardTitle>
                 <CardDescription>Choose the grading system used for assessment marks</CardDescription>
@@ -648,7 +651,7 @@ export default function AcademicsModule() {
             </Card>
 
             {/* Assessment Weightings */}
-            <Card className="border">
+            <Card className="border border-border/60 shadow-sm bg-card text-card-foreground">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Assessment Weightings</CardTitle>
                 <CardDescription>Set default weights for different assessment types</CardDescription>
@@ -690,7 +693,7 @@ export default function AcademicsModule() {
             </Card>
 
             {/* Display Preferences */}
-            <Card className="border">
+            <Card className="border border-border/60 shadow-sm bg-card text-card-foreground">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Display Preferences</CardTitle>
                 <CardDescription>Control how academic data is displayed</CardDescription>
@@ -731,7 +734,7 @@ export default function AcademicsModule() {
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </ModuleContainer>
     )
   }
 
@@ -741,12 +744,7 @@ export default function AcademicsModule() {
     const assessment = assessments.find((a) => a.id === selectedId) || overview?.recentAssessments.find((a) => a.id === selectedId)
     if (assessment) {
       return (
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.3 }}
-          className="space-y-6"
-        >
+        <ModuleContainer>
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -758,7 +756,7 @@ export default function AcademicsModule() {
             </Button>
           </div>
 
-          <Card className="border-0 shadow-md overflow-hidden">
+          <Card className="border border-border/60 shadow-sm overflow-hidden">
             <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6">
               <h2 className="text-xl font-bold">{assessment.name}</h2>
               <div className="flex flex-wrap gap-4 mt-3">
@@ -781,28 +779,28 @@ export default function AcademicsModule() {
             </div>
             <CardContent className="p-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="border">
+                <Card className="border border-border/60 shadow-sm bg-card text-card-foreground">
                   <CardContent className="p-4">
                     <p className="text-xs text-muted-foreground uppercase">Subject</p>
                     <p className="text-sm font-semibold mt-1">{assessment.subject.name}</p>
                     <Badge className={cn('mt-2 text-[10px] border', assessment.subject.isCore ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-amber-100 text-amber-700 border-amber-200')}>{assessment.subject.isCore ? 'Core' : 'Optional'}</Badge>
                   </CardContent>
                 </Card>
-                <Card className="border">
+                <Card className="border border-border/60 shadow-sm bg-card text-card-foreground">
                   <CardContent className="p-4">
                     <p className="text-xs text-muted-foreground uppercase">Type</p>
                     <p className="text-sm font-semibold mt-1">{assessmentTypeLabels[assessment.assessmentType] || assessment.assessmentType}</p>
                     <Badge className={cn('mt-2 text-[10px] border', assessmentTypeColors[assessment.assessmentType] || 'bg-gray-100 text-gray-700')}>{assessment.assessmentType}</Badge>
                   </CardContent>
                 </Card>
-                <Card className="border">
+                <Card className="border border-border/60 shadow-sm bg-card text-card-foreground">
                   <CardContent className="p-4">
                     <p className="text-xs text-muted-foreground uppercase">Total Marks</p>
                     <p className="text-sm font-semibold mt-1">{assessment.totalMarks}</p>
                     <p className="text-xs text-muted-foreground mt-1">Weight: {assessment.weight}</p>
                   </CardContent>
                 </Card>
-                <Card className="border">
+                <Card className="border border-border/60 shadow-sm bg-card text-card-foreground">
                   <CardContent className="p-4">
                     <p className="text-xs text-muted-foreground uppercase">Status</p>
                     <p className="text-sm font-semibold mt-1">{assessment.isLocked ? 'Locked' : 'Open'}</p>
@@ -821,7 +819,7 @@ export default function AcademicsModule() {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </ModuleContainer>
       )
     }
   }
@@ -830,12 +828,7 @@ export default function AcademicsModule() {
 
   if (selectedAssessment) {
     return (
-      <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.3 }}
-        className="space-y-6"
-      >
+      <ModuleContainer>
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
@@ -851,7 +844,7 @@ export default function AcademicsModule() {
           </Button>
         </div>
 
-        <Card className="border-0 shadow-md overflow-hidden">
+        <Card className="border border-border/60 shadow-sm overflow-hidden">
           <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6">
             <h2 className="text-xl font-bold">{selectedAssessment.name}</h2>
             <div className="flex flex-wrap gap-4 mt-3">
@@ -880,7 +873,7 @@ export default function AcademicsModule() {
               </div>
             ) : classStudents.length > 0 ? (
               <>
-                <ScrollArea className="max-h-[60vh]">
+                <TableShell maxHeight="60vh">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/30">
@@ -951,7 +944,7 @@ export default function AcademicsModule() {
                       })}
                     </TableBody>
                   </Table>
-                </ScrollArea>
+                </TableShell>
                 <div className="flex items-center justify-between p-4 border-t bg-muted/20">
                   <div className="text-sm text-muted-foreground">
                     {classStudents.length} students • {Object.keys(editedMarks).length} marks entered
@@ -975,34 +968,16 @@ export default function AcademicsModule() {
             )}
           </CardContent>
         </Card>
-      </motion.div>
+      </ModuleContainer>
     )
   }
 
   // ─── Main Render ───────────────────────────────────────────────────────
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="space-y-6"
-    >
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Academics</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage grades, subjects, assessments and marks</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setViewMode('settings')}
-            className="h-9 w-9"
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
+    <ModuleContainer>
+<ModulePageLayout
+        actions={<>
           <Button
             className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md"
             onClick={() => setViewMode('add')}
@@ -1010,239 +985,174 @@ export default function AcademicsModule() {
             <Plus className="mr-2 h-4 w-4" />
             Create Assessment
           </Button>
-        </div>
-      </div>
+          <ModuleSettingsButton onClick={() => setViewMode('settings')} />
+        </>}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="grades">Grades & Classes</TabsTrigger>
+            <TabsTrigger value="subjects">Subjects</TabsTrigger>
+            <TabsTrigger value="assessments">Assessments</TabsTrigger>
+          </>}
+      >
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="grades" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            Grades & Classes
-          </TabsTrigger>
-          <TabsTrigger value="subjects" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            Subjects
-          </TabsTrigger>
-          <TabsTrigger value="assessments" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            Assessments
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Settings className="h-3.5 w-3.5 mr-1" />
-            Settings
-          </TabsTrigger>
-        </TabsList>
 
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Grades</p>
-                    <p className="text-2xl font-bold tracking-tight">{overview?.grades.length || 0}</p>
-                    <div className="flex items-center gap-1.5">
-                      <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-600">Active levels</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
-                    <GraduationCap className="h-5 w-5 text-emerald-600" />
-                  </div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 to-teal-500" />
-            </Card>
-
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Classes</p>
-                    <p className="text-2xl font-bold tracking-tight">{overview?.classes.length || 0}</p>
-                    <div className="flex items-center gap-1.5">
-                      <Users className="h-3.5 w-3.5 text-teal-600" />
-                      <span className="text-xs font-medium text-teal-600">All streams</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50">
-                    <Users className="h-5 w-5 text-teal-600" />
-                  </div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-teal-400 to-cyan-500" />
-            </Card>
-
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Subjects</p>
-                    <p className="text-2xl font-bold tracking-tight">{overview?.totalSubjects || 0}</p>
-                    <div className="flex items-center gap-1.5">
-                      <BookOpen className="h-3.5 w-3.5 text-amber-600" />
-                      <span className="text-xs font-medium text-amber-600">{overview?.coreSubjects || 0} core</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
-                    <BookOpen className="h-5 w-5 text-amber-600" />
-                  </div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-400 to-orange-500" />
-            </Card>
-
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Active Assessments</p>
-                    <p className="text-2xl font-bold tracking-tight">{activeAssessmentsCount}</p>
-                    <div className="flex items-center gap-1.5">
-                      <ClipboardList className="h-3.5 w-3.5 text-orange-600" />
-                      <span className="text-xs font-medium text-orange-600">Open for entry</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50">
-                    <FileCheck className="h-5 w-5 text-orange-600" />
-                  </div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-orange-400 to-red-500" />
-            </Card>
-          </div>
+          <StatGrid cols={4}>
+            <ModuleStatCard
+              icon={GraduationCap}
+              label="Total Grades"
+              value={overview?.grades.length || 0}
+              accentGradient="from-emerald-400 to-teal-500"
+              trend={{ value: 'Active levels', positive: true }}
+              index={0}
+            />
+            <ModuleStatCard
+              icon={Users}
+              label="Total Classes"
+              value={overview?.classes.length || 0}
+              accentGradient="from-teal-400 to-cyan-500"
+              bgColor="bg-teal-50 dark:bg-teal-950/40"
+              iconColor="text-teal-600 dark:text-teal-400"
+              trend={{ value: 'All streams', positive: true }}
+              index={1}
+            />
+            <ModuleStatCard
+              icon={BookOpen}
+              label="Total Subjects"
+              value={overview?.totalSubjects || 0}
+              accentGradient="from-amber-400 to-orange-500"
+              bgColor="bg-amber-50 dark:bg-amber-950/40"
+              iconColor="text-amber-600 dark:text-amber-400"
+              trend={{ value: `${overview?.coreSubjects || 0} core`, positive: true }}
+              index={2}
+            />
+            <ModuleStatCard
+              icon={FileCheck}
+              label="Active Assessments"
+              value={activeAssessmentsCount}
+              accentGradient="from-orange-400 to-red-500"
+              bgColor="bg-orange-50 dark:bg-orange-950/40"
+              iconColor="text-orange-600 dark:text-orange-400"
+              trend={{ value: 'Open for entry', positive: true }}
+              index={3}
+            />
+          </StatGrid>
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Grade Distribution */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold">Grade Distribution</CardTitle>
-                <CardDescription>Students per grade level</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {gradeDistribution.length > 0 ? (
-                  <ChartContainer config={gradeDistChartConfig} className="h-[250px] w-full">
-                    <BarChart data={gradeDistribution} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="grade" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                      <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="students" fill="var(--color-students)" radius={[6, 6, 0, 0]} maxBarSize={48} />
-                    </BarChart>
-                  </ChartContainer>
-                ) : (
-                  <div className="flex items-center justify-center h-[250px] text-muted-foreground">
-                    <BarChart3 className="h-8 w-8 mr-2 opacity-50" /> No grade data available
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Subject Coverage */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold">Subject Coverage</CardTitle>
-                <CardDescription>Core vs Optional vs Practical breakdown</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-center">
-                  <ChartContainer config={subjectCoverageConfig} className="h-[250px] w-full">
-                    <PieChart>
-                      <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
-                      <Pie
-                        data={subjectCoverageData}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={55}
-                        outerRadius={85}
-                        paddingAngle={4}
-                        strokeWidth={0}
-                      >
-                        {subjectCoverageData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ChartContainer>
-                </div>
-                <div className="flex items-center justify-center gap-6 mt-2">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full bg-emerald-500" />
-                    <span className="text-sm text-muted-foreground">Core ({overview?.coreSubjects || 0})</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full bg-amber-500" />
-                    <span className="text-sm text-muted-foreground">Optional ({(overview?.totalSubjects || 0) - (overview?.coreSubjects || 0)})</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full bg-teal-500" />
-                    <span className="text-sm text-muted-foreground">Practical ({overview?.practicalSubjects || 0})</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Recent Assessments */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold">Recent Assessments</CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs text-emerald-600 hover:text-emerald-700"
-                  onClick={() => setActiveTab('assessments')}
-                >
-                  View All <ChevronLeft className="ml-1 h-3 w-3 rotate-180" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {(overview?.recentAssessments || []).length > 0 ? (
-                <div className="max-h-[300px] overflow-y-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs">Name</TableHead>
-                        <TableHead className="text-xs">Subject</TableHead>
-                        <TableHead className="text-xs">Type</TableHead>
-                        <TableHead className="text-xs text-right">Total Marks</TableHead>
-                        <TableHead className="text-xs text-right">Entries</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {overview?.recentAssessments.map((a) => (
-                        <TableRow key={a.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => { setSelectedId(a.id); setViewMode('detail') }}>
-                          <TableCell className="text-sm font-medium">{a.name}</TableCell>
-                          <TableCell className="text-sm">{a.subject.name}</TableCell>
-                          <TableCell>
-                            <Badge className={cn('text-[10px] px-1.5 py-0 border', assessmentTypeColors[a.assessmentType] || 'bg-gray-100 text-gray-700')}>
-                              {assessmentTypeLabels[a.assessmentType] || a.assessmentType}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-right">{a.totalMarks}</TableCell>
-                          <TableCell className="text-sm text-right">{a.marks.length}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+            <SectionCard title="Grade Distribution" description="Students per grade level">
+              {gradeDistribution.length > 0 ? (
+                <ChartContainer config={gradeDistChartConfig} className="h-[250px] w-full">
+                  <BarChart data={gradeDistribution} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="grade" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="students" fill="var(--color-students)" radius={[6, 6, 0, 0]} maxBarSize={48} />
+                  </BarChart>
+                </ChartContainer>
               ) : (
-                <div className="text-center py-8">
-                  <ClipboardList className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">No assessments yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">Create your first assessment to get started</p>
+                <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+                  <BarChart3 className="h-8 w-8 mr-2 opacity-50" /> No grade data available
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </SectionCard>
+
+            <SectionCard title="Subject Coverage" description="Core vs Optional vs Practical breakdown">
+              <div className="flex items-center justify-center">
+                <ChartContainer config={subjectCoverageConfig} className="h-[250px] w-full">
+                  <PieChart>
+                    <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                    <Pie
+                      data={subjectCoverageData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={85}
+                      paddingAngle={4}
+                      strokeWidth={0}
+                    >
+                      {subjectCoverageData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ChartContainer>
+              </div>
+              <div className="flex items-center justify-center gap-6 mt-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full bg-emerald-500" />
+                  <span className="text-sm text-muted-foreground">Core ({overview?.coreSubjects || 0})</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full bg-amber-500" />
+                  <span className="text-sm text-muted-foreground">Optional ({(overview?.totalSubjects || 0) - (overview?.coreSubjects || 0)})</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full bg-teal-500" />
+                  <span className="text-sm text-muted-foreground">Practical ({overview?.practicalSubjects || 0})</span>
+                </div>
+              </div>
+            </SectionCard>
+          </div>
+
+          <SectionCard
+            title="Recent Assessments"
+            actions={
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-emerald-600 hover:text-emerald-700"
+                onClick={() => setActiveTab('assessments')}
+              >
+                View All <ChevronLeft className="ml-1 h-3 w-3 rotate-180" />
+              </Button>
+            }
+          >
+            <TableShell
+              isEmpty={(overview?.recentAssessments || []).length === 0}
+              empty={
+                <KitEmptyState
+                  icon={ClipboardList}
+                  title="No assessments yet"
+                  description="Create your first assessment to get started"
+                />
+              }
+              maxHeight="300px"
+            >
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Name</TableHead>
+                    <TableHead className="text-xs">Subject</TableHead>
+                    <TableHead className="text-xs">Type</TableHead>
+                    <TableHead className="text-xs text-right">Total Marks</TableHead>
+                    <TableHead className="text-xs text-right">Entries</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {overview?.recentAssessments.map((a) => (
+                    <TableRow key={a.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => { setSelectedId(a.id); setViewMode('detail') }}>
+                      <TableCell className="text-sm font-medium">{a.name}</TableCell>
+                      <TableCell className="text-sm">{a.subject.name}</TableCell>
+                      <TableCell>
+                        <Badge className={cn('text-[10px] px-1.5 py-0 border', assessmentTypeColors[a.assessmentType] || 'bg-gray-100 text-gray-700')}>
+                          {assessmentTypeLabels[a.assessmentType] || a.assessmentType}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-right">{a.totalMarks}</TableCell>
+                      <TableCell className="text-sm text-right">{a.marks.length}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableShell>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Grades & Classes Tab ─────────────────────────────────────── */}
@@ -1265,7 +1175,7 @@ export default function AcademicsModule() {
                 }, 0)
 
                 return (
-                  <Card key={grade.id} className="border-0 shadow-md overflow-hidden">
+                  <Card key={grade.id} className="border border-border/60 shadow-sm overflow-hidden bg-card text-card-foreground">
                     <button
                       className="w-full flex items-center justify-between p-5 hover:bg-muted/20 transition-colors"
                       onClick={() => toggleGradeExpand(grade.id)}
@@ -1313,7 +1223,7 @@ export default function AcademicsModule() {
                                 return (
                                   <div
                                     key={cls.id}
-                                    className="rounded-xl border p-4 hover:shadow-md transition-all hover:border-emerald-200 bg-white"
+                                    className="rounded-xl border border-border/60 p-4 hover:shadow-md transition-all hover:border-emerald-200 bg-card text-card-foreground"
                                   >
                                     <div className="flex items-center justify-between mb-3">
                                       <h4 className="font-semibold text-sm">{cls.name}</h4>
@@ -1384,17 +1294,12 @@ export default function AcademicsModule() {
 
         {/* ─── Subjects Tab ─────────────────────────────────────────────── */}
         <TabsContent value="subjects" className="space-y-4">
-          {/* Filters */}
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="relative flex-1 min-w-[200px]">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search subjects..."
-                    className="pl-9 h-9 bg-muted/40 border-0 focus-visible:ring-1 focus-visible:ring-emerald-500/30 focus-visible:bg-white"
-                  />
-                </div>
+          <ModuleToolbar
+            search={subjectSearch}
+            onSearch={setSubjectSearch}
+            searchPlaceholder="Search subjects..."
+            filters={
+              <>
                 <Select value={subjectDeptFilter} onValueChange={setSubjectDeptFilter}>
                   <SelectTrigger className="w-[180px] h-9">
                     <SelectValue placeholder="Department" />
@@ -1416,301 +1321,154 @@ export default function AcademicsModule() {
                     <SelectItem value="OPTIONAL">Optional Only</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-            </CardContent>
-          </Card>
+              </>
+            }
+          />
 
-          {/* Subjects Table */}
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-0">
-              <ScrollArea className="max-h-[60vh]">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30">
-                      <TableHead className="text-xs">Code</TableHead>
-                      <TableHead className="text-xs">Name</TableHead>
-                      <TableHead className="text-xs">Department</TableHead>
-                      <TableHead className="text-xs text-center">Core/Optional</TableHead>
-                      <TableHead className="text-xs text-center">Practical</TableHead>
-                      <TableHead className="text-xs text-right">Pass Mark</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredSubjects.map((subject) => (
-                      <TableRow key={subject.id} className="hover:bg-muted/20">
-                        <TableCell className="font-mono text-xs font-semibold text-emerald-600">{subject.code}</TableCell>
-                        <TableCell className="text-sm font-medium">{subject.name}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{subject.department || '—'}</TableCell>
-                        <TableCell className="text-center">
-                          <Badge className={cn(
-                            'text-[10px] px-2',
-                            subject.isCore
-                              ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                              : 'bg-amber-100 text-amber-700 border-amber-200'
-                          )}>
-                            {subject.isCore ? 'Core' : 'Optional'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {subject.isPractical ? (
-                            <Badge className="bg-teal-100 text-teal-700 border-teal-200 text-[10px] px-2">
-                              <FlaskConical className="mr-1 h-3 w-3" /> Practical
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm text-right font-medium">{subject.passMark}%</TableCell>
-                      </TableRow>
-                    ))}
-                    {filteredSubjects.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                          No subjects found matching filters
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+          <TableShell
+            isEmpty={filteredSubjects.length === 0}
+            empty={
+              <KitEmptyState
+                icon={BookOpen}
+                title="No subjects found"
+                description="No subjects match your selected filters."
+              />
+            }
+            maxHeight="60vh"
+          >
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30">
+                  <TableHead className="text-xs">Code</TableHead>
+                  <TableHead className="text-xs">Name</TableHead>
+                  <TableHead className="text-xs">Department</TableHead>
+                  <TableHead className="text-xs text-center">Core/Optional</TableHead>
+                  <TableHead className="text-xs text-center">Practical</TableHead>
+                  <TableHead className="text-xs text-right">Pass Mark</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredSubjects.map((subject) => (
+                  <TableRow key={subject.id} className="hover:bg-muted/20">
+                    <TableCell className="font-mono text-xs font-semibold text-emerald-600">{subject.code}</TableCell>
+                    <TableCell className="text-sm font-medium">{subject.name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{subject.department || '—'}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge className={cn(
+                        'text-[10px] px-2',
+                        subject.isCore
+                          ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                          : 'bg-amber-100 text-amber-700 border-amber-200'
+                      )}>
+                        {subject.isCore ? 'Core' : 'Optional'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {subject.isPractical ? (
+                        <Badge className="bg-teal-100 text-teal-700 border-teal-200 text-[10px] px-2">
+                          <FlaskConical className="mr-1 h-3 w-3" /> Practical
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-right font-medium">{subject.passMark}%</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableShell>
         </TabsContent>
 
         {/* ─── Assessments Tab ──────────────────────────────────────────── */}
         <TabsContent value="assessments" className="space-y-4">
-          {/* Filter */}
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <Select value={assessmentTypeFilter} onValueChange={setAssessmentTypeFilter}>
-                  <SelectTrigger className="w-[200px] h-9">
-                    <SelectValue placeholder="Assessment Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All Types</SelectItem>
-                    {Object.entries(assessmentTypeLabels).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="text-sm text-muted-foreground">
-                  {assessments.length} assessment{assessments.length !== 1 ? 's' : ''} found
-                </div>
+          <ModuleToolbar
+            filters={
+              <Select value={assessmentTypeFilter} onValueChange={setAssessmentTypeFilter}>
+                <SelectTrigger className="w-[200px] h-9">
+                  <SelectValue placeholder="Assessment Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Types</SelectItem>
+                  {Object.entries(assessmentTypeLabels).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            }
+            actions={
+              <div className="text-sm text-muted-foreground">
+                {assessments.length} assessment{assessments.length !== 1 ? 's' : ''} found
               </div>
-            </CardContent>
-          </Card>
+            }
+          />
 
-          {/* Assessments Table */}
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-0">
-              {assessmentsLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
-                  <span className="ml-2 text-muted-foreground">Loading assessments...</span>
-                </div>
-              ) : assessments.length > 0 ? (
-                <ScrollArea className="max-h-[60vh]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/30">
-                        <TableHead className="text-xs">Name</TableHead>
-                        <TableHead className="text-xs">Subject</TableHead>
-                        <TableHead className="text-xs">Type</TableHead>
-                        <TableHead className="text-xs text-right">Total Marks</TableHead>
-                        <TableHead className="text-xs">Date</TableHead>
-                        <TableHead className="text-xs text-center">Status</TableHead>
-                        <TableHead className="text-xs text-right">Entries</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {assessments.map((assessment) => (
-                        <TableRow
-                          key={assessment.id}
-                          className="hover:bg-muted/20 cursor-pointer"
-                          onClick={() => fetchMarks(assessment.id)}
-                        >
-                          <TableCell className="text-sm font-medium">{assessment.name}</TableCell>
-                          <TableCell className="text-sm">{assessment.subject.name}</TableCell>
-                          <TableCell>
-                            <Badge className={cn('text-[10px] px-1.5 py-0 border', assessmentTypeColors[assessment.assessmentType] || 'bg-gray-100 text-gray-700')}>
-                              {assessmentTypeLabels[assessment.assessmentType] || assessment.assessmentType}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-right">{assessment.totalMarks}</TableCell>
-                          <TableCell className="text-sm">{formatDate(assessment.date)}</TableCell>
-                          <TableCell className="text-center">
-                            <Badge className={cn(
-                              'text-[10px] px-2',
-                              assessment.isLocked
-                                ? 'bg-red-100 text-red-700 border-red-200'
-                                : 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                            )}>
-                              {assessment.isLocked ? 'Locked' : 'Open'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-right">{assessment.marks.length}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              ) : (
-                <div className="text-center py-12">
-                  <ClipboardList className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground">No assessments found</p>
-                  <p className="text-xs text-muted-foreground mt-1">Create your first assessment to get started</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <TableShell
+            isEmpty={!assessmentsLoading && assessments.length === 0}
+            empty={
+              <KitEmptyState
+                icon={ClipboardList}
+                title="No assessments found"
+                description="No assessments match the active filter or have been created yet."
+              />
+            }
+            maxHeight="60vh"
+          >
+            {assessmentsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
+                <span className="ml-2 text-muted-foreground">Loading assessments...</span>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="text-xs">Name</TableHead>
+                    <TableHead className="text-xs">Subject</TableHead>
+                    <TableHead className="text-xs">Type</TableHead>
+                    <TableHead className="text-xs text-right">Total Marks</TableHead>
+                    <TableHead className="text-xs">Date</TableHead>
+                    <TableHead className="text-xs text-center">Status</TableHead>
+                    <TableHead className="text-xs text-right">Entries</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {assessments.map((assessment) => (
+                    <TableRow
+                      key={assessment.id}
+                      className="hover:bg-muted/20 cursor-pointer"
+                      onClick={() => fetchMarks(assessment.id)}
+                    >
+                      <TableCell className="text-sm font-medium">{assessment.name}</TableCell>
+                      <TableCell className="text-sm">{assessment.subject.name}</TableCell>
+                      <TableCell>
+                        <Badge className={cn('text-[10px] px-1.5 py-0 border', assessmentTypeColors[assessment.assessmentType] || 'bg-gray-100 text-gray-700')}>
+                          {assessmentTypeLabels[assessment.assessmentType] || assessment.assessmentType}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-right">{assessment.totalMarks}</TableCell>
+                      <TableCell className="text-sm">{formatDate(assessment.date)}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge className={cn(
+                          'text-[10px] px-2',
+                          assessment.isLocked
+                            ? 'bg-red-100 text-red-700 border-red-200'
+                            : 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                        )}>
+                          {assessment.isLocked ? 'Locked' : 'Open'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-right">{assessment.marks.length}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </TableShell>
         </TabsContent>
 
         {/* ─── Settings Tab ─────────────────────────────────────────────── */}
-        <TabsContent value="settings" className="space-y-4">
-          <div className="max-w-2xl space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold">Academics Module Settings</h3>
-              <p className="text-sm text-muted-foreground">Configure grading, assessments, and reporting preferences</p>
-            </div>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold">Grading Configuration</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Grading Scale</Label>
-                    <p className="text-xs text-muted-foreground">Select the grading scale for assessments</p>
-                  </div>
-                  <Select value={academicsSettings.gradingScale} onValueChange={(v) => setAcademicsSettings((s) => ({ ...s, gradingScale: v }))}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ZIMSEC">ZIMSEC (A-U)</SelectItem>
-                      <SelectItem value="CAMBRIDGE">Cambridge (A-G)</SelectItem>
-                      <SelectItem value="PERCENTAGE">Percentage Only</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Pass Mark (%)</Label>
-                    <p className="text-xs text-muted-foreground">Minimum percentage to pass a subject</p>
-                  </div>
-                  <div className="relative w-32">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={academicsSettings.passMark}
-                      onChange={(e) => setAcademicsSettings((s) => ({ ...s, passMark: e.target.value }))}
-                      className="pr-8"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold">Assessment Weightings</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Test Weight (%)</Label>
-                    <p className="text-xs text-muted-foreground">Weight of tests in final grade</p>
-                  </div>
-                  <div className="relative w-32">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={academicsSettings.testWeight}
-                      onChange={(e) => setAcademicsSettings((s) => ({ ...s, testWeight: e.target.value }))}
-                      className="pr-8"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
-                  </div>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Exam Weight (%)</Label>
-                    <p className="text-xs text-muted-foreground">Weight of exams in final grade</p>
-                  </div>
-                  <div className="relative w-32">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={academicsSettings.examWeight}
-                      onChange={(e) => setAcademicsSettings((s) => ({ ...s, examWeight: e.target.value }))}
-                      className="pr-8"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
-                  </div>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Assignment Weight (%)</Label>
-                    <p className="text-xs text-muted-foreground">Weight of assignments in final grade</p>
-                  </div>
-                  <div className="relative w-32">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={academicsSettings.assignmentWeight}
-                      onChange={(e) => setAcademicsSettings((s) => ({ ...s, assignmentWeight: e.target.value }))}
-                      className="pr-8"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold">Advanced Options</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Auto-Calculate Grades</Label>
-                    <p className="text-xs text-muted-foreground">Automatically compute grades from entered marks</p>
-                  </div>
-                  <Switch checked={academicsSettings.autoCalculateGrades} onCheckedChange={(v) => setAcademicsSettings((s) => ({ ...s, autoCalculateGrades: v }))} />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Show Class Rank</Label>
-                    <p className="text-xs text-muted-foreground">Display student rank position in report cards</p>
-                  </div>
-                  <Switch checked={academicsSettings.showClassRank} onCheckedChange={(v) => setAcademicsSettings((s) => ({ ...s, showClassRank: v }))} />
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex justify-end">
-              <Button
-                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
-                onClick={() => toast.success('Settings saved', { description: 'Academics module settings have been updated' })}
-              >
-                Save Settings
-              </Button>
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
-    </motion.div>
+        </ModulePageLayout>
+    </ModuleContainer>
   )
 }

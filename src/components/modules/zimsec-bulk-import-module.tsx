@@ -27,7 +27,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { StatGrid, ModuleStatCard, ModuleContainer, ModuleToolbar } from '@/components/module-ui'
+import { StatGrid, ModuleStatCard, ModuleContainer, ModuleToolbar, ModuleSettingsButton } from '@/components/module-ui'
 import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
 import { Switch } from '@/components/ui/switch'
@@ -558,9 +558,7 @@ export default function ZimsecBulkImportModule() {
     <ModuleContainer>
       <ModuleToolbar
         actions={
-          <Button variant="ghost" size="sm" onClick={() => setViewMode('settings')} className="gap-1">
-            <Settings className="h-4 w-4" /> Settings
-          </Button>
+          <ModuleSettingsButton onClick={() => setViewMode('settings')} />
         }
       />
 

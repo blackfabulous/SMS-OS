@@ -1,5 +1,6 @@
 'use client'
 
+import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -59,7 +60,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -729,38 +730,27 @@ export default function CanteenModule() {
 
       {viewMode === 'list' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50">
-                <Coffee className="h-5 w-5 text-orange-600" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold tracking-tight">Canteen & POS</h2>
-                <p className="text-sm text-muted-foreground">Manage canteen menu, sales, and inventory</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setViewMode('settings')} className="gap-1">
-                <Settings className="h-4 w-4" /> Settings
-              </Button>
-              <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => {
-                setItemForm({ name: '', category: settings.defaultCategory, price: '', costPrice: '', stockQuantity: '', reorderLevel: settings.lowStockThreshold, description: '' })
-                setViewMode('add-item')
-              }}>
-                <Plus className="h-4 w-4" /> Add Item
-              </Button>
-            </div>
-          </div>
+<ModulePageLayout
+        actions={<>
+          <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => {
+            setItemForm({ name: '', category: settings.defaultCategory, price: '', costPrice: '', stockQuantity: '', reorderLevel: settings.lowStockThreshold, description: '' })
+            setViewMode('add-item')
+          }}>
+            <Plus className="h-4 w-4" /> Add Item
+          </Button>
+          <ModuleSettingsButton onClick={() => setViewMode('settings')} />
+        </>}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="menu">Menu Items</TabsTrigger>
+            <TabsTrigger value="pos">Point of Sale</TabsTrigger>
+            <TabsTrigger value="stock">Stock</TabsTrigger>
+            <TabsTrigger value="reports">Sales</TabsTrigger>
+          </>}
+      >
 
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="menu">Menu Items</TabsTrigger>
-              <TabsTrigger value="pos">Point of Sale</TabsTrigger>
-              <TabsTrigger value="stock">Stock</TabsTrigger>
-              <TabsTrigger value="reports">Sales</TabsTrigger>
-            </TabsList>
 
             {/* ─── Overview Tab ─────────────────────────────────────────────── */}
             <TabsContent value="overview" className="space-y-4">
@@ -1166,7 +1156,7 @@ export default function CanteenModule() {
                 </CardContent>
               </Card>
             </TabsContent>
-          </Tabs>
+          </ModulePageLayout>
         </motion.div>
       )}
 

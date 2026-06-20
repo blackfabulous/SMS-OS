@@ -36,6 +36,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { ModuleContainer, StatGrid, ModuleStatCard, SectionCard, TableShell, ModulePageLayout, ModuleSettingsButton, KitEmptyState, ModuleToolbar } from '@/components/module-ui'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -366,21 +367,21 @@ export default function LibraryModule() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <ModuleContainer>
         <div className="flex items-center justify-between">
           <div className="h-8 w-48 bg-muted animate-pulse rounded" />
           <div className="h-10 w-40 bg-muted animate-pulse rounded" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatGrid cols={4}>
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-32 bg-muted animate-pulse rounded-xl" />
           ))}
-        </div>
+        </StatGrid>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="h-80 bg-muted animate-pulse rounded-xl" />
           <div className="h-80 bg-muted animate-pulse rounded-xl" />
         </div>
-      </div>
+      </ModuleContainer>
     )
   }
 
@@ -389,17 +390,14 @@ export default function LibraryModule() {
   // ─── Inline Views ──────────────────────────────────────────────────────
 
   const AddBookInlineForm = () => (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+    <ModuleContainer>
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1">
-          <ArrowLeft className="h-4 w-4" /> Back
+        <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5">
+          <ArrowLeft className="h-4 w-4" /> Back to Catalog
         </Button>
-        <Separator orientation="vertical" className="h-6" />
-        <h2 className="text-lg font-semibold">Add New Book</h2>
       </div>
-      <Card className="border-0 shadow-md">
-        <CardContent className="p-6">
-          <div className="grid gap-6 max-w-2xl">
+      <SectionCard title="Add New Book" description="Enter book details to add to catalog">
+        <div className="grid gap-6 max-w-2xl">
             <div className="grid gap-2">
               <Label className="text-sm font-medium">Title *</Label>
               <Input placeholder="Book title" value={addBookForm.title} onChange={(e) => setAddBookForm((p) => ({ ...p, title: e.target.value }))} />
@@ -458,24 +456,20 @@ export default function LibraryModule() {
               </Button>
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+        </div>
+      </SectionCard>
+    </ModuleContainer>
   )
 
   const IssueBookInlineForm = () => (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+    <ModuleContainer>
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1">
-          <ArrowLeft className="h-4 w-4" /> Back
+        <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5">
+          <ArrowLeft className="h-4 w-4" /> Back to Catalog
         </Button>
-        <Separator orientation="vertical" className="h-6" />
-        <h2 className="text-lg font-semibold">Issue Book</h2>
       </div>
-      <Card className="border-0 shadow-md">
-        <CardContent className="p-6">
-          <div className="grid gap-6 max-w-2xl">
+      <SectionCard title="Issue Book" description="Assign copies of a book to a student">
+        <div className="grid gap-6 max-w-2xl">
             <div className="grid gap-2">
               <Label className="text-sm font-medium">Book *</Label>
               <Select value={issueForm.bookId} onValueChange={(v) => setIssueForm((p) => ({ ...p, bookId: v }))}>
@@ -518,24 +512,20 @@ export default function LibraryModule() {
               </Button>
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+        </div>
+      </SectionCard>
+    </ModuleContainer>
   )
 
   const ReturnBookInlineForm = () => (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+    <ModuleContainer>
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1">
-          <ArrowLeft className="h-4 w-4" /> Back
+        <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5">
+          <ArrowLeft className="h-4 w-4" /> Back to Catalog
         </Button>
-        <Separator orientation="vertical" className="h-6" />
-        <h2 className="text-lg font-semibold">Return Book</h2>
       </div>
-      <Card className="border-0 shadow-md">
-        <CardContent className="p-6">
-          <div className="grid gap-6 max-w-2xl">
+      <SectionCard title="Return Book" description="Process returning of an issued book and calculate fines if applicable">
+        <div className="grid gap-6 max-w-2xl">
             <div className="grid gap-2">
               <Label className="text-sm font-medium">Condition on Return</Label>
               <Select value={returnForm.conditionOnReturn} onValueChange={(v) => setReturnForm((p) => ({ ...p, conditionOnReturn: v }))}>
@@ -560,110 +550,92 @@ export default function LibraryModule() {
               </Button>
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+        </div>
+      </SectionCard>
+    </ModuleContainer>
   )
 
   const BookDetailView = () => {
     if (!selectedBook) return null
     const activeTransactions = selectedBook.transactions.filter(t => t.transactionType === 'ISSUE' && !t.returnDate)
     return (
-      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+      <ModuleContainer>
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => { setViewMode('list'); setSelectedBook(null) }} className="gap-1">
-            <ArrowLeft className="h-4 w-4" /> Back
+          <Button variant="ghost" size="sm" onClick={() => { setViewMode('list'); setSelectedBook(null) }} className="gap-1.5">
+            <ArrowLeft className="h-4 w-4" /> Back to Catalog
           </Button>
-          <Separator orientation="vertical" className="h-6" />
-          <h2 className="text-lg font-semibold">Book Details</h2>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 space-y-4">
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-emerald-50 shrink-0">
-                    <BookOpen className="h-8 w-8 text-emerald-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-xl font-bold">{selectedBook.title}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">by {selectedBook.author || 'Unknown Author'}</p>
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {selectedBook.category && <Badge variant="secondary">{selectedBook.category}</Badge>}
-                      {selectedBook.isbn && <Badge variant="outline" className="font-mono text-xs">ISBN: {selectedBook.isbn}</Badge>}
-                      <Badge className={cn('text-xs border', selectedBook.availableCopies > 0 ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-red-100 text-red-700 border-red-200')}>
-                        {selectedBook.availableCopies > 0 ? `${selectedBook.availableCopies} Available` : 'All Issued'}
-                      </Badge>
-                    </div>
+            <SectionCard noPadding>
+              <div className="flex items-start gap-4 p-6">
+                <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-emerald-50 shrink-0">
+                  <BookOpen className="h-8 w-8 text-emerald-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-xl font-bold">{selectedBook.title}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">by {selectedBook.author || 'Unknown Author'}</p>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {selectedBook.category && <Badge variant="secondary">{selectedBook.category}</Badge>}
+                    {selectedBook.isbn && <Badge variant="outline" className="font-mono text-xs">ISBN: {selectedBook.isbn}</Badge>}
+                    <Badge className={cn('text-xs border', selectedBook.availableCopies > 0 ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-red-100 text-red-700 border-red-200')}>
+                      {selectedBook.availableCopies > 0 ? `${selectedBook.availableCopies} Available` : 'All Issued'}
+                    </Badge>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </SectionCard>
 
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold">Book Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Publisher</p>
-                    <p className="text-sm font-medium">{selectedBook.publisher || '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Shelf Location</p>
-                    <p className="text-sm font-medium font-mono">{selectedBook.shelfLocation || '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Total Copies</p>
-                    <p className="text-sm font-medium">{selectedBook.totalCopies}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Available Copies</p>
-                    <p className="text-sm font-medium">{selectedBook.availableCopies}</p>
-                  </div>
+            <SectionCard title="Book Information">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Publisher</p>
+                  <p className="text-sm font-medium">{selectedBook.publisher || '—'}</p>
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <p className="text-xs text-muted-foreground">Shelf Location</p>
+                  <p className="text-sm font-medium font-mono">{selectedBook.shelfLocation || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Copies</p>
+                  <p className="text-sm font-medium">{selectedBook.totalCopies}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Available Copies</p>
+                  <p className="text-sm font-medium">{selectedBook.availableCopies}</p>
+                </div>
+              </div>
+            </SectionCard>
 
             {activeTransactions.length > 0 && (
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold">Active Loans</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {activeTransactions.map((t) => (
-                      <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-50 text-amber-700 text-xs font-semibold">
-                            {t.student.firstName[0]}{t.student.lastName[0]}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">{t.student.firstName} {t.student.lastName}</p>
-                            <p className="text-xs text-muted-foreground">{t.student.studentNumber}</p>
-                          </div>
+              <SectionCard title="Active Loans">
+                <div className="space-y-3">
+                  {activeTransactions.map((t) => (
+                    <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-50 text-amber-700 text-xs font-semibold">
+                          {t.student.firstName[0]}{t.student.lastName[0]}
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs text-muted-foreground">Due: {t.dueDate ? formatDate(t.dueDate) : '—'}</p>
-                          <p className="text-xs text-muted-foreground">Issued: {formatDate(t.issueDate)}</p>
+                        <div>
+                          <p className="text-sm font-medium">{t.student.firstName} {t.student.lastName}</p>
+                          <p className="text-xs text-muted-foreground">{t.student.studentNumber}</p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">Due: {t.dueDate ? formatDate(t.dueDate) : '—'}</p>
+                        <p className="text-xs text-muted-foreground">Issued: {formatDate(t.issueDate)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
             )}
           </div>
 
           <div className="space-y-4">
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold">Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+            <SectionCard title="Actions">
+              <div className="space-y-2">
                 {selectedBook.availableCopies > 0 && (
                   <Button className="w-full justify-start gap-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white" onClick={() => {
                     setIssueForm((p) => ({ ...p, bookId: selectedBook.id }))
@@ -672,54 +644,42 @@ export default function LibraryModule() {
                     <ArrowRightLeft className="h-4 w-4" /> Issue This Book
                   </Button>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </SectionCard>
 
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold">Quick Stats</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Total Loans</span>
-                    <span className="text-sm font-semibold">{selectedBook.transactions.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Currently Out</span>
-                    <span className="text-sm font-semibold">{activeTransactions.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Utilization</span>
-                    <span className="text-sm font-semibold">{selectedBook.totalCopies > 0 ? Math.round(((selectedBook.totalCopies - selectedBook.availableCopies) / selectedBook.totalCopies) * 100) : 0}%</span>
-                  </div>
+            <SectionCard title="Quick Stats">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Total Loans</span>
+                  <span className="text-sm font-semibold">{selectedBook.transactions.length}</span>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Currently Out</span>
+                  <span className="text-sm font-semibold">{activeTransactions.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Utilization</span>
+                  <span className="text-sm font-semibold">{selectedBook.totalCopies > 0 ? Math.round(((selectedBook.totalCopies - selectedBook.availableCopies) / selectedBook.totalCopies) * 100) : 0}%</span>
+                </div>
+              </div>
+            </SectionCard>
           </div>
         </div>
-      </motion.div>
+      </ModuleContainer>
     )
   }
 
   const LibrarySettingsView = () => (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+    <ModuleContainer>
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1">
-          <ArrowLeft className="h-4 w-4" /> Back
+        <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5">
+          <ArrowLeft className="h-4 w-4" /> Back to Catalog
         </Button>
-        <Separator orientation="vertical" className="h-6" />
-        <h2 className="text-lg font-semibold">Library Settings</h2>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Eye className="h-4 w-4 text-emerald-600" /> Display Settings
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <SectionCard title="Display Settings" icon={Eye}>
+          <div className="space-y-4">
             <div className="grid gap-2">
               <Label className="text-sm">Default View</Label>
               <Select value={settings.defaultView} onValueChange={(v) => setSettings((p) => ({ ...p, defaultView: v }))}>
@@ -738,16 +698,11 @@ export default function LibraryModule() {
               <Label className="text-sm">Show Shelf Location</Label>
               <Switch checked={settings.showShelfLocation} onCheckedChange={(v) => setSettings((p) => ({ ...p, showShelfLocation: v }))} />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </SectionCard>
 
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-amber-600" /> Fine Calculation
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <SectionCard title="Fine Calculation" icon={DollarSign}>
+          <div className="space-y-4">
             <div className="grid gap-2">
               <Label className="text-sm">Fine Per Day (USD)</Label>
               <Input type="number" step="0.01" min="0" value={settings.finePerDay} onChange={(e) => setSettings((p) => ({ ...p, finePerDay: e.target.value }))} />
@@ -756,16 +711,11 @@ export default function LibraryModule() {
               <Label className="text-sm">Maximum Fine (USD)</Label>
               <Input type="number" step="0.01" min="0" value={settings.maxFine} onChange={(e) => setSettings((p) => ({ ...p, maxFine: e.target.value }))} />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </SectionCard>
 
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-teal-600" /> Loan Period
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <SectionCard title="Loan Period" icon={Calendar}>
+          <div className="space-y-4">
             <div className="grid gap-2">
               <Label className="text-sm">Default Loan Period (days)</Label>
               <Input type="number" min="1" value={settings.loanPeriodDays} onChange={(e) => setSettings((p) => ({ ...p, loanPeriodDays: e.target.value }))} />
@@ -777,16 +727,11 @@ export default function LibraryModule() {
               </div>
               <Switch checked={settings.autoRenewal} onCheckedChange={(v) => setSettings((p) => ({ ...p, autoRenewal: v }))} />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </SectionCard>
 
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Bell className="h-4 w-4 text-red-500" /> Overdue Notifications
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <SectionCard title="Overdue Notifications" icon={Bell}>
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label className="text-sm">Email Notifications</Label>
               <Switch checked={settings.overdueEmailNotification} onCheckedChange={(v) => setSettings((p) => ({ ...p, overdueEmailNotification: v }))} />
@@ -799,8 +744,8 @@ export default function LibraryModule() {
               <Label className="text-sm">Remind Before Due (days)</Label>
               <Input type="number" min="1" value={settings.overdueReminderDays} onChange={(e) => setSettings((p) => ({ ...p, overdueReminderDays: e.target.value }))} />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </SectionCard>
       </div>
 
       <div className="flex items-center gap-3">
@@ -808,214 +753,170 @@ export default function LibraryModule() {
           <Save className="mr-2 h-4 w-4" /> Save Settings
         </Button>
       </div>
-    </motion.div>
+    </ModuleContainer>
   )
 
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
-      <AnimatePresence mode="wait">
-        {viewMode === 'add-book' && <AddBookInlineForm key="add-book" />}
-        {viewMode === 'issue-book' && <IssueBookInlineForm key="issue-book" />}
-        {viewMode === 'return-book' && <ReturnBookInlineForm key="return-book" />}
-        {viewMode === 'detail' && <BookDetailView key="detail" />}
-        {viewMode === 'settings' && <LibrarySettingsView key="settings" />}
-      </AnimatePresence>
+    <AnimatePresence mode="wait">
+      {viewMode === 'add-book' && <AddBookInlineForm key="add-book" />}
+      {viewMode === 'issue-book' && <IssueBookInlineForm key="issue-book" />}
+      {viewMode === 'return-book' && <ReturnBookInlineForm key="return-book" />}
+      {viewMode === 'detail' && <BookDetailView key="detail" />}
+      {viewMode === 'settings' && <LibrarySettingsView key="settings" />}
 
       {viewMode === 'list' && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Library Management</h1>
-              <p className="text-sm text-muted-foreground mt-1">Manage books, lending, and returns</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setViewMode('settings')} className="gap-1">
-                <Settings className="h-4 w-4" /> Settings
-              </Button>
-              <Button variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => setViewMode('add-book')}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Book
-              </Button>
-              <Button className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-md" onClick={() => setViewMode('issue-book')}>
-                <ArrowRightLeft className="mr-2 h-4 w-4" />
-                Issue Book
-              </Button>
-            </div>
-          </div>
-
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="bg-muted/50 p-1">
-              <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Overview</TabsTrigger>
-              <TabsTrigger value="catalog" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Catalog</TabsTrigger>
-              <TabsTrigger value="overdue" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Overdue</TabsTrigger>
-              <TabsTrigger value="transactions" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                <RefreshCw className="mr-1 h-3.5 w-3.5" /> Transactions
-              </TabsTrigger>
-            </TabsList>
-
+        <ModuleContainer key="list">
+          <ModulePageLayout
+            actions={
+              <>
+                <Button variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => setViewMode('add-book')}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Book
+                </Button>
+                <Button className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-md" onClick={() => setViewMode('issue-book')}>
+                  <ArrowRightLeft className="mr-2 h-4 w-4" />
+                  Issue Book
+                </Button>
+                <ModuleSettingsButton onClick={() => setViewMode('settings')} />
+              </>
+            }
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            tabs={
+              <>
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="catalog">Catalog</TabsTrigger>
+                <TabsTrigger value="overdue">Overdue</TabsTrigger>
+                <TabsTrigger value="transactions">Transactions</TabsTrigger>
+              </>
+            }
+          >
             {/* ─── Overview Tab ─────────────────────────────────────────────── */}
             <TabsContent value="overview" className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Books</p>
-                        <p className="text-2xl font-bold tracking-tight">{stats?.totalBooks || 0}</p>
-                        <div className="flex items-center gap-1.5">
-                          <BookOpen className="h-3.5 w-3.5 text-emerald-600" />
-                          <span className="text-xs font-medium text-emerald-600">{stats?.totalCopies || 0} copies</span>
-                        </div>
-                      </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
-                        <Library className="h-5 w-5 text-emerald-600" />
-                      </div>
+              <StatGrid cols={4}>
+                <ModuleStatCard
+                  icon={Library}
+                  label="Total Books"
+                  value={stats?.totalBooks || 0}
+                  accentGradient="from-emerald-400 to-green-500"
+                  footer={
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <BookOpen className="h-3.5 w-3.5 text-emerald-600" />
+                      <span className="text-xs font-medium text-emerald-600">{stats?.totalCopies || 0} copies</span>
                     </div>
-                  </CardContent>
-                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 to-green-500" />
-                </Card>
+                  }
+                />
 
-                <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Available</p>
-                        <p className="text-2xl font-bold tracking-tight">{stats?.availableCopies || 0}</p>
-                        <div className="flex items-center gap-1.5">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-teal-600" />
-                          <span className="text-xs font-medium text-teal-600">Ready to issue</span>
-                        </div>
-                      </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50">
-                        <CheckCircle2 className="h-5 w-5 text-teal-600" />
-                      </div>
+                <ModuleStatCard
+                  icon={CheckCircle2}
+                  label="Available"
+                  value={stats?.availableCopies || 0}
+                  accentGradient="from-teal-400 to-cyan-500"
+                  bgColor="bg-teal-50 dark:bg-teal-950/40"
+                  iconColor="text-teal-600 dark:text-teal-400"
+                  footer={
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-teal-600" />
+                      <span className="text-xs font-medium text-teal-600">Ready to issue</span>
                     </div>
-                  </CardContent>
-                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-teal-400 to-cyan-500" />
-                </Card>
+                  }
+                />
 
-                <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Issued</p>
-                        <p className="text-2xl font-bold tracking-tight">{stats?.issuedCount || 0}</p>
-                        <div className="flex items-center gap-1.5">
-                          <ArrowRightLeft className="h-3.5 w-3.5 text-amber-600" />
-                          <span className="text-xs font-medium text-amber-600">Currently out</span>
-                        </div>
-                      </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
-                        <ArrowRightLeft className="h-5 w-5 text-amber-600" />
-                      </div>
+                <ModuleStatCard
+                  icon={ArrowRightLeft}
+                  label="Issued"
+                  value={stats?.issuedCount || 0}
+                  accentGradient="from-amber-400 to-orange-500"
+                  bgColor="bg-amber-50 dark:bg-amber-950/40"
+                  iconColor="text-amber-600 dark:text-amber-400"
+                  footer={
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <ArrowRightLeft className="h-3.5 w-3.5 text-amber-600" />
+                      <span className="text-xs font-medium text-amber-600">Currently out</span>
                     </div>
-                  </CardContent>
-                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-400 to-orange-500" />
-                </Card>
+                  }
+                />
 
-                <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Overdue</p>
-                        <p className="text-2xl font-bold tracking-tight">{stats?.overdueCount || 0}</p>
-                        <div className="flex items-center gap-1.5">
-                          <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
-                          <span className="text-xs font-medium text-red-500">Needs attention</span>
-                        </div>
-                      </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50">
-                        <Clock className="h-5 w-5 text-red-500" />
-                      </div>
+                <ModuleStatCard
+                  icon={Clock}
+                  label="Overdue"
+                  value={stats?.overdueCount || 0}
+                  accentGradient="from-red-400 to-rose-500"
+                  bgColor="bg-red-50 dark:bg-red-950/40"
+                  iconColor="text-red-500"
+                  footer={
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+                      <span className="text-xs font-medium text-red-500">Needs attention</span>
                     </div>
-                  </CardContent>
-                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-red-400 to-rose-500" />
-                </Card>
-              </div>
+                  }
+                />
+              </StatGrid>
 
               {/* Charts Row */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <Card className="border-0 shadow-md">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base font-semibold">Book Status</CardTitle>
-                    <CardDescription>Distribution of book copies</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-center">
-                      <ChartContainer config={statusChartConfig} className="h-[220px] w-full">
-                        <PieChart>
-                          <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
-                          <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={4} strokeWidth={0}>
-                            {statusData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.fill} />
-                            ))}
-                          </Pie>
-                        </PieChart>
-                      </ChartContainer>
+                <SectionCard title="Book Status" description="Distribution of book copies">
+                  <div className="flex items-center justify-center">
+                    <ChartContainer config={statusChartConfig} className="h-[220px] w-full">
+                      <PieChart>
+                        <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                        <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={4} strokeWidth={0}>
+                          {statusData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ChartContainer>
+                  </div>
+                  <div className="flex items-center justify-center gap-6 mt-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-3 w-3 rounded-full bg-emerald-500" />
+                      <span className="text-sm text-muted-foreground">Available ({stats?.availableCopies || 0})</span>
                     </div>
-                    <div className="flex items-center justify-center gap-6 mt-2">
-                      <div className="flex items-center gap-2">
-                        <div className="h-3 w-3 rounded-full bg-emerald-500" />
-                        <span className="text-sm text-muted-foreground">Available ({stats?.availableCopies || 0})</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-3 w-3 rounded-full bg-amber-500" />
-                        <span className="text-sm text-muted-foreground">Issued ({stats?.issuedCount || 0})</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-3 w-3 rounded-full bg-red-500" />
-                        <span className="text-sm text-muted-foreground">Overdue ({stats?.overdueCount || 0})</span>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <div className="h-3 w-3 rounded-full bg-amber-500" />
+                      <span className="text-sm text-muted-foreground">Issued ({stats?.issuedCount || 0})</span>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="flex items-center gap-2">
+                      <div className="h-3 w-3 rounded-full bg-red-500" />
+                      <span className="text-sm text-muted-foreground">Overdue ({stats?.overdueCount || 0})</span>
+                    </div>
+                  </div>
+                </SectionCard>
 
-                <Card className="border-0 shadow-md">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base font-semibold">Books by Category</CardTitle>
-                    <CardDescription>Distribution across categories</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {categoryChartData.length > 0 ? (
-                      <ChartContainer config={categoryChartConfig} className="h-[220px] w-full">
-                        <BarChart data={categoryChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                          <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
-                          <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                          <ChartTooltip content={<ChartTooltipContent />} />
-                          <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={36}>
-                            {categoryChartData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.fill} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ChartContainer>
-                    ) : (
-                      <div className="h-[220px] flex items-center justify-center text-sm text-muted-foreground">No category data</div>
-                    )}
-                  </CardContent>
-                </Card>
+                <SectionCard title="Books by Category" description="Distribution across categories">
+                  {categoryChartData.length > 0 ? (
+                    <ChartContainer config={categoryChartConfig} className="h-[220px] w-full">
+                      <BarChart data={categoryChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                        <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
+                        <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={36}>
+                          {categoryChartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ChartContainer>
+                  ) : (
+                    <div className="h-[220px] flex items-center justify-center text-sm text-muted-foreground">No category data</div>
+                  )}
+                </SectionCard>
               </div>
             </TabsContent>
 
             {/* ─── Catalog Tab ──────────────────────────────────────────────── */}
             <TabsContent value="catalog" className="space-y-4">
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                      <CardTitle className="text-base font-semibold">Book Catalog</CardTitle>
-                      <CardDescription>{data?.books.length || 0} books in the library</CardDescription>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input placeholder="Search by title, author, ISBN..." className="pl-9 h-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-                      </div>
+              <SectionCard title="Book Catalog" description={`${data?.books.length || 0} books in the library`}>
+                <div className="space-y-4">
+                  <ModuleToolbar
+                    search={search}
+                    onSearch={setSearch}
+                    searchPlaceholder="Search by title, author, ISBN..."
+                    filters={
                       <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                         <SelectTrigger className="h-9 w-40">
                           <SelectValue placeholder="Category" />
@@ -1027,11 +928,18 @@ export default function LibraryModule() {
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="max-h-[500px] overflow-y-auto">
+                    }
+                  />
+
+                  <TableShell
+                    isEmpty={data?.books.length === 0}
+                    empty={
+                      <KitEmptyState
+                        icon={BookOpen}
+                        title={search || categoryFilter !== 'ALL' ? 'No books match your filters' : 'No books in the library yet'}
+                      />
+                    }
+                  >
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -1091,142 +999,124 @@ export default function LibraryModule() {
                             </TableCell>
                           </TableRow>
                         ))}
-                        {data?.books.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
-                              {search || categoryFilter !== 'ALL' ? 'No books match your filters' : 'No books in the library yet'}
-                            </TableCell>
-                          </TableRow>
-                        )}
                       </TableBody>
                     </Table>
-                  </div>
-                </CardContent>
-              </Card>
+                  </TableShell>
+                </div>
+              </SectionCard>
             </TabsContent>
 
             {/* ─── Overdue Tab ──────────────────────────────────────────────── */}
             <TabsContent value="overdue" className="space-y-4">
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold">Overdue Books</CardTitle>
-                  <CardDescription>{data?.overdue.length || 0} books past due date</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="max-h-[500px] overflow-y-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Book</TableHead>
-                          <TableHead>Student</TableHead>
-                          <TableHead>Due Date</TableHead>
-                          <TableHead>Days Overdue</TableHead>
-                          <TableHead>Fine</TableHead>
-                          <TableHead className="text-right">Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {data?.overdue.map((t) => (
-                          <TableRow key={t.id} className="hover:bg-muted/30">
-                            <TableCell>
+              <SectionCard title="Overdue Books" description={`${data?.overdue.length || 0} books past due date`}>
+                <TableShell
+                  isEmpty={data?.overdue.length === 0}
+                  empty={
+                    <KitEmptyState
+                      icon={CheckCircle2}
+                      title="No overdue books!"
+                      description="All issued books are within due dates"
+                    />
+                  }
+                >
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Book</TableHead>
+                        <TableHead>Student</TableHead>
+                        <TableHead>Due Date</TableHead>
+                        <TableHead>Days Overdue</TableHead>
+                        <TableHead>Fine</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data?.overdue.map((t) => (
+                        <TableRow key={t.id} className="hover:bg-muted/30">
+                          <TableCell>
+                            <div>
+                              <p className="text-sm font-medium">{t.book.title}</p>
+                              <p className="text-xs text-muted-foreground">{t.book.author || '—'}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-red-50 text-red-700 text-[10px] font-semibold">
+                                {t.student.firstName[0]}{t.student.lastName[0]}
+                              </div>
                               <div>
-                                <p className="text-sm font-medium">{t.book.title}</p>
-                                <p className="text-xs text-muted-foreground">{t.book.author || '—'}</p>
+                                <p className="text-sm">{t.student.firstName} {t.student.lastName}</p>
+                                <p className="text-xs text-muted-foreground">{t.student.studentNumber}</p>
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-red-50 text-red-700 text-[10px] font-semibold">
-                                  {t.student.firstName[0]}{t.student.lastName[0]}
-                                </div>
-                                <div>
-                                  <p className="text-sm">{t.student.firstName} {t.student.lastName}</p>
-                                  <p className="text-xs text-muted-foreground">{t.student.studentNumber}</p>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm text-red-600 font-medium">{formatDate(t.dueDate!)}</TableCell>
-                            <TableCell>
-                              <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px] px-2 py-0.5 border">{t.daysOverdue} days</Badge>
-                            </TableCell>
-                            <TableCell className="text-sm font-semibold text-amber-600">${t.calculatedFine.toFixed(2)}</TableCell>
-                            <TableCell className="text-right">
-                              <Button variant="ghost" size="sm" className="h-7 text-xs text-teal-600 hover:text-teal-700" onClick={() => {
-                                setReturnForm({ transactionId: t.id, conditionOnReturn: 'GOOD', fine: t.calculatedFine.toFixed(2) })
-                                setViewMode('return-book')
-                              }}>
-                                Return
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {data?.overdue.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
-                              <div className="flex flex-col items-center">
-                                <CheckCircle2 className="h-8 w-8 text-emerald-400 mb-2" />
-                                <p>No overdue books!</p>
-                                <p className="text-xs mt-1">All issued books are within due dates</p>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm text-red-600 font-medium">{formatDate(t.dueDate!)}</TableCell>
+                          <TableCell>
+                            <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px] px-2 py-0.5 border">{t.daysOverdue} days</Badge>
+                          </TableCell>
+                          <TableCell className="text-sm font-semibold text-amber-600">${t.calculatedFine.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="sm" className="h-7 text-xs text-teal-600 hover:text-teal-700" onClick={() => {
+                              setReturnForm({ transactionId: t.id, conditionOnReturn: 'GOOD', fine: t.calculatedFine.toFixed(2) })
+                              setViewMode('return-book')
+                            }}>
+                              Return
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableShell>
+              </SectionCard>
             </TabsContent>
 
             {/* ─── Transactions Tab ──────────────────────────────────────────── */}
             <TabsContent value="transactions" className="space-y-4">
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold">Recent Transactions</CardTitle>
-                  <CardDescription>{data?.transactions.length || 0} total transactions</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="max-h-[500px] overflow-y-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Book</TableHead>
-                          <TableHead>Student</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Due Date</TableHead>
-                          <TableHead>Fine</TableHead>
+              <SectionCard title="Recent Transactions" description={`${data?.transactions.length || 0} total transactions`}>
+                <TableShell
+                  isEmpty={data?.transactions.length === 0}
+                  empty={
+                    <KitEmptyState
+                      icon={ArrowRightLeft}
+                      title="No transactions yet"
+                    />
+                  }
+                >
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Book</TableHead>
+                        <TableHead>Student</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Due Date</TableHead>
+                        <TableHead>Fine</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data?.transactions.slice(0, 50).map((t) => (
+                        <TableRow key={t.id} className="hover:bg-muted/30">
+                          <TableCell className="text-sm font-medium">{t.book.title}</TableCell>
+                          <TableCell className="text-sm">{t.student.firstName} {t.student.lastName}</TableCell>
+                          <TableCell>
+                            <Badge className={cn('text-[10px] border', t.transactionType === 'ISSUE' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200')}>
+                              {t.transactionType}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">{formatDate(t.transactionType === 'ISSUE' ? t.issueDate : (t.returnDate || t.issueDate))}</TableCell>
+                          <TableCell className="text-sm">{t.dueDate ? formatDate(t.dueDate) : '—'}</TableCell>
+                          <TableCell className="text-sm font-semibold">{t.fine > 0 ? `$${t.fine.toFixed(2)}` : '—'}</TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {data?.transactions.slice(0, 50).map((t) => (
-                          <TableRow key={t.id} className="hover:bg-muted/30">
-                            <TableCell className="text-sm font-medium">{t.book.title}</TableCell>
-                            <TableCell className="text-sm">{t.student.firstName} {t.student.lastName}</TableCell>
-                            <TableCell>
-                              <Badge className={cn('text-[10px] border', t.transactionType === 'ISSUE' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200')}>
-                                {t.transactionType}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-sm">{formatDate(t.transactionType === 'ISSUE' ? t.issueDate : (t.returnDate || t.issueDate))}</TableCell>
-                            <TableCell className="text-sm">{t.dueDate ? formatDate(t.dueDate) : '—'}</TableCell>
-                            <TableCell className="text-sm font-semibold">{t.fine > 0 ? `$${t.fine.toFixed(2)}` : '—'}</TableCell>
-                          </TableRow>
-                        ))}
-                        {data?.transactions.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">No transactions yet</TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableShell>
+              </SectionCard>
             </TabsContent>
-          </Tabs>
-        </motion.div>
+          </ModulePageLayout>
+        </ModuleContainer>
       )}
-    </motion.div>
+    </AnimatePresence>
   )
 }

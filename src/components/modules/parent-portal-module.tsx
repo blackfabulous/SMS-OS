@@ -1,6 +1,10 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { ModulePageLayout, ModuleSettingsButton, ModuleContainer, StatGrid, ModuleStatCard, SectionCard, TableShell, KitEmptyState } from '@/components/module-ui'
+import { useSession } from 'next-auth/react'
+import { useRBAC } from '@/hooks/use-rbac'
+import { type UserRole } from '@/lib/rbac'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   UsersRound,
@@ -33,7 +37,6 @@ import {
   ArrowLeft,
   Settings,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -57,13 +60,21 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area } from 'recharts'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { PaynowDialog } from '@/components/modules/paynow-dialog'
 import { SmsDialog } from '@/components/modules/sms-dialog'
 import { Switch } from '@/components/ui/switch'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Child {
@@ -306,7 +317,7 @@ const mockMessages: Message[] = [
     senderRole: 'Administration',
     subject: 'Outstanding Fee Balance Reminder',
     preview: 'This is a reminder that you have outstanding fee balances for Kudzai...',
-    fullMessage: 'Dear Mrs. Dube,\n\nThis is a kind reminder that the following fee balances are outstanding:\n\n• Kudzai Dube (Grade 6C): $350.00 (Overdue since January 31)\n• Tendai Dube (Form 4A): $175.00 (Due February 28)\n• Chido Dube (Form 2B): $225.00 (Due March 15)\n\nPlease arrange payment at your earliest convenience. Payment can be made via EcoCash, bank transfer, or at the school bursar\'s office.\n\nThank you.\nSchool Administration',
+    fullMessage: 'Dear Mrs. Dube,\n\nThis is a kind reminder that the following fee balances are outstanding:\n\n• Kudzai Dube (Grade 6C): $350.00 (Overdue since January 31)\n• Tendai Dube (Form 4A): $175.00 (Due February 28)\n• Chido Dube (Form 2B): $225.00 (Due March 15)\n• Kudzai Dube (Grade 6C): $50.00 (Due January 31)\n\nPlease arrange payment at your earliest convenience. Payment can be made via EcoCash, bank transfer, or at the school bursar\'s office.\n\nThank you.\nSchool Administration',
     date: '2026-02-18',
     read: true,
     type: 'announcement',
@@ -414,6 +425,10 @@ const ZIG_RATE = 10.83 // ZiG to USD rate
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ParentPortalModule() {
+  const { data: session } = useSession()
+  const rbac = useRBAC((session?.user?.role as UserRole) || 'PARENT')
+  const isAdmin = rbac.currentRole === 'ADMIN' || rbac.currentRole === 'SUPER_ADMIN'
+
   const [activeTab, setActiveTab] = useState('overview')
   const [currency, setCurrency] = useState<'USD' | 'ZiG'>('USD')
   const [expandedChild, setExpandedChild] = useState<string | null>(null)
@@ -429,6 +444,13 @@ export default function ParentPortalModule() {
   const [smsOpen, setSmsOpen] = useState(false)
   const [paynowStudent, setPaynowStudent] = useState('')
   const [paynowAmount, setPaynowAmount] = useState(0)
+
+  useEffect(() => {
+    if (viewMode === 'settings' && !isAdmin) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setViewMode('list')
+    }
+  }, [viewMode, isAdmin])
 
   // Settings state
   const [settings, setSettings] = useState({
@@ -459,7 +481,7 @@ export default function ParentPortalModule() {
             const apiChildren: Child[] = json.data.map((s: Record<string, unknown>) => ({
               id: s.id as string,
               name: `${s.firstName} ${s.lastName}`,
-              class: (s as Record<string, unknown[]>).enrollments?.[0] ? `${((s as Record<string, unknown[]>).enrollments[0] as Record<string, Record<string, string>>).class?.grade?.name || ''} ${((s as Record<string, unknown[]>).enrollments[0] as Record<string, Record<string, string>>).class?.name || ''}`.trim() : 'N/A',
+              class: (s as any).enrollments?.[0]?.class ? `${(s as any).enrollments[0].class.grade?.name || ''} ${(s as any).enrollments[0].class.name || ''}`.trim() : 'N/A',
               studentNumber: s.studentNumber as string,
               initials: `${(s.firstName as string)[0]}${(s.lastName as string)[0]}`,
               grades: [],
@@ -597,7 +619,7 @@ export default function ParentPortalModule() {
   // Settings view
   if (viewMode === 'settings') {
     return (
-      <div className="space-y-6">
+      <ModuleContainer>
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
         </div>
@@ -606,9 +628,8 @@ export default function ParentPortalModule() {
           <p className="text-sm text-muted-foreground mt-1">Customize your parent portal experience</p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="border-0 shadow-md">
-            <CardHeader><CardTitle className="text-base">Access Permissions</CardTitle><CardDescription>Control what information is visible</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
+          <SectionCard title="Access Permissions" description="Control what information is visible">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div><p className="text-sm font-medium">Grade Visibility</p><p className="text-xs text-muted-foreground">Show grades and test results</p></div>
                 <Switch checked={settings.gradeVisibility} onCheckedChange={(v) => setSettings({...settings, gradeVisibility: v})} />
@@ -618,11 +639,10 @@ export default function ParentPortalModule() {
                 <div><p className="text-sm font-medium">Fee Display</p><p className="text-xs text-muted-foreground">Show fee statements and balances</p></div>
                 <Switch checked={settings.feeDisplay} onCheckedChange={(v) => setSettings({...settings, feeDisplay: v})} />
               </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-md">
-            <CardHeader><CardTitle className="text-base">Notifications</CardTitle><CardDescription>How you receive alerts</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
+            </div>
+          </SectionCard>
+          <SectionCard title="Notifications" description="How you receive alerts">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div><p className="text-sm font-medium">Email Notifications</p><p className="text-xs text-muted-foreground">Receive updates via email</p></div>
                 <Switch checked={settings.notificationEmail} onCheckedChange={(v) => setSettings({...settings, notificationEmail: v})} />
@@ -637,83 +657,69 @@ export default function ParentPortalModule() {
                 <div><p className="text-sm font-medium">Attendance Alerts</p><p className="text-xs text-muted-foreground">Get notified about attendance</p></div>
                 <Switch checked={settings.attendanceAlerts} onCheckedChange={(v) => setSettings({...settings, attendanceAlerts: v})} />
               </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-md">
-            <CardHeader><CardTitle className="text-base">Calendar</CardTitle><CardDescription>School calendar integration</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
+            </div>
+          </SectionCard>
+          <SectionCard title="Calendar" description="School calendar integration">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div><p className="text-sm font-medium">Calendar Sync</p><p className="text-xs text-muted-foreground">Sync events to your calendar</p></div>
                 <Switch checked={settings.calendarSync} onCheckedChange={(v) => setSettings({...settings, calendarSync: v})} />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
         </div>
         <div className="flex justify-end">
           <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { toast.success('Settings saved successfully'); setViewMode('list') }}>Save Settings</Button>
         </div>
-      </div>
+      </ModuleContainer>
     )
   }
 
   // Compose message view
   if (viewMode === 'add') {
     return (
-      <div className="space-y-6">
+      <ModuleContainer>
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
         </div>
         <div>
           <h2 className="text-xl font-bold tracking-tight flex items-center gap-2"><MessageSquare className="h-5 w-5" /> Compose Message</h2>
         </div>
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-6 space-y-4">
+        <SectionCard>
+          <div className="space-y-4">
             <div className="grid gap-2"><Label>To</Label><Input placeholder="Teacher or staff name" value={newMsgRecipient} onChange={(e) => setNewMsgRecipient(e.target.value)} /></div>
             <div className="grid gap-2"><Label>Subject</Label><Input placeholder="Message subject" value={newMsgSubject} onChange={(e) => setNewMsgSubject(e.target.value)} /></div>
             <div className="grid gap-2"><Label>Message</Label><Textarea placeholder="Write your message..." value={newMsgBody} onChange={(e) => setNewMsgBody(e.target.value)} rows={6} /></div>
-          </CardContent>
-        </Card>
+          </div>
+        </SectionCard>
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
           <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleSendMessage}><Send className="h-4 w-4 mr-2" /> Send Message</Button>
         </div>
-      </div>
+      </ModuleContainer>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600">
-            <UsersRound className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold tracking-tight">Parent Portal</h2>
-            <p className="text-sm text-muted-foreground">Welcome back, {parentName}</p>
-          </div>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => { setViewMode('settings'); setSelectedId(null) }} className="gap-1.5">
-          <Settings className="h-4 w-4" />
-          <span className="hidden sm:inline">Settings</span>
-        </Button>
-      </motion.div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+    <ModuleContainer>
+      <ModulePageLayout
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="children">My Children</TabsTrigger>
           <TabsTrigger value="fees">Fee Payments</TabsTrigger>
           <TabsTrigger value="communications">Communications</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
-        </TabsList>
+        </>}
+        actions={isAdmin ? <ModuleSettingsButton onClick={() => { setViewMode('settings'); setSelectedId(null) }} /> : undefined}
+      >
 
         {/* ─── Overview Tab ─────────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
           {/* Welcome Banner */}
-          <Card className="border-0 shadow-md overflow-hidden">
+          <SectionCard noPadding className="border-0 shadow-md overflow-hidden">
             <div className="bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 p-6 text-white relative">
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3" />
               <div className="absolute bottom-0 right-20 w-32 h-32 bg-white/5 rounded-full translate-y-1/2" />
@@ -739,132 +745,85 @@ export default function ParentPortalModule() {
                 </div>
               </div>
             </div>
-          </Card>
+          </SectionCard>
 
           {/* Stat Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Children Enrolled</p>
-                    <p className="text-2xl font-bold">{children.length}</p>
-                    <div className="flex items-center gap-1">
-                      <GraduationCap className="h-3 w-3 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-600">All active</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
-                    <UsersRound className="h-5 w-5 text-emerald-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fees Outstanding</p>
-                    <p className="text-2xl font-bold">{formatAmount(totalOutstanding)}</p>
-                    <div className="flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3 text-amber-600" />
-                      <span className="text-xs font-medium text-amber-600">2 invoices overdue</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
-                    <DollarSign className="h-5 w-5 text-amber-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Unread Messages</p>
-                    <p className="text-2xl font-bold">{unreadCount}</p>
-                    <div className="flex items-center gap-1">
-                      <MessageSquare className="h-3 w-3 text-teal-600" />
-                      <span className="text-xs font-medium text-teal-600">Needs attention</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50">
-                    <MessageSquare className="h-5 w-5 text-teal-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Upcoming Events</p>
-                    <p className="text-2xl font-bold">{upcomingCount}</p>
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3 text-violet-600" />
-                      <span className="text-xs font-medium text-violet-600">This month</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-50">
-                    <Calendar className="h-5 w-5 text-violet-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <StatGrid cols={4}>
+            <ModuleStatCard
+              icon={UsersRound}
+              label="Children Enrolled"
+              value={children.length}
+              trend={{ value: 'All active', positive: true }}
+              accentGradient="from-emerald-400 to-teal-500"
+              bgColor="bg-emerald-50 dark:bg-emerald-950/40"
+            />
+            <ModuleStatCard
+              icon={DollarSign}
+              label="Fees Outstanding"
+              value={formatAmount(totalOutstanding)}
+              trend={{ value: '2 invoices overdue', positive: false }}
+              accentGradient="from-amber-400 to-orange-500"
+              bgColor="bg-amber-50 dark:bg-amber-950/40"
+            />
+            <ModuleStatCard
+              icon={MessageSquare}
+              label="Unread Messages"
+              value={unreadCount}
+              trend={{ value: 'Needs attention', positive: false }}
+              accentGradient="from-teal-400 to-emerald-500"
+              bgColor="bg-teal-50 dark:bg-teal-950/40"
+            />
+            <ModuleStatCard
+              icon={Calendar}
+              label="Upcoming Events"
+              value={upcomingCount}
+              trend={{ value: 'This month', positive: true }}
+              accentGradient="from-violet-400 to-indigo-500"
+              bgColor="bg-violet-50 dark:bg-violet-950/40"
+            />
+          </StatGrid>
 
           {/* Quick Actions + Fee Summary */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { icon: DollarSign, label: 'Pay Fees', color: 'bg-emerald-50 text-emerald-600', action: () => setActiveTab('fees') },
-                    { icon: MessageSquare, label: 'Messages', color: 'bg-teal-50 text-teal-600', action: () => setActiveTab('communications') },
-                    { icon: GraduationCap, label: 'View Grades', color: 'bg-amber-50 text-amber-600', action: () => setActiveTab('children') },
-                    { icon: Calendar, label: 'Events', color: 'bg-violet-50 text-violet-600', action: () => setActiveTab('calendar') },
-                    { icon: Phone, label: 'Contact School', color: 'bg-rose-50 text-rose-600', action: () => setViewMode('add') },
-                    { icon: Receipt, label: 'Payment History', color: 'bg-cyan-50 text-cyan-600', action: () => setActiveTab('fees') },
-                  ].map((action, idx) => (
-                    <button key={idx} onClick={action.action} className="flex flex-col items-center gap-2 rounded-xl p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 border border-transparent hover:border-muted bg-muted/30 hover:bg-white group">
-                      <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', action.color)}>
-                        <action.icon className="h-5 w-5" />
-                      </div>
-                      <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">{action.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold">Fee Balance Overview</CardTitle>
-                <CardDescription>Outstanding vs paid per child</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading.fees ? (
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-3/4" />
-                      <Skeleton className="h-[160px] w-full" />
+            <SectionCard title="Quick Actions">
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { icon: DollarSign, label: 'Pay Fees', color: 'bg-emerald-50 text-emerald-600', action: () => setActiveTab('fees') },
+                  { icon: MessageSquare, label: 'Messages', color: 'bg-teal-50 text-teal-600', action: () => setActiveTab('communications') },
+                  { icon: GraduationCap, label: 'View Grades', color: 'bg-amber-50 text-amber-600', action: () => setActiveTab('children') },
+                  { icon: Calendar, label: 'Events', color: 'bg-violet-50 text-violet-600', action: () => setActiveTab('calendar') },
+                  { icon: Phone, label: 'Contact School', color: 'bg-rose-50 text-rose-600', action: () => setViewMode('add') },
+                  { icon: Receipt, label: 'Payment History', color: 'bg-cyan-50 text-cyan-600', action: () => setActiveTab('fees') },
+                ].map((action, idx) => (
+                  <button key={idx} onClick={action.action} className="flex flex-col items-center gap-2 rounded-xl p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 border border-transparent hover:border-muted bg-muted/30 hover:bg-white group">
+                    <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', action.color)}>
+                      <action.icon className="h-5 w-5" />
                     </div>
-                  ) : (
-                    <ChartContainer config={feeChartConfig} className="h-[200px] w-full">
-                      <BarChart data={feeChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                        <XAxis dataKey="child" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                        <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Bar dataKey="paid" fill="var(--color-paid)" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                        <Bar dataKey="outstanding" fill="var(--color-outstanding)" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                      </BarChart>
-                    </ChartContainer>
-                  )}
-              </CardContent>
-            </Card>
+                    <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">{action.label}</span>
+                  </button>
+                ))}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Fee Balance Overview" description="Outstanding vs paid per child">
+              {loading.fees ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-[160px] w-full" />
+                </div>
+              ) : (
+                <ChartContainer config={feeChartConfig} className="h-[200px] w-full">
+                  <BarChart data={feeChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="child" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="paid" fill="var(--color-paid)" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                    <Bar dataKey="outstanding" fill="var(--color-outstanding)" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                  </BarChart>
+                </ChartContainer>
+              )}
+            </SectionCard>
           </div>
         </TabsContent>
 
@@ -873,149 +832,147 @@ export default function ParentPortalModule() {
           <div className="grid grid-cols-1 gap-4">
             {children.map((child) => (
               <motion.div key={child.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: parseInt(child.id) * 0.1 }}>
-                <Card className="border-0 shadow-md overflow-hidden">
-                  <CardContent className="p-0">
-                    {/* Child Header */}
-                    <div className="p-5">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-4">
-                          <Avatar className="h-14 w-14 border-2 border-emerald-200">
-                            <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-lg font-bold">
-                              {child.initials}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <h3 className="text-lg font-bold">{child.name}</h3>
-                            <p className="text-sm text-muted-foreground">{child.class} • {child.studentNumber}</p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1"
-                          onClick={() => setExpandedChild(expandedChild === child.id ? null : child.id)}
-                        >
-                          {expandedChild === child.id ? 'Less' : 'More'}
-                          {expandedChild === child.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                        </Button>
-                      </div>
-
-                      {/* Grades Summary */}
-                      <div className="mt-4 grid grid-cols-5 gap-3">
-                        {child.grades.map((g) => (
-                          <div key={g.subject} className="text-center">
-                            <p className="text-[10px] text-muted-foreground truncate">{g.subject}</p>
-                            <div className="w-full bg-muted rounded-full h-1.5 mt-1">
-                              <div
-                                className={cn(
-                                  'h-1.5 rounded-full transition-all',
-                                  g.mark >= 80 ? 'bg-emerald-500' : g.mark >= 60 ? 'bg-amber-500' : 'bg-red-400'
-                                )}
-                                style={{ width: `${g.mark}%` }}
-                              />
-                            </div>
-                            <p className={cn('text-sm font-bold mt-1', gradeColor(g.grade))}>{g.grade}</p>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Quick Stats Row */}
-                      <div className="mt-4 flex items-center gap-6 pt-3 border-t">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-emerald-600" />
-                          <span className="text-sm">Attendance: <span className="font-semibold">{child.attendanceRate}%</span></span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4 text-amber-600" />
-                          <span className="text-sm">Outstanding: <span className="font-semibold">{formatAmount(child.outstandingFees)}</span></span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <BarChart3 className="h-4 w-4 text-teal-600" />
-                          <span className="text-sm">Average: <span className="font-semibold">{Math.round(child.grades.reduce((s, g) => s + g.mark, 0) / child.grades.length)}%</span></span>
+                <SectionCard noPadding className="border-0 shadow-md overflow-hidden">
+                  {/* Child Header */}
+                  <div className="p-5">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-4">
+                        <Avatar className="h-14 w-14 border-2 border-emerald-200">
+                          <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-lg font-bold">
+                            {child.initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <h3 className="text-lg font-bold">{child.name}</h3>
+                          <p className="text-sm text-muted-foreground">{child.class} • {child.studentNumber}</p>
                         </div>
                       </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1"
+                        onClick={() => setExpandedChild(expandedChild === child.id ? null : child.id)}
+                      >
+                        {expandedChild === child.id ? 'Less' : 'More'}
+                        {expandedChild === child.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
                     </div>
 
-                    {/* Expanded Details */}
-                    <AnimatePresence>
-                      {expandedChild === child.id && (
-                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                          <div className="border-t bg-muted/20 p-5 space-y-5">
-                            {/* Recent Grades */}
-                            <div>
-                              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                                <BookOpen className="h-4 w-4 text-emerald-600" /> Recent Grades
-                              </h4>
-                              <div className="space-y-2">
-                                {child.recentGrades.map((g, idx) => (
-                                  <div key={idx} className="flex items-center justify-between bg-background rounded-lg p-3">
-                                    <div className="flex items-center gap-3">
-                                      <div className={cn(
-                                        'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold',
-                                        g.mark >= 80 ? 'bg-emerald-100 text-emerald-700' : g.mark >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                                      )}>
-                                        {g.grade}
-                                      </div>
-                                      <div>
-                                        <p className="text-sm font-medium">{g.subject} - {g.test}</p>
-                                        <p className="text-xs text-muted-foreground">{formatDate(g.date)}</p>
-                                      </div>
-                                    </div>
-                                    <span className="text-sm font-semibold">{g.mark}%</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
+                    {/* Grades Summary */}
+                    <div className="mt-4 grid grid-cols-5 gap-3">
+                      {child.grades.map((g) => (
+                        <div key={g.subject} className="text-center">
+                          <p className="text-[10px] text-muted-foreground truncate">{g.subject}</p>
+                          <div className="w-full bg-muted rounded-full h-1.5 mt-1">
+                            <div
+                              className={cn(
+                                'h-1.5 rounded-full transition-all',
+                                g.mark >= 80 ? 'bg-emerald-500' : g.mark >= 60 ? 'bg-amber-500' : 'bg-red-400'
+                              )}
+                              style={{ width: `${g.mark}%` }}
+                            />
+                          </div>
+                          <p className={cn('text-sm font-bold mt-1', gradeColor(g.grade))}>{g.grade}</p>
+                        </div>
+                      ))}
+                    </div>
 
-                            {/* Attendance History */}
-                            <div>
-                              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                                <Calendar className="h-4 w-4 text-teal-600" /> Attendance History
-                              </h4>
-                              <div className="space-y-2">
-                                {child.attendanceHistory.map((w, idx) => (
-                                  <div key={idx} className="flex items-center justify-between bg-background rounded-lg p-3">
-                                    <span className="text-sm font-medium">{w.week}</span>
-                                    <div className="flex items-center gap-3">
-                                      <span className="text-xs text-emerald-600">{w.present} present</span>
-                                      {w.absent > 0 && <span className="text-xs text-red-500">{w.absent} absent</span>}
-                                      <div className="w-16 bg-muted rounded-full h-1.5">
-                                        <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${(w.present / 5) * 100}%` }} />
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
+                    {/* Quick Stats Row */}
+                    <div className="mt-4 flex items-center gap-6 pt-3 border-t">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-emerald-600" />
+                        <span className="text-sm">Attendance: <span className="font-semibold">{child.attendanceRate}%</span></span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-amber-600" />
+                        <span className="text-sm">Outstanding: <span className="font-semibold">{formatAmount(child.outstandingFees)}</span></span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4 text-teal-600" />
+                        <span className="text-sm">Average: <span className="font-semibold">{child.grades.length > 0 ? `${Math.round(child.grades.reduce((s, g) => s + g.mark, 0) / child.grades.length)}%` : 'N/A'}</span></span>
+                      </div>
+                    </div>
+                  </div>
 
-                            {/* Discipline Notes */}
-                            <div>
-                              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                                <Star className="h-4 w-4 text-amber-500" /> Discipline & Merits
-                              </h4>
-                              <div className="space-y-2">
-                                {child.disciplineNotes.map((n, idx) => (
-                                  <div key={idx} className="flex items-start gap-3 bg-background rounded-lg p-3">
-                                    <Badge variant="outline" className={cn(
-                                      'text-[10px] shrink-0',
-                                      n.type === 'Merit' ? 'border-emerald-300 text-emerald-700' : n.type === 'Demerit' ? 'border-red-300 text-red-700' : 'border-amber-300 text-amber-700'
+                  {/* Expanded Details */}
+                  <AnimatePresence>
+                    {expandedChild === child.id && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                        <div className="border-t bg-muted/20 p-5 space-y-5">
+                          {/* Recent Grades */}
+                          <div>
+                            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                              <BookOpen className="h-4 w-4 text-emerald-600" /> Recent Grades
+                            </h4>
+                            <div className="space-y-2">
+                              {child.recentGrades.map((g, idx) => (
+                                <div key={idx} className="flex items-center justify-between bg-background rounded-lg p-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className={cn(
+                                      'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold',
+                                      g.mark >= 80 ? 'bg-emerald-100 text-emerald-700' : g.mark >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
                                     )}>
-                                      {n.type}
-                                    </Badge>
+                                      {g.grade}
+                                    </div>
                                     <div>
-                                      <p className="text-sm">{n.note}</p>
-                                      <p className="text-xs text-muted-foreground mt-1">{formatDate(n.date)}</p>
+                                      <p className="text-sm font-medium">{g.subject} - {g.test}</p>
+                                      <p className="text-xs text-muted-foreground">{formatDate(g.date)}</p>
                                     </div>
                                   </div>
-                                ))}
-                              </div>
+                                  <span className="text-sm font-semibold">{g.mark}%</span>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </CardContent>
-                </Card>
+
+                          {/* Attendance History */}
+                          <div>
+                            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                              <Calendar className="h-4 w-4 text-teal-600" /> Attendance History
+                            </h4>
+                            <div className="space-y-2">
+                              {child.attendanceHistory.map((w, idx) => (
+                                <div key={idx} className="flex items-center justify-between bg-background rounded-lg p-3">
+                                  <span className="text-sm font-medium">{w.week}</span>
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-xs text-emerald-600">{w.present} present</span>
+                                    {w.absent > 0 && <span className="text-xs text-red-500">{w.absent} absent</span>}
+                                    <div className="w-16 bg-muted rounded-full h-1.5">
+                                      <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${(w.present / 5) * 100}%` }} />
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Discipline Notes */}
+                          <div>
+                            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                              <Star className="h-4 w-4 text-amber-500" /> Discipline & Merits
+                            </h4>
+                            <div className="space-y-2">
+                              {child.disciplineNotes.map((n, idx) => (
+                                <div key={idx} className="flex items-start gap-3 bg-background rounded-lg p-3">
+                                  <Badge variant="outline" className={cn(
+                                    'text-[10px] shrink-0',
+                                    n.type === 'Merit' ? 'border-emerald-300 text-emerald-700' : n.type === 'Demerit' ? 'border-red-300 text-red-700' : 'border-amber-300 text-amber-700'
+                                  )}>
+                                    {n.type}
+                                  </Badge>
+                                  <div>
+                                    <p className="text-sm">{n.note}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">{formatDate(n.date)}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </SectionCard>
               </motion.div>
             ))}
           </div>
@@ -1047,7 +1004,7 @@ export default function ParentPortalModule() {
           </div>
 
           {/* Outstanding Balance Card */}
-          <Card className="border-0 shadow-md overflow-hidden">
+          <SectionCard noPadding className="border-0 shadow-md overflow-hidden">
             <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 p-6 text-white relative">
               <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4" />
               <div className="relative z-10 flex items-center justify-between">
@@ -1061,77 +1018,73 @@ export default function ParentPortalModule() {
                 </Button>
               </div>
             </div>
-          </Card>
+          </SectionCard>
 
           {/* Invoices List */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-emerald-600" /> Invoices
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {invoices.map(inv => (
-                  <div key={inv.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        'flex h-10 w-10 items-center justify-center rounded-lg',
-                        inv.status === 'Paid' ? 'bg-emerald-100' : inv.status === 'Partial' ? 'bg-amber-100' : inv.status === 'Overdue' ? 'bg-red-100' : 'bg-blue-100'
-                      )}>
-                        {inv.status === 'Paid' ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> :
-                         inv.status === 'Overdue' ? <AlertCircle className="h-5 w-5 text-red-600" /> :
-                         <Clock className="h-5 w-5 text-amber-600" />}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{inv.description}</p>
-                        <p className="text-xs text-muted-foreground">{inv.studentName} • {inv.invoiceNumber} • Due: {formatDate(inv.dueDate)}</p>
-                      </div>
-                    </div>
-                    <div className="text-right flex items-center gap-3">
-                      <div>
-                        <p className="text-sm font-semibold">{formatAmount(inv.amount)}</p>
-                        {inv.paid > 0 && inv.paid < inv.amount && (
-                          <p className="text-xs text-emerald-600">Paid: {formatAmount(inv.paid)}</p>
-                        )}
-                      </div>
-                      <Badge className={cn('text-[10px]', statusColor(inv.status))}>{inv.status}</Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <SectionCard title="Invoices" icon={Receipt}>
+            <TableShell isEmpty={invoices.length === 0} empty={<KitEmptyState title="No invoices found" />}>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Invoice #</TableHead>
+                    <TableHead>Student</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right">Paid</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Due Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invoices.map(inv => (
+                    <TableRow key={inv.id}>
+                      <TableCell className="font-mono text-xs">{inv.invoiceNumber}</TableCell>
+                      <TableCell className="font-medium">{inv.studentName}</TableCell>
+                      <TableCell>{inv.description}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatAmount(inv.amount)}</TableCell>
+                      <TableCell className="text-right text-emerald-600 font-medium">
+                        {inv.paid > 0 ? formatAmount(inv.paid) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={cn('text-[10px]', statusColor(inv.status))}>{inv.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{formatDate(inv.dueDate)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableShell>
+          </SectionCard>
 
           {/* Payment History */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-teal-600" /> Payment History
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {payments.map(pay => (
-                  <div key={pay.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{pay.description}</p>
-                        <p className="text-xs text-muted-foreground">{pay.studentName} • {pay.method} • {formatDate(pay.date)}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold text-emerald-600">{formatAmount(pay.amount)}</p>
-                      <p className="text-xs text-muted-foreground">{pay.receiptNumber}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <SectionCard title="Payment History" icon={CreditCard}>
+            <TableShell isEmpty={payments.length === 0} empty={<KitEmptyState title="No payments found" />}>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Receipt #</TableHead>
+                    <TableHead>Student</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Method</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payments.map(pay => (
+                    <TableRow key={pay.id}>
+                      <TableCell className="font-mono text-xs">{pay.receiptNumber}</TableCell>
+                      <TableCell className="font-medium">{pay.studentName}</TableCell>
+                      <TableCell>{pay.description}</TableCell>
+                      <TableCell>{pay.method}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{formatDate(pay.date)}</TableCell>
+                      <TableCell className="text-right font-semibold text-emerald-600">{formatAmount(pay.amount)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableShell>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Communications Tab ──────────────────────────────────────────────── */}
@@ -1148,11 +1101,8 @@ export default function ParentPortalModule() {
 
           {/* Messages List */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold">Messages</CardTitle>
-              </CardHeader>
-              <CardContent className="max-h-96 overflow-y-auto">
+            <SectionCard title="Messages">
+              <div className="max-h-96 overflow-y-auto pr-1 no-scrollbar">
                 <div className="space-y-2">
                   {messages.map(msg => (
                     <button
@@ -1187,67 +1137,60 @@ export default function ParentPortalModule() {
                     </button>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </SectionCard>
 
             {/* Message Detail / Chat View */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold">
-                  {selectedMessage ? selectedMessage.subject : 'Select a message'}
-                </CardTitle>
-                {selectedMessage && (
-                  <CardDescription>From: {selectedMessage.sender} ({selectedMessage.senderRole}) • {formatDate(selectedMessage.date)}</CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                {selectedMessage ? (
-                  <div className="space-y-4">
-                    {/* Full message */}
-                    <div className="bg-muted/30 rounded-lg p-4">
-                      <pre className="text-sm whitespace-pre-wrap font-sans">{selectedMessage.fullMessage}</pre>
-                    </div>
+            <SectionCard
+              title={selectedMessage ? selectedMessage.subject : 'Select a message'}
+              description={selectedMessage ? `From: ${selectedMessage.sender} (${selectedMessage.senderRole}) • ${formatDate(selectedMessage.date)}` : undefined}
+            >
+              {selectedMessage ? (
+                <div className="space-y-4">
+                  {/* Full message */}
+                  <div className="bg-muted/30 rounded-lg p-4">
+                    <pre className="text-sm whitespace-pre-wrap font-sans">{selectedMessage.fullMessage}</pre>
+                  </div>
 
-                    {/* WhatsApp-style Chat */}
-                    <div className="space-y-3 pt-3 border-t">
-                      <p className="text-xs font-medium text-muted-foreground">Conversation</p>
-                      {mockConversation.map(chat => (
-                        <div key={chat.id} className={cn(
-                          'flex',
-                          chat.sender === 'parent' ? 'justify-end' : 'justify-start'
+                  {/* WhatsApp-style Chat */}
+                  <div className="space-y-3 pt-3 border-t">
+                    <p className="text-xs font-medium text-muted-foreground">Conversation</p>
+                    {mockConversation.map(chat => (
+                      <div key={chat.id} className={cn(
+                        'flex',
+                        chat.sender === 'parent' ? 'justify-end' : 'justify-start'
+                      )}>
+                        <div className={cn(
+                          'max-w-[80%] rounded-xl px-4 py-2',
+                          chat.sender === 'parent'
+                            ? 'bg-emerald-500 text-white rounded-br-sm'
+                            : 'bg-muted rounded-bl-sm'
                         )}>
-                          <div className={cn(
-                            'max-w-[80%] rounded-xl px-4 py-2',
-                            chat.sender === 'parent'
-                              ? 'bg-emerald-500 text-white rounded-br-sm'
-                              : 'bg-muted rounded-bl-sm'
-                          )}>
-                            <p className="text-sm">{chat.message}</p>
-                            <p className={cn(
-                              'text-[10px] mt-1',
-                              chat.sender === 'parent' ? 'text-emerald-100' : 'text-muted-foreground'
-                            )}>{chat.time}</p>
-                          </div>
+                          <p className="text-sm">{chat.message}</p>
+                          <p className={cn(
+                            'text-[10px] mt-1',
+                            chat.sender === 'parent' ? 'text-emerald-100' : 'text-muted-foreground'
+                          )}>{chat.time}</p>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
+                  </div>
 
-                    {/* Reply */}
-                    <div className="flex gap-2 pt-2">
-                      <Input placeholder="Type a reply..." className="flex-1 h-9" />
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 gap-1" onClick={() => toast.success('Reply sent!')}>
-                        <Send className="h-4 w-4" /> Send
-                      </Button>
-                    </div>
+                  {/* Reply */}
+                  <div className="flex gap-2 pt-2">
+                    <Input placeholder="Type a reply..." className="flex-1 h-9" />
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 gap-1" onClick={() => toast.success('Reply sent!')}>
+                      <Send className="h-4 w-4" /> Send
+                    </Button>
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                    <MessageSquare className="h-12 w-12 mb-3 opacity-30" />
-                    <p className="text-sm">Select a message to view details</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <MessageSquare className="h-12 w-12 mb-3 opacity-30" />
+                  <p className="text-sm">Select a message to view details</p>
+                </div>
+              )}
+            </SectionCard>
           </div>
         </TabsContent>
 
@@ -1284,61 +1227,59 @@ export default function ParentPortalModule() {
           </div>
 
           {/* Monthly Grid */}
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-4">
-              {/* Day Headers */}
-              <div className="grid grid-cols-7 gap-1 mb-1">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                  <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">{day}</div>
-                ))}
-              </div>
-              {/* Calendar Days */}
-              <div className="grid grid-cols-7 gap-1">
-                {calendarDays.map((day, idx) => {
-                  const events = day ? getEventsForDay(day) : []
-                  const isToday = day === new Date().getDate() && currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear()
+          <SectionCard>
+            <div className="overflow-x-auto no-scrollbar">
+              <div className="min-w-[600px]">
+                {/* Day Headers */}
+                <div className="grid grid-cols-7 gap-1 mb-1">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                    <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">{day}</div>
+                  ))}
+                </div>
+                {/* Calendar Days */}
+                <div className="grid grid-cols-7 gap-1">
+                  {calendarDays.map((day, idx) => {
+                    const events = day ? getEventsForDay(day) : []
+                    const isToday = day === new Date().getDate() && currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear()
 
-
-  return (
-                    <div
-                      key={idx}
-                      className={cn(
-                        'min-h-[80px] p-1 rounded-lg border transition-colors',
-                        day ? 'bg-background hover:bg-muted/30' : 'bg-muted/10',
-                        isToday && 'border-emerald-400 bg-emerald-50/30'
-                      )}
-                    >
-                      {day && (
-                        <>
-                          <span className={cn(
-                            'text-xs font-medium',
-                            isToday ? 'text-emerald-600' : 'text-muted-foreground'
-                          )}>{day}</span>
-                          <div className="space-y-0.5 mt-0.5">
-                            {events.slice(0, 2).map(ev => (
-                              <div key={ev.id} className={cn('text-[9px] px-1 py-0.5 rounded truncate', eventTypeColor(ev.type))}>
-                                {eventTypeIcon(ev.type)} {ev.title}
-                              </div>
-                            ))}
-                            {events.length > 2 && (
-                              <p className="text-[9px] text-muted-foreground px-1">+{events.length - 2} more</p>
-                            )}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )
-                })}
+                    return (
+                      <div
+                        key={idx}
+                        className={cn(
+                          'min-h-[80px] p-1 rounded-lg border transition-colors',
+                          day ? 'bg-background hover:bg-muted/30' : 'bg-muted/10',
+                          isToday && 'border-emerald-400 bg-emerald-50/30'
+                        )}
+                      >
+                        {day && (
+                          <>
+                            <span className={cn(
+                              'text-xs font-medium',
+                              isToday ? 'text-emerald-600' : 'text-muted-foreground'
+                            )}>{day}</span>
+                            <div className="space-y-0.5 mt-0.5">
+                              {events.slice(0, 2).map(ev => (
+                                <div key={ev.id} className={cn('text-[9px] px-1 py-0.5 rounded truncate', eventTypeColor(ev.type))}>
+                                  {eventTypeIcon(ev.type)} {ev.title}
+                                </div>
+                              ))}
+                              {events.length > 2 && (
+                                <p className="text-[9px] text-muted-foreground px-1">+{events.length - 2} more</p>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
 
           {/* Upcoming Events List */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Upcoming Events</CardTitle>
-            </CardHeader>
-            <CardContent className="max-h-64 overflow-y-auto">
+          <SectionCard title="Upcoming Events">
+            <div className="max-h-64 overflow-y-auto pr-1 no-scrollbar">
               <div className="space-y-2">
                 {filteredCalendarEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(ev => (
                   <div key={ev.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
@@ -1358,89 +1299,101 @@ export default function ParentPortalModule() {
                   <div className="text-center py-8 text-muted-foreground text-sm">No events found for this filter</div>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Reports Tab ────────────────────────────────────────────────── */}
         <TabsContent value="reports" className="space-y-4">
-          <Card className="border-0 shadow-md overflow-hidden">
+          <SectionCard noPadding className="border-0 shadow-md overflow-hidden">
             <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 text-white">
               <h3 className="text-lg font-bold flex items-center gap-2"><BookOpen className="h-5 w-5" /> Term Reports & Report Cards</h3>
               <p className="text-emerald-100 text-sm mt-1">Download and view your children&apos;s academic reports</p>
             </div>
-          </Card>
+          </SectionCard>
 
           {children.map(child => (
-            <Card key={child.id} className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-sm font-bold">{child.initials}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <CardTitle className="text-base">{child.name}</CardTitle>
-                      <p className="text-xs text-muted-foreground">{child.class}</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => toast.success(`Report card for ${child.name} downloaded!`)}>
-                      <Download className="h-3 w-3" /> Download
-                    </Button>
-                    <Button size="sm" className="text-xs gap-1 bg-emerald-600 hover:bg-emerald-700" onClick={() => toast.info(`Opening report card preview for ${child.name}`)}>
-                      <BookOpen className="h-3 w-3" /> Preview
-                    </Button>
+            <SectionCard
+              key={child.id}
+              className="border-0 shadow-md"
+              title={
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-sm font-bold">{child.initials}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h3 className="text-base font-semibold">{child.name}</h3>
+                    <p className="text-xs text-muted-foreground">{child.class}</p>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                {/* Term Summary */}
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                  <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-3 text-center">
-                    <p className="text-xs text-muted-foreground">Term Average</p>
-                    <p className="text-lg font-bold text-emerald-600">{Math.round(child.grades.reduce((s, g) => s + g.mark, 0) / child.grades.length)}%</p>
-                  </div>
-                  <div className="bg-teal-50 dark:bg-teal-950/20 rounded-lg p-3 text-center">
-                    <p className="text-xs text-muted-foreground">Attendance</p>
-                    <p className="text-lg font-bold text-teal-600">{child.attendanceRate}%</p>
-                  </div>
-                  <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-3 text-center">
-                    <p className="text-xs text-muted-foreground">Outstanding</p>
-                    <p className="text-lg font-bold text-amber-600">{formatAmount(child.outstandingFees)}</p>
-                  </div>
+              }
+              actions={
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => toast.success(`Report card for ${child.name} downloaded!`)}>
+                    <Download className="h-3 w-3" /> Download
+                  </Button>
+                  <Button size="sm" className="text-xs gap-1 bg-emerald-600 hover:bg-emerald-700" onClick={() => toast.info(`Opening report card preview for ${child.name}`)}>
+                    <BookOpen className="h-3 w-3" /> Preview
+                  </Button>
                 </div>
+              }
+            >
+              {/* Term Summary */}
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Term Average</p>
+                  <p className="text-lg font-bold text-emerald-600">{child.grades.length > 0 ? `${Math.round(child.grades.reduce((s, g) => s + g.mark, 0) / child.grades.length)}%` : 'N/A'}</p>
+                </div>
+                <div className="bg-teal-50 dark:bg-teal-950/20 rounded-lg p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Attendance</p>
+                  <p className="text-lg font-bold text-teal-600">{child.attendanceRate}%</p>
+                </div>
+                <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Outstanding</p>
+                  <p className="text-lg font-bold text-amber-600">{formatAmount(child.outstandingFees)}</p>
+                </div>
+              </div>
 
-                {/* Subject Grades */}
-                <h4 className="text-sm font-semibold mb-2">Term 1, 2026 Results</h4>
-                <div className="space-y-1">
-                  <div className="grid grid-cols-4 gap-2 px-3 py-1 text-xs font-medium text-muted-foreground">
-                    <span>Subject</span><span className="text-center">Mark</span><span className="text-center">Grade</span><span className="text-center">Status</span>
-                  </div>
-                  {child.grades.map(g => (
-                    <div key={g.subject} className="grid grid-cols-4 gap-2 px-3 py-2 rounded-lg bg-muted/30 items-center">
-                      <span className="text-sm font-medium">{g.subject}</span>
-                      <span className={cn('text-sm text-center font-semibold', g.mark >= 80 ? 'text-emerald-600' : g.mark >= 60 ? 'text-amber-600' : 'text-red-600')}>{g.mark}%</span>
-                      <div className="flex justify-center"><Badge className={cn('text-xs', gradeColor(g.grade))}>{g.grade}</Badge></div>
-                      <span className="text-xs text-center text-muted-foreground">{g.mark >= 50 ? 'Pass' : 'Fail'}</span>
-                    </div>
-                  ))}
-                </div>
+              {/* Subject Grades */}
+              <h4 className="text-sm font-semibold mb-2">Term 1, 2026 Results</h4>
+              <TableShell>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Subject</TableHead>
+                      <TableHead className="text-center">Mark</TableHead>
+                      <TableHead className="text-center">Grade</TableHead>
+                      <TableHead className="text-center">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {child.grades.map(g => (
+                      <TableRow key={g.subject}>
+                        <TableCell className="font-medium">{g.subject}</TableCell>
+                        <TableCell className={cn('text-center font-semibold', g.mark >= 80 ? 'text-emerald-600' : g.mark >= 60 ? 'text-amber-600' : 'text-red-600')}>{g.mark}%</TableCell>
+                        <TableCell>
+                          <div className="flex justify-center"><Badge className={cn('text-xs font-semibold', gradeColor(g.grade))}>{g.grade}</Badge></div>
+                        </TableCell>
+                        <TableCell className={cn('text-center text-xs font-medium', g.mark >= 50 ? 'text-emerald-600' : 'text-red-600')}>{g.mark >= 50 ? 'Pass' : 'Fail'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableShell>
 
-                {/* Teacher Comments */}
-                <div className="mt-4 bg-muted/20 rounded-lg p-4">
-                  <h4 className="text-sm font-semibold mb-2">Class Teacher Comment</h4>
-                  <p className="text-sm text-muted-foreground italic">{child.attendanceRate >= 90 ? 'A dedicated and hardworking student. Keep up the good work!' : child.attendanceRate >= 80 ? 'Good potential but needs to improve attendance to achieve better results.' : 'Attendance is a concern. Parents are urged to ensure regular school attendance.'}</p>
-                  <Separator className="my-3" />
-                  <h4 className="text-sm font-semibold mb-2">Headmaster Comment</h4>
-                  <p className="text-sm text-muted-foreground italic">Approved. {child.grades.reduce((s, g) => s + g.mark, 0) / child.grades.length >= 70 ? 'Commendable performance this term.' : 'More effort is expected next term.'}</p>
-                </div>
-              </CardContent>
-            </Card>
+              {/* Teacher Comments */}
+              <div className="mt-4 bg-muted/20 rounded-lg p-4">
+                <h4 className="text-sm font-semibold mb-2">Class Teacher Comment</h4>
+                <p className="text-sm text-muted-foreground italic">{child.attendanceRate >= 90 ? 'A dedicated and hardworking student. Keep up the good work!' : child.attendanceRate >= 80 ? 'Good potential but needs to improve attendance to achieve better results.' : 'Attendance is a concern. Parents are urged to ensure regular school attendance.'}</p>
+                <Separator className="my-3" />
+                <h4 className="text-sm font-semibold mb-2">Headmaster Comment</h4>
+                <p className="text-sm text-muted-foreground italic">Approved. {child.grades.length > 0 && child.grades.reduce((s, g) => s + g.mark, 0) / child.grades.length >= 70 ? 'Commendable performance this term.' : 'More effort is expected next term.'}</p>
+              </div>
+            </SectionCard>
           ))}
         </TabsContent>
 
-      </Tabs>
+      </ModulePageLayout>
 
       {/* Paynow Payment Dialog */}
       <PaynowDialog
@@ -1453,6 +1406,6 @@ export default function ParentPortalModule() {
 
       {/* SMS Dialog */}
       <SmsDialog open={smsOpen} onOpenChange={setSmsOpen} />
-    </div>
+    </ModuleContainer>
   )
 }

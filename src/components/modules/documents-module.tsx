@@ -1,5 +1,6 @@
 'use client'
 
+import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
 import React, { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -41,7 +42,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -313,44 +314,24 @@ export default function DocumentsModule() {
 
   return (
     <div className="space-y-6">
-      {/* Module Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <FileText className="h-6 w-6 text-emerald-600" />
-            Document Management
-          </h2>
-          <p className="text-muted-foreground text-sm mt-1">Manage school documents, templates, and file sharing</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setPageViewMode('settings')} className="gap-1.5"><Settings className="h-3.5 w-3.5" /><span className="hidden sm:inline">Settings</span></Button>
+<ModulePageLayout
+        actions={<>
           <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setPageViewMode('upload')}>
             <Upload className="h-4 w-4 mr-2" />
             Upload Document
           </Button>
-        </div>
-      </div>
+          <ModuleSettingsButton onClick={() => setPageViewMode('settings')} />
+        </>}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabs={<>
+            <TabsTrigger value="overview"><span className="hidden sm:inline">Overview</span></TabsTrigger>
+            <TabsTrigger value="documents"><span className="hidden sm:inline">Documents</span></TabsTrigger>
+            <TabsTrigger value="templates"><span className="hidden sm:inline">Templates</span></TabsTrigger>
+            <TabsTrigger value="shared"><span className="hidden sm:inline">Shared</span></TabsTrigger>
+          </>}
+      >
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
-          <TabsTrigger value="overview" className="gap-1.5">
-            <LayoutTemplate className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Overview</span>
-          </TabsTrigger>
-          <TabsTrigger value="documents" className="gap-1.5">
-            <FolderOpen className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Documents</span>
-          </TabsTrigger>
-          <TabsTrigger value="templates" className="gap-1.5">
-            <LayoutTemplate className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Templates</span>
-          </TabsTrigger>
-          <TabsTrigger value="shared" className="gap-1.5">
-            <Users className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Shared</span>
-          </TabsTrigger>
-        </TabsList>
 
         {/* ─── Overview Tab ────────────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-6 mt-4">
@@ -887,7 +868,7 @@ export default function DocumentsModule() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+      </ModulePageLayout>
     </div>
   )
 }
