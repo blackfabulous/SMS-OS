@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateRole } from '@/lib/api-auth'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface MigrationStudent {
@@ -66,12 +68,16 @@ interface MigrationPayload {
 
 // ─── POST Handler ─────────────────────────────────────────────────────────────
 export async function POST(request: Request) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body: MigrationPayload = await request.json()
 
-    // Get the school (must exist before migration)
-    const school = await db.school.findFirst()
+    // Get the school scoped to the authenticated user
+    const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
     if (!school) {
+      logAudit({ action: 'CREATE', entity: 'import' }).catch(() => {})
       return NextResponse.json(
         { error: 'No school configured. Run setup wizard first.' },
         { status: 400 }
@@ -339,6 +345,7 @@ export async function POST(request: Request) {
       }
     }
 
+    logAudit({ action: 'CREATE', entity: 'import' }).catch(() => {})
     return NextResponse.json({
       imported,
       skipped,

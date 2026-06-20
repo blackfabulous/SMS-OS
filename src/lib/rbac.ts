@@ -5,7 +5,7 @@
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-export type UserRole = 'ADMIN' | 'TEACHER' | 'BURSAR' | 'PARENT' | 'STUDENT'
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'TEACHER' | 'BURSAR' | 'PARENT' | 'STUDENT'
 export type Action = 'create' | 'read' | 'update' | 'delete'
 export type Module = string
 
@@ -37,17 +37,22 @@ export const MODULES = [
   'library',
   'inventory',
   'canteen',
+  'school-shop',
   'welfare',
   'discipline',
   'health',
   'alumni',
+  'partnerships',
   'sdc',
   'events',
+  'premium-templates',
   'notification-center',
   'communication',
   'documents',
   'security',
+  'audit-log',
   'settings',
+  'website-cms',
   'parent-portal',
   'student-portal',
   'teacher-portal',
@@ -61,6 +66,12 @@ export type ModuleId = typeof MODULES[number]
 // ─── Permission Matrix ──────────────────────────────────────────────────────
 
 const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  SUPER_ADMIN: MODULES.map((module) => ({
+    module,
+    actions: ['create', 'read', 'update', 'delete'] as Action[],
+    fullAccess: true,
+  })),
+
   ADMIN: MODULES.map((module) => ({
     module,
     actions: ['create', 'read', 'update', 'delete'] as Action[],
@@ -172,6 +183,7 @@ export function hasFullAccess(role: UserRole, module: string): boolean {
  */
 export function getRoleDisplayName(role: UserRole): string {
   const names: Record<UserRole, string> = {
+    SUPER_ADMIN: 'Super Admin',
     ADMIN: 'Administrator',
     TEACHER: 'Teacher',
     BURSAR: 'Bursar',
@@ -186,6 +198,7 @@ export function getRoleDisplayName(role: UserRole): string {
  */
 export function getRoleColor(role: UserRole): string {
   const colors: Record<UserRole, string> = {
+    SUPER_ADMIN: 'bg-red-100 text-red-700 border-red-200',
     ADMIN: 'bg-emerald-100 text-emerald-700 border-emerald-200',
     TEACHER: 'bg-blue-100 text-blue-700 border-blue-200',
     BURSAR: 'bg-amber-100 text-amber-700 border-amber-200',
@@ -199,7 +212,7 @@ export function getRoleColor(role: UserRole): string {
  * Get all available roles
  */
 export function getAllRoles(): UserRole[] {
-  return ['ADMIN', 'TEACHER', 'BURSAR', 'PARENT', 'STUDENT']
+  return ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'BURSAR', 'PARENT', 'STUDENT']
 }
 
 /**

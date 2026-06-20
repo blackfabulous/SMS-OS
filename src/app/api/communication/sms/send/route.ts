@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { logAudit } from '@/lib/audit'
+import { validateRole } from '@/lib/api-auth'
 
 // ─── Africa's Talking SMS Integration - Send Endpoint ────────────────────────
 // Production-ready structure with simulated responses when env vars are not set.
@@ -41,11 +43,15 @@ function validatePhoneNumber(phone: string): string {
 
 // ─── POST: Send SMS via Africa's Talking ────────────────────────────────────
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body: SmsSendRequest = await request.json()
     const { to, message, type, senderId } = body
 
     if (!to) {
+      logAudit({ action: 'CREATE', entity: 'send' }).catch(() => {})
       return NextResponse.json(
         { error: 'Recipient(s) are required. Provide a phone number or array of phone numbers.' },
         { status: 400 }
@@ -53,6 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!message || message.trim().length === 0) {
+      logAudit({ action: 'CREATE', entity: 'send' }).catch(() => {})
       return NextResponse.json(
         { error: 'Message content is required' },
         { status: 400 }
@@ -63,6 +70,7 @@ export async function POST(request: NextRequest) {
     const recipients: string[] = Array.isArray(to) ? to : [to]
 
     if (recipients.length === 0) {
+      logAudit({ action: 'CREATE', entity: 'send' }).catch(() => {})
       return NextResponse.json(
         { error: 'At least one recipient is required' },
         { status: 400 }
@@ -71,6 +79,7 @@ export async function POST(request: NextRequest) {
 
     // Limit bulk SMS to 1000 recipients
     if (recipients.length > 1000) {
+      logAudit({ action: 'CREATE', entity: 'send' }).catch(() => {})
       return NextResponse.json(
         { error: 'Maximum 1000 recipients per request' },
         { status: 400 }
@@ -135,7 +144,7 @@ export async function POST(request: NextRequest) {
             try {
               // Find parent by phone number
               const parent = await db.parent.findFirst({
-                where: { phone: { contains: result.recipient.replace('+263', '') } },
+                where: { phone: { contains: result.recipient.replace('+263', ''), mode: 'insensitive' } },
               })
 
               await db.communication.create({
@@ -154,6 +163,7 @@ export async function POST(request: NextRequest) {
             }
           }
 
+          logAudit({ action: 'CREATE', entity: 'send' }).catch(() => {})
           return NextResponse.json({
             success: true,
             messageId: deliveryResults[0]?.messageId || generateMessageId(),
@@ -164,6 +174,7 @@ export async function POST(request: NextRequest) {
             results: deliveryResults,
           })
         } else {
+          logAudit({ action: 'CREATE', entity: 'send' }).catch(() => {})
           return NextResponse.json(
             { error: 'Africa\'s Talking API error', details: responseData },
             { status: 400 }
@@ -199,7 +210,7 @@ export async function POST(request: NextRequest) {
     for (const result of deliveryResults) {
       try {
         const parent = await db.parent.findFirst({
-          where: { phone: { contains: result.recipient.replace('+263', '') } },
+          where: { phone: { contains: result.recipient.replace('+263', ''), mode: 'insensitive' } },
         })
 
         if (parent || result.status === 'Delivered') {
@@ -220,6 +231,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    logAudit({ action: 'CREATE', entity: 'send' }).catch(() => {})
     return NextResponse.json({
       success: true,
       messageId: deliveryResults[0]?.messageId || generateMessageId(),

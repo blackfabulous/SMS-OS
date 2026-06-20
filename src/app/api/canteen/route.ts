@@ -1,8 +1,15 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateRole } from '@/lib/api-auth'
+import { getRequestTenant } from '@/lib/tenant'
 
 // GET /api/canteen - List menu items, sales, stock with category/status filters
 export async function GET(request: NextRequest) {
+  const tenantResult = await getRequestTenant()
+  if ('error' in tenantResult) return tenantResult.error
+  const { schoolId } = tenantResult
+
   try {
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') // items | sales | stock
@@ -12,9 +19,6 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
     const skip = (page - 1) * limit
-
-    const school = await db.school.findFirst()
-    const schoolId = school?.id
 
     // Sales / transactions
     if (type === 'sales') {
@@ -70,8 +74,8 @@ export async function GET(request: NextRequest) {
       }
       if (search) {
         stockWhere.OR = [
-          { name: { contains: search } },
-          { category: { contains: search } },
+          { name: { contains: search, mode: 'insensitive' } },
+          { category: { contains: search, mode: 'insensitive' } },
         ]
       }
 
@@ -104,8 +108,8 @@ export async function GET(request: NextRequest) {
     if (status === 'inactive') where.isActive = false
     if (search) {
       where.OR = [
-        { name: { contains: search } },
-        { category: { contains: search } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { category: { contains: search, mode: 'insensitive' } },
       ]
     }
 
@@ -164,15 +168,13 @@ export async function GET(request: NextRequest) {
 
 // POST /api/canteen - Create menu item or record sale
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'BURSAR'])
+  if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
+
   try {
     const body = await request.json()
     const { action } = body
-    const school = await db.school.findFirst()
-    const schoolId = school?.id
-
-    if (!schoolId) {
-      return NextResponse.json({ error: 'School not configured' }, { status: 400 })
-    }
 
     // Add menu item
     if (action === 'addItem') {
@@ -192,6 +194,7 @@ export async function POST(request: NextRequest) {
           reorderLevel: reorderLevel || 5,
         },
       })
+      logAudit({ action: 'CREATE', entity: 'canteen', entityId: (item as any)?.id, afterValue: item }).catch(() => {})
       return NextResponse.json(item, { status: 201 })
     }
 
@@ -249,6 +252,7 @@ export async function POST(request: NextRequest) {
         })
       }
 
+      logAudit({ action: 'CREATE', entity: 'canteen', entityId: (transaction as any)?.id, afterValue: transaction }).catch(() => {})
       return NextResponse.json(transaction, { status: 201 })
     }
 
@@ -264,6 +268,9 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/canteen - Update menu item
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'BURSAR'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { id, ...updates } = body
@@ -283,6 +290,7 @@ export async function PUT(request: NextRequest) {
         isActive: updates.isActive,
       },
     })
+    logAudit({ action: 'UPDATE', entity: 'canteen', entityId: (item as any)?.id, afterValue: item }).catch(() => {})
     return NextResponse.json(item)
   } catch (error) {
     console.error('Failed to update canteen item:', error)
@@ -295,6 +303,9 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/canteen - Soft delete menu item
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -303,6 +314,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     await db.canteenItem.update({ where: { id }, data: { isActive: false } })
+    logAudit({ action: 'DELETE', entity: 'canteen', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Canteen item deleted successfully' })
   } catch (error) {
     console.error('Failed to delete canteen item:', error)

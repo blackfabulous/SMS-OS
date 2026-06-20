@@ -1,8 +1,13 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateAuth, validateRole } from '@/lib/api-auth'
 
 // GET /api/timetable - List timetable entries with class/teacher/day filters
 export async function GET(request: NextRequest) {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const classId = searchParams.get('classId')
@@ -27,7 +32,7 @@ export async function GET(request: NextRequest) {
     if (staffId) where.staffId = staffId
     if (dayOfWeek) where.dayOfWeek = parseInt(dayOfWeek)
     if (subjectId) where.subjectId = subjectId
-    if (room) where.room = { contains: room }
+    if (room) where.room = { contains: room, mode: 'insensitive' }
 
     const [entries, total] = await Promise.all([
       db.timetableEntry.findMany({
@@ -89,6 +94,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/timetable - Create timetable entry with conflict detection
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const school = await db.school.findFirst()
@@ -242,6 +250,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    logAudit({ action: 'CREATE', entity: 'timetable', entityId: (entry as any)?.id, afterValue: entry }).catch(() => {})
     return NextResponse.json(entry, { status: 201 })
   } catch (error) {
     console.error('Failed to create timetable entry:', error)
@@ -254,6 +263,9 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/timetable - Update timetable entry
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { id, ...updates } = body
@@ -358,6 +370,7 @@ export async function PUT(request: NextRequest) {
       },
     })
 
+    logAudit({ action: 'UPDATE', entity: 'timetable', entityId: (entry as any)?.id, afterValue: entry }).catch(() => {})
     return NextResponse.json(entry)
   } catch (error) {
     console.error('Failed to update timetable entry:', error)
@@ -370,6 +383,9 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/timetable - Soft delete timetable entry
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -381,6 +397,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     await db.timetableEntry.update({ where: { id }, data: { isActive: false } })
+    logAudit({ action: 'DELETE', entity: 'timetable', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Timetable entry deleted successfully' })
   } catch (error) {
     console.error('Failed to delete timetable entry:', error)

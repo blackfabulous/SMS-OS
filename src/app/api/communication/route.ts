@@ -1,8 +1,15 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateRole } from '@/lib/api-auth'
+import { getRequestTenant } from '@/lib/tenant'
 
 // GET /api/communication - List communications with type filter and search by recipient
 export async function GET(request: NextRequest) {
+  const tenantResult = await getRequestTenant()
+  if ('error' in tenantResult) return tenantResult.error
+  const { schoolId } = tenantResult
+
   try {
     const { searchParams } = new URL(request.url)
     const channel = searchParams.get('channel') // sms/email/whatsapp filter
@@ -11,9 +18,6 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
     const skip = (page - 1) * limit
-
-    const school = await db.school.findFirst()
-    const schoolId = school?.id
 
     // Build where clause
     const where: Record<string, unknown> = { schoolId }
@@ -25,10 +29,10 @@ export async function GET(request: NextRequest) {
       const matchingParents = await db.parent.findMany({
         where: {
           OR: [
-            { firstName: { contains: search } },
-            { lastName: { contains: search } },
-            { phone: { contains: search } },
-            { email: { contains: search } },
+            { firstName: { contains: search, mode: 'insensitive' } },
+            { lastName: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
           ],
         },
         select: { id: true },
@@ -36,8 +40,8 @@ export async function GET(request: NextRequest) {
       const parentIds = matchingParents.map((p) => p.id)
       where.OR = [
         { parentId: { in: parentIds } },
-        { subject: { contains: search } },
-        { message: { contains: search } },
+        { subject: { contains: search, mode: 'insensitive' } },
+        { message: { contains: search, mode: 'insensitive' } },
       ]
     }
 
@@ -98,12 +102,13 @@ export async function GET(request: NextRequest) {
 
 // POST /api/communication - Send communication (log it)
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+  const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
+  if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 })
+
   try {
     const body = await request.json()
-    const school = await db.school.findFirst()
-    if (!school) {
-      return NextResponse.json({ error: 'School not configured' }, { status: 400 })
-    }
 
     const { parentId, channel, subject, message, recipientGroup, gradeId } = body
 
@@ -128,6 +133,7 @@ export async function POST(request: NextRequest) {
           },
         },
       })
+      logAudit({ action: 'CREATE', entity: 'communication', entityId: (comm as any)?.id, afterValue: comm }).catch(() => {})
       return NextResponse.json(comm, { status: 201 })
     }
 
@@ -199,6 +205,9 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/communication - Update communication
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { id, ...updates } = body
@@ -225,6 +234,7 @@ export async function PUT(request: NextRequest) {
       },
     })
 
+    logAudit({ action: 'UPDATE', entity: 'communication', entityId: (comm as any)?.id, afterValue: comm }).catch(() => {})
     return NextResponse.json(comm)
   } catch (error) {
     console.error('Error updating communication:', error)
@@ -237,6 +247,9 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/communication - Delete communication
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -249,6 +262,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     await db.communication.delete({ where: { id } })
+    logAudit({ action: 'DELETE', entity: 'communication', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Communication deleted successfully' })
   } catch (error) {
     console.error('Error deleting communication:', error)

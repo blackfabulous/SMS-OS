@@ -1,10 +1,16 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { getRequestTenant } from '@/lib/tenant'
+import { validateRole } from '@/lib/api-auth'
 
 // GET /api/boarding — List hostels with dormitory counts and boarding assignments
 // Query params: search, gender, status, page, limit
 export async function GET(request: NextRequest) {
   try {
+    const tenantResult = await getRequestTenant()
+    if ('error' in tenantResult) return tenantResult.error
+    const { schoolId } = tenantResult
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
     const gender = searchParams.get('gender') || ''
@@ -13,10 +19,10 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
 
     // Build hostel filter
-    const hostelFilter: Record<string, unknown> = {}
+    const hostelFilter: Record<string, unknown> = { schoolId }
     if (search) {
       hostelFilter.OR = [
-        { name: { contains: search } },
+        { name: { contains: search, mode: 'insensitive' } },
       ]
     }
     if (gender) {
@@ -108,6 +114,10 @@ export async function GET(request: NextRequest) {
 
 // POST /api/boarding — Create hostel / dormitory / assign boarder
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
+
   try {
     const body = await request.json()
     const { action } = body
@@ -144,6 +154,7 @@ export async function POST(request: NextRequest) {
         return newAssignment
       })
 
+      logAudit({ action: 'CREATE', entity: 'boarding', entityId: (assignment as any)?.id, afterValue: assignment }).catch(() => {})
       return NextResponse.json(assignment, { status: 201 })
     }
 
@@ -153,13 +164,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Hostel name is required' }, { status: 400 })
       }
       let sid = schoolId
-      if (!sid) {
-        const school = await db.school.findFirst()
-        sid = school?.id
-      }
       const hostel = await db.hostel.create({
         data: { schoolId: sid || 'default', name, gender: gender || null, capacity: capacity || 50 },
       })
+      logAudit({ action: 'CREATE', entity: 'boarding', entityId: (hostel as any)?.id, afterValue: hostel }).catch(() => {})
       return NextResponse.json(hostel, { status: 201 })
     }
 
@@ -171,6 +179,7 @@ export async function POST(request: NextRequest) {
       const dormitory = await db.dormitory.create({
         data: { hostelId, name, capacity: capacity || 20 },
       })
+      logAudit({ action: 'CREATE', entity: 'boarding', entityId: (dormitory as any)?.id, afterValue: dormitory }).catch(() => {})
       return NextResponse.json(dormitory, { status: 201 })
     }
 
@@ -183,6 +192,9 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/boarding — Update assignment / checkout
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { id, action, ...updates } = body
@@ -205,6 +217,7 @@ export async function PUT(request: NextRequest) {
         where: { id: assignment.studentId },
         data: { boardingStatus: 'DAY_SCHOLAR' },
       })
+      logAudit({ action: 'UPDATE', entity: 'boarding', entityId: (assignment as any)?.id, afterValue: assignment }).catch(() => {})
       return NextResponse.json(assignment)
     }
 
@@ -217,6 +230,7 @@ export async function PUT(request: NextRequest) {
       },
     })
 
+    logAudit({ action: 'UPDATE', entity: 'boarding', entityId: (assignment as any)?.id, afterValue: assignment }).catch(() => {})
     return NextResponse.json(assignment)
   } catch (error) {
     console.error('Failed to update boarding assignment:', error)
@@ -226,6 +240,9 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/boarding?id=xxx&type=hostel|dormitory|assignment
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -247,6 +264,7 @@ export async function DELETE(request: NextRequest) {
       })
     }
 
+    logAudit({ action: 'DELETE', entity: 'boarding', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Deleted successfully' })
   } catch (error) {
     console.error('Failed to delete boarding record:', error)

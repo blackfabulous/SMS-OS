@@ -34,8 +34,16 @@ export async function GET(request: Request) {
     }
 
     if (gender) where.gender = gender
-    if (enrollmentStatus) where.enrollmentStatus = enrollmentStatus
     if (boardingStatus) where.boardingStatus = boardingStatus
+
+    if (enrollmentStatus) {
+      where.enrollmentStatus = enrollmentStatus
+    } else {
+      where.NOT = [
+        { studentNumber: { startsWith: 'APP' } },
+        { enrollmentStatus: { in: ['PENDING', 'REJECTED', 'UNDER_REVIEW', 'WAITLISTED'] } }
+      ]
+    }
 
     if (grade) {
       where.enrollments = {

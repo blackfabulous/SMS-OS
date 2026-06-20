@@ -1,10 +1,14 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { getRequestTenant } from '@/lib/tenant'
+import { validateRole } from '@/lib/api-auth'
 
-// GET /api/welfare — List welfare records and BEAM applications
-// Query params: type (welfare|beam), search, status, category, page, limit
 export async function GET(request: NextRequest) {
   try {
+    const tenantResult = await getRequestTenant()
+    if ('error' in tenantResult) return tenantResult.error
+    const { schoolId } = tenantResult
+
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') || ''
     const search = searchParams.get('search') || ''
@@ -13,27 +17,29 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
 
-    // If type=beam, return only BEAM applications
+    const schoolStudentFilter = { schoolId }
+
     if (type === 'beam') {
       const beamWhere: Record<string, unknown> = {}
       if (status) beamWhere.status = status
       if (search) {
         beamWhere.student = {
+          schoolId,
           OR: [
-            { firstName: { contains: search } },
-            { lastName: { contains: search } },
-            { studentNumber: { contains: search } },
+            { firstName: { contains: search, mode: 'insensitive' } },
+            { lastName: { contains: search, mode: 'insensitive' } },
+            { studentNumber: { contains: search, mode: 'insensitive' } },
           ],
         }
+      } else {
+        beamWhere.student = { schoolId }
       }
 
       const [beamApplications, beamTotal] = await Promise.all([
         db.beamApplication.findMany({
           where: beamWhere,
           include: {
-            student: {
-              select: { id: true, firstName: true, lastName: true, studentNumber: true, beamStatus: true, gender: true },
-            },
+            student: { select: { id: true, firstName: true, lastName: true, studentNumber: true, beamStatus: true, gender: true } },
           },
           orderBy: { createdAt: 'desc' },
           skip: (page - 1) * limit,
@@ -42,45 +48,52 @@ export async function GET(request: NextRequest) {
         db.beamApplication.count({ where: beamWhere }),
       ])
 
+      // Stats scoped to this school
+      const schoolBeamFilter = { student: schoolStudentFilter }
+      const [applied, approved, rejected, totalCoveredAgg, totalOutstandingAgg] = await Promise.all([
+        db.beamApplication.count({ where: { ...schoolBeamFilter, status: 'APPLIED' } }),
+        db.beamApplication.count({ where: { ...schoolBeamFilter, status: 'APPROVED' } }),
+        db.beamApplication.count({ where: { ...schoolBeamFilter, status: 'REJECTED' } }),
+        db.beamApplication.aggregate({ where: schoolBeamFilter, _sum: { coveredAmount: true } }),
+        db.beamApplication.aggregate({ where: schoolBeamFilter, _sum: { outstandingBalance: true } }),
+      ])
+
       const beamStats = {
         total: beamTotal,
-        applied: await db.beamApplication.count({ where: { status: 'APPLIED' } }),
-        approved: await db.beamApplication.count({ where: { status: 'APPROVED' } }),
-        rejected: await db.beamApplication.count({ where: { status: 'REJECTED' } }),
-        totalCovered: (await db.beamApplication.aggregate({ _sum: { coveredAmount: true } }))._sum.coveredAmount || 0,
-        totalOutstanding: (await db.beamApplication.aggregate({ _sum: { outstandingBalance: true } }))._sum.outstandingBalance || 0,
+        applied,
+        approved,
+        rejected,
+        totalCovered: totalCoveredAgg._sum.coveredAmount || 0,
+        totalOutstanding: totalOutstandingAgg._sum.outstandingBalance || 0,
       }
 
-      return NextResponse.json({
-        data: beamApplications,
-        total: beamTotal,
-        page,
-        totalPages: Math.ceil(beamTotal / limit),
-        stats: beamStats,
-      })
+      return NextResponse.json({ data: beamApplications, total: beamTotal, page, totalPages: Math.ceil(beamTotal / limit), stats: beamStats })
     }
 
-    // Default: return welfare records + BEAM summary
+    // Default: welfare records
     const welfareWhere: Record<string, unknown> = {}
     if (status) welfareWhere.status = status
     if (category) welfareWhere.category = category
     if (search) {
       welfareWhere.student = {
+        schoolId,
         OR: [
-          { firstName: { contains: search } },
-          { lastName: { contains: search } },
-          { studentNumber: { contains: search } },
+          { firstName: { contains: search, mode: 'insensitive' } },
+          { lastName: { contains: search, mode: 'insensitive' } },
+          { studentNumber: { contains: search, mode: 'insensitive' } },
         ],
       }
+    } else {
+      welfareWhere.student = { schoolId }
     }
+
+    const schoolWelfareFilter = { student: schoolStudentFilter }
 
     const [welfareRecords, welfareTotal] = await Promise.all([
       db.welfareRecord.findMany({
         where: welfareWhere,
         include: {
-          student: {
-            select: { id: true, firstName: true, lastName: true, studentNumber: true, beamStatus: true, gender: true },
-          },
+          student: { select: { id: true, firstName: true, lastName: true, studentNumber: true, beamStatus: true, gender: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
@@ -89,33 +102,42 @@ export async function GET(request: NextRequest) {
       db.welfareRecord.count({ where: welfareWhere }),
     ])
 
-    // BEAM applications summary
     const beamApplications = await db.beamApplication.findMany({
-      include: {
-        student: {
-          select: { id: true, firstName: true, lastName: true, studentNumber: true, beamStatus: true },
-        },
-      },
+      where: { student: { schoolId } },
+      include: { student: { select: { id: true, firstName: true, lastName: true, studentNumber: true, beamStatus: true } } },
       orderBy: { createdAt: 'desc' },
       take: 100,
     })
 
-    // Comprehensive stats
+    const schoolBeamFilter = { student: schoolStudentFilter }
+
+    const [openCases, inProgressCases, closedCases, confidentialCases, beamApplied, beamApproved, beamRejected, totalBeamCoveredAgg] =
+      await Promise.all([
+        db.welfareRecord.count({ where: { ...schoolWelfareFilter, status: 'OPEN' } }),
+        db.welfareRecord.count({ where: { ...schoolWelfareFilter, status: 'IN_PROGRESS' } }),
+        db.welfareRecord.count({ where: { ...schoolWelfareFilter, status: 'CLOSED' } }),
+        db.welfareRecord.count({ where: { ...schoolWelfareFilter, isConfidential: true } }),
+        db.beamApplication.count({ where: { ...schoolBeamFilter, status: 'APPLIED' } }),
+        db.beamApplication.count({ where: { ...schoolBeamFilter, status: 'APPROVED' } }),
+        db.beamApplication.count({ where: { ...schoolBeamFilter, status: 'REJECTED' } }),
+        db.beamApplication.aggregate({ where: schoolBeamFilter, _sum: { coveredAmount: true } }),
+      ])
+
     const stats = {
       totalWelfareCases: welfareTotal,
-      openCases: await db.welfareRecord.count({ where: { status: 'OPEN' } }),
-      inProgressCases: await db.welfareRecord.count({ where: { status: 'IN_PROGRESS' } }),
-      closedCases: await db.welfareRecord.count({ where: { status: 'CLOSED' } }),
-      confidentialCases: await db.welfareRecord.count({ where: { isConfidential: true } }),
-      beamApplied: await db.beamApplication.count({ where: { status: 'APPLIED' } }),
-      beamApproved: await db.beamApplication.count({ where: { status: 'APPROVED' } }),
-      beamRejected: await db.beamApplication.count({ where: { status: 'REJECTED' } }),
-      totalBeamCovered: (await db.beamApplication.aggregate({ _sum: { coveredAmount: true } }))._sum.coveredAmount || 0,
+      openCases,
+      inProgressCases,
+      closedCases,
+      confidentialCases,
+      beamApplied,
+      beamApproved,
+      beamRejected,
+      totalBeamCovered: totalBeamCoveredAgg._sum.coveredAmount || 0,
     }
 
-    // Category breakdown
     const categoryBreakdown = await db.welfareRecord.groupBy({
       by: ['category'],
+      where: schoolWelfareFilter,
       _count: { id: true },
     })
 
@@ -134,8 +156,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/welfare — Create welfare record or BEAM application
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const body = await request.json()
     const { type } = body
@@ -145,6 +170,10 @@ export async function POST(request: NextRequest) {
       if (!studentId) {
         return NextResponse.json({ error: 'Student ID is required' }, { status: 400 })
       }
+
+      // Verify student belongs to caller's school
+      const student = await db.student.findUnique({ where: { id: studentId, schoolId: session.user.schoolId }, select: { id: true } })
+      if (!student) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
 
       const existing = await db.beamApplication.findUnique({ where: { studentId } })
       if (existing) {
@@ -168,15 +197,17 @@ export async function POST(request: NextRequest) {
       })
 
       await db.student.update({ where: { id: studentId }, data: { beamStatus: 'APPLIED' } })
-
       return NextResponse.json(beamApplication, { status: 201 })
     }
 
-    // Default: add welfare record
     const { studentId, category, description, actionTaken, referredTo, isConfidential } = body
     if (!studentId || !category) {
       return NextResponse.json({ error: 'Student ID and category are required' }, { status: 400 })
     }
+
+    // Verify student belongs to caller's school
+    const student = await db.student.findUnique({ where: { id: studentId, schoolId: session.user.schoolId }, select: { id: true } })
+    if (!student) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
 
     const welfareRecord = await db.welfareRecord.create({
       data: {
@@ -200,8 +231,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/welfare — Update welfare record or BEAM application
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const body = await request.json()
     const { type, id, ...updates } = body
@@ -211,6 +245,15 @@ export async function PUT(request: NextRequest) {
     }
 
     if (type === 'beam') {
+      // Verify ownership
+      const existing = await db.beamApplication.findUnique({
+        where: { id },
+        select: { student: { select: { schoolId: true } } },
+      })
+      if (!existing || existing.student.schoolId !== session.user.schoolId) {
+        return NextResponse.json({ error: 'Record not found' }, { status: 404 })
+      }
+
       const record = await db.beamApplication.update({
         where: { id },
         data: {
@@ -222,9 +265,7 @@ export async function PUT(request: NextRequest) {
           guardianSituation: updates.guardianSituation,
           orphanStatus: updates.orphanStatus,
         },
-        include: {
-          student: { select: { id: true, firstName: true, lastName: true, studentNumber: true, beamStatus: true } },
-        },
+        include: { student: { select: { id: true, firstName: true, lastName: true, studentNumber: true, beamStatus: true } } },
       })
 
       if (updates.status && record.student) {
@@ -234,7 +275,15 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(record)
     }
 
-    // Default: update welfare record
+    // Verify welfare record ownership
+    const existing = await db.welfareRecord.findUnique({
+      where: { id },
+      select: { student: { select: { schoolId: true } } },
+    })
+    if (!existing || existing.student.schoolId !== session.user.schoolId) {
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 })
+    }
+
     const record = await db.welfareRecord.update({
       where: { id },
       data: {
@@ -245,9 +294,7 @@ export async function PUT(request: NextRequest) {
         status: updates.status,
         isConfidential: updates.isConfidential,
       },
-      include: {
-        student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } },
-      },
+      include: { student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } } },
     })
 
     return NextResponse.json(record)
@@ -257,8 +304,11 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE /api/welfare?id=xxx&type=welfare|beam
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -269,8 +319,22 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (type === 'beam') {
+      const existing = await db.beamApplication.findUnique({
+        where: { id },
+        select: { student: { select: { schoolId: true } } },
+      })
+      if (!existing || existing.student.schoolId !== session.user.schoolId) {
+        return NextResponse.json({ error: 'Record not found' }, { status: 404 })
+      }
       await db.beamApplication.delete({ where: { id } })
     } else {
+      const existing = await db.welfareRecord.findUnique({
+        where: { id },
+        select: { student: { select: { schoolId: true } } },
+      })
+      if (!existing || existing.student.schoolId !== session.user.schoolId) {
+        return NextResponse.json({ error: 'Record not found' }, { status: 404 })
+      }
       await db.welfareRecord.delete({ where: { id } })
     }
 

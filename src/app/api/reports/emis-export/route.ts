@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
 import { db } from '@/lib/db'
+import { getRequestTenant } from '@/lib/tenant'
 
 export async function GET() {
+  const tenantResult = await getRequestTenant()
+  if ('error' in tenantResult) return tenantResult.error
+  const { schoolId } = tenantResult
+
   try {
     // Fetch school data
     const school = await db.school.findFirst()
@@ -35,7 +40,7 @@ export async function GET() {
       right: { style: 'thin' as const },
     }
 
-    const headerFill: Partial<ExcelJS.Fill> = {
+    const headerFill: ExcelJS.Fill = {
       type: 'pattern',
       pattern: 'solid',
       fgColor: { argb: 'FF064E3B' },

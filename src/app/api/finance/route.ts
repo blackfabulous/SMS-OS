@@ -1,18 +1,24 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { getRequestTenant } from '@/lib/tenant'
+import { validateRole } from '@/lib/api-auth'
 
 export async function GET() {
   try {
-    const invoicedResult = await db.feeInvoice.aggregate({ _sum: { totalAmount: true } })
+    const tenantResult = await getRequestTenant()
+    if ('error' in tenantResult) return tenantResult.error
+    const { schoolId } = tenantResult
+    const invoicedResult = await db.feeInvoice.aggregate({ where: { student: { schoolId } }, _sum: { totalAmount: true } })
     const totalInvoiced = invoicedResult._sum.totalAmount || 0
 
-    const collectedResult = await db.feeInvoice.aggregate({ _sum: { amountPaid: true } })
+    const collectedResult = await db.feeInvoice.aggregate({ where: { student: { schoolId } }, _sum: { amountPaid: true } })
     const totalCollected = collectedResult._sum.amountPaid || 0
 
-    const outstandingResult = await db.feeInvoice.aggregate({ _sum: { balance: true } })
+    const outstandingResult = await db.feeInvoice.aggregate({ where: { student: { schoolId } }, _sum: { balance: true } })
     const totalOutstanding = outstandingResult._sum.balance || 0
 
-    const debtorCount = await db.feeInvoice.groupBy({ by: ['studentId'], having: { balance: { _sum: { gt: 0 } } } })
+    const debtorCount = await db.feeInvoice.groupBy({ by: ['studentId'], where: { student: { schoolId } }, having: { balance: { _sum: { gt: 0 } } } })
 
     const recentPayments = await db.feePayment.findMany({
       take: 10, orderBy: { createdAt: 'desc' },
@@ -22,12 +28,12 @@ export async function GET() {
       },
     })
 
-    const pendingCount = await db.feeInvoice.count({ where: { status: 'PENDING' } })
-    const partialCount = await db.feeInvoice.count({ where: { status: 'PARTIAL' } })
-    const paidCount = await db.feeInvoice.count({ where: { status: 'PAID' } })
-    const overdueCount = await db.feeInvoice.count({ where: { status: { in: ['PENDING', 'PARTIAL'] }, dueDate: { lt: new Date() } } })
+    const pendingCount = await db.feeInvoice.count({ where: { status: 'PENDING', student: { schoolId } } })
+    const partialCount = await db.feeInvoice.count({ where: { status: 'PARTIAL', student: { schoolId } } })
+    const paidCount = await db.feeInvoice.count({ where: { status: 'PAID', student: { schoolId } } })
+    const overdueCount = await db.feeInvoice.count({ where: { status: { in: ['PENDING', 'PARTIAL'] }, dueDate: { lt: new Date() }, student: { schoolId } } })
 
-    const paymentsByMethod = await db.feePayment.groupBy({ by: ['paymentMethod'], _sum: { amount: true }, _count: true })
+    const paymentsByMethod = await db.feePayment.groupBy({ by: ['paymentMethod'], where: { student: { schoolId } }, _sum: { amount: true }, _count: true })
 
     const sixMonthsAgo = new Date(); sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
     const recentPaymentsForTrend = await db.feePayment.findMany({
@@ -55,6 +61,9 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const authResult = await validateRole(['ADMIN', 'BURSAR'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { action, id, ...updates } = body
@@ -80,6 +89,7 @@ export async function PUT(request: Request) {
         })
       }
 
+      logAudit({ action: 'UPDATE', entity: 'finance', entityId: (payment as any)?.id, afterValue: payment }).catch(() => {})
       return NextResponse.json(payment)
     }
 

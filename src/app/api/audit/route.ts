@@ -1,7 +1,12 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateRole } from '@/lib/api-auth'
 
 export async function GET(request: Request) {
+  const authResult = await validateRole(['ADMIN', 'SUPER_ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const user = searchParams.get('user')
@@ -54,6 +59,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const authResult = await validateRole(['ADMIN', 'SUPER_ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { action, entity, entityId, performedBy, details, beforeValue, afterValue } = body
@@ -74,6 +82,7 @@ export async function POST(request: Request) {
       },
     })
 
+    logAudit({ action: 'CREATE', entity: 'audit', entityId: (log as any)?.id, afterValue: log }).catch(() => {})
     return NextResponse.json(log, { status: 201 })
   } catch (error) {
     console.error('Error creating audit log:', error)

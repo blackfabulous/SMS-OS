@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { logAudit } from '@/lib/audit'
+import { validateRole } from '@/lib/api-auth'
 
 // ─── ZIMSEC Bulk Import - Results Endpoint ───────────────────────────────────
 // Accepts bulk ZIMSEC results and creates/updates candidate records.
@@ -23,6 +25,9 @@ interface ImportResult {
 
 // ─── POST: Bulk Import ZIMSEC Results ───────────────────────────────────────
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const contentType = request.headers.get('content-type') || ''
 
@@ -37,6 +42,7 @@ export async function POST(request: NextRequest) {
       } else if (Array.isArray(body)) {
         results = body
       } else {
+        logAudit({ action: 'CREATE', entity: 'bulk-import' }).catch(() => {})
         return NextResponse.json(
           { error: 'Expected { results: [...] } or an array of result entries' },
           { status: 400 }
@@ -48,6 +54,7 @@ export async function POST(request: NextRequest) {
       const file = formData.get('file') as File | null
 
       if (!file) {
+        logAudit({ action: 'CREATE', entity: 'bulk-import' }).catch(() => {})
         return NextResponse.json(
           { error: 'No file uploaded. Please upload a CSV file or send JSON data.' },
           { status: 400 }
@@ -58,6 +65,7 @@ export async function POST(request: NextRequest) {
       const lines = text.split('\n').filter(l => l.trim())
 
       if (lines.length < 2) {
+        logAudit({ action: 'CREATE', entity: 'bulk-import' }).catch(() => {})
         return NextResponse.json(
           { error: 'CSV file must have a header row and at least one data row' },
           { status: 400 }
@@ -78,6 +86,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (colIndex.studentNumber === -1 || colIndex.subject === -1 || colIndex.grade === -1 || colIndex.year === -1 || colIndex.level === -1) {
+        logAudit({ action: 'CREATE', entity: 'bulk-import' }).catch(() => {})
         return NextResponse.json(
           { error: 'Missing required columns. Expected: studentNumber, subject, grade, marks, year, level, session' },
           { status: 400 }
@@ -116,6 +125,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (results.length === 0) {
+      logAudit({ action: 'CREATE', entity: 'bulk-import' }).catch(() => {})
       return NextResponse.json(
         { error: 'No valid result entries provided' },
         { status: 400 }
@@ -267,7 +277,7 @@ export async function POST(request: NextRequest) {
                   where: {
                     subjectId: subject.id,
                     termId: currentTerm.id,
-                    name: { contains: 'ZIMSEC' },
+                    name: { contains: 'ZIMSEC', mode: 'insensitive' },
                   },
                 })
 
@@ -316,6 +326,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    logAudit({ action: 'CREATE', entity: 'bulk-import' }).catch(() => {})
     return NextResponse.json({
       success: true,
       imported: importResult.imported,

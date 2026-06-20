@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { validateRole } from '@/lib/api-auth'
 
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { fromGradeId, toGradeId, studentIds, academicYearId, promoteAll } = body

@@ -1,11 +1,16 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateAuth, validateRole } from '@/lib/api-auth'
 
 // GET /api/events/[id] - Get a single event
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+
   try {
     const { id } = await params
     const event = await db.schoolEvent.findUnique({
@@ -43,10 +48,23 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const { id } = await params
     const body = await request.json()
     const { title, description, eventType, startDate, endDate, venue } = body
+
+    // Verify the event belongs to the caller's school before updating
+    const existing = await db.schoolEvent.findFirst({
+      where: { id, schoolId: session.user.schoolId },
+      select: { id: true },
+    })
+    if (!existing) {
+      return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+    }
 
     const event = await db.schoolEvent.update({
       where: { id },
@@ -60,6 +78,7 @@ export async function PUT(
       },
     })
 
+    logAudit({ action: 'UPDATE', entity: 'events', entityId: (event as any)?.id, afterValue: event }).catch(() => {})
     return NextResponse.json(event)
   } catch (error) {
     console.error('Failed to update event:', error)
@@ -75,13 +94,27 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const { id } = await params
+
+    // Verify the event belongs to the caller's school before deleting
+    const existing = await db.schoolEvent.findFirst({
+      where: { id, schoolId: session.user.schoolId },
+      select: { id: true },
+    })
+    if (!existing) {
+      return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+    }
 
     await db.schoolEvent.delete({
       where: { id },
     })
 
+    logAudit({ action: 'DELETE', entity: 'events', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Event deleted successfully' })
   } catch (error) {
     console.error('Failed to delete event:', error)

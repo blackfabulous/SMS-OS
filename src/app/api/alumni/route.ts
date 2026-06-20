@@ -1,8 +1,15 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateAuth, validateRole } from '@/lib/api-auth'
+import { getRequestTenant } from '@/lib/tenant'
 
 // GET /api/alumni - List alumni with graduation year, location, search filters
 export async function GET(request: NextRequest) {
+  const tenantResult = await getRequestTenant()
+  if ('error' in tenantResult) return tenantResult.error
+  const { schoolId } = tenantResult
+
   try {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
@@ -14,27 +21,20 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
     const skip = (page - 1) * limit
 
-    const school = await db.school.findFirst()
-    const schoolId = school?.id
-
-    if (!schoolId) {
-      return NextResponse.json({ error: 'School not configured' }, { status: 400 })
-    }
-
     // Build where clause
     const where: Record<string, unknown> = { schoolId, isActive: true }
     if (graduationYear) where.graduationYear = parseInt(graduationYear)
-    if (location) where.location = { contains: location }
-    if (occupation) where.occupation = { contains: occupation }
+    if (location) where.location = { contains: location, mode: 'insensitive' }
+    if (occupation) where.occupation = { contains: occupation, mode: 'insensitive' }
     if (isNotable === 'true') where.isNotable = true
     if (search) {
       where.OR = [
-        { firstName: { contains: search } },
-        { lastName: { contains: search } },
-        { email: { contains: search } },
-        { occupation: { contains: search } },
-        { company: { contains: search } },
-        { phone: { contains: search } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { occupation: { contains: search, mode: 'insensitive' } },
+        { company: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
       ]
     }
 
@@ -104,15 +104,14 @@ export async function GET(request: NextRequest) {
 
 // POST /api/alumni - Create alumni record
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+  const schoolId = session.user.schoolId
+
   try {
     const body = await request.json()
     const { action } = body
-    const school = await db.school.findFirst()
-    const schoolId = school?.id
-
-    if (!schoolId) {
-      return NextResponse.json({ error: 'School not configured' }, { status: 400 })
-    }
 
     // Add contribution to existing alumni
     if (action === 'addContribution') {
@@ -141,6 +140,7 @@ export async function POST(request: NextRequest) {
         data: { totalContributions: { increment: amount } },
       })
 
+      logAudit({ action: 'CREATE', entity: 'alumni', entityId: (contribution as any)?.id, afterValue: contribution }).catch(() => {})
       return NextResponse.json(contribution, { status: 201 })
     }
 
@@ -180,6 +180,7 @@ export async function POST(request: NextRequest) {
       include: { contributions: true },
     })
 
+    logAudit({ action: 'CREATE', entity: 'alumni', entityId: (alumniRecord as any)?.id, afterValue: alumniRecord }).catch(() => {})
     return NextResponse.json(alumniRecord, { status: 201 })
   } catch (error) {
     console.error('Failed to create alumni record:', error)
@@ -192,6 +193,9 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/alumni - Update alumni record
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { id, ...updates } = body
@@ -218,6 +222,7 @@ export async function PUT(request: NextRequest) {
       include: { contributions: true },
     })
 
+    logAudit({ action: 'UPDATE', entity: 'alumni', entityId: (alumniRecord as any)?.id, afterValue: alumniRecord }).catch(() => {})
     return NextResponse.json(alumniRecord)
   } catch (error) {
     console.error('Failed to update alumni record:', error)
@@ -230,6 +235,9 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/alumni - Soft delete alumni record
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -238,6 +246,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     await db.alumni.update({ where: { id }, data: { isActive: false } })
+    logAudit({ action: 'DELETE', entity: 'alumni', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Alumni record deleted successfully' })
   } catch (error) {
     console.error('Failed to delete alumni record:', error)

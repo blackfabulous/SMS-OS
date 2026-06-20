@@ -1,7 +1,7 @@
 import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcrypt'
-import { db } from '@/lib/db'
+import { db, withDbRetry } from '@/lib/db'
 
 // Password hashing utilities
 export async function hashPassword(password: string): Promise<string> {
@@ -29,14 +29,16 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Email and password are required')
         }
 
-        const user = await db.user.findUnique({
+        // Retry on transient connection errors so a paused Supabase project
+        // (which wakes within ~seconds) doesn't fail an otherwise-valid login.
+        const user = await withDbRetry(() => db.user.findUnique({
           where: { email: credentials.email },
           include: {
             school: { select: { id: true, name: true, code: true } },
             staff: { select: { id: true, staffNumber: true, position: true } },
             student: { select: { id: true, studentNumber: true } },
           },
-        })
+        }))
 
         if (!user) {
           throw new Error('No account found with this email')
@@ -52,11 +54,11 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Invalid password')
         }
 
-        // Update last login
-        await db.user.update({
+        // Update last login — best-effort; a failure here must never block login.
+        db.user.update({
           where: { id: user.id },
           data: { lastLogin: new Date() },
-        })
+        }).catch(() => {})
 
         return {
           id: user.id,

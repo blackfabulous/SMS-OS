@@ -1,10 +1,16 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { getRequestTenant } from '@/lib/tenant'
+import { validateRole } from '@/lib/api-auth'
 
 // GET /api/transport — List routes with vehicle and student assignment info
 // Query params: search, isActive, page, limit
 export async function GET(request: NextRequest) {
   try {
+    const tenantResult = await getRequestTenant()
+    if ('error' in tenantResult) return tenantResult.error
+    const { schoolId } = tenantResult
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
     const isActiveStr = searchParams.get('isActive')
@@ -15,8 +21,8 @@ export async function GET(request: NextRequest) {
     const routeFilter: Record<string, unknown> = {}
     if (search) {
       routeFilter.OR = [
-        { name: { contains: search } },
-        { description: { contains: search } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
       ]
     }
     if (isActiveStr !== null) {
@@ -54,9 +60,9 @@ export async function GET(request: NextRequest) {
     }
     if (search) {
       vehicleFilter.OR = [
-        { registrationNumber: { contains: search } },
-        { driverName: { contains: search } },
-        { make: { contains: search } },
+        { registrationNumber: { contains: search, mode: 'insensitive' } },
+        { driverName: { contains: search, mode: 'insensitive' } },
+        { make: { contains: search, mode: 'insensitive' } },
       ]
     }
 
@@ -128,6 +134,10 @@ export async function GET(request: NextRequest) {
 
 // POST /api/transport — Create route / vehicle / assign student to route
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
+
   try {
     const body = await request.json()
     const { action } = body
@@ -168,6 +178,7 @@ export async function POST(request: NextRequest) {
           route: { select: { name: true, fee: true } },
         },
       })
+      logAudit({ action: 'CREATE', entity: 'transport', entityId: (assignment as any)?.id, afterValue: assignment }).catch(() => {})
       return NextResponse.json(assignment, { status: 201 })
     }
 
@@ -177,10 +188,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Route name is required' }, { status: 400 })
       }
       let sid = schoolId
-      if (!sid) {
-        const school = await db.school.findFirst()
-        sid = school?.id
-      }
 
       const route = await db.transportRoute.create({
         data: {
@@ -191,6 +198,7 @@ export async function POST(request: NextRequest) {
           capacity: capacity || 50,
         },
       })
+      logAudit({ action: 'CREATE', entity: 'transport', entityId: (route as any)?.id, afterValue: route }).catch(() => {})
       return NextResponse.json(route, { status: 201 })
     }
 
@@ -200,10 +208,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Registration number is required' }, { status: 400 })
       }
       let sid = schoolId
-      if (!sid) {
-        const school = await db.school.findFirst()
-        sid = school?.id
-      }
 
       const vehicle = await db.vehicle.create({
         data: {
@@ -216,6 +220,7 @@ export async function POST(request: NextRequest) {
           driverName: driverName || null,
         },
       })
+      logAudit({ action: 'CREATE', entity: 'transport', entityId: (vehicle as any)?.id, afterValue: vehicle }).catch(() => {})
       return NextResponse.json(vehicle, { status: 201 })
     }
 
@@ -228,6 +233,9 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/transport — Update route / vehicle / assignment
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { id, type, ...updates } = body
@@ -247,6 +255,7 @@ export async function PUT(request: NextRequest) {
           isActive: updates.isActive,
         },
       })
+      logAudit({ action: 'UPDATE', entity: 'transport', entityId: (route as any)?.id, afterValue: route }).catch(() => {})
       return NextResponse.json(route)
     }
 
@@ -261,6 +270,7 @@ export async function PUT(request: NextRequest) {
           isActive: updates.isActive,
         },
       })
+      logAudit({ action: 'UPDATE', entity: 'transport', entityId: (vehicle as any)?.id, afterValue: vehicle }).catch(() => {})
       return NextResponse.json(vehicle)
     }
 
@@ -274,6 +284,7 @@ export async function PUT(request: NextRequest) {
         endDate: updates.status === 'INACTIVE' ? new Date() : undefined,
       },
     })
+    logAudit({ action: 'UPDATE', entity: 'transport', entityId: (assignment as any)?.id, afterValue: assignment }).catch(() => {})
     return NextResponse.json(assignment)
   } catch (error) {
     console.error('Failed to update transport record:', error)
@@ -283,6 +294,9 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/transport?id=xxx&type=route|vehicle|assignment
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -300,6 +314,7 @@ export async function DELETE(request: NextRequest) {
       await db.transportAssignment.delete({ where: { id } })
     }
 
+    logAudit({ action: 'DELETE', entity: 'transport', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Deleted successfully' })
   } catch (error) {
     console.error('Failed to delete transport record:', error)

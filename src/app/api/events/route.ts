@@ -1,8 +1,15 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateAuth, validateRole } from '@/lib/api-auth'
+import { getRequestTenant } from '@/lib/tenant'
 
 // GET /api/events - List events and sports fixtures with type/sport/date filters
 export async function GET(request: NextRequest) {
+  const tenantResult = await getRequestTenant()
+  if ('error' in tenantResult) return tenantResult.error
+  const { schoolId } = tenantResult
+
   try {
     const { searchParams } = new URL(request.url)
     const eventType = searchParams.get('eventType') // HOLIDAY, CULTURAL, ACADEMIC, SPORTS, MEETING, CEREMONY, RELIGIOUS, SOCIAL
@@ -15,21 +22,14 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
     const skip = (page - 1) * limit
 
-    const school = await db.school.findFirst()
-    const schoolId = school?.id
-
-    if (!schoolId) {
-      return NextResponse.json({ error: 'School not configured' }, { status: 400 })
-    }
-
     // Build where clause for events
     const where: Record<string, unknown> = { schoolId }
     if (eventType) where.eventType = eventType.toUpperCase()
     if (search) {
       where.OR = [
-        { title: { contains: search } },
-        { description: { contains: search } },
-        { venue: { contains: search } },
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { venue: { contains: search, mode: 'insensitive' } },
       ]
     }
     if (dateFrom || dateTo) {
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     if (sport) {
       // If sport is a name, look up by name
       if (isNaN(Number(sport)) && !sport.startsWith('c')) {
-        sportWhere.name = { contains: sport }
+        sportWhere.name = { contains: sport, mode: 'insensitive' }
       } else {
         sportWhere.id = sport
       }
@@ -121,15 +121,13 @@ export async function GET(request: NextRequest) {
 
 // POST /api/events - Create event or sports fixture
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
+
   try {
     const body = await request.json()
     const { action } = body
-    const school = await db.school.findFirst()
-    const schoolId = school?.id
-
-    if (!schoolId) {
-      return NextResponse.json({ error: 'School not configured' }, { status: 400 })
-    }
 
     // Add sports code / fixture
     if (action === 'addSport') {
@@ -159,6 +157,7 @@ export async function POST(request: NextRequest) {
           season: season || null,
         },
       })
+      logAudit({ action: 'CREATE', entity: 'events', entityId: (sport as any)?.id, afterValue: sport }).catch(() => {})
       return NextResponse.json(sport, { status: 201 })
     }
 
@@ -183,6 +182,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    logAudit({ action: 'CREATE', entity: 'events', entityId: (event as any)?.id, afterValue: event }).catch(() => {})
     return NextResponse.json(event, { status: 201 })
   } catch (error) {
     console.error('Failed to create event:', error)
@@ -195,6 +195,9 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/events - Update event or sports fixture
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { id, type, ...updates } = body
@@ -211,6 +214,7 @@ export async function PUT(request: NextRequest) {
           isActive: updates.isActive,
         },
       })
+      logAudit({ action: 'UPDATE', entity: 'events', entityId: (sport as any)?.id, afterValue: sport }).catch(() => {})
       return NextResponse.json(sport)
     }
 
@@ -227,6 +231,7 @@ export async function PUT(request: NextRequest) {
       },
     })
 
+    logAudit({ action: 'UPDATE', entity: 'events', entityId: (event as any)?.id, afterValue: event }).catch(() => {})
     return NextResponse.json(event)
   } catch (error) {
     console.error('Failed to update event:', error)
@@ -239,6 +244,9 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/events - Delete event or sports fixture
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -253,6 +261,7 @@ export async function DELETE(request: NextRequest) {
       await db.schoolEvent.delete({ where: { id } })
     }
 
+    logAudit({ action: 'DELETE', entity: 'events', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Deleted successfully' })
   } catch (error) {
     console.error('Failed to delete event:', error)

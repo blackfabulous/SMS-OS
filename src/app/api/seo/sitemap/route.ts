@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { validateAuth } from '@/lib/api-auth'
 
 function escapeXml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
@@ -11,6 +12,9 @@ function formatDate(date: Date | string): string {
 
 // GET /api/seo/sitemap - Generate XML sitemap
 export async function GET() {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+
   try {
     const school = await db.school.findFirst()
     const schoolId = school?.id

@@ -1,32 +1,22 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
-
-// Zimbabwe PAYE tax brackets (2024)
-function calculatePAYE(taxableIncome: number): number {
-  if (taxableIncome <= 0) return 0
-  const brackets = [
-    { limit: 300, rate: 0 }, { limit: 1500, rate: 0.2 }, { limit: 5000, rate: 0.25 },
-    { limit: 10000, rate: 0.3 }, { limit: 20000, rate: 0.35 }, { limit: Infinity, rate: 0.4 },
-  ]
-  let paye = 0; let remaining = taxableIncome; let prevLimit = 0
-  for (const bracket of brackets) {
-    const taxableInBracket = Math.min(remaining, bracket.limit - prevLimit)
-    if (taxableInBracket <= 0) break
-    paye += taxableInBracket * bracket.rate
-    remaining -= taxableInBracket
-    prevLimit = bracket.limit
-  }
-  return Math.round(paye * 100) / 100
-}
+import { logAudit } from '@/lib/audit'
+import { getRequestTenant } from '@/lib/tenant'
+import { validateRole } from '@/lib/api-auth'
+import { calculatePAYE } from '@/lib/payroll-calc'
+import { RunPayrollSchema } from '@/lib/validations'
 
 export async function GET(request: Request) {
   try {
+    const tenantResult = await getRequestTenant()
+    if ('error' in tenantResult) return tenantResult.error
+    const { schoolId } = tenantResult
     const { searchParams } = new URL(request.url)
     const month = parseInt(searchParams.get('month') || String(new Date().getMonth() + 1))
     const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()))
 
     const staff = await db.staff.findMany({
-      where: { isActive: true, payrollStatus: 'ACTIVE', payType: 'SCHOOL_PAID' },
+      where: { schoolId, isActive: true, payrollStatus: 'ACTIVE', payType: 'SCHOOL_PAID' },
       include: { payslips: { where: { periodMonth: month, periodYear: year } } },
       orderBy: { lastName: 'asc' },
     })
@@ -41,7 +31,7 @@ export async function GET(request: Request) {
     }, 0)
 
     const payslips = await db.payslip.findMany({
-      where: { periodMonth: month, periodYear: year },
+      where: { periodMonth: month, periodYear: year, staff: { schoolId } },
       include: { staff: true },
       orderBy: { createdAt: 'desc' },
     })
@@ -79,14 +69,23 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const authResult = await validateRole(['ADMIN', 'BURSAR'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const body = await request.json()
-    const { month, year } = body
 
-    if (!month || !year) return NextResponse.json({ error: 'Month and year are required' }, { status: 400 })
+    const parsed = RunPayrollSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+    }
+    const { month, year } = parsed.data
 
-    const staffMembers = await db.staff.findMany({ where: { isActive: true, payrollStatus: 'ACTIVE', payType: 'SCHOOL_PAID' } })
-    const results = []
+    const staffMembers = await db.staff.findMany({
+      where: { schoolId: session.user.schoolId, isActive: true, payrollStatus: 'ACTIVE', payType: 'SCHOOL_PAID' },
+    })
+    const results: { staffId: string; status: string; netPay?: number }[] = []
 
     for (const staff of staffMembers) {
       const existing = await db.payslip.findUnique({
@@ -121,7 +120,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       message: `Payroll processed for ${month}/${year}`,
       processed: results.filter((r) => r.status === 'created').length,
-      skipped: results.filter((r) => r.status === 'already_exists').length, results,
+      skipped: results.filter((r) => r.status === 'already_exists').length,
+      results,
     }, { status: 201 })
   } catch (error) {
     console.error('Error processing payroll:', error)
@@ -130,11 +130,24 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const authResult = await validateRole(['ADMIN', 'BURSAR'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const body = await request.json()
     const { id, ...updates } = body
 
     if (!id) return NextResponse.json({ error: 'Payslip ID is required' }, { status: 400 })
+
+    // Verify payslip belongs to a staff member of the caller's school
+    const existing = await db.payslip.findUnique({
+      where: { id },
+      select: { staff: { select: { schoolId: true } } },
+    })
+    if (!existing || existing.staff.schoolId !== session.user.schoolId) {
+      return NextResponse.json({ error: 'Payslip not found' }, { status: 404 })
+    }
 
     const payslip = await db.payslip.update({
       where: { id },
@@ -142,6 +155,7 @@ export async function PUT(request: Request) {
       include: { staff: true },
     })
 
+    logAudit({ action: 'UPDATE', entity: 'payroll', entityId: payslip.id, afterValue: payslip }).catch(() => {})
     return NextResponse.json(payslip)
   } catch (error) {
     console.error('Error updating payslip:', error)
@@ -150,13 +164,27 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
     if (!id) return NextResponse.json({ error: 'Payslip ID is required' }, { status: 400 })
 
+    // Verify payslip belongs to a staff member of the caller's school
+    const existing = await db.payslip.findUnique({
+      where: { id },
+      select: { staff: { select: { schoolId: true } } },
+    })
+    if (!existing || existing.staff.schoolId !== session.user.schoolId) {
+      return NextResponse.json({ error: 'Payslip not found' }, { status: 404 })
+    }
+
     await db.payslip.delete({ where: { id } })
+    logAudit({ action: 'DELETE', entity: 'payroll', entityId: id }).catch(() => {})
     return NextResponse.json({ message: 'Payslip deleted successfully' })
   } catch (error) {
     console.error('Error deleting payslip:', error)

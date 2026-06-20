@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server'
+import { validateAuth } from '@/lib/api-auth'
 
 // ─── ZIMSEC Bulk Import - CSV Template Download ──────────────────────────────
 // Returns a CSV template with the required headers for ZIMSEC results bulk import.
 
 export async function GET() {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+
   // CSV template headers and sample data
   const headers = 'studentNumber,subject,grade,marks,year,level,session'
   const sampleRows = [

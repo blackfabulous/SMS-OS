@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateRole } from '@/lib/api-auth'
 
 // ─── Africa's Talking SMS Integration ───────────────────────────────────────
 // Production-ready structure with mock responses when env vars are not set.
@@ -71,11 +73,15 @@ const smsTemplates: Record<string, string> = {
 
 // ─── POST: Send SMS ─────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body: SmsRequest = await request.json()
     const { recipients, message, category, senderId, scheduleAt } = body
 
     if (!recipients || recipients.length === 0) {
+      logAudit({ action: 'CREATE', entity: 'sms' }).catch(() => {})
       return NextResponse.json(
         { error: 'At least one recipient is required' },
         { status: 400 }
@@ -83,6 +89,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!message || message.trim().length === 0) {
+      logAudit({ action: 'CREATE', entity: 'sms' }).catch(() => {})
       return NextResponse.json(
         { error: 'Message content is required' },
         { status: 400 }
@@ -91,6 +98,7 @@ export async function POST(request: NextRequest) {
 
     // Limit bulk SMS to 1000 recipients
     if (recipients.length > 1000) {
+      logAudit({ action: 'CREATE', entity: 'sms' }).catch(() => {})
       return NextResponse.json(
         { error: 'Maximum 1000 recipients per request' },
         { status: 400 }
@@ -174,6 +182,7 @@ export async function POST(request: NextRequest) {
 
           smsRecords.set(smsId, record)
 
+          logAudit({ action: 'CREATE', entity: 'sms' }).catch(() => {})
           return NextResponse.json({
             success: true,
             smsId,
@@ -184,6 +193,7 @@ export async function POST(request: NextRequest) {
             deliveryReports,
           })
         } else {
+          logAudit({ action: 'CREATE', entity: 'sms' }).catch(() => {})
           return NextResponse.json(
             { error: 'Africa\'s Talking API error', details: responseData },
             { status: 400 }
@@ -234,6 +244,7 @@ export async function POST(request: NextRequest) {
 
     smsRecords.set(smsId, record)
 
+    logAudit({ action: 'CREATE', entity: 'sms' }).catch(() => {})
     return NextResponse.json({
       success: true,
       smsId,
@@ -255,6 +266,9 @@ export async function POST(request: NextRequest) {
 
 // ─── GET: Delivery Reports ──────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+
   const { searchParams } = new URL(request.url)
   const messageId = searchParams.get('messageId')
   const status = searchParams.get('status')

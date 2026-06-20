@@ -1,8 +1,13 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateAuth, validateRole } from '@/lib/api-auth'
 
 // GET /api/elearning - List courses, resources, assignments with filters
 export async function GET(request: NextRequest) {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') // courses | resources | assignments
@@ -28,9 +33,9 @@ export async function GET(request: NextRequest) {
       if (resourceType) resWhere.resourceType = resourceType.toUpperCase()
       if (search) {
         resWhere.OR = [
-          { title: { contains: search } },
-          { url: { contains: search } },
-          { uploadedBy: { contains: search } },
+          { title: { contains: search, mode: 'insensitive' } },
+          { url: { contains: search, mode: 'insensitive' } },
+          { uploadedBy: { contains: search, mode: 'insensitive' } },
         ]
       }
       // Only show resources for courses belonging to this school
@@ -68,8 +73,8 @@ export async function GET(request: NextRequest) {
       if (assignmentStatus) asgWhere.status = assignmentStatus.toUpperCase()
       if (search) {
         asgWhere.OR = [
-          { title: { contains: search } },
-          { description: { contains: search } },
+          { title: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
         ]
       }
       // Only show assignments for courses belonging to this school
@@ -104,9 +109,9 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = { schoolId, isActive: true }
     if (search) {
       where.OR = [
-        { name: { contains: search } },
-        { description: { contains: search } },
-        { instructor: { contains: search } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { instructor: { contains: search, mode: 'insensitive' } },
       ]
     }
 
@@ -163,6 +168,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/elearning - Create course, resource, or assignment
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { action } = body
@@ -202,6 +210,7 @@ export async function POST(request: NextRequest) {
         },
         include: { resources: true, assignments: true },
       })
+      logAudit({ action: 'CREATE', entity: 'elearning', entityId: (course as any)?.id, afterValue: course }).catch(() => {})
       return NextResponse.json(course, { status: 201 })
     }
 
@@ -236,6 +245,7 @@ export async function POST(request: NextRequest) {
           uploadedBy: uploadedBy || null,
         },
       })
+      logAudit({ action: 'CREATE', entity: 'elearning', entityId: (resource as any)?.id, afterValue: resource }).catch(() => {})
       return NextResponse.json(resource, { status: 201 })
     }
 
@@ -270,6 +280,7 @@ export async function POST(request: NextRequest) {
           status: 'OPEN',
         },
       })
+      logAudit({ action: 'CREATE', entity: 'elearning', entityId: (assignment as any)?.id, afterValue: assignment }).catch(() => {})
       return NextResponse.json(assignment, { status: 201 })
     }
 
@@ -288,6 +299,9 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/elearning - Update course, resource, or assignment
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { id, type, ...updates } = body
@@ -307,6 +321,7 @@ export async function PUT(request: NextRequest) {
           isActive: updates.isActive,
         },
       })
+      logAudit({ action: 'UPDATE', entity: 'elearning', entityId: (course as any)?.id, afterValue: course }).catch(() => {})
       return NextResponse.json(course)
     }
 
@@ -320,6 +335,7 @@ export async function PUT(request: NextRequest) {
           downloads: updates.downloads,
         },
       })
+      logAudit({ action: 'UPDATE', entity: 'elearning', entityId: (resource as any)?.id, afterValue: resource }).catch(() => {})
       return NextResponse.json(resource)
     }
 
@@ -336,6 +352,7 @@ export async function PUT(request: NextRequest) {
           avgScore: updates.avgScore,
         },
       })
+      logAudit({ action: 'UPDATE', entity: 'elearning', entityId: (assignment as any)?.id, afterValue: assignment }).catch(() => {})
       return NextResponse.json(assignment)
     }
 
@@ -351,6 +368,9 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/elearning - Delete course, resource, or assignment
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -369,6 +389,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
     }
 
+    logAudit({ action: 'DELETE', entity: 'elearning', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Deleted successfully' })
   } catch (error) {
     console.error('Failed to delete e-learning record:', error)

@@ -1,8 +1,13 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateAuth, validateRole } from '@/lib/api-auth'
 
 // GET /api/documents - List documents with category/search filter
 export async function GET(request: NextRequest) {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const category = searchParams.get('category')
@@ -30,11 +35,11 @@ export async function GET(request: NextRequest) {
     if (uploadedBy) where.uploadedBy = uploadedBy
     if (search) {
       where.OR = [
-        { title: { contains: search } },
-        { category: { contains: search } },
-        { tags: { contains: search } },
-        { description: { contains: search } },
-        { fileName: { contains: search } },
+        { title: { contains: search, mode: 'insensitive' } },
+        { category: { contains: search, mode: 'insensitive' } },
+        { tags: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { fileName: { contains: search, mode: 'insensitive' } },
       ]
     }
 
@@ -96,6 +101,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/documents - Create document record (metadata only, no file upload)
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const school = await db.school.findFirst()
@@ -136,6 +144,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    logAudit({ action: 'CREATE', entity: 'documents', entityId: (doc as any)?.id, afterValue: doc }).catch(() => {})
     return NextResponse.json(doc, { status: 201 })
   } catch (error) {
     console.error('Failed to create document:', error)
@@ -148,6 +157,9 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/documents - Update document metadata
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { id, ...updates } = body
@@ -169,6 +181,7 @@ export async function PUT(request: NextRequest) {
       },
     })
 
+    logAudit({ action: 'UPDATE', entity: 'documents', entityId: (doc as any)?.id, afterValue: doc }).catch(() => {})
     return NextResponse.json(doc)
   } catch (error) {
     console.error('Failed to update document:', error)
@@ -181,6 +194,9 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/documents - Delete document record
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -189,6 +205,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     await db.document.delete({ where: { id } })
+    logAudit({ action: 'DELETE', entity: 'documents', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Document deleted successfully' })
   } catch (error) {
     console.error('Failed to delete document:', error)

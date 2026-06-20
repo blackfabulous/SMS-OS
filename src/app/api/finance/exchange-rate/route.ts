@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateAuth, validateRole } from '@/lib/api-auth'
 
 // In-memory exchange rate storage (would be in DB in production)
 let exchangeRate = {
@@ -10,6 +12,9 @@ let exchangeRate = {
 
 // GET /api/finance/exchange-rate - Get current USD/ZiG exchange rate
 export async function GET() {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+
   return NextResponse.json({
     rate: exchangeRate.rate,
     lastUpdated: exchangeRate.lastUpdated,
@@ -23,6 +28,9 @@ export async function GET() {
 
 // PUT /api/finance/exchange-rate - Update exchange rate (admin only)
 export async function PUT(request: Request) {
+  const authResult = await validateRole(['ADMIN', 'BURSAR'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
 
@@ -40,6 +48,7 @@ export async function PUT(request: Request) {
       updatedBy: body.updatedBy || 'Admin',
     }
 
+    logAudit({ action: 'UPDATE', entity: 'exchange-rate', entityId: (body?.id ?? undefined) }).catch(() => {})
     return NextResponse.json({
       message: 'Exchange rate updated successfully',
       rate: exchangeRate.rate,

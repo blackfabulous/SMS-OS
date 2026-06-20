@@ -1,9 +1,14 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateAuth, validateRole } from '@/lib/api-auth'
 
 // GET /api/library — List books with transaction status (available/issued/overdue)
 // Query params: search, category, status (available|issued|overdue), page, limit
 export async function GET(request: NextRequest) {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
@@ -16,11 +21,11 @@ export async function GET(request: NextRequest) {
     const bookFilter: Record<string, unknown> = { isActive: true }
     if (search) {
       bookFilter.OR = [
-        { title: { contains: search } },
-        { author: { contains: search } },
-        { isbn: { contains: search } },
-        { category: { contains: search } },
-        { publisher: { contains: search } },
+        { title: { contains: search, mode: 'insensitive' } },
+        { author: { contains: search, mode: 'insensitive' } },
+        { isbn: { contains: search, mode: 'insensitive' } },
+        { category: { contains: search, mode: 'insensitive' } },
+        { publisher: { contains: search, mode: 'insensitive' } },
       ]
     }
     if (category && category !== 'ALL') {
@@ -151,6 +156,10 @@ export async function GET(request: NextRequest) {
 
 // POST /api/library — Create book or issue/return transaction
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
+
   try {
     const body = await request.json()
     const { action } = body
@@ -189,6 +198,7 @@ export async function POST(request: NextRequest) {
         })
         return newTransaction
       })
+      logAudit({ action: 'CREATE', entity: 'library', entityId: (transaction as any)?.id, afterValue: transaction }).catch(() => {})
       return NextResponse.json(transaction, { status: 201 })
     }
 
@@ -222,6 +232,7 @@ export async function POST(request: NextRequest) {
         })
         return updated
       })
+      logAudit({ action: 'CREATE', entity: 'library', entityId: (transaction as any)?.id, afterValue: transaction }).catch(() => {})
       return NextResponse.json(transaction)
     }
 
@@ -232,10 +243,6 @@ export async function POST(request: NextRequest) {
       }
 
       let sid = schoolId
-      if (!sid) {
-        const school = await db.school.findFirst()
-        sid = school?.id
-      }
 
       const book = await db.libraryBook.create({
         data: {
@@ -250,6 +257,7 @@ export async function POST(request: NextRequest) {
           availableCopies: totalCopies || 1,
         },
       })
+      logAudit({ action: 'CREATE', entity: 'library', entityId: (book as any)?.id, afterValue: book }).catch(() => {})
       return NextResponse.json(book, { status: 201 })
     }
 
@@ -262,6 +270,9 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/library — Update book or transaction
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { id, type, ...updates } = body
@@ -285,6 +296,7 @@ export async function PUT(request: NextRequest) {
           isActive: updates.isActive,
         },
       })
+      logAudit({ action: 'UPDATE', entity: 'library', entityId: (book as any)?.id, afterValue: book }).catch(() => {})
       return NextResponse.json(book)
     }
 
@@ -296,6 +308,7 @@ export async function PUT(request: NextRequest) {
         conditionOnReturn: updates.conditionOnReturn,
       },
     })
+    logAudit({ action: 'UPDATE', entity: 'library', entityId: (transaction as any)?.id, afterValue: transaction }).catch(() => {})
     return NextResponse.json(transaction)
   } catch (error) {
     console.error('Failed to update library record:', error)
@@ -305,6 +318,9 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/library?id=xxx&type=book|transaction
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -320,6 +336,7 @@ export async function DELETE(request: NextRequest) {
       await db.libraryTransaction.delete({ where: { id } })
     }
 
+    logAudit({ action: 'DELETE', entity: 'library', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Deleted successfully' })
   } catch (error) {
     console.error('Failed to delete library record:', error)

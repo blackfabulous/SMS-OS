@@ -1,7 +1,14 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateRole } from '@/lib/api-auth'
+import { getRequestTenant } from '@/lib/tenant'
 
 export async function GET(request: Request) {
+  const tenantResult = await getRequestTenant()
+  if ('error' in tenantResult) return tenantResult.error
+  const { schoolId } = tenantResult
+
   try {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
@@ -9,14 +16,14 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
 
-    const where: Record<string, unknown> = {}
+    const where: Record<string, unknown> = { schoolId }
     if (status) where.enrollmentStatus = status
     if (search) {
       where.OR = [
-        { firstName: { contains: search } },
-        { lastName: { contains: search } },
-        { studentNumber: { contains: search } },
-        { nationalId: { contains: search } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { studentNumber: { contains: search, mode: 'insensitive' } },
+        { nationalId: { contains: search, mode: 'insensitive' } },
       ]
     }
 
@@ -34,7 +41,7 @@ export async function GET(request: Request) {
       db.student.count({ where }),
     ])
 
-    const stats = await db.student.groupBy({ by: ['enrollmentStatus'], _count: { id: true } })
+    const stats = await db.student.groupBy({ by: ['enrollmentStatus'], where: { schoolId }, _count: { id: true } })
     const statusCounts: Record<string, number> = {}
     stats.forEach((s) => { statusCounts[s.enrollmentStatus] = s._count.id })
 
@@ -49,10 +56,13 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+  const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
+  if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 })
+
   try {
     const body = await request.json()
-    const school = await db.school.findFirst()
-    if (!school) return NextResponse.json({ error: 'School not configured' }, { status: 400 })
 
     const currentYear = new Date().getFullYear()
     const lastStudent = await db.student.findFirst({ where: { studentNumber: { startsWith: `STU${currentYear}` } }, orderBy: { studentNumber: 'desc' } })
@@ -80,7 +90,7 @@ export async function POST(request: Request) {
 
     if (body.gradeId) {
       const currentYear2 = new Date().getFullYear().toString()
-      const academicYear = await db.academicYear.findFirst({ where: { schoolId: school.id, name: { contains: currentYear2 } } })
+      const academicYear = await db.academicYear.findFirst({ where: { schoolId: school.id, name: { contains: currentYear2, mode: 'insensitive' } } })
       if (academicYear) {
         const cls = await db.class.findFirst({ where: { gradeId: body.gradeId, schoolId: school.id } })
         if (cls) {
@@ -89,6 +99,7 @@ export async function POST(request: Request) {
       }
     }
 
+    logAudit({ action: 'CREATE', entity: 'admissions', entityId: (student as any)?.id, afterValue: student }).catch(() => {})
     return NextResponse.json(student, { status: 201 })
   } catch (error) {
     console.error('Error creating admission:', error)
@@ -97,11 +108,67 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+  const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
+  if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 })
+
   try {
     const body = await request.json()
-    const { id, ...updates } = body
+    const { id, action, ...updates } = body
 
     if (!id) return NextResponse.json({ error: 'Student ID is required' }, { status: 400 })
+
+    const existingStudent = await db.student.findUnique({ where: { id, schoolId: school.id } })
+    if (!existingStudent) return NextResponse.json({ error: 'Student application not found' }, { status: 404 })
+
+    if (action === 'enroll') {
+      const { classId, academicYearId } = updates
+      if (!classId) return NextResponse.json({ error: 'Class ID is required for enrollment' }, { status: 400 })
+
+      let finalAcademicYearId = academicYearId
+      if (!finalAcademicYearId) {
+        const currentYearString = new Date().getFullYear().toString()
+        const academicYear = await db.academicYear.findFirst({
+          where: { schoolId: school.id, name: { contains: currentYearString, mode: 'insensitive' } },
+        })
+        if (!academicYear) return NextResponse.json({ error: 'No current academic year found for enrollment' }, { status: 400 })
+        finalAcademicYearId = academicYear.id
+      }
+
+      let studentNumber = existingStudent.studentNumber
+      if (studentNumber.startsWith('APP')) {
+        const currentYear = new Date().getFullYear()
+        const lastStudent = await db.student.findFirst({
+          where: { studentNumber: { startsWith: `STU${currentYear}` } },
+          orderBy: { studentNumber: 'desc' },
+        })
+        const nextNum = lastStudent ? parseInt(lastStudent.studentNumber.slice(-3)) + 1 : 1
+        studentNumber = `STU${currentYear}${String(nextNum).padStart(3, '0')}`
+      }
+
+      const student = await db.student.update({
+        where: { id },
+        data: {
+          enrollmentStatus: 'ACTIVE',
+          studentNumber,
+        },
+        include: { parentLinks: { include: { parent: true } }, enrollments: { include: { class: { include: { grade: true } } } } },
+      })
+
+      await db.studentEnrollment.upsert({
+        where: { studentId_academicYearId: { studentId: id, academicYearId: finalAcademicYearId } },
+        create: { studentId: id, classId, academicYearId: finalAcademicYearId, status: 'ACTIVE' },
+        update: { classId, status: 'ACTIVE' },
+      })
+
+      logAudit({ action: 'UPDATE', entity: 'admissions', entityId: student.id, afterValue: student }).catch(() => {})
+      return NextResponse.json(student)
+    }
+
+    const exitReason = updates.enrollmentStatus === 'DROPPED_OUT' || updates.enrollmentStatus === 'TRANSFERRED' || updates.enrollmentStatus === 'REJECTED'
+      ? (updates.exitReason || updates.enrollmentStatus)
+      : undefined
 
     const student = await db.student.update({
       where: { id },
@@ -111,12 +178,13 @@ export async function PUT(request: Request) {
         beamStatus: updates.beamStatus,
         firstName: updates.firstName,
         lastName: updates.lastName,
-        exitDate: updates.enrollmentStatus === 'DROPPED_OUT' || updates.enrollmentStatus === 'TRANSFERRED' ? new Date() : undefined,
-        exitReason: updates.exitReason,
+        exitDate: updates.enrollmentStatus === 'DROPPED_OUT' || updates.enrollmentStatus === 'TRANSFERRED' || updates.enrollmentStatus === 'REJECTED' ? new Date() : undefined,
+        exitReason,
       },
       include: { parentLinks: { include: { parent: true } }, enrollments: { include: { class: { include: { grade: true } } } } },
     })
 
+    logAudit({ action: 'UPDATE', entity: 'admissions', entityId: student.id, afterValue: student }).catch(() => {})
     return NextResponse.json(student)
   } catch (error) {
     console.error('Error updating admission:', error)
@@ -125,6 +193,9 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -136,6 +207,7 @@ export async function DELETE(request: Request) {
       data: { enrollmentStatus: 'DROPPED_OUT', exitDate: new Date(), exitReason: 'DROPPED_OUT' },
     })
 
+    logAudit({ action: 'DELETE', entity: 'admissions', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Admission record updated (student dropped out)', student })
   } catch (error) {
     console.error('Error deleting admission:', error)

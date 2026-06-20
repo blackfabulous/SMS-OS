@@ -1,49 +1,44 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { validateAuth, validateRole } from '@/lib/api-auth'
+import { logAudit } from '@/lib/audit'
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const { id } = await params
+
+    // Staff can only view their own record; admins can view all within school
+    const where =
+      session.user.role === 'TEACHER' || session.user.role === 'BURSAR'
+        ? { id, schoolId: session.user.schoolId }
+        : { id, schoolId: session.user.schoolId }
+
     const staff = await db.staff.findUnique({
-      where: { id },
+      where,
       include: {
         school: true,
-        payslips: {
-          orderBy: { createdAt: 'desc' },
-          take: 12,
-        },
-        leaveRecords: {
-          orderBy: { createdAt: 'desc' },
-          take: 20,
-        },
-        appraisalRecords: {
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-        },
-        disciplinaryRecords: {
-          orderBy: { date: 'desc' },
-          take: 10,
-        },
+        payslips: { orderBy: { createdAt: 'desc' }, take: 12 },
+        leaveRecords: { orderBy: { createdAt: 'desc' }, take: 20 },
+        appraisalRecords: { orderBy: { createdAt: 'desc' }, take: 5 },
+        disciplinaryRecords: { orderBy: { date: 'desc' }, take: 10 },
       },
     })
 
     if (!staff) {
-      return NextResponse.json(
-        { error: 'Staff not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Staff not found' }, { status: 404 })
     }
 
     return NextResponse.json(staff)
   } catch (error) {
     console.error('Error fetching staff:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch staff' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch staff' }, { status: 500 })
   }
 }
 
@@ -51,9 +46,19 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const { id } = await params
     const body = await request.json()
+
+    // Verify staff belongs to the caller's school
+    const existing = await db.staff.findUnique({ where: { id, schoolId: session.user.schoolId }, select: { id: true } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Staff not found' }, { status: 404 })
+    }
 
     const staff = await db.staff.update({
       where: { id },
@@ -92,13 +97,11 @@ export async function PUT(
       },
     })
 
+    logAudit({ action: 'UPDATE', entity: 'staff', entityId: staff.id, afterValue: staff }).catch(() => {})
     return NextResponse.json(staff)
   } catch (error) {
     console.error('Error updating staff:', error)
-    return NextResponse.json(
-      { error: 'Failed to update staff' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to update staff' }, { status: 500 })
   }
 }
 
@@ -106,27 +109,28 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const { id } = await params
 
-    // Soft delete - set isActive to false
+    // Verify staff belongs to the caller's school
+    const existing = await db.staff.findUnique({ where: { id, schoolId: session.user.schoolId }, select: { id: true } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Staff not found' }, { status: 404 })
+    }
+
     const staff = await db.staff.update({
       where: { id },
-      data: {
-        isActive: false,
-        payrollStatus: 'INACTIVE',
-      },
+      data: { isActive: false, payrollStatus: 'INACTIVE' },
     })
 
-    return NextResponse.json({
-      message: 'Staff soft deleted successfully',
-      staff,
-    })
+    logAudit({ action: 'DELETE', entity: 'staff', entityId: id }).catch(() => {})
+    return NextResponse.json({ message: 'Staff soft deleted successfully', staff })
   } catch (error) {
     console.error('Error deleting staff:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete staff' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to delete staff' }, { status: 500 })
   }
 }

@@ -1,10 +1,13 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { getRequestTenant } from '@/lib/tenant'
+import { validateRole } from '@/lib/api-auth'
 
-// GET /api/discipline — List discipline incidents with student details
-// Query params: search, status, incidentType, studentId, dateFrom, dateTo, page, limit
 export async function GET(request: NextRequest) {
   try {
+    const tenantResult = await getRequestTenant()
+    if ('error' in tenantResult) return tenantResult.error
+    const { schoolId } = tenantResult
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status') || ''
@@ -15,8 +18,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
 
-    // Build filter
-    const where: Record<string, unknown> = {}
+    const where: Record<string, unknown> = { student: { schoolId } }
     if (status) where.status = status
     if (incidentType) where.incidentType = incidentType
     if (studentId) where.studentId = studentId
@@ -28,11 +30,11 @@ export async function GET(request: NextRequest) {
     }
     if (search) {
       where.OR = [
-        { description: { contains: search } },
-        { action: { contains: search } },
-        { student: { firstName: { contains: search } } },
-        { student: { lastName: { contains: search } } },
-        { student: { studentNumber: { contains: search } } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { action: { contains: search, mode: 'insensitive' } },
+        { student: { firstName: { contains: search, mode: 'insensitive' } } },
+        { student: { lastName: { contains: search, mode: 'insensitive' } } },
+        { student: { studentNumber: { contains: search, mode: 'insensitive' } } },
       ]
     }
 
@@ -40,16 +42,7 @@ export async function GET(request: NextRequest) {
       db.disciplineRecord.findMany({
         where,
         include: {
-          student: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              studentNumber: true,
-              gender: true,
-              enrollmentStatus: true,
-            },
-          },
+          student: { select: { id: true, firstName: true, lastName: true, studentNumber: true, gender: true, enrollmentStatus: true } },
         },
         orderBy: { date: 'desc' },
         skip: (page - 1) * limit,
@@ -58,29 +51,35 @@ export async function GET(request: NextRequest) {
       db.disciplineRecord.count({ where }),
     ])
 
-    // Stats
+    // Stats scoped to this school
+    const schoolFilter = { student: { schoolId } }
+    const [open, resolved, closed, totalMeritAgg, totalDemeritAgg, parentNotifiedCount] = await Promise.all([
+      db.disciplineRecord.count({ where: { ...schoolFilter, status: 'OPEN' } }),
+      db.disciplineRecord.count({ where: { ...schoolFilter, status: 'RESOLVED' } }),
+      db.disciplineRecord.count({ where: { ...schoolFilter, status: 'CLOSED' } }),
+      db.disciplineRecord.aggregate({ where: schoolFilter, _sum: { meritPoints: true } }),
+      db.disciplineRecord.aggregate({ where: schoolFilter, _sum: { demeritPoints: true } }),
+      db.disciplineRecord.count({ where: { ...schoolFilter, parentNotified: true } }),
+    ])
+
     const stats = {
-      total: await db.disciplineRecord.count(),
-      open: await db.disciplineRecord.count({ where: { status: 'OPEN' } }),
-      resolved: await db.disciplineRecord.count({ where: { status: 'RESOLVED' } }),
-      closed: await db.disciplineRecord.count({ where: { status: 'CLOSED' } }),
-      totalMerit: (await db.disciplineRecord.aggregate({ _sum: { meritPoints: true } }))._sum.meritPoints || 0,
-      totalDemerit: (await db.disciplineRecord.aggregate({ _sum: { demeritPoints: true } }))._sum.demeritPoints || 0,
-      parentNotifiedCount: await db.disciplineRecord.count({ where: { parentNotified: true } }),
+      total,
+      open,
+      resolved,
+      closed,
+      totalMerit: totalMeritAgg._sum.meritPoints || 0,
+      totalDemerit: totalDemeritAgg._sum.demeritPoints || 0,
+      parentNotifiedCount,
     }
 
-    // Incident type breakdown
     const incidentTypeBreakdown = await db.disciplineRecord.groupBy({
       by: ['incidentType'],
+      where: schoolFilter,
       _count: { id: true },
     })
 
     return NextResponse.json({
-      data: records,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
-      stats,
+      data: records, total, page, totalPages: Math.ceil(total / limit), stats,
       incidentTypeBreakdown: incidentTypeBreakdown.map((i) => ({ type: i.incidentType, count: i._count.id })),
     })
   } catch (error) {
@@ -89,33 +88,26 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/discipline — Create incident
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const body = await request.json()
-    const {
-      studentId,
-      incidentType,
-      description,
-      date,
-      action,
-      meritPoints,
-      demeritPoints,
-      parentNotified,
-    } = body
+    const { studentId, incidentType, description, date, action, meritPoints, demeritPoints, parentNotified } = body
 
     if (!studentId || !incidentType || !description) {
-      return NextResponse.json(
-        { error: 'Student ID, incident type, and description are required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Student ID, incident type, and description are required' }, { status: 400 })
     }
+
+    // Verify student belongs to caller's school
+    const student = await db.student.findUnique({ where: { id: studentId, schoolId: session.user.schoolId }, select: { id: true } })
+    if (!student) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
 
     const record = await db.disciplineRecord.create({
       data: {
-        studentId,
-        incidentType,
-        description,
+        studentId, incidentType, description,
         date: date ? new Date(date) : new Date(),
         action: action || null,
         meritPoints: meritPoints || 0,
@@ -123,9 +115,7 @@ export async function POST(request: NextRequest) {
         parentNotified: parentNotified || false,
         status: 'OPEN',
       },
-      include: {
-        student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } },
-      },
+      include: { student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } } },
     })
 
     return NextResponse.json(record, { status: 201 })
@@ -135,14 +125,24 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/discipline — Update discipline record
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const body = await request.json()
     const { id, ...updates } = body
 
-    if (!id) {
-      return NextResponse.json({ error: 'Record ID is required' }, { status: 400 })
+    if (!id) return NextResponse.json({ error: 'Record ID is required' }, { status: 400 })
+
+    // Verify record belongs to a student in caller's school
+    const existing = await db.disciplineRecord.findUnique({
+      where: { id },
+      select: { student: { select: { schoolId: true } } },
+    })
+    if (!existing || existing.student.schoolId !== session.user.schoolId) {
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 })
     }
 
     const record = await db.disciplineRecord.update({
@@ -156,9 +156,7 @@ export async function PUT(request: NextRequest) {
         parentNotified: updates.parentNotified,
         status: updates.status,
       },
-      include: {
-        student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } },
-      },
+      include: { student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } } },
     })
 
     return NextResponse.json(record)
@@ -168,14 +166,24 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE /api/discipline?id=xxx
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
-    if (!id) {
-      return NextResponse.json({ error: 'Record ID is required' }, { status: 400 })
+    if (!id) return NextResponse.json({ error: 'Record ID is required' }, { status: 400 })
+
+    // Verify record belongs to a student in caller's school
+    const existing = await db.disciplineRecord.findUnique({
+      where: { id },
+      select: { student: { select: { schoolId: true } } },
+    })
+    if (!existing || existing.student.schoolId !== session.user.schoolId) {
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 })
     }
 
     await db.disciplineRecord.delete({ where: { id } })

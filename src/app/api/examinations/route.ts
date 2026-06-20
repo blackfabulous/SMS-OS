@@ -1,7 +1,14 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateAuth, validateRole } from '@/lib/api-auth'
+import { getRequestTenant } from '@/lib/tenant'
 
 export async function GET(request: Request) {
+  const tenantResult = await getRequestTenant()
+  if ('error' in tenantResult) return tenantResult.error
+  const { schoolId } = tenantResult
+
   try {
     const { searchParams } = new URL(request.url)
     const examLevel = searchParams.get('examLevel')
@@ -10,7 +17,7 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
 
-    const where: Record<string, unknown> = {}
+    const where: Record<string, unknown> = { student: { schoolId } }
     if (examLevel) where.examLevel = examLevel
     if (year) where.examYear = parseInt(year)
     if (registrationStatus) where.registrationStatus = registrationStatus
@@ -53,6 +60,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
 
@@ -76,6 +86,7 @@ export async function POST(request: Request) {
       include: { student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } } },
     })
 
+    logAudit({ action: 'CREATE', entity: 'examinations', entityId: (candidate as any)?.id, afterValue: candidate }).catch(() => {})
     return NextResponse.json(candidate, { status: 201 })
   } catch (error) {
     console.error('Error registering candidate:', error)
@@ -84,6 +95,9 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { id, ...updates } = body
@@ -102,6 +116,7 @@ export async function PUT(request: Request) {
       include: { student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } } },
     })
 
+    logAudit({ action: 'UPDATE', entity: 'examinations', entityId: (candidate as any)?.id, afterValue: candidate }).catch(() => {})
     return NextResponse.json(candidate)
   } catch (error) {
     console.error('Error updating candidate:', error)
@@ -110,6 +125,9 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -117,6 +135,7 @@ export async function DELETE(request: Request) {
     if (!id) return NextResponse.json({ error: 'Candidate ID is required' }, { status: 400 })
 
     await db.zimsecCandidate.delete({ where: { id } })
+    logAudit({ action: 'DELETE', entity: 'examinations', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Candidate registration deleted successfully' })
   } catch (error) {
     console.error('Error deleting candidate:', error)

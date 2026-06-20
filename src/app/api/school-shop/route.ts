@@ -1,8 +1,13 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateAuth, validateRole } from '@/lib/api-auth'
 
 // GET /api/school-shop - Returns shop data
 export async function GET(request: NextRequest) {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const section = searchParams.get('section') || 'all'
@@ -31,7 +36,7 @@ export async function GET(request: NextRequest) {
       const where: Record<string, unknown> = { schoolId }
       if (category) where.category = category
       if (isActive !== null && isActive !== undefined) where.isActive = isActive === 'true'
-      if (search) where.OR = [{ name: { contains: search } }, { description: { contains: search } }]
+      if (search) where.OR = [{ name: { contains: search, mode: 'insensitive' } }, { description: { contains: search, mode: 'insensitive' } }]
       result.products = await db.schoolShopItem.findMany({ where, orderBy: { sortOrder: 'asc' } })
     }
 
@@ -57,6 +62,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/school-shop - Create product or order
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { action, data } = body
@@ -74,6 +82,7 @@ export async function POST(request: NextRequest) {
       const product = await db.schoolShopItem.create({
         data: { schoolId, name: data.name, description: data.description, category: data.category, price: data.price, currency: data.currency || 'USD', imageUrl: data.imageUrl, sizes: data.sizes, colors: data.colors, stockQuantity: data.stockQuantity ?? 0, isActive: data.isActive ?? true, sortOrder: data.sortOrder ?? 0 },
       })
+      logAudit({ action: 'CREATE', entity: 'school-shop' }).catch(() => {})
       return NextResponse.json({ success: true, data: product }, { status: 201 })
     }
 
@@ -92,6 +101,7 @@ export async function POST(request: NextRequest) {
       const order = await db.schoolShopOrder.create({
         data: { schoolId, orderNumber, studentId: data.studentId, parentName: data.parentName, parentPhone: data.parentPhone, parentEmail: data.parentEmail, items: typeof data.items === 'string' ? data.items : JSON.stringify(data.items), totalAmount: data.totalAmount, currency: data.currency || 'USD', status: 'PENDING', notes: data.notes },
       })
+      logAudit({ action: 'CREATE', entity: 'school-shop' }).catch(() => {})
       return NextResponse.json({ success: true, data: order }, { status: 201 })
     }
 
@@ -104,6 +114,9 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/school-shop - Update product or order status
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { action, id, data } = body
@@ -112,6 +125,7 @@ export async function PUT(request: NextRequest) {
 
     if (action === 'updateProduct') {
       const product = await db.schoolShopItem.update({ where: { id }, data: { ...data, updatedAt: new Date() } })
+      logAudit({ action: 'UPDATE', entity: 'school-shop', entityId: (body?.id ?? undefined) }).catch(() => {})
       return NextResponse.json({ success: true, data: product })
     }
 
@@ -121,6 +135,7 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'Valid status is required (PENDING|PROCESSING|READY|COLLECTED|CANCELLED)' }, { status: 400 })
       }
       const order = await db.schoolShopOrder.update({ where: { id }, data: { status: data.status, updatedAt: new Date() } })
+      logAudit({ action: 'UPDATE', entity: 'school-shop', entityId: (body?.id ?? undefined) }).catch(() => {})
       return NextResponse.json({ success: true, data: order })
     }
 
@@ -133,6 +148,9 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/school-shop - Delete product or order
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { action, id } = body
@@ -141,10 +159,12 @@ export async function DELETE(request: NextRequest) {
 
     if (action === 'deleteProduct') {
       await db.schoolShopItem.delete({ where: { id } })
+      logAudit({ action: 'DELETE', entity: 'school-shop', entityId: (id ?? undefined) }).catch(() => {})
       return NextResponse.json({ success: true, data: { deleted: true } })
     }
     if (action === 'deleteOrder') {
       await db.schoolShopOrder.delete({ where: { id } })
+      logAudit({ action: 'DELETE', entity: 'school-shop', entityId: (id ?? undefined) }).catch(() => {})
       return NextResponse.json({ success: true, data: { deleted: true } })
     }
 

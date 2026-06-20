@@ -1,6 +1,7 @@
 import { getServerSession } from '@/lib/auth'
 import type { UserRole } from '@/lib/auth'
 import { NextResponse } from 'next/server'
+import { logSecurityEvent } from './audit'
 
 /**
  * Validates that the request has an authenticated session.
@@ -12,6 +13,7 @@ export async function validateAuth(): Promise<{
   const session = await getServerSession()
 
   if (!session?.user) {
+    logSecurityEvent({ event: 'AUTH_FAILURE', details: 'Unauthenticated request', severity: 'MEDIUM' }).catch(() => {})
     return {
       error: NextResponse.json(
         { error: 'Authentication required', message: 'You must be signed in to access this resource' },
@@ -37,6 +39,12 @@ export async function validateRole(allowedRoles: UserRole[]): Promise<{
   }
 
   if (!allowedRoles.includes(authResult.session.user.role as UserRole)) {
+    logSecurityEvent({
+      event: 'UNAUTHORIZED_ACCESS',
+      userId: authResult.session.user.id,
+      details: `Role ${authResult.session.user.role} not in [${allowedRoles.join(', ')}]`,
+      severity: 'HIGH',
+    }).catch(() => {})
     return {
       error: NextResponse.json(
         { error: 'Insufficient permissions', message: 'You do not have permission to access this resource' },
@@ -62,6 +70,12 @@ export async function validateSchoolAccess(schoolId: string): Promise<{
   }
 
   if (authResult.session.user.schoolId !== schoolId) {
+    logSecurityEvent({
+      event: 'UNAUTHORIZED_ACCESS',
+      userId: authResult.session.user.id,
+      details: `School mismatch: user=${authResult.session.user.schoolId}, requested=${schoolId}`,
+      severity: 'HIGH',
+    }).catch(() => {})
     return {
       error: NextResponse.json(
         { error: 'Access denied', message: 'You can only access data from your own school' },

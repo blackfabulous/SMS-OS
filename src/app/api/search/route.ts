@@ -1,7 +1,12 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { getRequestTenant } from '@/lib/tenant'
 
 export async function GET(request: Request) {
+  const tenantResult = await getRequestTenant()
+  if ('error' in tenantResult) return tenantResult.error
+  const { schoolId } = tenantResult
+
   try {
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q') || ''
@@ -12,15 +17,16 @@ export async function GET(request: Request) {
 
     const limit = 5
 
-    // Search students
+    // Search students — scoped to caller's school
     const students = await db.student.findMany({
       where: {
+        schoolId,
         OR: [
-          { firstName: { contains: query } },
-          { lastName: { contains: query } },
-          { middleName: { contains: query } },
-          { studentNumber: { contains: query } },
-          { nationalId: { contains: query } },
+          { firstName: { contains: query, mode: 'insensitive' } },
+          { lastName: { contains: query, mode: 'insensitive' } },
+          { middleName: { contains: query, mode: 'insensitive' } },
+          { studentNumber: { contains: query, mode: 'insensitive' } },
+          { nationalId: { contains: query, mode: 'insensitive' } },
         ],
       },
       include: {
@@ -39,17 +45,18 @@ export async function GET(request: Request) {
       orderBy: { createdAt: 'desc' },
     })
 
-    // Search staff
+    // Search staff — scoped to caller's school
     const staff = await db.staff.findMany({
       where: {
+        schoolId,
         OR: [
-          { firstName: { contains: query } },
-          { lastName: { contains: query } },
-          { middleName: { contains: query } },
-          { staffNumber: { contains: query } },
-          { email: { contains: query } },
-          { position: { contains: query } },
-          { department: { contains: query } },
+          { firstName: { contains: query, mode: 'insensitive' } },
+          { lastName: { contains: query, mode: 'insensitive' } },
+          { middleName: { contains: query, mode: 'insensitive' } },
+          { staffNumber: { contains: query, mode: 'insensitive' } },
+          { email: { contains: query, mode: 'insensitive' } },
+          { position: { contains: query, mode: 'insensitive' } },
+          { department: { contains: query, mode: 'insensitive' } },
         ],
       },
       take: limit,

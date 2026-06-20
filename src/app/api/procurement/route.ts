@@ -1,8 +1,13 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateAuth, validateRole } from '@/lib/api-auth'
 
 // GET /api/procurement - List purchase orders, vendors, requisitions with status filters
 export async function GET(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'BURSAR'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') // purchaseOrders | vendors | requisitions
@@ -25,10 +30,10 @@ export async function GET(request: NextRequest) {
       if (status === 'inactive') vendorWhere.isActive = false
       if (search) {
         vendorWhere.OR = [
-          { name: { contains: search } },
-          { contactPerson: { contains: search } },
-          { email: { contains: search } },
-          { phone: { contains: search } },
+          { name: { contains: search, mode: 'insensitive' } },
+          { contactPerson: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search, mode: 'insensitive' } },
         ]
       }
 
@@ -57,10 +62,10 @@ export async function GET(request: NextRequest) {
       if (status) reqWhere.status = status.toUpperCase()
       if (search) {
         reqWhere.OR = [
-          { title: { contains: search } },
-          { description: { contains: search } },
-          { requestedBy: { contains: search } },
-          { department: { contains: search } },
+          { title: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+          { requestedBy: { contains: search, mode: 'insensitive' } },
+          { department: { contains: search, mode: 'insensitive' } },
         ]
       }
 
@@ -87,10 +92,10 @@ export async function GET(request: NextRequest) {
     if (status) poWhere.status = status.toUpperCase()
     if (search) {
       poWhere.OR = [
-        { title: { contains: search } },
-        { orderNumber: { contains: search } },
-        { description: { contains: search } },
-        { requestedBy: { contains: search } },
+        { title: { contains: search, mode: 'insensitive' } },
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { requestedBy: { contains: search, mode: 'insensitive' } },
       ]
     }
 
@@ -135,6 +140,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/procurement - Create purchase order, vendor, or requisition
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'BURSAR'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { action } = body
@@ -191,6 +199,7 @@ export async function POST(request: NextRequest) {
         include: { items: true, supplier: true },
       })
 
+      logAudit({ action: 'CREATE', entity: 'procurement', entityId: (po as any)?.id, afterValue: po }).catch(() => {})
       return NextResponse.json(po, { status: 201 })
     }
 
@@ -214,6 +223,7 @@ export async function POST(request: NextRequest) {
           bankAccount: bankAccount || null,
         },
       })
+      logAudit({ action: 'CREATE', entity: 'procurement', entityId: (vendor as any)?.id, afterValue: vendor }).catch(() => {})
       return NextResponse.json(vendor, { status: 201 })
     }
 
@@ -236,6 +246,7 @@ export async function POST(request: NextRequest) {
           priority: priority || 'MEDIUM',
         },
       })
+      logAudit({ action: 'CREATE', entity: 'procurement', entityId: (req as any)?.id, afterValue: req }).catch(() => {})
       return NextResponse.json(req, { status: 201 })
     }
 
@@ -254,6 +265,9 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/procurement - Update purchase order, vendor, or requisition
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'BURSAR'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { id, type, ...updates } = body
@@ -272,6 +286,7 @@ export async function PUT(request: NextRequest) {
         },
         include: { items: true, supplier: true },
       })
+      logAudit({ action: 'UPDATE', entity: 'procurement', entityId: (po as any)?.id, afterValue: po }).catch(() => {})
       return NextResponse.json(po)
     }
 
@@ -290,6 +305,7 @@ export async function PUT(request: NextRequest) {
           isActive: updates.isActive,
         },
       })
+      logAudit({ action: 'UPDATE', entity: 'procurement', entityId: (vendor as any)?.id, afterValue: vendor }).catch(() => {})
       return NextResponse.json(vendor)
     }
 
@@ -304,6 +320,7 @@ export async function PUT(request: NextRequest) {
           priority: updates.priority,
         },
       })
+      logAudit({ action: 'UPDATE', entity: 'procurement', entityId: (req as any)?.id, afterValue: req }).catch(() => {})
       return NextResponse.json(req)
     }
 
@@ -319,6 +336,9 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/procurement - Delete procurement record
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -335,6 +355,7 @@ export async function DELETE(request: NextRequest) {
       await db.purchaseOrder.delete({ where: { id } })
     }
 
+    logAudit({ action: 'DELETE', entity: 'procurement', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Deleted successfully' })
   } catch (error) {
     console.error('Failed to delete procurement record:', error)

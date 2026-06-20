@@ -1,10 +1,13 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { getRequestTenant } from '@/lib/tenant'
+import { validateRole } from '@/lib/api-auth'
 
-// GET /api/health — List health records with student details
-// Query params: search, visitType, studentId, dateFrom, dateTo, page, limit
 export async function GET(request: NextRequest) {
   try {
+    const tenantResult = await getRequestTenant()
+    if ('error' in tenantResult) return tenantResult.error
+    const { schoolId } = tenantResult
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
     const visitType = searchParams.get('visitType') || ''
@@ -14,8 +17,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
 
-    // Build filter
-    const where: Record<string, unknown> = {}
+    const where: Record<string, unknown> = { student: { schoolId } }
     if (visitType) where.visitType = visitType
     if (studentId) where.studentId = studentId
     if (dateFrom || dateTo) {
@@ -26,13 +28,13 @@ export async function GET(request: NextRequest) {
     }
     if (search) {
       where.OR = [
-        { description: { contains: search } },
-        { treatment: { contains: search } },
-        { medicationGiven: { contains: search } },
-        { referredTo: { contains: search } },
-        { student: { firstName: { contains: search } } },
-        { student: { lastName: { contains: search } } },
-        { student: { studentNumber: { contains: search } } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { treatment: { contains: search, mode: 'insensitive' } },
+        { medicationGiven: { contains: search, mode: 'insensitive' } },
+        { referredTo: { contains: search, mode: 'insensitive' } },
+        { student: { firstName: { contains: search, mode: 'insensitive' } } },
+        { student: { lastName: { contains: search, mode: 'insensitive' } } },
+        { student: { studentNumber: { contains: search, mode: 'insensitive' } } },
       ]
     }
 
@@ -64,45 +66,28 @@ export async function GET(request: NextRequest) {
       db.healthRecord.count({ where }),
     ])
 
-    // Stats
-    const totalRecords = await db.healthRecord.count()
+    // Stats — scoped to this school only
+    const schoolFilter = { student: { schoolId } }
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    const visitTypeStats = await db.healthRecord.groupBy({
-      by: ['visitType'],
-      _count: { id: true },
-    })
-
-    const confidentialCount = await db.healthRecord.count({ where: { isConfidential: true } })
-    const referralsCount = await db.healthRecord.count({ where: { referredTo: { not: null } } })
-    const todayVisits = await db.healthRecord.count({
-      where: { visitDate: { gte: today } },
-    })
-
-    // Students with chronic conditions
-    const studentsWithChronicConditions = await db.student.count({
-      where: { chronicConditions: { not: null } },
-    })
-
-    // Students with allergies
-    const studentsWithAllergies = await db.student.count({
-      where: { allergies: { not: null } },
-    })
+    const [totalRecords, visitTypeStats, confidentialCount, referralsCount, todayVisits, studentsWithChronicConditions, studentsWithAllergies] =
+      await Promise.all([
+        db.healthRecord.count({ where: schoolFilter }),
+        db.healthRecord.groupBy({ by: ['visitType'], where: schoolFilter, _count: { id: true } }),
+        db.healthRecord.count({ where: { ...schoolFilter, isConfidential: true } }),
+        db.healthRecord.count({ where: { ...schoolFilter, referredTo: { not: null } } }),
+        db.healthRecord.count({ where: { ...schoolFilter, visitDate: { gte: today } } }),
+        db.student.count({ where: { schoolId, chronicConditions: { not: null } } }),
+        db.student.count({ where: { schoolId, allergies: { not: null } } }),
+      ])
 
     return NextResponse.json({
       data: records,
       total,
       page,
       totalPages: Math.ceil(total / limit),
-      stats: {
-        totalRecords,
-        todayVisits,
-        confidentialCount,
-        referralsCount,
-        studentsWithChronicConditions,
-        studentsWithAllergies,
-      },
+      stats: { totalRecords, todayVisits, confidentialCount, referralsCount, studentsWithChronicConditions, studentsWithAllergies },
       visitTypeBreakdown: visitTypeStats.map((v) => ({ type: v.visitType, count: v._count.id })),
     })
   } catch (error) {
@@ -111,17 +96,26 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/health — Create health record
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const body = await request.json()
     const { studentId, visitType, description, treatment, medicationGiven, referredTo, isConfidential, visitDate } = body
 
     if (!studentId || !visitType || !description) {
-      return NextResponse.json(
-        { error: 'Student ID, visit type, and description are required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Student ID, visit type, and description are required' }, { status: 400 })
+    }
+
+    // Verify student belongs to caller's school
+    const student = await db.student.findUnique({
+      where: { id: studentId, schoolId: session.user.schoolId },
+      select: { id: true },
+    })
+    if (!student) {
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
     }
 
     const record = await db.healthRecord.create({
@@ -137,15 +131,7 @@ export async function POST(request: NextRequest) {
       },
       include: {
         student: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            studentNumber: true,
-            allergies: true,
-            chronicConditions: true,
-            bloodGroup: true,
-          },
+          select: { id: true, firstName: true, lastName: true, studentNumber: true, allergies: true, chronicConditions: true, bloodGroup: true },
         },
       },
     })
@@ -157,14 +143,26 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/health — Update health record
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN', 'TEACHER'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const body = await request.json()
     const { id, ...updates } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Record ID is required' }, { status: 400 })
+    }
+
+    // Verify the health record belongs to a student in the caller's school
+    const existing = await db.healthRecord.findUnique({
+      where: { id },
+      select: { student: { select: { schoolId: true } } },
+    })
+    if (!existing || existing.student.schoolId !== session.user.schoolId) {
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 })
     }
 
     const record = await db.healthRecord.update({
@@ -189,14 +187,26 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE /api/health?id=xxx
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
     if (!id) {
       return NextResponse.json({ error: 'Record ID is required' }, { status: 400 })
+    }
+
+    // Verify the health record belongs to a student in the caller's school
+    const existing = await db.healthRecord.findUnique({
+      where: { id },
+      select: { student: { select: { schoolId: true } } },
+    })
+    if (!existing || existing.student.schoolId !== session.user.schoolId) {
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 })
     }
 
     await db.healthRecord.delete({ where: { id } })

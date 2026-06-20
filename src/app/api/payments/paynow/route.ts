@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createHash } from 'crypto'
+import { logAudit } from '@/lib/audit'
+import { validateAuth } from '@/lib/api-auth'
 
 // ─── Paynow Payment Gateway Integration ─────────────────────────────────────
 // Production-ready structure with mock responses when env vars are not set.
@@ -53,11 +56,15 @@ function generateTransactionId(): string {
 
 // ─── POST: Initiate Paynow Payment ──────────────────────────────────────────
 export async function POST(request: NextRequest) {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+
   try {
     const body: PaynowInitRequest = await request.json()
     const { studentId, studentName, amount, currency, paymentMethod, phone, email, description } = body
 
     if (!studentId || !amount || amount <= 0) {
+      logAudit({ action: 'CREATE', entity: 'paynow' }).catch(() => {})
       return NextResponse.json(
         { error: 'Student ID and a valid amount are required' },
         { status: 400 }
@@ -104,8 +111,7 @@ export async function POST(request: NextRequest) {
           PAYNOW_INTEGRATION_KEY,
         ].join('')
 
-        // Note: In production, use crypto.createHash('sha512').update(hashString).digest('hex')
-        paynowPayload.hash = 'placeholder_hash_' + hashString.length
+        paynowPayload.hash = createHash('md5').update(hashString).digest('hex').toUpperCase()
 
         const response = await fetch(paynowUrl, {
           method: 'POST',
@@ -137,6 +143,7 @@ export async function POST(request: NextRequest) {
 
           transactions.set(transactionId, transaction)
 
+          logAudit({ action: 'CREATE', entity: 'paynow' }).catch(() => {})
           return NextResponse.json({
             success: true,
             transactionId,
@@ -148,6 +155,7 @@ export async function POST(request: NextRequest) {
             instructions: isMobile ? `Dial *153# to confirm your ${paymentMethod} payment` : undefined,
           })
         } else {
+          logAudit({ action: 'CREATE', entity: 'paynow' }).catch(() => {})
           return NextResponse.json(
             { error: 'Paynow transaction failed', details: responseData.error || 'Unknown error' },
             { status: 400 }
@@ -194,6 +202,7 @@ export async function POST(request: NextRequest) {
       }
     }, 5000)
 
+    logAudit({ action: 'CREATE', entity: 'paynow' }).catch(() => {})
     return NextResponse.json({
       success: true,
       transactionId,
@@ -219,6 +228,9 @@ export async function POST(request: NextRequest) {
 
 // ─── GET: Check Payment Status ──────────────────────────────────────────────
 export async function GET(request: NextRequest) {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+
   const { searchParams } = new URL(request.url)
   const transactionId = searchParams.get('transactionId')
 

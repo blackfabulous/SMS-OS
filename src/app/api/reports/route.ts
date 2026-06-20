@@ -1,12 +1,17 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { getRequestTenant } from '@/lib/tenant'
 
 export async function GET(request: Request) {
+  const tenantResult = await getRequestTenant()
+  if ('error' in tenantResult) return tenantResult.error
+  const { schoolId } = tenantResult
+
   try {
     const { searchParams } = new URL(request.url)
     const reportType = searchParams.get('type') || 'overview'
 
-    const school = await db.school.findFirst()
+    const school = await db.school.findUnique({ where: { id: schoolId } })
 
     switch (reportType) {
       case 'academic': {

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createHash } from 'crypto'
 import { db } from '@/lib/db'
-
-// ─── Paynow Payment Gateway - Initiate Payment ───────────────────────────────
-// Production-ready structure with simulated Paynow flow when env vars are not set.
-// Set PAYNOW_INTEGRATION_ID and PAYNOW_INTEGRATION_KEY for live usage.
+import { logAudit } from '@/lib/audit'
+import { validateAuth } from '@/lib/api-auth'
 
 interface PaynowInitiateRequest {
   invoiceId?: string
@@ -28,7 +27,7 @@ interface PaynowTransactionRecord {
   updatedAt: string
 }
 
-// In-memory transaction store (supplements database FeePayment records)
+// In-memory transaction store
 const transactions: Map<string, PaynowTransactionRecord> = new Map()
 
 const PAYNOW_INTEGRATION_ID = process.env.PAYNOW_INTEGRATION_ID
@@ -44,40 +43,50 @@ function generateTransactionId(): string {
   return `txn_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`
 }
 
-// ─── POST: Initiate Paynow Payment ──────────────────────────────────────────
+function computePaynowHash(fields: string[], integrationKey: string): string {
+  const hashString = [...fields, integrationKey].join('')
+  return createHash('md5').update(hashString).digest('hex').toUpperCase()
+}
+
 export async function POST(request: NextRequest) {
+  // Authentication required — payment initiation must be by an authenticated user
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
     const body: PaynowInitiateRequest = await request.json()
     const { invoiceId, studentId, amount, currency, returnUrl, resultUrl } = body
 
     if (!studentId || !amount || amount <= 0) {
-      return NextResponse.json(
-        { error: 'Student ID and a valid amount are required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Student ID and a valid amount are required' }, { status: 400 })
     }
 
-    // Validate student exists
-    const student = await db.student.findUnique({ where: { id: studentId } })
+    // Validate amount is a finite positive number
+    if (!Number.isFinite(amount)) {
+      return NextResponse.json({ error: 'Amount must be a valid number' }, { status: 400 })
+    }
+
+    // Verify student belongs to caller's school
+    const student = await db.student.findUnique({
+      where: { id: studentId, schoolId: session.user.schoolId },
+    })
     if (!student) {
-      return NextResponse.json(
-        { error: 'Student not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
     }
 
-    // If invoiceId is provided, validate the invoice
     if (invoiceId) {
       const invoice = await db.feeInvoice.findUnique({ where: { id: invoiceId } })
       if (!invoice) {
-        return NextResponse.json(
-          { error: 'Invoice not found' },
-          { status: 404 }
-        )
+        return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
       }
       if (invoice.studentId !== studentId) {
+        return NextResponse.json({ error: 'Invoice does not belong to this student' }, { status: 400 })
+      }
+      // Validate payment does not exceed invoice balance
+      if (amount > invoice.balance + 0.01) {
         return NextResponse.json(
-          { error: 'Invoice does not belong to this student' },
+          { error: `Payment of $${amount.toFixed(2)} exceeds outstanding balance of $${invoice.balance.toFixed(2)}` },
           { status: 400 }
         )
       }
@@ -85,10 +94,8 @@ export async function POST(request: NextRequest) {
 
     const reference = generateReference()
     const transactionId = generateTransactionId()
-
-    // Calculate display amount based on currency
     const zigRate = 10.83
-    const paymentAmount = currency === 'ZiG' ? amount : amount
+    const paymentAmount = amount
     const displayAmount = currency === 'ZiG'
       ? `ZiG ${(paymentAmount * zigRate).toFixed(2)}`
       : `$${paymentAmount.toFixed(2)}`
@@ -96,10 +103,10 @@ export async function POST(request: NextRequest) {
     const usedReturnUrl = returnUrl || process.env.PAYNOW_RETURN_URL || ''
     const usedResultUrl = resultUrl || process.env.PAYNOW_RESULT_URL || ''
 
-    // If Paynow credentials are configured, make real API call
+    // ─── Live Paynow flow ────────────────────────────────────────────────────
     if (PAYNOW_INTEGRATION_ID && PAYNOW_INTEGRATION_KEY) {
       try {
-        const paynowPayload: Record<string, string> = {
+        const paynowFields: Record<string, string> = {
           id: PAYNOW_INTEGRATION_ID,
           reference,
           amount: paymentAmount.toFixed(2),
@@ -109,32 +116,23 @@ export async function POST(request: NextRequest) {
           authemail: '',
         }
 
-        // Generate hash
-        const hashString = [
-          paynowPayload.id,
-          paynowPayload.reference,
-          paynowPayload.amount,
-          paynowPayload.additionalinfo,
-          paynowPayload.resulturl,
-          paynowPayload.returnurl,
-          PAYNOW_INTEGRATION_KEY,
-        ].join('')
-
-        paynowPayload.hash = 'placeholder_hash_' + hashString.length
+        // Compute a proper MD5 hash per Paynow API specification
+        paynowFields.hash = computePaynowHash(
+          [paynowFields.id, paynowFields.reference, paynowFields.amount, paynowFields.additionalinfo, paynowFields.resulturl, paynowFields.returnurl],
+          PAYNOW_INTEGRATION_KEY
+        )
 
         const paynowUrl = 'https://www.paynow.co.zw/interface/initiatetransaction'
-
         const response = await fetch(paynowUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams(paynowPayload).toString(),
+          body: new URLSearchParams(paynowFields).toString(),
         })
 
         const responseText = await response.text()
         const responseData = Object.fromEntries(new URLSearchParams(responseText))
 
         if (responseData.status === 'Ok' || responseData.status === 'Sent') {
-          // Create FeePayment record in database
           const feePayment = await db.feePayment.create({
             data: {
               studentId,
@@ -151,65 +149,33 @@ export async function POST(request: NextRequest) {
           const paymentUrl = responseData.browserurl || `https://paynow.co.zw/payment/${reference}`
           const pollUrl = responseData.pollurl || responseData.pollUrl || null
 
-          const transaction: PaynowTransactionRecord = {
-            id: transactionId,
-            invoiceId: invoiceId || null,
-            studentId,
-            amount: paymentAmount,
-            currency,
-            status: 'pending',
-            reference,
-            pollUrl,
-            paymentUrl,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }
-
-          transactions.set(transactionId, transaction)
-
-          // Update invoice if provided
-          if (invoiceId) {
-            const invoice = await db.feeInvoice.findUnique({ where: { id: invoiceId } })
-            if (invoice) {
-              await db.feeInvoice.update({
-                where: { id: invoiceId },
-                data: {
-                  amountPaid: invoice.amountPaid,
-                  status: 'PENDING',
-                },
-              })
-            }
-          }
-
-          return NextResponse.json({
-            success: true,
-            transactionId,
-            reference,
-            paymentUrl,
-            pollUrl,
-            amount: displayAmount,
-            currency,
-            feePaymentId: feePayment.id,
+          transactions.set(transactionId, {
+            id: transactionId, invoiceId: invoiceId || null, studentId, amount: paymentAmount, currency,
+            status: 'pending', reference, pollUrl, paymentUrl,
+            createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
           })
+
+          logAudit({ action: 'CREATE', entity: 'paynow_payment', entityId: feePayment.id }).catch(() => {})
+          return NextResponse.json({ success: true, transactionId, reference, paymentUrl, pollUrl, amount: displayAmount, currency, feePaymentId: feePayment.id })
         } else {
-          return NextResponse.json(
-            { error: 'Paynow transaction failed', details: responseData.error || 'Unknown error' },
-            { status: 400 }
-          )
+          return NextResponse.json({ error: 'Paynow transaction failed', details: responseData.error || 'Unknown error' }, { status: 400 })
         }
       } catch (error) {
         console.error('Paynow API error:', error)
-        return NextResponse.json(
-          { error: 'Failed to communicate with Paynow' },
-          { status: 502 }
-        )
+        return NextResponse.json({ error: 'Failed to communicate with Paynow' }, { status: 502 })
       }
     }
 
-    // ─── Simulated Paynow Flow (Dev Mode) ───────────────────────────────────
+    // ─── Demo / development mode (only when credentials are NOT configured) ─
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json(
+        { error: 'Paynow credentials are not configured. Set PAYNOW_INTEGRATION_ID and PAYNOW_INTEGRATION_KEY.' },
+        { status: 503 }
+      )
+    }
+
     const paymentUrl = `https://paynow.co.zw/payment/${reference}`
 
-    // Create FeePayment record in database
     const feePayment = await db.feePayment.create({
       data: {
         studentId,
@@ -223,33 +189,21 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    const transaction: PaynowTransactionRecord = {
-      id: transactionId,
-      invoiceId: invoiceId || null,
-      studentId,
-      amount: paymentAmount,
-      currency,
-      status: 'pending',
-      reference,
-      pollUrl: null,
-      paymentUrl,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
+    transactions.set(transactionId, {
+      id: transactionId, invoiceId: invoiceId || null, studentId, amount: paymentAmount, currency,
+      status: 'pending', reference, pollUrl: null, paymentUrl,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    })
 
-    transactions.set(transactionId, transaction)
-
-    // Simulate payment completion after a short delay (demo mode)
+    // Simulate payment completion after delay — dev mode only
     setTimeout(async () => {
       const txn = transactions.get(transactionId)
       if (txn && txn.status === 'pending') {
-        // 80% chance of success in demo
         const isSuccess = Math.random() > 0.2
         txn.status = isSuccess ? 'paid' : 'failed'
         txn.updatedAt = new Date().toISOString()
         transactions.set(transactionId, txn)
 
-        // If payment succeeded, update the invoice
         if (isSuccess && txn.invoiceId) {
           try {
             const invoice = await db.feeInvoice.findUnique({ where: { id: txn.invoiceId } })
@@ -261,7 +215,7 @@ export async function POST(request: NextRequest) {
                 data: {
                   amountPaid: newAmountPaid,
                   balance: Math.max(0, newBalance),
-                  status: newBalance <= 0 ? 'PAID' : 'PARTIALLY_PAID',
+                  status: newBalance <= 0 ? 'PAID' : 'PARTIAL',
                 },
               })
             }
@@ -272,22 +226,13 @@ export async function POST(request: NextRequest) {
       }
     }, 5000)
 
+    logAudit({ action: 'CREATE', entity: 'paynow_payment', entityId: feePayment.id }).catch(() => {})
     return NextResponse.json({
-      success: true,
-      transactionId,
-      reference,
-      paymentUrl,
-      pollUrl: null,
-      amount: displayAmount,
-      currency,
-      feePaymentId: feePayment.id,
-      demo: true,
+      success: true, transactionId, reference, paymentUrl, pollUrl: null,
+      amount: displayAmount, currency, feePaymentId: feePayment.id, demo: true,
     })
   } catch (error) {
     console.error('Paynow initiation error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

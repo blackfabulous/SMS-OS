@@ -1,9 +1,14 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateAuth, validateRole } from '@/lib/api-auth'
 
 // GET /api/inventory — List assets with maintenance status
 // Query params: search, category, condition, isDisposed, maintenanceStatus, page, limit
 export async function GET(request: NextRequest) {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
@@ -18,11 +23,11 @@ export async function GET(request: NextRequest) {
     const assetFilter: Record<string, unknown> = {}
     if (search) {
       assetFilter.OR = [
-        { name: { contains: search } },
-        { assetTag: { contains: search } },
-        { location: { contains: search } },
-        { custodian: { contains: search } },
-        { donorSource: { contains: search } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { assetTag: { contains: search, mode: 'insensitive' } },
+        { location: { contains: search, mode: 'insensitive' } },
+        { custodian: { contains: search, mode: 'insensitive' } },
+        { donorSource: { contains: search, mode: 'insensitive' } },
       ]
     }
     if (category && category !== 'ALL') {
@@ -60,8 +65,8 @@ export async function GET(request: NextRequest) {
     }
     if (search) {
       maintenanceFilter.OR = [
-        { description: { contains: search } },
-        { category: { contains: search } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { category: { contains: search, mode: 'insensitive' } },
       ]
     }
 
@@ -150,6 +155,10 @@ export async function GET(request: NextRequest) {
 
 // POST /api/inventory — Create asset or maintenance request
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
+
   try {
     const body = await request.json()
     const { action } = body
@@ -161,10 +170,6 @@ export async function POST(request: NextRequest) {
       }
 
       let sid = schoolId
-      if (!sid) {
-        const school = await db.school.findFirst()
-        sid = school?.id
-      }
 
       const assetCount = await db.asset.count()
       const assetTag = `AST-${String(assetCount + 1).padStart(5, '0')}`
@@ -183,6 +188,7 @@ export async function POST(request: NextRequest) {
           custodian: custodian || null,
         },
       })
+      logAudit({ action: 'CREATE', entity: 'inventory', entityId: (asset as any)?.id, afterValue: asset }).catch(() => {})
       return NextResponse.json(asset, { status: 201 })
     }
 
@@ -193,10 +199,6 @@ export async function POST(request: NextRequest) {
       }
 
       let sid = schoolId
-      if (!sid) {
-        const school = await db.school.findFirst()
-        sid = school?.id
-      }
 
       const maintenanceRequest = await db.maintenanceRequest.create({
         data: {
@@ -210,6 +212,7 @@ export async function POST(request: NextRequest) {
         },
         include: { asset: { select: { name: true, assetTag: true, location: true } } },
       })
+      logAudit({ action: 'CREATE', entity: 'inventory', entityId: (maintenanceRequest as any)?.id, afterValue: maintenanceRequest }).catch(() => {})
       return NextResponse.json(maintenanceRequest, { status: 201 })
     }
 
@@ -222,6 +225,9 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/inventory — Update asset or maintenance request
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { id, type, ...updates } = body
@@ -241,6 +247,7 @@ export async function PUT(request: NextRequest) {
         },
         include: { asset: { select: { name: true, assetTag: true } } },
       })
+      logAudit({ action: 'UPDATE', entity: 'inventory', entityId: (record as any)?.id, afterValue: record }).catch(() => {})
       return NextResponse.json(record)
     }
 
@@ -256,6 +263,7 @@ export async function PUT(request: NextRequest) {
         donorSource: updates.donorSource,
       },
     })
+    logAudit({ action: 'UPDATE', entity: 'inventory', entityId: (asset as any)?.id, afterValue: asset }).catch(() => {})
     return NextResponse.json(asset)
   } catch (error) {
     console.error('Failed to update inventory record:', error)
@@ -265,6 +273,9 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/inventory?id=xxx&type=asset|maintenance
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -280,6 +291,7 @@ export async function DELETE(request: NextRequest) {
       await db.asset.update({ where: { id }, data: { isDisposed: true } })
     }
 
+    logAudit({ action: 'DELETE', entity: 'inventory', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Deleted successfully' })
   } catch (error) {
     console.error('Failed to delete inventory record:', error)

@@ -1,8 +1,13 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateAuth, validateRole } from '@/lib/api-auth'
 
 // GET /api/seo - Returns SEO data
 export async function GET(request: NextRequest) {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const pageSlug = searchParams.get('pageSlug')
@@ -43,6 +48,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/seo - Create SEO setting
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { pageSlug, metaTitle, metaDescription, metaKeywords, ogTitle, ogDescription, ogImage, schemaMarkup, canonicalUrl, robotsDirective } = body
@@ -67,6 +75,7 @@ export async function POST(request: NextRequest) {
     const seoSetting = await db.sEOSetting.create({
       data: { schoolId, pageSlug, metaTitle, metaDescription, metaKeywords, ogTitle, ogDescription, ogImage, schemaMarkup, canonicalUrl, robotsDirective: robotsDirective || 'index, follow' },
     })
+    logAudit({ action: 'CREATE', entity: 'seo' }).catch(() => {})
     return NextResponse.json({ success: true, data: seoSetting }, { status: 201 })
   } catch (error) {
     console.error('SEO POST error:', error)
@@ -76,6 +85,9 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/seo - Update SEO setting
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { id, ...fieldsToUpdate } = body
@@ -88,6 +100,7 @@ export async function PUT(request: NextRequest) {
       where: { id },
       data: { ...fieldsToUpdate, updatedAt: new Date() },
     })
+    logAudit({ action: 'UPDATE', entity: 'seo', entityId: (body?.id ?? undefined) }).catch(() => {})
     return NextResponse.json({ success: true, data: seoSetting })
   } catch (error) {
     console.error('SEO PUT error:', error)
@@ -97,6 +110,9 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/seo - Delete SEO setting
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { id } = body
@@ -106,6 +122,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     await db.sEOSetting.delete({ where: { id } })
+    logAudit({ action: 'DELETE', entity: 'seo', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ success: true, data: { deleted: true } })
   } catch (error) {
     console.error('SEO DELETE error:', error)

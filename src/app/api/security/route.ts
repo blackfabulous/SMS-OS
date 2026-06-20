@@ -1,8 +1,15 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateAuth, validateRole } from '@/lib/api-auth'
+import { getRequestTenant } from '@/lib/tenant'
 
 // GET /api/security - List visitors, access points, incidents with status/type filters
 export async function GET(request: NextRequest) {
+  const tenantResult = await getRequestTenant()
+  if ('error' in tenantResult) return tenantResult.error
+  const { schoolId } = tenantResult
+
   try {
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') // visitors | incidents | accessPoints
@@ -16,13 +23,6 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
     const skip = (page - 1) * limit
 
-    const school = await db.school.findFirst()
-    const schoolId = school?.id
-
-    if (!schoolId) {
-      return NextResponse.json({ error: 'School not configured' }, { status: 400 })
-    }
-
     // Incidents list
     if (type === 'incidents') {
       const incWhere: Record<string, unknown> = { schoolId }
@@ -31,9 +31,9 @@ export async function GET(request: NextRequest) {
       if (severity) incWhere.severity = severity.toUpperCase()
       if (search) {
         incWhere.OR = [
-          { description: { contains: search } },
-          { location: { contains: search } },
-          { reporter: { contains: search } },
+          { description: { contains: search, mode: 'insensitive' } },
+          { location: { contains: search, mode: 'insensitive' } },
+          { reporter: { contains: search, mode: 'insensitive' } },
         ]
       }
       if (dateFrom || dateTo) {
@@ -77,12 +77,12 @@ export async function GET(request: NextRequest) {
     if (status) visWhere.status = status.toUpperCase()
     if (search) {
       visWhere.OR = [
-        { name: { contains: search } },
-        { purpose: { contains: search } },
-        { hostPerson: { contains: search } },
-        { idNumber: { contains: search } },
-        { vehicleReg: { contains: search } },
-        { phone: { contains: search } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { purpose: { contains: search, mode: 'insensitive' } },
+        { hostPerson: { contains: search, mode: 'insensitive' } },
+        { idNumber: { contains: search, mode: 'insensitive' } },
+        { vehicleReg: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
       ]
     }
     if (dateFrom || dateTo) {
@@ -140,15 +140,13 @@ export async function GET(request: NextRequest) {
 
 // POST /api/security - Register visitor, report incident, check-in/check-out
 export async function POST(request: NextRequest) {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
+
   try {
     const body = await request.json()
     const { action } = body
-    const school = await db.school.findFirst()
-    const schoolId = school?.id
-
-    if (!schoolId) {
-      return NextResponse.json({ error: 'School not configured' }, { status: 400 })
-    }
 
     // Register visitor / Check-in
     if (action === 'checkIn' || action === 'registerVisitor') {
@@ -172,6 +170,7 @@ export async function POST(request: NextRequest) {
           status: 'ON_CAMPUS',
         },
       })
+      logAudit({ action: 'CREATE', entity: 'security', entityId: (visitor as any)?.id, afterValue: visitor }).catch(() => {})
       return NextResponse.json(visitor, { status: 201 })
     }
 
@@ -200,6 +199,7 @@ export async function POST(request: NextRequest) {
         where: { id: visitorId },
         data: { checkOutTime: new Date(), status: 'OFF_CAMPUS' },
       })
+      logAudit({ action: 'CREATE', entity: 'security', entityId: (visitor as any)?.id, afterValue: visitor }).catch(() => {})
       return NextResponse.json(visitor)
     }
 
@@ -224,6 +224,7 @@ export async function POST(request: NextRequest) {
           status: 'OPEN',
         },
       })
+      logAudit({ action: 'CREATE', entity: 'security', entityId: (incident as any)?.id, afterValue: incident }).catch(() => {})
       return NextResponse.json(incident, { status: 201 })
     }
 
@@ -242,6 +243,9 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/security - Update visitor or incident
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { id, type, ...updates } = body
@@ -260,6 +264,7 @@ export async function PUT(request: NextRequest) {
           description: updates.description,
         },
       })
+      logAudit({ action: 'UPDATE', entity: 'security', entityId: (incident as any)?.id, afterValue: incident }).catch(() => {})
       return NextResponse.json(incident)
     }
 
@@ -271,6 +276,7 @@ export async function PUT(request: NextRequest) {
         checkOutTime: updates.status === 'OFF_CAMPUS' ? new Date() : undefined,
       },
     })
+    logAudit({ action: 'UPDATE', entity: 'security', entityId: (visitor as any)?.id, afterValue: visitor }).catch(() => {})
     return NextResponse.json(visitor)
   } catch (error) {
     console.error('Failed to update security record:', error)
@@ -283,6 +289,9 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/security - Delete visitor or incident record
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -297,6 +306,7 @@ export async function DELETE(request: NextRequest) {
       await db.visitor.delete({ where: { id } })
     }
 
+    logAudit({ action: 'DELETE', entity: 'security', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Deleted successfully' })
   } catch (error) {
     console.error('Failed to delete security record:', error)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { validateRole } from '@/lib/api-auth'
 
 // ─── Multi-School Setup Wizard API ──────────────────────────────────────────
 // POST: Complete school setup with all configuration data
@@ -51,6 +52,9 @@ interface SetupData {
 }
 
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['SUPER_ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const data: SetupData = await request.json()
 
@@ -195,7 +199,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ─── Create Staff ───────────────────────────────────────────────────────
-    const staffToCreate = []
+    const staffToCreate: any[] = []
 
     if (data.staff.headmaster) {
       staffToCreate.push({

@@ -1,9 +1,15 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { logAudit } from '@/lib/audit'
+import { validateRole } from '@/lib/api-auth'
+import { getRequestTenant } from '@/lib/tenant'
 
 // GET /api/sdc — List SDC members, meetings, projects
 // Query params: search, type (member|meeting|project), isActive, page, limit
 export async function GET(request: NextRequest) {
+  const tenantResult = await getRequestTenant()
+  if ('error' in tenantResult) return tenantResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
@@ -21,10 +27,10 @@ export async function GET(request: NextRequest) {
     const memberFilter: Record<string, unknown> = { schoolId: school.id }
     if (search) {
       memberFilter.OR = [
-        { name: { contains: search } },
-        { position: { contains: search } },
-        { phone: { contains: search } },
-        { email: { contains: search } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { position: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
       ]
     }
     if (isActiveStr !== null) {
@@ -35,9 +41,9 @@ export async function GET(request: NextRequest) {
     const eventFilter: Record<string, unknown> = { schoolId: school.id }
     if (search) {
       eventFilter.OR = [
-        { title: { contains: search } },
-        { description: { contains: search } },
-        { venue: { contains: search } },
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { venue: { contains: search, mode: 'insensitive' } },
       ]
     }
 
@@ -160,12 +166,13 @@ export async function GET(request: NextRequest) {
 
 // POST /api/sdc — Create SDC member or meeting
 export async function POST(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+  const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
+  if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 })
+
   try {
     const body = await request.json()
-    const school = await db.school.findFirst()
-    if (!school) {
-      return NextResponse.json({ error: 'School not configured' }, { status: 400 })
-    }
 
     if (body.type === 'meeting') {
       if (!body.title || !body.startDate) {
@@ -182,6 +189,7 @@ export async function POST(request: NextRequest) {
           venue: body.venue || null,
         },
       })
+      logAudit({ action: 'CREATE', entity: 'sdc', entityId: (meeting as any)?.id, afterValue: meeting }).catch(() => {})
       return NextResponse.json(meeting, { status: 201 })
     }
 
@@ -200,6 +208,7 @@ export async function POST(request: NextRequest) {
           venue: body.venue || null,
         },
       })
+      logAudit({ action: 'CREATE', entity: 'sdc', entityId: (project as any)?.id, afterValue: project }).catch(() => {})
       return NextResponse.json(project, { status: 201 })
     }
 
@@ -229,6 +238,7 @@ export async function POST(request: NextRequest) {
       await db.school.update({ where: { id: school.id }, data: { sdcTreasurer: body.name } })
     }
 
+    logAudit({ action: 'CREATE', entity: 'sdc', entityId: (member as any)?.id, afterValue: member }).catch(() => {})
     return NextResponse.json(member, { status: 201 })
   } catch (error) {
     console.error('Error creating SDC record:', error)
@@ -238,6 +248,9 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/sdc — Update SDC member or event
 export async function PUT(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const body = await request.json()
     const { id, type, ...updates } = body
@@ -271,6 +284,7 @@ export async function PUT(request: NextRequest) {
         if (school) await db.school.update({ where: { id: school.id }, data: { sdcTreasurer: updates.name } })
       }
 
+      logAudit({ action: 'UPDATE', entity: 'sdc', entityId: (member as any)?.id, afterValue: member }).catch(() => {})
       return NextResponse.json(member)
     }
 
@@ -285,6 +299,7 @@ export async function PUT(request: NextRequest) {
           endDate: updates.endDate ? new Date(updates.endDate) : undefined,
         },
       })
+      logAudit({ action: 'UPDATE', entity: 'sdc', entityId: (event as any)?.id, afterValue: event }).catch(() => {})
       return NextResponse.json(event)
     }
 
@@ -297,6 +312,9 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/sdc?id=xxx&type=member|event
 export async function DELETE(request: NextRequest) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -314,6 +332,7 @@ export async function DELETE(request: NextRequest) {
       await db.sDCMember.delete({ where: { id } })
     }
 
+    logAudit({ action: 'DELETE', entity: 'sdc', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Deleted successfully' })
   } catch (error) {
     console.error('Error deleting SDC record:', error)

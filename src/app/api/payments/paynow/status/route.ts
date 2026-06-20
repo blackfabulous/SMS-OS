@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { validateAuth } from '@/lib/api-auth'
 
 // ─── Paynow Payment Gateway - Status Check ───────────────────────────────────
 // Checks the status of a Paynow payment transaction.
@@ -27,6 +28,9 @@ const PAYNOW_INTEGRATION_KEY = process.env.PAYNOW_INTEGRATION_KEY
 
 // ─── GET: Check Payment Status ──────────────────────────────────────────────
 export async function GET(request: NextRequest) {
+  const authResult = await validateAuth()
+  if ('error' in authResult) return authResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const reference = searchParams.get('reference')

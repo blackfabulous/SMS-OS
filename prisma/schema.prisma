@@ -89,6 +89,9 @@ model School {
   shopOrders             SchoolShopOrder[]
   seoSettings            SEOSetting[]
   settings               SchoolSetting[]
+  partners               Partner[]
+  siteTheme              SiteTheme?
+  faqs                   Faq[]
 }
 
 model AcademicYear {
@@ -382,6 +385,10 @@ model Staff {
   responsibilityAllowance Float  @default(0)
   photo                 String?
   isActive              Boolean  @default(true)
+  // Public website ("Our team" on the About page)
+  showOnWebsite         Boolean  @default(false)
+  websiteBio            String?
+  websiteOrder          Int      @default(0)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -626,6 +633,7 @@ model BeamApplication {
   guardianSituation     String?
   orphanStatus          String?
   notes                 String?
+  coverageAppliedAt     DateTime? // set when the approved coverage has been posted to invoices (idempotency)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -1425,6 +1433,96 @@ model GalleryImage {
   createdAt             DateTime @default(now())
 
   school                School   @relation(fields: [schoolId], references: [id])
+}
+
+// ── Public website: accreditation / partner logos (carousel on the home page) ──
+model Partner {
+  id          String   @id @default(cuid())
+  schoolId    String
+  name        String
+  logoUrl     String?  // image URL; when null the public site renders a text badge
+  websiteUrl  String?
+  category    String   @default("PARTNER") // ACCREDITATION | PARTNER | AFFILIATION
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, isActive])
+}
+
+// ── Public website theme & home-page content (one row per school) ──
+model SiteTheme {
+  id                 String   @id @default(cuid())
+  schoolId           String   @unique
+
+  // Brand / theme tokens (CSS variables applied to the public site)
+  primaryColor       String   @default("#047857") // emerald-700
+  secondaryColor     String   @default("#0f766e") // teal-700
+  accentColor        String   @default("#facc15") // yellow-400
+  darkColor          String   @default("#022c22") // emerald-950
+  headingFont        String   @default("Geist")
+  bodyFont           String   @default("Geist")
+  radius             String   @default("0.75rem")
+
+  // Hero section
+  heroImageUrl       String   @default("/images/campus-hero.jpg")
+  heroBadge          String?
+  heroHeadline       String?  // falls back to school.name
+  heroMotto          String?  // falls back to school.motto
+  heroSubtitle       String?
+  heroPrimaryLabel   String   @default("Apply for Admission")
+  heroPrimaryHref    String   @default("/admissions/apply")
+  heroSecondaryLabel String   @default("Discover Our School")
+  heroSecondaryHref  String   @default("/about")
+
+  // Hero colour overlay
+  overlayFrom        String   @default("#022c22")
+  overlayTo          String   @default("#134e4a")
+  overlayOpacity     Int      @default(80) // 0–100
+
+  // Repeating home content stored as JSON strings
+  statsJson          String   @default("[]") // [{ value, label }]
+  valuesJson         String   @default("[]") // [{ icon, title, desc }]
+  testimonialsJson   String   @default("[]") // [{ quote, name, role }]
+
+  // About page prose (editable; null → built-in defaults)
+  aboutHistory       String?
+  missionText        String?
+  visionText         String?
+
+  // Home section visibility toggles
+  showStats          Boolean  @default(true)
+  showPartners       Boolean  @default(true)
+  showValues         Boolean  @default(true)
+  showGallery        Boolean  @default(true)
+  showTestimonials   Boolean  @default(true)
+  showNews           Boolean  @default(true)
+  showEvents         Boolean  @default(true)
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  school             School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+}
+
+// ── Public website: frequently-asked questions (admin-editable accordion) ──
+model Faq {
+  id          String   @id @default(cuid())
+  schoolId    String
+  question    String
+  answer      String
+  category    String   @default("GENERAL")
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, isActive])
 }
 
 model SchoolShopItem {

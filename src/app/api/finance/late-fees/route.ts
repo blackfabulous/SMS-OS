@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { validateRole } from '@/lib/api-auth'
-import { getRequestTenant } from '@/lib/tenant'
+import { requireContext } from '@/server/context'
 import { logAudit } from '@/lib/audit'
 import { getSetting } from '@/lib/settings'
 import { applyLateFee, round2 } from '@/lib/finance-calc'
@@ -12,15 +11,14 @@ import { notifyStudentGuardiansBatch } from '@/lib/notifications'
  * Preview: how many overdue invoices are eligible and the configured penalty.
  */
 export async function GET() {
-  const auth = await validateRole(['ADMIN', 'BURSAR'])
-  if ('error' in auth) return auth.error
-  const tenant = await getRequestTenant()
-  if ('error' in tenant) return tenant.error
+  const result = await requireContext({ roles: ['ADMIN', 'BURSAR'] })
+  if ('error' in result) return result.error
+  const { ctx } = result
 
-  const penaltyPct = await getSetting(tenant.schoolId, 'finance.lateFeePenaltyPct')
+  const penaltyPct = await getSetting(ctx.schoolId, 'finance.lateFeePenaltyPct')
   const eligible = await db.feeInvoice.count({
     where: {
-      student: { schoolId: tenant.schoolId },
+      student: { schoolId: ctx.schoolId },
       status: { in: ['PENDING', 'PARTIAL'] },
       balance: { gt: 0 },
       dueDate: { lt: new Date() },
@@ -36,19 +34,18 @@ export async function GET() {
  * invoice that has not already been penalised. Idempotent via `lateFeeApplied`.
  */
 export async function POST() {
-  const auth = await validateRole(['ADMIN', 'BURSAR'])
-  if ('error' in auth) return auth.error
-  const tenant = await getRequestTenant()
-  if ('error' in tenant) return tenant.error
+  const result = await requireContext({ roles: ['ADMIN', 'BURSAR'] })
+  if ('error' in result) return result.error
+  const { ctx } = result
 
-  const penaltyPct = await getSetting(tenant.schoolId, 'finance.lateFeePenaltyPct')
+  const penaltyPct = await getSetting(ctx.schoolId, 'finance.lateFeePenaltyPct')
   if (penaltyPct <= 0) {
     return NextResponse.json({ applied: 0, totalPenalty: 0, message: 'No late-fee penalty is configured.' })
   }
 
   const overdue = await db.feeInvoice.findMany({
     where: {
-      student: { schoolId: tenant.schoolId },
+      student: { schoolId: ctx.schoolId },
       status: { in: ['PENDING', 'PARTIAL'] },
       balance: { gt: 0 },
       dueDate: { lt: new Date() },
@@ -82,9 +79,9 @@ export async function POST() {
 
   // Notify each affected guardian of the now-overdue balance. Batch loads the
   // school context + all guardians once (no N+1) and runs fire-and-forget.
-  const currency = await getSetting(tenant.schoolId, 'finance.baseCurrency')
+  const currency = await getSetting(ctx.schoolId, 'finance.baseCurrency')
   void notifyStudentGuardiansBatch(
-    tenant.schoolId,
+    ctx.schoolId,
     notify.map((n) => ({
       studentId: n.studentId,
       eventFactory: (studentName: string) => ({ type: 'fee.overdue' as const, studentName, balance: n.balance, currency }),
@@ -94,7 +91,7 @@ export async function POST() {
   logAudit({
     action: 'UPDATE',
     entity: 'finance.late-fees',
-    entityId: tenant.schoolId,
+    entityId: ctx.schoolId,
     afterValue: { applied: overdue.length, totalPenalty, penaltyPct },
   }).catch(() => {})
 

@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
 import { db } from '@/lib/db'
+import { getRequestTenant } from '@/lib/tenant'
 
 export async function GET(request: NextRequest) {
+  const tenantResult = await getRequestTenant()
+  if ('error' in tenantResult) return tenantResult.error
+
   try {
     const { searchParams } = new URL(request.url)
     const academicYearId = searchParams.get('academicYearId')
@@ -102,7 +106,7 @@ export async function GET(request: NextRequest) {
       right: { style: 'thin' as const },
     }
 
-    const headerFill: Partial<ExcelJS.Fill> = {
+    const headerFill: ExcelJS.Fill = {
       type: 'pattern',
       pattern: 'solid',
       fgColor: { argb: 'FF064E3B' }, // emerald-900
@@ -129,7 +133,7 @@ export async function GET(request: NextRequest) {
       name: 'Calibri',
     }
 
-    const totalFill: Partial<ExcelJS.Fill> = {
+    const totalFill: ExcelJS.Fill = {
       type: 'pattern',
       pattern: 'solid',
       fgColor: { argb: 'FFECFDF5' }, // emerald-50

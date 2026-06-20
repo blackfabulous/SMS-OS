@@ -1,11 +1,15 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
-import { validateAuth, validateRole } from '@/lib/api-auth'
+import { validateRole } from '@/lib/api-auth'
+import { getRequestTenant } from '@/lib/tenant'
+import { logAudit } from '@/lib/audit'
 
 export async function GET(request: Request) {
   try {
-    const authResult = await validateAuth()
-    if ('error' in authResult) return authResult.error
+    const tenantResult = await getRequestTenant()
+    if ('error' in tenantResult) return tenantResult.error
+    const { schoolId } = tenantResult
+
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
     const staffType = searchParams.get('staffType') || ''
@@ -15,21 +19,22 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
 
-    const where: Record<string, unknown> = {}
+    // Always scope to authenticated user's school
+    const where: Record<string, unknown> = { schoolId }
 
     if (search) {
       where.OR = [
-        { firstName: { contains: search } },
-        { lastName: { contains: search } },
-        { middleName: { contains: search } },
-        { staffNumber: { contains: search } },
-        { nationalId: { contains: search } },
-        { email: { contains: search } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { middleName: { contains: search, mode: 'insensitive' } },
+        { staffNumber: { contains: search, mode: 'insensitive' } },
+        { nationalId: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
       ]
     }
 
     if (staffType) where.staffType = staffType
-    if (position) where.position = { contains: position }
+    if (position) where.position = { contains: position, mode: 'insensitive' }
     if (department) where.department = department
     if (isActive !== '') where.isActive = isActive === 'true'
 
@@ -43,33 +48,25 @@ export async function GET(request: Request) {
       db.staff.count({ where }),
     ])
 
-    return NextResponse.json({
-      data,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
-    })
+    return NextResponse.json({ data, total, page, totalPages: Math.ceil(total / limit) })
   } catch (error) {
     console.error('Error fetching staff:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch staff' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch staff' }, { status: 500 })
   }
 }
 
 export async function POST(request: Request) {
+  const authResult = await validateRole(['ADMIN'])
+  if ('error' in authResult) return authResult.error
+  const { session } = authResult
+
   try {
-    const authResult = await validateRole(['ADMIN'])
-    if ('error' in authResult) return authResult.error
     const body = await request.json()
 
     const currentYear = new Date().getFullYear()
 
     const lastStaff = await db.staff.findFirst({
-      where: {
-        staffNumber: { startsWith: `STF${currentYear}` },
-      },
+      where: { staffNumber: { startsWith: `STF${currentYear}` } },
       orderBy: { staffNumber: 'desc' },
     })
 
@@ -84,7 +81,8 @@ export async function POST(request: Request) {
     const staff = await db.staff.create({
       data: {
         staffNumber,
-        schoolId: body.schoolId,
+        // Always use authenticated user's schoolId — never trust body.schoolId
+        schoolId: session.user.schoolId,
         title: body.title,
         firstName: body.firstName,
         lastName: body.lastName,
@@ -119,12 +117,10 @@ export async function POST(request: Request) {
       },
     })
 
+    logAudit({ action: 'CREATE', entity: 'staff', entityId: staff.id, afterValue: staff }).catch(() => {})
     return NextResponse.json(staff, { status: 201 })
   } catch (error) {
     console.error('Error creating staff:', error)
-    return NextResponse.json(
-      { error: 'Failed to create staff' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to create staff' }, { status: 500 })
   }
 }
