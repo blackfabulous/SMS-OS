@@ -6,13 +6,17 @@ export async function GET() {
   try {
     const authResult = await validateAuth()
     if ('error' in authResult) return authResult.error
+    // Every query below MUST be scoped to the caller's school (tenant isolation).
+    const schoolId = authResult.session.user.schoolId
+
     // Enrollment stats
-    const totalStudents = await db.student.count()
+    const totalStudents = await db.student.count({ where: { schoolId } })
     const activeStudents = await db.student.count({
-      where: { enrollmentStatus: 'ACTIVE' },
+      where: { schoolId, enrollmentStatus: 'ACTIVE' },
     })
     const newStudents = await db.student.count({
       where: {
+        schoolId,
         enrollmentStatus: 'ACTIVE',
         admissionDate: {
           gte: new Date(new Date().getFullYear(), 0, 1),
@@ -22,6 +26,7 @@ export async function GET() {
 
     const enrollmentByStatus = await db.student.groupBy({
       by: ['enrollmentStatus'],
+      where: { schoolId },
       _count: { id: true },
     })
 
@@ -29,18 +34,18 @@ export async function GET() {
     const genderDistribution = await db.student.groupBy({
       by: ['gender'],
       _count: { id: true },
-      where: { enrollmentStatus: 'ACTIVE' },
+      where: { schoolId, enrollmentStatus: 'ACTIVE' },
     })
 
     // Grade distribution
     const gradeDistribution = await db.studentEnrollment.groupBy({
       by: ['classId'],
-      where: { status: 'ACTIVE' },
+      where: { status: 'ACTIVE', student: { schoolId } },
       _count: { studentId: true },
     })
 
     const classes = await db.class.findMany({
-      where: { isActive: true },
+      where: { isActive: true, schoolId },
       include: { grade: true },
     })
 
@@ -59,6 +64,7 @@ export async function GET() {
     const todayAttendance = await db.attendance.findMany({
       where: {
         date: { gte: today, lt: tomorrow },
+        student: { schoolId },
       },
     })
 
@@ -74,6 +80,7 @@ export async function GET() {
 
     // Fee collection stats
     const feeStats = await db.feeInvoice.aggregate({
+      where: { student: { schoolId } },
       _sum: {
         totalAmount: true,
         amountPaid: true,
@@ -83,29 +90,31 @@ export async function GET() {
     })
 
     const paidInvoices = await db.feeInvoice.count({
-      where: { status: 'PAID' },
+      where: { status: 'PAID', student: { schoolId } },
     })
     const overdueInvoices = await db.feeInvoice.count({
       where: {
         status: { in: ['PENDING', 'PARTIAL'] },
         dueDate: { lt: new Date() },
+        student: { schoolId },
       },
     })
 
     // Staff stats
-    const totalStaff = await db.staff.count()
+    const totalStaff = await db.staff.count({ where: { schoolId } })
     const activeStaff = await db.staff.count({
-      where: { isActive: true },
+      where: { schoolId, isActive: true },
     })
     const teachingStaff = await db.staff.count({
-      where: { isActive: true, staffType: 'TEACHING' },
+      where: { schoolId, isActive: true, staffType: 'TEACHING' },
     })
     const nonTeachingStaff = await db.staff.count({
-      where: { isActive: true, staffType: 'NON_TEACHING' },
+      where: { schoolId, isActive: true, staffType: 'NON_TEACHING' },
     })
 
     // Recent activities (recent students, payments, enrollments)
     const recentStudents = await db.student.findMany({
+      where: { schoolId },
       take: 5,
       orderBy: { createdAt: 'desc' },
       select: {
@@ -119,6 +128,7 @@ export async function GET() {
     })
 
     const recentPayments = await db.feePayment.findMany({
+      where: { student: { schoolId } },
       take: 5,
       orderBy: { createdAt: 'desc' },
       include: {
@@ -135,12 +145,14 @@ export async function GET() {
     // Boarding stats
     const boardingStudents = await db.student.count({
       where: {
+        schoolId,
         enrollmentStatus: 'ACTIVE',
         boardingStatus: 'BOARDER',
       },
     })
     const dayStudents = await db.student.count({
       where: {
+        schoolId,
         enrollmentStatus: 'ACTIVE',
         boardingStatus: 'DAY_SCHOLAR',
       },
@@ -148,7 +160,7 @@ export async function GET() {
 
     // BEAM stats
     const beamStudents = await db.beamApplication.count({
-      where: { status: 'APPROVED' },
+      where: { status: 'APPROVED', student: { schoolId } },
     })
 
     return NextResponse.json({

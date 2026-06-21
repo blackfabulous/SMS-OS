@@ -19,8 +19,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '100')
     const skip = (page - 1) * limit
 
-    const school = await db.school.findFirst()
-    const schoolId = school?.id
+    const schoolId = authResult.session.user.schoolId
 
     if (!schoolId) {
       return NextResponse.json({ error: 'School not configured' }, { status: 400 })
@@ -99,8 +98,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const school = await db.school.findFirst()
-    const schoolId = school?.id
+    const schoolId = authResult.session.user.schoolId
 
     if (!schoolId) {
       return NextResponse.json({ error: 'School not configured' }, { status: 400 })
@@ -276,22 +274,23 @@ export async function PUT(request: NextRequest) {
       )
     }
 
+    // Verify the entry belongs to the caller's school before any read/mutation.
+    const schoolId = authResult.session.user.schoolId
+    const existing = await db.timetableEntry.findFirst({ where: { id, schoolId } })
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Timetable entry not found' },
+        { status: 404 }
+      )
+    }
+
     // If changing day/period/class/teacher/room, check for conflicts
     if (updates.dayOfWeek || updates.period || updates.classId || updates.staffId || updates.room) {
-      const existing = await db.timetableEntry.findUnique({ where: { id } })
-      if (!existing) {
-        return NextResponse.json(
-          { error: 'Timetable entry not found' },
-          { status: 404 }
-        )
-      }
-
       const newDayOfWeek = updates.dayOfWeek || existing.dayOfWeek
       const newPeriod = updates.period || existing.period
       const newClassId = updates.classId || existing.classId
       const newStaffId = updates.staffId !== undefined ? updates.staffId : existing.staffId
       const newRoom = updates.room !== undefined ? updates.room : existing.room
-      const schoolId = existing.schoolId
 
       // Check class conflict (excluding current entry)
       const classConflict = await db.timetableEntry.findFirst({
@@ -395,6 +394,10 @@ export async function DELETE(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    const schoolId = authResult.session.user.schoolId
+    const owned = await db.timetableEntry.findFirst({ where: { id, schoolId }, select: { id: true } })
+    if (!owned) return NextResponse.json({ error: 'Timetable entry not found' }, { status: 404 })
 
     await db.timetableEntry.update({ where: { id }, data: { isActive: false } })
     logAudit({ action: 'DELETE', entity: 'timetable', entityId: (id ?? undefined) }).catch(() => {})

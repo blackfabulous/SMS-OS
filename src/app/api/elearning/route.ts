@@ -19,8 +19,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
     const skip = (page - 1) * limit
 
-    const school = await db.school.findFirst()
-    const schoolId = school?.id
+    const schoolId = authResult.session.user.schoolId
 
     if (!schoolId) {
       return NextResponse.json({ error: 'School not configured' }, { status: 400 })
@@ -174,8 +173,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { action } = body
-    const school = await db.school.findFirst()
-    const schoolId = school?.id
+    const schoolId = authResult.session.user.schoolId
 
     if (!schoolId) {
       return NextResponse.json({ error: 'School not configured' }, { status: 400 })
@@ -308,8 +306,11 @@ export async function PUT(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
+    const schoolId = authResult.session.user.schoolId
 
     if (type === 'course') {
+      const ownedCourse = await db.course.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!ownedCourse) return NextResponse.json({ error: 'Course not found' }, { status: 404 })
       const course = await db.course.update({
         where: { id },
         data: {
@@ -326,6 +327,8 @@ export async function PUT(request: NextRequest) {
     }
 
     if (type === 'resource') {
+      const ownedResource = await db.courseResource.findFirst({ where: { id, course: { schoolId } }, select: { id: true } })
+      if (!ownedResource) return NextResponse.json({ error: 'Resource not found' }, { status: 404 })
       const resource = await db.courseResource.update({
         where: { id },
         data: {
@@ -340,6 +343,8 @@ export async function PUT(request: NextRequest) {
     }
 
     if (type === 'assignment') {
+      const ownedAssignment = await db.courseAssignment.findFirst({ where: { id, course: { schoolId } }, select: { id: true } })
+      if (!ownedAssignment) return NextResponse.json({ error: 'Assignment not found' }, { status: 404 })
       const assignment = await db.courseAssignment.update({
         where: { id },
         data: {
