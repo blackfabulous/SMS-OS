@@ -2,6 +2,7 @@ import { getServerSession } from '@/lib/auth'
 import type { UserRole } from '@/lib/auth'
 import { NextResponse } from 'next/server'
 import { logSecurityEvent } from './audit'
+import { enterTenant } from '@/server/tenant-context'
 
 /**
  * Validates that the request has an authenticated session.
@@ -22,6 +23,8 @@ export async function validateAuth(): Promise<{
     }
   }
 
+  // Establish the request's tenant so RLS-scoped queries are constrained to it.
+  enterTenant(session.user.schoolId)
   return { session }
 }
 
