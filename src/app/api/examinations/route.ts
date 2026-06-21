@@ -62,19 +62,24 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const authResult = await validateRole(['ADMIN', 'TEACHER'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const body = await request.json()
 
+    // The candidate's student must belong to the caller's school (tenant guard).
+    const ownStudent = await db.student.findFirst({ where: { id: body.studentId, schoolId }, select: { id: true } })
+    if (!ownStudent) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+
     const existing = await db.zimsecCandidate.findFirst({
-      where: { studentId: body.studentId, examYear: body.examYear || new Date().getFullYear() },
+      where: { studentId: body.studentId, examYear: body.examYear || new Date().getFullYear(), student: { schoolId } },
     })
     if (existing) return NextResponse.json({ error: 'Candidate already registered for this exam year', duplicate: true }, { status: 409 })
 
-    const school = await db.school.findFirst()
+    const school = await db.school.findUnique({ where: { id: schoolId } })
     const centreNumber = school?.zimsecCentreNumber || ''
     const year = body.examYear || new Date().getFullYear()
-    const existingCount = await db.zimsecCandidate.count({ where: { examYear: year } })
+    const existingCount = await db.zimsecCandidate.count({ where: { examYear: year, student: { schoolId } } })
     const candidateNumber = `${centreNumber}/${String(existingCount + 1).padStart(4, '0')}`
 
     const candidate = await db.zimsecCandidate.create({
@@ -97,12 +102,17 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   const authResult = await validateRole(['ADMIN', 'TEACHER'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const body = await request.json()
     const { id, ...updates } = body
 
     if (!id) return NextResponse.json({ error: 'Candidate ID is required' }, { status: 400 })
+
+    // Verify the candidate belongs to the caller's school before mutating.
+    const owned = await db.zimsecCandidate.findFirst({ where: { id, student: { schoolId } }, select: { id: true } })
+    if (!owned) return NextResponse.json({ error: 'Candidate not found' }, { status: 404 })
 
     const candidate = await db.zimsecCandidate.update({
       where: { id },
@@ -127,12 +137,17 @@ export async function PUT(request: Request) {
 export async function DELETE(request: Request) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
     if (!id) return NextResponse.json({ error: 'Candidate ID is required' }, { status: 400 })
+
+    // Verify the candidate belongs to the caller's school before deleting.
+    const owned = await db.zimsecCandidate.findFirst({ where: { id, student: { schoolId } }, select: { id: true } })
+    if (!owned) return NextResponse.json({ error: 'Candidate not found' }, { status: 404 })
 
     await db.zimsecCandidate.delete({ where: { id } })
     logAudit({ action: 'DELETE', entity: 'examinations', entityId: (id ?? undefined) }).catch(() => {})

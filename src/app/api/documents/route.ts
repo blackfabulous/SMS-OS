@@ -19,8 +19,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
     const skip = (page - 1) * limit
 
-    const school = await db.school.findFirst()
-    const schoolId = school?.id
+    const schoolId = authResult.session.user.schoolId
 
     if (!schoolId) {
       return NextResponse.json({ error: 'School not configured' }, { status: 400 })
@@ -106,8 +105,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const school = await db.school.findFirst()
-    const schoolId = school?.id
+    const schoolId = authResult.session.user.schoolId
 
     if (!schoolId) {
       return NextResponse.json({ error: 'School not configured' }, { status: 400 })
@@ -159,6 +157,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   const authResult = await validateRole(['ADMIN', 'TEACHER'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const body = await request.json()
@@ -166,6 +165,10 @@ export async function PUT(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
+
+    // Verify the document belongs to the caller's school before mutating.
+    const owned = await db.document.findFirst({ where: { id, schoolId }, select: { id: true } })
+    if (!owned) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
 
     const doc = await db.document.update({
       where: { id },
@@ -196,6 +199,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const { searchParams } = new URL(request.url)
@@ -203,6 +207,10 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
+
+    // Verify the document belongs to the caller's school before deleting.
+    const owned = await db.document.findFirst({ where: { id, schoolId }, select: { id: true } })
+    if (!owned) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
 
     await db.document.delete({ where: { id } })
     logAudit({ action: 'DELETE', entity: 'documents', entityId: (id ?? undefined) }).catch(() => {})

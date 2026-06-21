@@ -27,6 +27,7 @@ interface ImportResult {
 export async function POST(request: NextRequest) {
   const authResult = await validateRole(['ADMIN', 'TEACHER'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const contentType = request.headers.get('content-type') || ''
@@ -155,7 +156,7 @@ export async function POST(request: NextRequest) {
       try {
         // Find student by studentNumber
         const student = await db.student.findFirst({
-          where: { studentNumber },
+          where: { studentNumber, schoolId },
         })
 
         if (!student) {
