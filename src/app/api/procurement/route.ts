@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
     const skip = (page - 1) * limit
 
-    const school = await db.school.findFirst()
+    const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
     const schoolId = school?.id
 
     if (!schoolId) {
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { action } = body
-    const school = await db.school.findFirst()
+    const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
     const schoolId = school?.id
 
     if (!schoolId) {
@@ -267,6 +267,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   const authResult = await validateRole(['ADMIN', 'BURSAR'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const body = await request.json()
@@ -276,6 +277,8 @@ export async function PUT(request: NextRequest) {
     }
 
     if (type === 'purchaseOrder') {
+      const owned = await db.purchaseOrder.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       const po = await db.purchaseOrder.update({
         where: { id },
         data: {
@@ -291,6 +294,8 @@ export async function PUT(request: NextRequest) {
     }
 
     if (type === 'vendor') {
+      const owned = await db.supplier.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       const vendor = await db.supplier.update({
         where: { id },
         data: {
@@ -310,6 +315,8 @@ export async function PUT(request: NextRequest) {
     }
 
     if (type === 'requisition') {
+      const owned = await db.requisition.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       const req = await db.requisition.update({
         where: { id },
         data: {
@@ -338,6 +345,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const { searchParams } = new URL(request.url)
@@ -347,11 +355,18 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
+    // Verify the target belongs to the caller's school before mutating.
     if (type === 'vendor') {
+      const owned = await db.supplier.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       await db.supplier.update({ where: { id }, data: { isActive: false } })
     } else if (type === 'requisition') {
+      const owned = await db.requisition.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       await db.requisition.delete({ where: { id } })
     } else {
+      const owned = await db.purchaseOrder.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       await db.purchaseOrder.delete({ where: { id } })
     }
 

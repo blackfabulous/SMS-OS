@@ -16,7 +16,7 @@ export async function GET() {
   if ('error' in authResult) return authResult.error
 
   try {
-    const school = await db.school.findFirst()
+    const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
     const schoolId = school?.id
     const baseUrl = school?.contactEmail ? `https://${school.code.toLowerCase()}.zimschool.co.zw` : 'https://school.zimschool.co.zw'
 

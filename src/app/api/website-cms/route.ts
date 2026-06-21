@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const section = searchParams.get('section') || 'all'
-    const school = await db.school.findFirst()
+    const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
     const schoolId = school?.id
 
     if (!schoolId) {
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { action, data } = body
-    const school = await db.school.findFirst()
+    const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
     const schoolId = school?.id
 
     if (!schoolId) {
@@ -201,7 +201,7 @@ export async function PUT(request: NextRequest) {
     }
 
     if (action === 'updateBranding') {
-      const school = await db.school.findFirst()
+      const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
       if (!school) return NextResponse.json({ success: false, error: 'School not found' }, { status: 404 })
       const updated = await db.school.update({ where: { id: school.id }, data: { ...data, updatedAt: new Date() } })
       logAudit({ action: 'UPDATE', entity: 'website-cms', entityId: (body?.id ?? undefined) }).catch(() => {})
@@ -223,7 +223,7 @@ export async function PUT(request: NextRequest) {
     }
 
     if (action === 'updateTheme') {
-      const school = await db.school.findFirst()
+      const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
       if (!school) return NextResponse.json({ success: false, error: 'School not found' }, { status: 404 })
       // Upsert so the row is created on first save if the seed never ran.
       const theme = await db.siteTheme.upsert({

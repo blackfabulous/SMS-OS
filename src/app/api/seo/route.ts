@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const pageSlug = searchParams.get('pageSlug')
-    const school = await db.school.findFirst()
+    const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
     const schoolId = school?.id
 
     if (!schoolId) {
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { pageSlug, metaTitle, metaDescription, metaKeywords, ogTitle, ogDescription, ogImage, schemaMarkup, canonicalUrl, robotsDirective } = body
-    const school = await db.school.findFirst()
+    const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
     const schoolId = school?.id
 
     if (!schoolId) {

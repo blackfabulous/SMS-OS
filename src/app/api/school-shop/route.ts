@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category')
     const search = searchParams.get('search')
     const isActive = searchParams.get('isActive')
-    const school = await db.school.findFirst()
+    const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
     const schoolId = school?.id
 
     if (!schoolId) {
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { action, data } = body
-    const school = await db.school.findFirst()
+    const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
     const schoolId = school?.id
 
     if (!schoolId) {
@@ -116,6 +116,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const body = await request.json()
@@ -124,6 +125,8 @@ export async function PUT(request: NextRequest) {
     if (!id) return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 })
 
     if (action === 'updateProduct') {
+      const owned = await db.schoolShopItem.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
       const product = await db.schoolShopItem.update({ where: { id }, data: { ...data, updatedAt: new Date() } })
       logAudit({ action: 'UPDATE', entity: 'school-shop', entityId: (body?.id ?? undefined) }).catch(() => {})
       return NextResponse.json({ success: true, data: product })
@@ -134,6 +137,8 @@ export async function PUT(request: NextRequest) {
       if (!data?.status || !validStatuses.includes(data.status)) {
         return NextResponse.json({ success: false, error: 'Valid status is required (PENDING|PROCESSING|READY|COLLECTED|CANCELLED)' }, { status: 400 })
       }
+      const ownedOrder = await db.schoolShopOrder.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!ownedOrder) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
       const order = await db.schoolShopOrder.update({ where: { id }, data: { status: data.status, updatedAt: new Date() } })
       logAudit({ action: 'UPDATE', entity: 'school-shop', entityId: (body?.id ?? undefined) }).catch(() => {})
       return NextResponse.json({ success: true, data: order })
@@ -150,6 +155,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const body = await request.json()
@@ -158,11 +164,15 @@ export async function DELETE(request: NextRequest) {
     if (!id) return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 })
 
     if (action === 'deleteProduct') {
+      const owned = await db.schoolShopItem.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
       await db.schoolShopItem.delete({ where: { id } })
       logAudit({ action: 'DELETE', entity: 'school-shop', entityId: (id ?? undefined) }).catch(() => {})
       return NextResponse.json({ success: true, data: { deleted: true } })
     }
     if (action === 'deleteOrder') {
+      const owned = await db.schoolShopOrder.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
       await db.schoolShopOrder.delete({ where: { id } })
       logAudit({ action: 'DELETE', entity: 'school-shop', entityId: (id ?? undefined) }).catch(() => {})
       return NextResponse.json({ success: true, data: { deleted: true } })
