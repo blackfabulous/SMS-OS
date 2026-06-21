@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
 
       // Verify visitor exists and is on campus
       const existing = await db.visitor.findFirst({
-        where: { id: visitorId, status: 'ON_CAMPUS' },
+        where: { id: visitorId, schoolId, status: 'ON_CAMPUS' },
       })
       if (!existing) {
         return NextResponse.json(
@@ -245,6 +245,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const body = await request.json()
@@ -254,6 +255,8 @@ export async function PUT(request: NextRequest) {
     }
 
     if (type === 'incident') {
+      const ownedIncident = await db.securityIncident.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!ownedIncident) return NextResponse.json({ error: 'Incident not found' }, { status: 404 })
       const incident = await db.securityIncident.update({
         where: { id },
         data: {
@@ -268,7 +271,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(incident)
     }
 
-    // Update visitor
+    // Update visitor — verify ownership first.
+    const ownedVisitor = await db.visitor.findFirst({ where: { id, schoolId }, select: { id: true } })
+    if (!ownedVisitor) return NextResponse.json({ error: 'Visitor not found' }, { status: 404 })
     const visitor = await db.visitor.update({
       where: { id },
       data: {
@@ -291,6 +296,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const { searchParams } = new URL(request.url)
@@ -300,9 +306,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
+    // Verify the target belongs to the caller's school before deleting.
     if (type === 'incident') {
+      const owned = await db.securityIncident.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       await db.securityIncident.delete({ where: { id } })
     } else {
+      const owned = await db.visitor.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       await db.visitor.delete({ where: { id } })
     }
 

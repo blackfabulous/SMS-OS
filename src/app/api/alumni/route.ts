@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
 
     // Alumni statistics
     const totalContributions = await db.alumniContribution.aggregate({
+      where: { alumni: { schoolId } },
       _sum: { amount: true },
     })
 
@@ -122,6 +123,10 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
+
+      // Verify the alumnus belongs to the caller's school before writing.
+      const ownedAlumni = await db.alumni.findFirst({ where: { id: alumniId, schoolId }, select: { id: true } })
+      if (!ownedAlumni) return NextResponse.json({ error: 'Alumni not found' }, { status: 404 })
 
       const contribution = await db.alumniContribution.create({
         data: {
@@ -195,6 +200,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const body = await request.json()
@@ -202,6 +208,10 @@ export async function PUT(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
+
+    // Verify the alumnus belongs to the caller's school before mutating.
+    const owned = await db.alumni.findFirst({ where: { id, schoolId }, select: { id: true } })
+    if (!owned) return NextResponse.json({ error: 'Alumni not found' }, { status: 404 })
 
     const alumniRecord = await db.alumni.update({
       where: { id },
@@ -237,6 +247,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const { searchParams } = new URL(request.url)
@@ -244,6 +255,10 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
+
+    // Verify the alumnus belongs to the caller's school before mutating.
+    const owned = await db.alumni.findFirst({ where: { id, schoolId }, select: { id: true } })
+    if (!owned) return NextResponse.json({ error: 'Alumni not found' }, { status: 404 })
 
     await db.alumni.update({ where: { id }, data: { isActive: false } })
     logAudit({ action: 'DELETE', entity: 'alumni', entityId: (id ?? undefined) }).catch(() => {})

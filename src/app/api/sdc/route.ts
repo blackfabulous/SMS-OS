@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
 
-    const school = await db.school.findFirst()
+    const school = await db.school.findUnique({ where: { id: tenantResult.schoolId } })
     if (!school) {
       return NextResponse.json({ members: [], meetings: [], projects: [], stats: {} })
     }
@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
       db.sDCMember.count({ where: memberFilter }),
     ])
 
-    const totalFunds = await db.feePayment.aggregate({ _sum: { amount: true }, _count: true })
+    const totalFunds = await db.feePayment.aggregate({ where: { student: { schoolId: school.id } }, _sum: { amount: true }, _count: true })
 
     const allEvents = await db.schoolEvent.findMany({
       where: eventFilter,
@@ -250,6 +250,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const body = await request.json()
@@ -260,6 +261,8 @@ export async function PUT(request: NextRequest) {
     }
 
     if (type === 'member') {
+      const ownedMember = await db.sDCMember.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!ownedMember) return NextResponse.json({ error: 'SDC member not found' }, { status: 404 })
       const member = await db.sDCMember.update({
         where: { id },
         data: {
@@ -272,16 +275,13 @@ export async function PUT(request: NextRequest) {
         },
       })
 
-      // Sync school SDC officer names if position changed
+      // Sync school SDC officer names if position changed (own school only)
       if (updates.position === 'Chairperson' && updates.name) {
-        const school = await db.school.findFirst()
-        if (school) await db.school.update({ where: { id: school.id }, data: { sdcChairperson: updates.name } })
+        await db.school.update({ where: { id: schoolId }, data: { sdcChairperson: updates.name } })
       } else if (updates.position === 'Secretary' && updates.name) {
-        const school = await db.school.findFirst()
-        if (school) await db.school.update({ where: { id: school.id }, data: { sdcSecretary: updates.name } })
+        await db.school.update({ where: { id: schoolId }, data: { sdcSecretary: updates.name } })
       } else if (updates.position === 'Treasurer' && updates.name) {
-        const school = await db.school.findFirst()
-        if (school) await db.school.update({ where: { id: school.id }, data: { sdcTreasurer: updates.name } })
+        await db.school.update({ where: { id: schoolId }, data: { sdcTreasurer: updates.name } })
       }
 
       logAudit({ action: 'UPDATE', entity: 'sdc', entityId: (member as any)?.id, afterValue: member }).catch(() => {})
@@ -289,6 +289,8 @@ export async function PUT(request: NextRequest) {
     }
 
     if (type === 'event') {
+      const ownedEvent = await db.schoolEvent.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!ownedEvent) return NextResponse.json({ error: 'Event not found' }, { status: 404 })
       const event = await db.schoolEvent.update({
         where: { id },
         data: {
@@ -314,6 +316,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const { searchParams } = new URL(request.url)
@@ -324,12 +327,19 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
-    if (type === 'member') {
-      await db.sDCMember.update({ where: { id }, data: { isActive: false } })
-    } else if (type === 'event') {
+    // Verify the target belongs to the caller's school before mutating.
+    if (type === 'event') {
+      const owned = await db.schoolEvent.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       await db.schoolEvent.delete({ where: { id } })
     } else {
-      await db.sDCMember.delete({ where: { id } })
+      const owned = await db.sDCMember.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (type === 'member') {
+        await db.sDCMember.update({ where: { id }, data: { isActive: false } })
+      } else {
+        await db.sDCMember.delete({ where: { id } })
+      }
     }
 
     logAudit({ action: 'DELETE', entity: 'sdc', entityId: (id ?? undefined) }).catch(() => {})
