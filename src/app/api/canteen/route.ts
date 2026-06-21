@@ -278,6 +278,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
+    const schoolId = authResult.session.user.schoolId
+    const owned = await db.canteenItem.findFirst({ where: { id, schoolId }, select: { id: true } })
+    if (!owned) return NextResponse.json({ error: 'Canteen item not found' }, { status: 404 })
     const item = await db.canteenItem.update({
       where: { id },
       data: {
@@ -313,6 +316,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
+    const schoolId = authResult.session.user.schoolId
+    const owned = await db.canteenItem.findFirst({ where: { id, schoolId }, select: { id: true } })
+    if (!owned) return NextResponse.json({ error: 'Canteen item not found' }, { status: 404 })
     await db.canteenItem.update({ where: { id }, data: { isActive: false } })
     logAudit({ action: 'DELETE', entity: 'canteen', entityId: (id ?? undefined) }).catch(() => {})
     return NextResponse.json({ message: 'Canteen item deleted successfully' })

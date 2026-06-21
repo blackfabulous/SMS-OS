@@ -235,8 +235,11 @@ export async function PUT(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
+    const schoolId = authResult.session.user.schoolId
 
     if (type === 'maintenance') {
+      const owned = await db.maintenanceRequest.findFirst({ where: { id, asset: { schoolId } }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       const record = await db.maintenanceRequest.update({
         where: { id },
         data: {
@@ -251,6 +254,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(record)
     }
 
+    const ownedAsset = await db.asset.findFirst({ where: { id, schoolId }, select: { id: true } })
+    if (!ownedAsset) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     const asset = await db.asset.update({
       where: { id },
       data: {
@@ -285,9 +290,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
+    const schoolId = authResult.session.user.schoolId
     if (type === 'maintenance') {
+      const owned = await db.maintenanceRequest.findFirst({ where: { id, asset: { schoolId } }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       await db.maintenanceRequest.delete({ where: { id } })
     } else {
+      const owned = await db.asset.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       await db.asset.update({ where: { id }, data: { isDisposed: true } })
     }
 

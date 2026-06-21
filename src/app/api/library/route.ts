@@ -280,8 +280,11 @@ export async function PUT(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
+    const schoolId = authResult.session.user.schoolId
 
     if (type === 'book' || updates.title || updates.author || updates.category !== undefined) {
+      const owned = await db.libraryBook.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       const book = await db.libraryBook.update({
         where: { id },
         data: {
@@ -300,7 +303,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(book)
     }
 
-    // Update transaction
+    // Update transaction — verify the book belongs to the caller's school.
+    const ownedT = await db.libraryTransaction.findFirst({ where: { id, book: { schoolId } }, select: { id: true } })
+    if (!ownedT) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     const transaction = await db.libraryTransaction.update({
       where: { id },
       data: {
@@ -330,9 +335,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
+    const schoolId = authResult.session.user.schoolId
     if (type === 'book') {
+      const owned = await db.libraryBook.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       await db.libraryBook.update({ where: { id }, data: { isActive: false } })
     } else {
+      const owned = await db.libraryTransaction.findFirst({ where: { id, book: { schoolId } }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       await db.libraryTransaction.delete({ where: { id } })
     }
 

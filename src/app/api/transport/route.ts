@@ -243,8 +243,11 @@ export async function PUT(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
+    const schoolId = authResult.session.user.schoolId
 
     if (type === 'route') {
+      const owned = await db.transportRoute.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       const route = await db.transportRoute.update({
         where: { id },
         data: {
@@ -260,6 +263,8 @@ export async function PUT(request: NextRequest) {
     }
 
     if (type === 'vehicle') {
+      const owned = await db.vehicle.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       const vehicle = await db.vehicle.update({
         where: { id },
         data: {
@@ -275,6 +280,8 @@ export async function PUT(request: NextRequest) {
     }
 
     // Default: update assignment
+    const ownedA = await db.transportAssignment.findFirst({ where: { id, student: { schoolId } }, select: { id: true } })
+    if (!ownedA) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     const assignment = await db.transportAssignment.update({
       where: { id },
       data: {
@@ -306,11 +313,18 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
+    const schoolId = authResult.session.user.schoolId
     if (type === 'route') {
+      const owned = await db.transportRoute.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       await db.transportRoute.update({ where: { id }, data: { isActive: false } })
     } else if (type === 'vehicle') {
+      const owned = await db.vehicle.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       await db.vehicle.update({ where: { id }, data: { isActive: false } })
     } else {
+      const owned = await db.transportAssignment.findFirst({ where: { id, student: { schoolId } }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       await db.transportAssignment.delete({ where: { id } })
     }
 

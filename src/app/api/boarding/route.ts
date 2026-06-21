@@ -203,6 +203,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Assignment ID is required' }, { status: 400 })
     }
 
+    // Verify the assignment belongs to the caller's school before mutating.
+    const schoolId = authResult.session.user.schoolId
+    const owned = await db.boardingAssignment.findFirst({ where: { id, student: { schoolId } }, select: { id: true } })
+    if (!owned) return NextResponse.json({ error: 'Assignment not found' }, { status: 404 })
+
     if (action === 'checkout') {
       const assignment = await db.boardingAssignment.update({
         where: { id },
@@ -252,11 +257,18 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
+    const schoolId = authResult.session.user.schoolId
     if (type === 'hostel') {
+      const owned = await db.hostel.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       await db.hostel.delete({ where: { id } })
     } else if (type === 'dormitory') {
+      const owned = await db.dormitory.findFirst({ where: { id, hostel: { schoolId } }, select: { id: true } })
+      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       await db.dormitory.delete({ where: { id } })
     } else {
+      const ownedA = await db.boardingAssignment.findFirst({ where: { id, student: { schoolId } }, select: { id: true } })
+      if (!ownedA) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       const assignment = await db.boardingAssignment.delete({ where: { id } })
       await db.dormitory.update({
         where: { id: assignment.dormitoryId },
