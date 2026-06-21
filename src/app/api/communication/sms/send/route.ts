@@ -45,6 +45,7 @@ function validatePhoneNumber(phone: string): string {
 export async function POST(request: NextRequest) {
   const authResult = await validateRole(['ADMIN', 'TEACHER'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const body: SmsSendRequest = await request.json()
@@ -144,12 +145,12 @@ export async function POST(request: NextRequest) {
             try {
               // Find parent by phone number
               const parent = await db.parent.findFirst({
-                where: { phone: { contains: result.recipient.replace('+263', ''), mode: 'insensitive' } },
+                where: { schoolId, phone: { contains: result.recipient.replace('+263', ''), mode: 'insensitive' } },
               })
 
               await db.communication.create({
                 data: {
-                  schoolId: parent?.schoolId || 'default',
+                  schoolId,
                   parentId: parent?.id || null,
                   channel: isWhatsApp ? 'WHATSAPP' : 'SMS',
                   subject: `Bulk SMS - ${message.substring(0, 50)}`,
@@ -210,13 +211,13 @@ export async function POST(request: NextRequest) {
     for (const result of deliveryResults) {
       try {
         const parent = await db.parent.findFirst({
-          where: { phone: { contains: result.recipient.replace('+263', ''), mode: 'insensitive' } },
+          where: { schoolId, phone: { contains: result.recipient.replace('+263', ''), mode: 'insensitive' } },
         })
 
         if (parent || result.status === 'Delivered') {
           await db.communication.create({
             data: {
-              schoolId: parent?.schoolId || 'default',
+              schoolId,
               parentId: parent?.id || null,
               channel: isWhatsApp ? 'WHATSAPP' : 'SMS',
               subject: `Bulk SMS - ${message.substring(0, 50)}`,

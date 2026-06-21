@@ -10,11 +10,12 @@ export async function GET(
 ) {
   const authResult = await validateAuth()
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const { id } = await params
-    const event = await db.schoolEvent.findUnique({
-      where: { id },
+    const event = await db.schoolEvent.findFirst({
+      where: { id, schoolId },
     })
 
     if (!event) {

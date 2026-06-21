@@ -197,6 +197,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   const authResult = await validateRole(['ADMIN', 'TEACHER'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const body = await request.json()
@@ -206,6 +207,10 @@ export async function PUT(request: NextRequest) {
     }
 
     if (type === 'sport') {
+      // Verify the sports code belongs to the caller's school before mutating.
+      const ownedSport = await db.sportsCode.findFirst({ where: { id, schoolId }, select: { id: true } })
+      if (!ownedSport) return NextResponse.json({ error: 'Sports code not found' }, { status: 404 })
+
       const sport = await db.sportsCode.update({
         where: { id },
         data: {
@@ -218,7 +223,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(sport)
     }
 
-    // Update event
+    // Update event — verify it belongs to the caller's school first.
+    const ownedEvent = await db.schoolEvent.findFirst({ where: { id, schoolId }, select: { id: true } })
+    if (!ownedEvent) return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+
     const event = await db.schoolEvent.update({
       where: { id },
       data: {

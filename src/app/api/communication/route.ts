@@ -207,6 +207,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   const authResult = await validateRole(['ADMIN', 'TEACHER'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const body = await request.json()
@@ -218,6 +219,10 @@ export async function PUT(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // Verify the communication belongs to the caller's school before mutating.
+    const owned = await db.communication.findFirst({ where: { id, schoolId }, select: { id: true } })
+    if (!owned) return NextResponse.json({ error: 'Communication not found' }, { status: 404 })
 
     const comm = await db.communication.update({
       where: { id },
@@ -249,6 +254,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const { searchParams } = new URL(request.url)
@@ -260,6 +266,10 @@ export async function DELETE(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // Verify the communication belongs to the caller's school before deleting.
+    const owned = await db.communication.findFirst({ where: { id, schoolId }, select: { id: true } })
+    if (!owned) return NextResponse.json({ error: 'Communication not found' }, { status: 404 })
 
     await db.communication.delete({ where: { id } })
     logAudit({ action: 'DELETE', entity: 'communication', entityId: (id ?? undefined) }).catch(() => {})
