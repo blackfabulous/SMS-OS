@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     const body = await request.json()
 
     const currentYear = new Date().getFullYear()
-    const lastStudent = await db.student.findFirst({ where: { studentNumber: { startsWith: `STU${currentYear}` } }, orderBy: { studentNumber: 'desc' } })
+    const lastStudent = await db.student.findFirst({ where: { schoolId: school.id, studentNumber: { startsWith: `STU${currentYear}` } }, orderBy: { studentNumber: 'desc' } })
     const nextNum = lastStudent ? parseInt(lastStudent.studentNumber.slice(-3)) + 1 : 1
     const studentNumber = `STU${currentYear}${String(nextNum).padStart(3, '0')}`
 
@@ -140,7 +140,7 @@ export async function PUT(request: Request) {
       if (studentNumber.startsWith('APP')) {
         const currentYear = new Date().getFullYear()
         const lastStudent = await db.student.findFirst({
-          where: { studentNumber: { startsWith: `STU${currentYear}` } },
+          where: { schoolId: school.id, studentNumber: { startsWith: `STU${currentYear}` } },
           orderBy: { studentNumber: 'desc' },
         })
         const nextNum = lastStudent ? parseInt(lastStudent.studentNumber.slice(-3)) + 1 : 1
@@ -195,12 +195,17 @@ export async function PUT(request: Request) {
 export async function DELETE(request: Request) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
     if (!id) return NextResponse.json({ error: 'Student ID is required' }, { status: 400 })
+
+    // Verify the student belongs to the caller's school before mutating (tenant guard).
+    const existing = await db.student.findFirst({ where: { id, schoolId }, select: { id: true } })
+    if (!existing) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
 
     const student = await db.student.update({
       where: { id },

@@ -21,6 +21,7 @@ export async function GET() {
     const debtorCount = await db.feeInvoice.groupBy({ by: ['studentId'], where: { student: { schoolId } }, having: { balance: { _sum: { gt: 0 } } } })
 
     const recentPayments = await db.feePayment.findMany({
+      where: { student: { schoolId } },
       take: 10, orderBy: { createdAt: 'desc' },
       include: {
         student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } },
@@ -37,7 +38,7 @@ export async function GET() {
 
     const sixMonthsAgo = new Date(); sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
     const recentPaymentsForTrend = await db.feePayment.findMany({
-      where: { createdAt: { gte: sixMonthsAgo }, isReversed: false },
+      where: { createdAt: { gte: sixMonthsAgo }, isReversed: false, student: { schoolId } },
       select: { amount: true, createdAt: true },
     })
 

@@ -5,14 +5,15 @@ import { getRequestTenant } from '@/lib/tenant'
 import { logAudit } from '@/lib/audit'
 import { getSetting } from '@/lib/settings'
 import { symbolForMark, computeFinalMark } from '@/lib/grading'
+import { requireContext } from '@/server/context'
+import { canAccessStudent } from '@/server/student-access'
 import { transition, type ReportCardAction, type ReportCardStatus, type Role } from '@/lib/report-card-workflow'
 import { Prisma } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
-  const authResult = await validateAuth()
-  if ('error' in authResult) return authResult.error
-  const tenant = await getRequestTenant()
-  if ('error' in tenant) return tenant.error
+  const result = await requireContext()
+  if ('error' in result) return result.error
+  const { ctx } = result
 
   try {
     const { searchParams } = new URL(request.url)
@@ -27,9 +28,15 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Ownership: staff may view any in-school student; a parent only their
+    // children; a student only themselves (prevents cross-family report access).
+    if (!(await canAccessStudent(ctx, studentId))) {
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+    }
+
     // Fetch student details — SCOPED to the caller's school (tenant isolation).
     const student = await db.student.findFirst({
-      where: { id: studentId, schoolId: tenant.schoolId },
+      where: { id: studentId, schoolId: ctx.schoolId },
       include: {
         enrollments: {
           where: { status: 'ACTIVE' },
@@ -65,8 +72,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 })
     }
 
-    // Fetch school info
-    const school = await db.school.findFirst()
+    // Fetch school info (scoped to the caller's school)
+    const school = await db.school.findUnique({ where: { id: ctx.schoolId } })
 
     // Fetch term info
     const term = await db.term.findUnique({
