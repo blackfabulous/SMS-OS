@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
       activeMembers: await db.sDCMember.count({ where: { schoolId: school.id, isActive: true } }),
       meetingsThisTerm: meetings.length,
       activeProjects: projects.length,
-      fundBalance: totalFunds._sum.amount || 0,
+      fundBalance: Number(totalFunds._sum.amount ?? 0),
       totalPayments: totalFunds._count,
     }
 

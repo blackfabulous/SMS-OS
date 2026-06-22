@@ -34,7 +34,9 @@ export async function GET() {
     const paidCount = await db.feeInvoice.count({ where: { status: 'PAID', student: { schoolId } } })
     const overdueCount = await db.feeInvoice.count({ where: { status: { in: ['PENDING', 'PARTIAL'] }, dueDate: { lt: new Date() }, student: { schoolId } } })
 
-    const paymentsByMethod = await db.feePayment.groupBy({ by: ['paymentMethod'], where: { student: { schoolId } }, _sum: { amount: true }, _count: true })
+    const paymentsByMethodRaw = await db.feePayment.groupBy({ by: ['paymentMethod'], where: { student: { schoolId } }, _sum: { amount: true }, _count: true })
+    // _sum returns Decimal — coerce to number so the JSON response stays numeric.
+    const paymentsByMethod = paymentsByMethodRaw.map((g) => ({ ...g, _sum: { amount: Number(g._sum.amount ?? 0) } }))
 
     const sixMonthsAgo = new Date(); sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
     const recentPaymentsForTrend = await db.feePayment.findMany({
@@ -45,7 +47,7 @@ export async function GET() {
     const monthlyTrend: Record<string, number> = {}
     for (const payment of recentPaymentsForTrend) {
       const monthKey = payment.createdAt.toISOString().slice(0, 7)
-      monthlyTrend[monthKey] = (monthlyTrend[monthKey] || 0) + payment.amount
+      monthlyTrend[monthKey] = (monthlyTrend[monthKey] || 0) + Number(payment.amount)
     }
 
     return NextResponse.json({

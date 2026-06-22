@@ -501,7 +501,7 @@ model FeeStructure {
   termId                String?
   name                  String
   feeType               String
-  amount                Float
+  amount                Decimal  @db.Decimal(15, 2)
   currency              String   @default("USD")
   isActive              Boolean  @default(true)
   createdAt             DateTime @default(now())
@@ -538,7 +538,7 @@ model InvoiceItem {
   id                    String   @id @default(cuid())
   invoiceId             String
   description           String
-  amount                Float
+  amount                Decimal  @db.Decimal(15, 2)
   feeType               String
   createdAt             DateTime @default(now())
 
@@ -551,7 +551,7 @@ model FeePayment {
   invoiceId             String?
   parentId              String?
   receiptNumber         String   @unique
-  amount                Float
+  amount                Decimal  @db.Decimal(15, 2)
   paymentMethod         String   @default("CASH")
   currency              String   @default("USD")
   exchangeRate          Float    @default(1)
@@ -578,7 +578,7 @@ model BankAccount {
   branchCode            String?
   accountType           String   @default("CURRENT")
   currency              String   @default("USD")
-  balance               Float    @default(0)
+  balance               Decimal  @default(0) @db.Decimal(15, 2)
   isActive              Boolean  @default(true)
   createdAt             DateTime @default(now())
 
@@ -590,7 +590,7 @@ model Scholarship {
   studentId             String
   name                  String
   discountPercentage    Float
-  amount                Float?
+  amount                Decimal? @db.Decimal(15, 2)
   donor                 String?
   startDate             DateTime
   endDate               DateTime?
@@ -613,8 +613,8 @@ model ZimsecCandidate {
   examYear              Int
   registrationStatus    String   @default("PENDING")
   subjects              String?
-  totalFees             Float    @default(0)
-  feesPaid              Float    @default(0)
+  totalFees             Decimal  @default(0) @db.Decimal(15, 2)
+  feesPaid              Decimal  @default(0) @db.Decimal(15, 2)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -630,8 +630,8 @@ model BeamApplication {
   studentId             String   @unique
   applicationDate       DateTime @default(now())
   status                String   @default("APPLIED")
-  coveredAmount         Float    @default(0)
-  outstandingBalance    Float    @default(0)
+  coveredAmount         Decimal  @default(0) @db.Decimal(15, 2)
+  outstandingBalance    Decimal  @default(0) @db.Decimal(15, 2)
   socialWelfareRef      String?
   guardianSituation     String?
   orphanStatus          String?

@@ -63,8 +63,8 @@ export async function GET(request: NextRequest) {
         applied,
         approved,
         rejected,
-        totalCovered: totalCoveredAgg._sum.coveredAmount || 0,
-        totalOutstanding: totalOutstandingAgg._sum.outstandingBalance || 0,
+        totalCovered: Number(totalCoveredAgg._sum.coveredAmount ?? 0),
+        totalOutstanding: Number(totalOutstandingAgg._sum.outstandingBalance ?? 0),
       }
 
       return NextResponse.json({ data: beamApplications, total: beamTotal, page, totalPages: Math.ceil(beamTotal / limit), stats: beamStats })
@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
       beamApplied,
       beamApproved,
       beamRejected,
-      totalBeamCovered: totalBeamCoveredAgg._sum.coveredAmount || 0,
+      totalBeamCovered: Number(totalBeamCoveredAgg._sum.coveredAmount ?? 0),
     }
 
     const categoryBreakdown = await db.welfareRecord.groupBy({

@@ -29,6 +29,29 @@ function createPrisma() {
         amountPaid: { needs: { amountPaid: true }, compute: (r) => Number(r.amountPaid) },
         balance: { needs: { balance: true }, compute: (r) => Number(r.balance) },
       },
+      feeStructure: {
+        amount: { needs: { amount: true }, compute: (r) => Number(r.amount) },
+      },
+      invoiceItem: {
+        amount: { needs: { amount: true }, compute: (r) => Number(r.amount) },
+      },
+      feePayment: {
+        amount: { needs: { amount: true }, compute: (r) => Number(r.amount) },
+      },
+      bankAccount: {
+        balance: { needs: { balance: true }, compute: (r) => Number(r.balance) },
+      },
+      scholarship: {
+        amount: { needs: { amount: true }, compute: (r) => (r.amount == null ? null : Number(r.amount)) },
+      },
+      zimsecCandidate: {
+        totalFees: { needs: { totalFees: true }, compute: (r) => Number(r.totalFees) },
+        feesPaid: { needs: { feesPaid: true }, compute: (r) => Number(r.feesPaid) },
+      },
+      beamApplication: {
+        coveredAmount: { needs: { coveredAmount: true }, compute: (r) => Number(r.coveredAmount) },
+        outstandingBalance: { needs: { outstandingBalance: true }, compute: (r) => Number(r.outstandingBalance) },
+      },
     },
     query: {
       $allModels: {
