@@ -746,7 +746,7 @@ model TransportRoute {
   schoolId              String
   name                  String
   description           String?
-  fee                   Float    @default(0)
+  fee                   Decimal  @default(0) @db.Decimal(15, 2)
   capacity              Int      @default(50)
   isActive              Boolean  @default(true)
   createdAt             DateTime @default(now())
@@ -815,7 +815,7 @@ model LibraryTransaction {
   issueDate             DateTime @default(now())
   dueDate               DateTime?
   returnDate            DateTime?
-  fine                  Float    @default(0)
+  fine                  Decimal  @default(0) @db.Decimal(15, 2)
   conditionOnReturn     String?
   createdAt             DateTime @default(now())
 
@@ -834,7 +834,7 @@ model Asset {
   name                  String
   category              String
   location              String?
-  purchaseCost          Float    @default(0)
+  purchaseCost          Decimal  @default(0) @db.Decimal(15, 2)
   purchaseDate          DateTime?
   donorSource           String?
   condition             String   @default("GOOD")
@@ -855,8 +855,8 @@ model MaintenanceRequest {
   description           String
   priority              String   @default("MEDIUM")
   status                String   @default("PENDING")
-  estimatedCost         Float?
-  actualCost            Float?
+  estimatedCost         Decimal? @db.Decimal(15, 2)
+  actualCost            Decimal? @db.Decimal(15, 2)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -1109,8 +1109,8 @@ model CanteenItem {
   schoolId              String
   name                  String
   category              String   @default("FOOD")
-  price                 Float    @default(0)
-  costPrice             Float    @default(0)
+  price                 Decimal  @default(0) @db.Decimal(15, 2)
+  costPrice             Decimal  @default(0) @db.Decimal(15, 2)
   stockQuantity         Int      @default(0)
   reorderLevel          Int      @default(5)
   isActive              Boolean  @default(true)
@@ -1128,7 +1128,7 @@ model CanteenTransaction {
   buyerType             String   @default("STUDENT")
   buyerId               String?
   buyerName             String
-  totalAmount           Float    @default(0)
+  totalAmount           Decimal  @default(0) @db.Decimal(15, 2)
   paymentMethod         String   @default("CASH")
   status                String   @default("COMPLETED")
   createdAt             DateTime @default(now())
@@ -1142,8 +1142,8 @@ model CanteenTransactionItem {
   transactionId         String
   itemId                String
   quantity              Int      @default(1)
-  unitPrice             Float
-  totalPrice            Float
+  unitPrice             Decimal  @db.Decimal(15, 2)
+  totalPrice            Decimal  @db.Decimal(15, 2)
 
   transaction           CanteenTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   item                  CanteenItem       @relation(fields: [itemId], references: [id])
@@ -1160,7 +1160,7 @@ model PurchaseOrder {
   supplierId            String?
   title                 String
   description           String?
-  totalAmount           Float    @default(0)
+  totalAmount           Decimal  @default(0) @db.Decimal(15, 2)
   status                String   @default("DRAFT")
   requestedBy           String?
   approvedBy            String?
@@ -1179,8 +1179,8 @@ model PurchaseOrderItem {
   purchaseOrderId       String
   description           String
   quantity              Int      @default(1)
-  unitPrice             Float    @default(0)
-  totalPrice            Float    @default(0)
+  unitPrice             Decimal  @default(0) @db.Decimal(15, 2)
+  totalPrice            Decimal  @default(0) @db.Decimal(15, 2)
 
   purchaseOrder         PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
 }
@@ -1192,7 +1192,7 @@ model Requisition {
   description           String?
   requestedBy           String?
   department            String?
-  estimatedCost         Float?
+  estimatedCost         Decimal? @db.Decimal(15, 2)
   status                String   @default("PENDING")
   priority              String   @default("MEDIUM")
   createdAt             DateTime @default(now())
@@ -1240,7 +1240,7 @@ model Alumni {
   company               String?
   location              String?
   isNotable             Boolean  @default(false)
-  totalContributions    Float    @default(0)
+  totalContributions    Decimal  @default(0) @db.Decimal(15, 2)
   isActive              Boolean  @default(true)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -1252,7 +1252,7 @@ model Alumni {
 model AlumniContribution {
   id                    String   @id @default(cuid())
   alumniId              String
-  amount                Float
+  amount                Decimal  @db.Decimal(15, 2)
   contributionType      String   @default("DONATION")
   description           String?
   campaign              String?
@@ -1534,7 +1534,7 @@ model SchoolShopItem {
   name                  String
   description           String?
   category              String   @default("UNIFORM")
-  price                 Float    @default(0)
+  price                 Decimal  @default(0) @db.Decimal(15, 2)
   currency              String   @default("USD")
   imageUrl              String?
   sizes                 String?
@@ -1557,7 +1557,7 @@ model SchoolShopOrder {
   parentPhone           String?
   parentEmail           String?
   items                 String
-  totalAmount           Float    @default(0)
+  totalAmount           Decimal  @default(0) @db.Decimal(15, 2)
   currency              String   @default("USD")
   status                String   @default("PENDING")
   notes                 String?

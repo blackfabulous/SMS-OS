@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
 
     const stats = {
       totalAlumni: total,
-      totalContributions: totalContributions._sum.amount || 0,
+      totalContributions: Number(totalContributions._sum.amount ?? 0),
       notableAlumni: notableCount,
       byGraduationYear: byGraduationYear.map((g) => ({
         year: g.graduationYear,

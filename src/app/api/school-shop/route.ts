@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         db.schoolShopOrder.count({ where: { schoolId } }),
         db.schoolShopOrder.aggregate({ where: { schoolId, status: { not: 'CANCELLED' } }, _sum: { totalAmount: true } }),
       ])
-      return NextResponse.json({ success: true, data: { totalProducts, totalOrders, totalRevenue: revenueResult._sum.totalAmount || 0 } })
+      return NextResponse.json({ success: true, data: { totalProducts, totalOrders, totalRevenue: Number(revenueResult._sum.totalAmount ?? 0) } })
     }
 
     const result: Record<string, unknown> = {}
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         db.schoolShopOrder.count({ where: { schoolId } }),
         db.schoolShopOrder.aggregate({ where: { schoolId, status: { not: 'CANCELLED' } }, _sum: { totalAmount: true } }),
       ])
-      result.stats = { totalProducts, totalOrders, totalRevenue: revenueResult._sum.totalAmount || 0 }
+      result.stats = { totalProducts, totalOrders, totalRevenue: Number(revenueResult._sum.totalAmount ?? 0) }
     }
 
     return NextResponse.json({ success: true, data: result })

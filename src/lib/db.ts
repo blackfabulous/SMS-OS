@@ -76,6 +76,52 @@ function createPrisma() {
         otherDeductions: { needs: { otherDeductions: true }, compute: (r) => Number(r.otherDeductions) },
         netPay: { needs: { netPay: true }, compute: (r) => Number(r.netPay) },
       },
+      transportRoute: {
+        fee: { needs: { fee: true }, compute: (r) => Number(r.fee) },
+      },
+      libraryTransaction: {
+        fine: { needs: { fine: true }, compute: (r) => Number(r.fine) },
+      },
+      asset: {
+        purchaseCost: { needs: { purchaseCost: true }, compute: (r) => Number(r.purchaseCost) },
+      },
+      maintenanceRequest: {
+        estimatedCost: { needs: { estimatedCost: true }, compute: (r) => (r.estimatedCost == null ? null : Number(r.estimatedCost)) },
+        actualCost: { needs: { actualCost: true }, compute: (r) => (r.actualCost == null ? null : Number(r.actualCost)) },
+      },
+      requisition: {
+        estimatedCost: { needs: { estimatedCost: true }, compute: (r) => (r.estimatedCost == null ? null : Number(r.estimatedCost)) },
+      },
+      canteenItem: {
+        price: { needs: { price: true }, compute: (r) => Number(r.price) },
+        costPrice: { needs: { costPrice: true }, compute: (r) => Number(r.costPrice) },
+      },
+      canteenTransaction: {
+        totalAmount: { needs: { totalAmount: true }, compute: (r) => Number(r.totalAmount) },
+      },
+      canteenTransactionItem: {
+        unitPrice: { needs: { unitPrice: true }, compute: (r) => Number(r.unitPrice) },
+        totalPrice: { needs: { totalPrice: true }, compute: (r) => Number(r.totalPrice) },
+      },
+      purchaseOrder: {
+        totalAmount: { needs: { totalAmount: true }, compute: (r) => Number(r.totalAmount) },
+      },
+      purchaseOrderItem: {
+        unitPrice: { needs: { unitPrice: true }, compute: (r) => Number(r.unitPrice) },
+        totalPrice: { needs: { totalPrice: true }, compute: (r) => Number(r.totalPrice) },
+      },
+      alumni: {
+        totalContributions: { needs: { totalContributions: true }, compute: (r) => Number(r.totalContributions) },
+      },
+      alumniContribution: {
+        amount: { needs: { amount: true }, compute: (r) => Number(r.amount) },
+      },
+      schoolShopItem: {
+        price: { needs: { price: true }, compute: (r) => Number(r.price) },
+      },
+      schoolShopOrder: {
+        totalAmount: { needs: { totalAmount: true }, compute: (r) => Number(r.totalAmount) },
+      },
     },
     query: {
       $allModels: {

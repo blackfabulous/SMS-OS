@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
       cancelled: await db.purchaseOrder.count({ where: { schoolId, status: 'CANCELLED' } }),
       totalVendors: await db.supplier.count({ where: { schoolId, isActive: true } }),
       pendingRequisitions: await db.requisition.count({ where: { schoolId, status: 'PENDING' } }),
-      totalPOValue: (await db.purchaseOrder.aggregate({ where: { schoolId }, _sum: { totalAmount: true } }))._sum.totalAmount || 0,
+      totalPOValue: Number((await db.purchaseOrder.aggregate({ where: { schoolId }, _sum: { totalAmount: true } }))._sum.totalAmount ?? 0),
     }
 
     return NextResponse.json({

@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
         total,
         page,
         totalPages: Math.ceil(total / limit),
-        totalRevenue: totalRevenue._sum.totalAmount || 0,
+        totalRevenue: Number(totalRevenue._sum.totalAmount ?? 0),
       })
     }
 

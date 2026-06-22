@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
       categoryBreakdown: categoryBreakdown.map((c) => ({
         category: c.category || 'Uncategorized',
         count: c._count.id,
-        value: c._sum.purchaseCost || 0,
+        value: Number(c._sum.purchaseCost ?? 0),
       })),
       maintenanceByStatus: maintenanceByStatus.map((m) => ({ status: m.status, count: m._count.id })),
       maintenanceByPriority: maintenanceByPriority.map((m) => ({ priority: m.priority, count: m._count.id })),
