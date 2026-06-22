@@ -41,14 +41,14 @@ function createPrisma() {
         const schoolId = currentSchoolId()
         const [arg, opts] = txArgs
         if (RLS_ENABLED && schoolId && typeof arg === 'function') {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           return (base.$transaction as any)(async (tx: any) => {
             await tx.$executeRaw`SELECT set_config('app.current_school_id', ${schoolId}, true)`
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             return withTenantTxFlag(() => (arg as (t: any) => Promise<unknown>)(tx))
           }, opts)
         }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         return (base.$transaction as any)(...txArgs)
       },
     },

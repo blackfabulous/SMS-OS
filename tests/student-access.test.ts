@@ -18,9 +18,9 @@ const ctx = (role: string, userId = 'u1'): RequestContext => ({
   can: () => true,
 })
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const userMock = db.user.findUnique as any
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const linkMock = db.studentParent.findFirst as any
 
 beforeEach(() => {

@@ -26,7 +26,7 @@ export default async function GalleryPage() {
           <div className="columns-2 gap-4 sm:columns-3 lg:columns-4 [&>*]:mb-4">
             {images.map((img) => (
               <figure key={img.id} className="group relative break-inside-avoid overflow-hidden rounded-2xl border border-border/60">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+                { }
                 <img src={img.imageUrl} alt={img.title ?? 'School gallery image'} className="w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
                 {(img.title || img.category) && (
                   <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-sm font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">

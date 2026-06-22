@@ -354,7 +354,7 @@ function PartnersTab({ partners, reload }: { partners: Partner[]; reload: () => 
           <div key={p.id} className="flex items-center gap-3 rounded-lg border bg-card p-3">
             <GripVertical className="h-4 w-4 text-muted-foreground/40" />
             {p.logoUrl
-              ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={p.logoUrl} alt={p.name} className="h-8 w-auto object-contain" />
+              ?   <img src={p.logoUrl} alt={p.name} className="h-8 w-auto object-contain" />
               : <span className="font-semibold uppercase tracking-wide text-sm">{p.name}</span>}
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{p.name}</p>
@@ -449,7 +449,7 @@ function GalleryTab({ gallery, reload }: { gallery: GalleryItem[]; reload: () =>
         {gallery.length === 0 && <p className="text-sm text-muted-foreground">No images yet.</p>}
         {gallery.map((g) => (
           <figure key={g.id} className="group relative overflow-hidden rounded-xl border">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            { }
             <img src={g.imageUrl} alt={g.title ?? ''} className="aspect-square w-full object-cover" />
             <button onClick={() => remove(g)} className="absolute right-1.5 top-1.5 rounded-md bg-black/60 p-1.5 opacity-0 transition group-hover:opacity-100"><Trash2 className="h-3.5 w-3.5 text-white" /></button>
           </figure>
@@ -531,7 +531,7 @@ function StaffTab({ staff, reload }: { staff: StaffItem[]; reload: () => void })
               <div key={s.id} className={`rounded-xl border p-4 transition-colors ${s.showOnWebsite ? 'border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-950/20' : 'bg-card'}`}>
                 <div className="flex items-start gap-3">
                   {s.photo
-                    ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={s.photo} alt={fullName(s)} className="h-12 w-12 shrink-0 rounded-full object-cover" />
+                    ?   <img src={s.photo} alt={fullName(s)} className="h-12 w-12 shrink-0 rounded-full object-cover" />
                     : <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold text-white">{`${s.firstName?.[0] ?? ''}${s.lastName?.[0] ?? ''}`.toUpperCase()}</span>}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{fullName(s)}</p>

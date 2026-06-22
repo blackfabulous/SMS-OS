@@ -39,7 +39,7 @@ export function PartnerCarousel({ partners }: { partners: PartnerItem[] }) {
       <ul className={`marquee-${id} flex w-max items-stretch gap-5 sm:gap-7`}>
         {track.map((p, i) => {
           const inner = p.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
+             
             <img
               src={p.logoUrl}
               alt={p.name}

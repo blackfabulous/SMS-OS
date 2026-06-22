@@ -365,7 +365,7 @@ export default async function HomePage() {
                   href="/gallery"
                   className={`group relative overflow-hidden rounded-2xl ring-1 ring-black/5 ${i === 0 ? 'col-span-2 row-span-2 sm:col-span-2 sm:row-span-2' : ''}`}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  { }
                   <img
                     src={img.imageUrl}
                     alt={img.title ?? 'School gallery image'}

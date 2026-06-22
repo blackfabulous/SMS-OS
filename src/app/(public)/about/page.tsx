@@ -134,7 +134,7 @@ export default async function AboutPage() {
                   <article key={s.id} className="group flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-900/5">
                     <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-emerald-600 to-teal-700">
                       {s.photo ? (
-                        // eslint-disable-next-line @next/next/no-img-element
+                         
                         <img src={s.photo} alt={fullName} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                       ) : (
                         <div className="flex h-full items-center justify-center">
