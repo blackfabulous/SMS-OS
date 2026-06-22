@@ -5,6 +5,7 @@ import { validateRole } from '@/lib/api-auth'
 export async function POST(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const body = await request.json()
@@ -17,15 +18,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate grades exist
-    const fromGrade = await db.grade.findUnique({ where: { id: fromGradeId } })
-    const toGrade = await db.grade.findUnique({ where: { id: toGradeId } })
+    // Validate grades + year exist AND belong to the caller's school (tenant guard).
+    const fromGrade = await db.grade.findFirst({ where: { id: fromGradeId, schoolId } })
+    const toGrade = await db.grade.findFirst({ where: { id: toGradeId, schoolId } })
     if (!fromGrade || !toGrade) {
       return NextResponse.json({ error: 'Invalid grade IDs' }, { status: 400 })
     }
 
-    // Validate academic year exists
-    const academicYear = await db.academicYear.findUnique({ where: { id: academicYearId } })
+    const academicYear = await db.academicYear.findFirst({ where: { id: academicYearId, schoolId } })
     if (!academicYear) {
       return NextResponse.json({ error: 'Invalid academic year ID' }, { status: 400 })
     }
@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
         where: {
           status: 'ACTIVE',
           class: { gradeId: fromGradeId },
+          student: { schoolId },
         },
         include: { student: true, class: true },
       })
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
           studentId: { in: studentIds },
           status: 'ACTIVE',
           class: { gradeId: fromGradeId },
+          student: { schoolId },
         },
         include: { student: true, class: true },
       })
@@ -63,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     // Get target classes in the toGrade
     const targetClasses = await db.class.findMany({
-      where: { gradeId: toGradeId, isActive: true },
+      where: { gradeId: toGradeId, isActive: true, schoolId },
     })
 
     if (targetClasses.length === 0) {
