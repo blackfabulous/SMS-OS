@@ -224,7 +224,7 @@ model Department {
 model Student {
   id                    String   @id @default(cuid())
   schoolId              String
-  studentNumber         String   @unique
+  studentNumber         String
   firstName             String
   lastName              String
   middleName            String?
@@ -277,6 +277,7 @@ model Student {
   zimsecCandidate       ZimsecCandidate?
   user                  User?
 
+  @@unique([schoolId, studentNumber])
   @@index([schoolId])
   @@index([enrollmentStatus])
   @@index([schoolId, enrollmentStatus])
@@ -353,7 +354,7 @@ model StudentEnrollment {
 model Staff {
   id                    String   @id @default(cuid())
   schoolId              String
-  staffNumber           String   @unique
+  staffNumber           String
   title                 String?
   firstName             String
   lastName              String
@@ -398,6 +399,8 @@ model Staff {
   appraisalRecords      AppraisalRecord[]
   disciplinaryRecords   StaffDiscipline[]
   user                  User?
+
+  @@unique([schoolId, staffNumber])
 }
 
 // ============================================

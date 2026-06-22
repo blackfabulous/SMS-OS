@@ -104,9 +104,9 @@ export async function POST(request: Request) {
             continue
           }
 
-          // Check for duplicate by studentNumber (unique)
-          const existing = await db.student.findUnique({
-            where: { studentNumber: student.studentNumber },
+          // Check for duplicate by studentNumber within this school (per-school unique)
+          const existing = await db.student.findFirst({
+            where: { studentNumber: student.studentNumber, schoolId: school.id },
           })
 
           if (existing) {
@@ -146,9 +146,9 @@ export async function POST(request: Request) {
             continue
           }
 
-          // Check for duplicate by staffNumber (unique)
-          const existing = await db.staff.findUnique({
-            where: { staffNumber: staffMember.staffNumber },
+          // Check for duplicate by staffNumber within this school (per-school unique)
+          const existing = await db.staff.findFirst({
+            where: { staffNumber: staffMember.staffNumber, schoolId: school.id },
           })
 
           if (existing) {
