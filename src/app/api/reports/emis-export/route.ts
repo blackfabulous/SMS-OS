@@ -140,7 +140,7 @@ export async function GET() {
       if (!gradeGenderMap[gradeName]) {
         gradeGenderMap[gradeName] = { boys: 0, girls: 0, beam: 0 }
       }
-      if (student.gender === 'MALE' || student.gender === 'Male') {
+      if (student.gender === 'MALE') {
         gradeGenderMap[gradeName].boys++
       } else {
         gradeGenderMap[gradeName].girls++
@@ -199,10 +199,10 @@ export async function GET() {
     const teachingStaff = staffMembers.filter(s => s.staffType === 'TEACHING')
     const nonTeachingStaff = staffMembers.filter(s => s.staffType !== 'TEACHING')
 
-    const maleTeachers = teachingStaff.filter(s => s.gender === 'MALE' || s.gender === 'Male').length
-    const femaleTeachers = teachingStaff.filter(s => s.gender === 'FEMALE' || s.gender === 'Female').length
-    const maleNonTeach = nonTeachingStaff.filter(s => s.gender === 'MALE' || s.gender === 'Male').length
-    const femaleNonTeach = nonTeachingStaff.filter(s => s.gender === 'FEMALE' || s.gender === 'Female').length
+    const maleTeachers = teachingStaff.filter(s => s.gender === 'MALE').length
+    const femaleTeachers = teachingStaff.filter(s => s.gender === 'FEMALE').length
+    const maleNonTeach = nonTeachingStaff.filter(s => s.gender === 'MALE').length
+    const femaleNonTeach = nonTeachingStaff.filter(s => s.gender === 'FEMALE').length
 
     const staffRows = [
       ['Headmaster', 1, 0, 1],

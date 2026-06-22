@@ -230,7 +230,7 @@ model Student {
   middleName            String?
   preferredName         String?
   dateOfBirth           DateTime
-  gender                String
+  gender                Gender
   birthCertNumber       String?
   nationalId            String?
   passportNumber        String?
@@ -245,8 +245,8 @@ model Student {
   medications           String?
   doctorName            String?
   doctorPhone           String?
-  enrollmentStatus      String   @default("ACTIVE")
-  boardingStatus        String?
+  enrollmentStatus      EnrollmentStatus @default(ACTIVE)
+  boardingStatus        BoardingStatus?
   beamStatus            String?
   isSpecialNeeds        Boolean  @default(false)
   specialNeedsDetails   String?
@@ -361,7 +361,7 @@ model Staff {
   middleName            String?
   nationalId            String?
   dateOfBirth           DateTime?
-  gender                String?
+  gender                Gender?
   address               String?
   phone                 String?
   email                 String?
@@ -369,7 +369,7 @@ model Staff {
   nextOfKinPhone        String?
   position              String
   department            String?
-  staffType             String   @default("TEACHING")
+  staffType             StaffType @default(TEACHING)
   payType               String   @default("SCHOOL_PAID")
   qualifications        String?
   subjectSpecialisation String?
@@ -502,7 +502,7 @@ model FeeStructure {
   name                  String
   feeType               String
   amount                Decimal  @db.Decimal(15, 2)
-  currency              String   @default("USD")
+  currency              Currency @default(USD)
   isActive              Boolean  @default(true)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -553,7 +553,7 @@ model FeePayment {
   receiptNumber         String   @unique
   amount                Decimal  @db.Decimal(15, 2)
   paymentMethod         String   @default("CASH")
-  currency              String   @default("USD")
+  currency              Currency @default(USD)
   exchangeRate          Float    @default(1)
   reference             String?
   isReversed            Boolean  @default(false)
@@ -577,7 +577,7 @@ model BankAccount {
   branch                String?
   branchCode            String?
   accountType           String   @default("CURRENT")
-  currency              String   @default("USD")
+  currency              Currency @default(USD)
   balance               Decimal  @default(0) @db.Decimal(15, 2)
   isActive              Boolean  @default(true)
   createdAt             DateTime @default(now())
@@ -888,7 +888,7 @@ model Payslip {
   funeralPolicy         Decimal  @default(0) @db.Decimal(15, 2)
   otherDeductions       Decimal  @default(0) @db.Decimal(15, 2)
   netPay                Decimal  @default(0) @db.Decimal(15, 2)
-  currency              String   @default("USD")
+  currency              Currency @default(USD)
   status                String   @default("DRAFT")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -1064,6 +1064,39 @@ enum Role {
   BURSAR
   PARENT
   STUDENT
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  PENDING
+  GRADUATED
+  TRANSFERRED
+  DROPPED_OUT
+  SUSPENDED
+  EXPELLED
+}
+
+enum BoardingStatus {
+  DAY_SCHOLAR
+  BOARDER
+}
+
+enum StaffType {
+  TEACHING
+  NON_TEACHING
+  SUPPORT
+  ANCILLARY
+}
+
+enum Currency {
+  USD
+  ZiG
 }
 
 model User {
@@ -1544,7 +1577,7 @@ model SchoolShopItem {
   description           String?
   category              String   @default("UNIFORM")
   price                 Decimal  @default(0) @db.Decimal(15, 2)
-  currency              String   @default("USD")
+  currency              Currency @default(USD)
   imageUrl              String?
   sizes                 String?
   colors                String?
@@ -1567,7 +1600,7 @@ model SchoolShopOrder {
   parentEmail           String?
   items                 String
   totalAmount           Decimal  @default(0) @db.Decimal(15, 2)
-  currency              String   @default("USD")
+  currency              Currency @default(USD)
   status                String   @default("PENDING")
   notes                 String?
   createdAt             DateTime @default(now())

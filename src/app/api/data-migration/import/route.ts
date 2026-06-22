@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
 import { logAudit } from '@/lib/audit'
 import { validateRole } from '@/lib/api-auth'
+import type { EnrollmentStatus, BoardingStatus, StaffType } from '@prisma/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface MigrationStudent {
@@ -122,10 +123,10 @@ export async function POST(request: Request) {
               firstName: student.firstName,
               lastName: student.lastName,
               dateOfBirth: student.dateOfBirth ? new Date(student.dateOfBirth) : new Date(),
-              gender: student.gender || 'UNKNOWN',
+              gender: student.gender === 'FEMALE' ? 'FEMALE' : student.gender === 'MALE' ? 'MALE' : 'OTHER',
               nationalId: student.nationalId || null,
-              enrollmentStatus: student.enrollmentStatus || 'ACTIVE',
-              boardingStatus: student.boardingStatus || null,
+              enrollmentStatus: (student.enrollmentStatus as EnrollmentStatus) || 'ACTIVE',
+              boardingStatus: (student.boardingStatus as BoardingStatus | null) || null,
             },
           })
           imported.students++
@@ -179,7 +180,7 @@ export async function POST(request: Request) {
               department: staffMember.department || null,
               email: staffMember.email || null,
               phone: staffMember.phone || null,
-              staffType: staffMember.staffType || 'TEACHING',
+              staffType: (staffMember.staffType as StaffType) || 'TEACHING',
               qualifications: staffMember.qualifications || null,
               subjectSpecialisation: staffMember.subjectSpecialisation || null,
             },

@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { hashPassword } from '@/lib/auth'
+import type { EnrollmentStatus, BoardingStatus } from '@prisma/client'
 
 /**
  * Seeds the database with a full demo dataset for one school.
@@ -356,8 +357,8 @@ export async function seedDatabase() {
         lastName,
         gender: isMale ? 'MALE' : 'FEMALE',
         dateOfBirth: new Date(2007 + Math.floor(i / 10), Math.floor(Math.random() * 12), 1 + Math.floor(Math.random() * 28)),
-        enrollmentStatus: status,
-        boardingStatus: boarding,
+        enrollmentStatus: status as EnrollmentStatus,
+        boardingStatus: boarding as BoardingStatus,
         nationality: 'Zimbabwean',
         homeLanguage: i % 3 === 0 ? 'Shona' : 'English',
         bloodGroup: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-'][i % 6],

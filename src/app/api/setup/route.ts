@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { validateRole } from '@/lib/api-auth'
+import type { Currency } from '@prisma/client'
 
 // ─── Multi-School Setup Wizard API ──────────────────────────────────────────
 // POST: Complete school setup with all configuration data
@@ -192,7 +193,7 @@ export async function POST(request: NextRequest) {
             name: fee.feeType,
             feeType: fee.feeType,
             amount: fee.amount,
-            currency: fee.currency || 'USD',
+            currency: (fee.currency as Currency) || 'USD',
           },
         })
       }
