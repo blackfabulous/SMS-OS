@@ -25,16 +25,33 @@ behavior is identical to a plain `PrismaClient`. Nothing changes until you enabl
 
 ## Enable it (safely)
 
-Do this in a **staging** environment first.
+Do this in a **staging** environment first. Run `bun scripts/verify-rls.ts` first —
+it reports the role, the GUC round-trip, and current RLS state.
 
-1. **Check the DB role does not bypass RLS.** Prisma must connect as a role that is
-   subject to policies:
+> ⚠️ **CONFIRMED BLOCKER (2026-06):** `scripts/verify-rls.ts` shows this project's
+> `DATABASE_URL` connects as **`postgres` (superuser, `rolbypassrls = true`)**.
+> A superuser/BYPASSRLS role **ignores RLS entirely**, so applying the policies now
+> would be a no-op — false security. **Step 1 below is mandatory before enabling.**
+> (The GUC mechanism itself is verified working, so once the role is fixed the rest
+> is ready.)
+
+1. **Use a non-superuser, non-BYPASSRLS role for the app connection.** Create a
+   least-privilege role and point the runtime `DATABASE_URL` at it; keep `postgres`
+   on `DIRECT_URL` for migrations only:
    ```sql
-   SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user;
+   CREATE ROLE zimschool_app LOGIN PASSWORD '<strong-secret>';
+   GRANT CONNECT ON DATABASE postgres TO zimschool_app;
+   GRANT USAGE ON SCHEMA public TO zimschool_app;
+   GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO zimschool_app;
+   GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO zimschool_app;
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public
+     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO zimschool_app;
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public
+     GRANT USAGE, SELECT ON SEQUENCES TO zimschool_app;
+   -- zimschool_app is NOT superuser and NOT BYPASSRLS → subject to policies.
    ```
-   If `rolbypassrls`/`rolsuper` is true, RLS will silently do nothing. Create/use a
-   non-bypassing role for the app's `DATABASE_URL` (keep migrations on the
-   privileged role / `DIRECT_URL`).
+   Re-run `bun scripts/verify-rls.ts` with that connection and confirm
+   `bypasses_rls: false` before continuing.
 2. **Apply the policies** (use the direct connection, not the pooler):
    ```bash
    psql "$DIRECT_URL" -f prisma/rls/enable-rls.sql
