@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { hashPassword } from '@/lib/auth'
-import type { EnrollmentStatus, BoardingStatus } from '@prisma/client'
+import type { EnrollmentStatus, BoardingStatus, PaymentMethod, InvoiceStatus, AttendanceStatus, AssetCondition, LeaveType } from '@prisma/client'
 
 /**
  * Seeds the database with a full demo dataset for one school.
@@ -468,7 +468,7 @@ export async function seedDatabase() {
           invoiceId: invoice.id,
           parentId: parents[i % parents.length].id,
           amount: paymentAmount,
-          paymentMethod: ['CASH', 'ECOCASH', 'BANK_TRANSFER'][i % 3],
+          paymentMethod: ['CASH', 'ECOCASH', 'BANK_TRANSFER'][i % 3] as PaymentMethod,
           currency: 'USD',
         },
       })
@@ -484,7 +484,7 @@ export async function seedDatabase() {
         data: {
           amountPaid: newAmountPaid,
           balance: newBalance,
-          status: newStatus,
+          status: newStatus as InvoiceStatus,
         },
       })
     }
@@ -509,7 +509,7 @@ export async function seedDatabase() {
       termId: term3.id,
       date,
       attendanceType: 'DAILY',
-      status: attendanceStatuses[Math.floor(Math.random() * attendanceStatuses.length)],
+      status: attendanceStatuses[Math.floor(Math.random() * attendanceStatuses.length)] as AttendanceStatus,
     }))
 
     await db.attendance.createMany({ data: attendanceData })
@@ -693,7 +693,7 @@ export async function seedDatabase() {
         location: assetData[i].location,
         purchaseCost: assetData[i].cost,
         purchaseDate: new Date(2020 + Math.floor(i / 3), Math.floor(Math.random() * 12), 1),
-        condition: ['GOOD', 'GOOD', 'FAIR', 'GOOD', 'EXCELLENT'][i % 5],
+        condition: ['GOOD', 'GOOD', 'FAIR', 'GOOD', 'EXCELLENT'][i % 5] as AssetCondition,
       },
     })
   }
@@ -817,7 +817,7 @@ export async function seedDatabase() {
     await db.leaveRecord.create({
       data: {
         staffId: staffMembers[i].id,
-        leaveType: leaveTypes[i % leaveTypes.length],
+        leaveType: leaveTypes[i % leaveTypes.length] as LeaveType,
         startDate: new Date(2025, 1 + i, 1),
         endDate: new Date(2025, 1 + i, 3 + i),
         days: 3 + i,

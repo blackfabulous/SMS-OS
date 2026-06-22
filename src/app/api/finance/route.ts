@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { logAudit } from '@/lib/audit'
 import { getRequestTenant } from '@/lib/tenant'
 import { validateRole } from '@/lib/api-auth'
+import type { InvoiceStatus } from '@prisma/client'
 
 export async function GET() {
   try {
@@ -82,7 +83,7 @@ export async function PUT(request: Request) {
       if (payment.invoiceId && payment.invoice) {
         const newAmountPaid = payment.invoice.amountPaid - payment.amount
         const newBalance = payment.invoice.totalAmount - newAmountPaid
-        let newStatus = 'PENDING'
+        let newStatus: InvoiceStatus = 'PENDING'
         if (newBalance <= 0) newStatus = 'PAID'
         else if (newAmountPaid > 0) newStatus = 'PARTIAL'
 

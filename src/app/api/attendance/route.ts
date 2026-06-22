@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
 import { logAudit } from '@/lib/audit'
+import type { AttendanceStatus } from '@prisma/client'
 import { notifyStudentGuardian, notifyStudentGuardiansBatch } from '@/lib/notifications'
 
 function absenceDate(d?: string): string {
@@ -133,7 +134,7 @@ export async function POST(request: Request) {
           termId: record.termId,
           date: new Date(record.date),
           attendanceType: record.attendanceType || 'DAILY',
-          status: record.status || 'PRESENT',
+          status: (record.status as AttendanceStatus) || 'PRESENT',
           remarks: record.remarks,
         })),
         skipDuplicates: true,

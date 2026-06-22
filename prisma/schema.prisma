@@ -413,7 +413,7 @@ model Attendance {
   termId                String
   date                  DateTime
   attendanceType        String   @default("DAILY")
-  status                String   @default("PRESENT")
+  status                AttendanceStatus @default(PRESENT)
   remarks               String?
   createdAt             DateTime @default(now())
 
@@ -520,7 +520,7 @@ model FeeInvoice {
   amountPaid            Decimal  @default(0) @db.Decimal(15, 2)
   balance               Decimal  @db.Decimal(15, 2)
   dueDate               DateTime
-  status                String   @default("PENDING")
+  status                InvoiceStatus @default(PENDING)
   lateFeeApplied        Boolean  @default(false) // guards against compounding the overdue penalty
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -552,7 +552,7 @@ model FeePayment {
   parentId              String?
   receiptNumber         String   @unique
   amount                Decimal  @db.Decimal(15, 2)
-  paymentMethod         String   @default("CASH")
+  paymentMethod         PaymentMethod @default(CASH)
   currency              Currency @default(USD)
   exchangeRate          Float    @default(1)
   reference             String?
@@ -629,7 +629,7 @@ model BeamApplication {
   id                    String   @id @default(cuid())
   studentId             String   @unique
   applicationDate       DateTime @default(now())
-  status                String   @default("APPLIED")
+  status                BeamStatus @default(APPLIED)
   coveredAmount         Decimal  @default(0) @db.Decimal(15, 2)
   outstandingBalance    Decimal  @default(0) @db.Decimal(15, 2)
   socialWelfareRef      String?
@@ -837,7 +837,7 @@ model Asset {
   purchaseCost          Decimal  @default(0) @db.Decimal(15, 2)
   purchaseDate          DateTime?
   donorSource           String?
-  condition             String   @default("GOOD")
+  condition             AssetCondition @default(GOOD)
   custodian             String?
   isDisposed            Boolean  @default(false)
   createdAt             DateTime @default(now())
@@ -853,7 +853,7 @@ model MaintenanceRequest {
   schoolId              String
   category              String
   description           String
-  priority              String   @default("MEDIUM")
+  priority              Priority @default(MEDIUM)
   status                String   @default("PENDING")
   estimatedCost         Decimal? @db.Decimal(15, 2)
   actualCost            Decimal? @db.Decimal(15, 2)
@@ -901,12 +901,12 @@ model Payslip {
 model LeaveRecord {
   id                    String   @id @default(cuid())
   staffId               String
-  leaveType             String
+  leaveType             LeaveType
   startDate             DateTime
   endDate               DateTime
   days                  Int
   reason                String?
-  status                String   @default("PENDING")
+  status                LeaveStatus @default(PENDING)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -1099,6 +1099,85 @@ enum Currency {
   ZiG
 }
 
+enum InvoiceStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  ECOCASH
+  ONEMONEY
+  INNBUCKS
+  ZIMSWITCH
+  BANK_TRANSFER
+  PAYNOW
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum BeamStatus {
+  APPLIED
+  PENDING
+  APPROVED
+  REJECTED
+  ACTIVE
+}
+
+enum AssetCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  NEW
+  DISPOSED
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  MATERNITY
+  PATERNITY
+  PERSONAL
+  STUDY
+  UNPAID
+  COMPASSIONATE
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum VisitorStatus {
+  ON_CAMPUS
+  OFF_CAMPUS
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -1171,7 +1250,7 @@ model CanteenTransaction {
   buyerId               String?
   buyerName             String
   totalAmount           Decimal  @default(0) @db.Decimal(15, 2)
-  paymentMethod         String   @default("CASH")
+  paymentMethod         PaymentMethod @default(CASH)
   status                String   @default("COMPLETED")
   createdAt             DateTime @default(now())
 
@@ -1236,7 +1315,7 @@ model Requisition {
   department            String?
   estimatedCost         Decimal? @db.Decimal(15, 2)
   status                String   @default("PENDING")
-  priority              String   @default("MEDIUM")
+  priority              Priority @default(MEDIUM)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -1319,7 +1398,7 @@ model Visitor {
   phone                 String?
   checkInTime           DateTime @default(now())
   checkOutTime          DateTime?
-  status                String   @default("ON_CAMPUS")
+  status                VisitorStatus @default(ON_CAMPUS)
   createdAt             DateTime @default(now())
 
   school                School   @relation(fields: [schoolId], references: [id])
@@ -1330,7 +1409,7 @@ model SecurityIncident {
   schoolId              String
   incidentType          String
   location              String?
-  severity              String   @default("LOW")
+  severity              Severity @default(LOW)
   description           String
   reporter              String?
   status                String   @default("OPEN")
