@@ -20,6 +20,16 @@ function createPrisma() {
     base.$executeRaw`SELECT set_config('app.current_school_id', ${schoolId}, true)`
 
   return base.$extends({
+    // Money is stored as Postgres Decimal (precise storage + precise SQL sums) but
+    // surfaced to the app/UI as `number` so existing code and JSON responses are
+    // unchanged. Writes accept numbers (Prisma coerces number -> Decimal).
+    result: {
+      feeInvoice: {
+        totalAmount: { needs: { totalAmount: true }, compute: (r) => Number(r.totalAmount) },
+        amountPaid: { needs: { amountPaid: true }, compute: (r) => Number(r.amountPaid) },
+        balance: { needs: { balance: true }, compute: (r) => Number(r.balance) },
+      },
+    },
     query: {
       $allModels: {
         async $allOperations({ args, query }) {

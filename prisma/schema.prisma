@@ -516,9 +516,9 @@ model FeeInvoice {
   studentId             String
   termId                String
   invoiceNumber         String   @unique
-  totalAmount           Float
-  amountPaid            Float    @default(0)
-  balance               Float
+  totalAmount           Decimal  @db.Decimal(15, 2)
+  amountPaid            Decimal  @default(0) @db.Decimal(15, 2)
+  balance               Decimal  @db.Decimal(15, 2)
   dueDate               DateTime
   status                String   @default("PENDING")
   lateFeeApplied        Boolean  @default(false) // guards against compounding the overdue penalty

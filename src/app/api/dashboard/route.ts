@@ -182,17 +182,21 @@ export async function GET() {
       }, {}),
       gradeDistribution: gradeStudentCounts,
       attendance: attendanceStats,
-      finance: {
-        totalInvoiced: feeStats._sum.totalAmount || 0,
-        totalCollected: feeStats._sum.amountPaid || 0,
-        totalOutstanding: feeStats._sum.balance || 0,
-        totalInvoices: feeStats._count,
-        paidInvoices,
-        overdueInvoices,
-        collectionRate: (feeStats._sum.totalAmount || 0) > 0
-          ? (((feeStats._sum.amountPaid || 0) / feeStats._sum.totalAmount!) * 100).toFixed(1)
-          : '0',
-      },
+      finance: (() => {
+        // aggregate _sum returns Decimal — coerce to number for the JSON response.
+        const ti = Number(feeStats._sum.totalAmount ?? 0)
+        const tc = Number(feeStats._sum.amountPaid ?? 0)
+        const to = Number(feeStats._sum.balance ?? 0)
+        return {
+          totalInvoiced: ti,
+          totalCollected: tc,
+          totalOutstanding: to,
+          totalInvoices: feeStats._count,
+          paidInvoices,
+          overdueInvoices,
+          collectionRate: ti > 0 ? ((tc / ti) * 100).toFixed(1) : '0',
+        }
+      })(),
       staff: {
         total: totalStaff,
         active: activeStaff,

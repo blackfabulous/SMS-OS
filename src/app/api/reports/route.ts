@@ -220,8 +220,8 @@ export async function GET(request: Request) {
           type: 'overview',
           students: studentCount,
           staff: staffCount,
-          totalInvoiced: invoiceData._sum.totalAmount || 0,
-          totalCollected: invoiceData._sum.amountPaid || 0,
+          totalInvoiced: Number(invoiceData._sum.totalAmount ?? 0),
+          totalCollected: Number(invoiceData._sum.amountPaid ?? 0),
         })
       }
     }

@@ -10,13 +10,13 @@ export async function GET() {
     if ('error' in tenantResult) return tenantResult.error
     const { schoolId } = tenantResult
     const invoicedResult = await db.feeInvoice.aggregate({ where: { student: { schoolId } }, _sum: { totalAmount: true } })
-    const totalInvoiced = invoicedResult._sum.totalAmount || 0
+    const totalInvoiced = Number(invoicedResult._sum.totalAmount ?? 0)
 
     const collectedResult = await db.feeInvoice.aggregate({ where: { student: { schoolId } }, _sum: { amountPaid: true } })
-    const totalCollected = collectedResult._sum.amountPaid || 0
+    const totalCollected = Number(collectedResult._sum.amountPaid ?? 0)
 
     const outstandingResult = await db.feeInvoice.aggregate({ where: { student: { schoolId } }, _sum: { balance: true } })
-    const totalOutstanding = outstandingResult._sum.balance || 0
+    const totalOutstanding = Number(outstandingResult._sum.balance ?? 0)
 
     const debtorCount = await db.feeInvoice.groupBy({ by: ['studentId'], where: { student: { schoolId } }, having: { balance: { _sum: { gt: 0 } } } })
 
