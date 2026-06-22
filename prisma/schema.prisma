@@ -576,7 +576,7 @@ model BankAccount {
   accountNumber         String
   branch                String?
   branchCode            String?
-  accountType           String   @default("CURRENT")
+  accountType           AccountType @default(CURRENT)
   currency              Currency @default(USD)
   balance               Decimal  @default(0) @db.Decimal(15, 2)
   isActive              Boolean  @default(true)
@@ -609,7 +609,7 @@ model ZimsecCandidate {
   studentId             String   @unique
   centreNumber          String?
   candidateNumber       String?
-  examLevel             String
+  examLevel             ExamLevel
   examYear              Int
   registrationStatus    String   @default("PENDING")
   subjects              String?
@@ -1178,6 +1178,53 @@ enum VisitorStatus {
   OFF_CAMPUS
 }
 
+enum AccountType {
+  CURRENT
+  SAVINGS
+}
+
+enum ExamLevel {
+  GRADE_7
+  O_LEVEL
+  A_LEVEL
+}
+
+enum IncidentStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  CLOSED
+}
+
+enum ResourceType {
+  NOTES
+  VIDEO
+  WORKSHEET
+  PAST_EXAM_PAPER
+  LINK
+  DOCUMENT
+}
+
+enum AssignmentStatus {
+  OPEN
+  CLOSED
+  GRADING
+}
+
+enum PartnerCategory {
+  ACCREDITATION
+  PARTNER
+  AFFILIATION
+}
+
+enum ShopOrderStatus {
+  PENDING
+  PROCESSING
+  READY
+  COLLECTED
+  CANCELLED
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -1412,7 +1459,7 @@ model SecurityIncident {
   severity              Severity @default(LOW)
   description           String
   reporter              String?
-  status                String   @default("OPEN")
+  status                IncidentStatus @default(OPEN)
   resolution            String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -1446,7 +1493,7 @@ model CourseResource {
   id                    String   @id @default(cuid())
   courseId              String
   title                 String
-  resourceType          String   @default("NOTES")
+  resourceType          ResourceType @default(NOTES)
   url                   String?
   fileSize              Int      @default(0)
   downloads             Int      @default(0)
@@ -1463,7 +1510,7 @@ model CourseAssignment {
   description           String?
   maxMarks              Float    @default(100)
   dueDate               DateTime?
-  status                String   @default("OPEN")
+  status                AssignmentStatus @default(OPEN)
   submissionsCount      Int      @default(0)
   avgScore              Float?
   createdAt             DateTime @default(now())
@@ -1566,7 +1613,7 @@ model Partner {
   name        String
   logoUrl     String?  // image URL; when null the public site renders a text badge
   websiteUrl  String?
-  category    String   @default("PARTNER") // ACCREDITATION | PARTNER | AFFILIATION
+  category    PartnerCategory @default(PARTNER) // ACCREDITATION | PARTNER | AFFILIATION
   sortOrder   Int      @default(0)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -1680,7 +1727,7 @@ model SchoolShopOrder {
   items                 String
   totalAmount           Decimal  @default(0) @db.Decimal(15, 2)
   currency              Currency @default(USD)
-  status                String   @default("PENDING")
+  status                ShopOrderStatus @default(PENDING)
   notes                 String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt

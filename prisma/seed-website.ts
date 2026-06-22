@@ -5,7 +5,7 @@
  *
  *   npx tsx prisma/seed-website.ts
  */
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, type PartnerCategory } from '@prisma/client'
 
 const db = new PrismaClient()
 
@@ -62,7 +62,7 @@ async function main() {
   const existing = await db.partner.count({ where: { schoolId: school.id } })
   if (existing === 0) {
     await db.partner.createMany({
-      data: DEFAULT_PARTNERS.map((p) => ({ ...p, schoolId: school.id })),
+      data: DEFAULT_PARTNERS.map((p) => ({ ...p, schoolId: school.id, category: p.category as PartnerCategory })),
     })
     console.log(`Seeded ${DEFAULT_PARTNERS.length} partners`)
   } else {

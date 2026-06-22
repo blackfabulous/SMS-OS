@@ -4,7 +4,7 @@
  *
  *   npx tsx prisma/seed-elearning.ts
  */
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, type ResourceType, type AssignmentStatus } from '@prisma/client'
 
 const db = new PrismaClient()
 
@@ -49,7 +49,7 @@ async function main() {
       data: {
         courseId: created[r.course],
         title: r.title,
-        resourceType: r.resourceType,
+        resourceType: r.resourceType as ResourceType,
         url: r.url,
         fileSize: r.fileSize,
         downloads: r.downloads,
@@ -70,7 +70,7 @@ async function main() {
         courseId: created[a.course],
         title: a.title,
         maxMarks: a.maxMarks,
-        status: a.status,
+        status: a.status as AssignmentStatus,
         submissionsCount: a.submissionsCount,
         avgScore: a.avgScore,
         dueDate: new Date(a.dueDate),
