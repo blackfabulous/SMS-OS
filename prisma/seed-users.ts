@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { hashPassword } from '@/lib/auth'
+import type { Role } from '@prisma/client'
 
 async function seedUsers() {
   console.log('🌱 Seeding users...')
@@ -81,7 +82,7 @@ async function seedUsers() {
         email: userData.email,
         password: hashedPassword,
         name: userData.name,
-        role: userData.role,
+        role: userData.role as Role,
         schoolId: userData.schoolId,
         staffId: userData.staffId,
         studentId: userData.studentId,

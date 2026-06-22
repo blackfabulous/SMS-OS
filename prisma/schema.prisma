@@ -1057,12 +1057,21 @@ model Supplier {
 // 19. USER & AUTHENTICATION
 // ============================================
 
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  TEACHER
+  BURSAR
+  PARENT
+  STUDENT
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
   password      String
   name          String
-  role          String    @default("ADMIN") // ADMIN, TEACHER, PARENT, STUDENT, BURSAR
+  role          Role      @default(ADMIN)
   staffId       String?   @unique
   studentId     String?   @unique
   parentId      String?
