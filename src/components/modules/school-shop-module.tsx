@@ -3,16 +3,16 @@
 import React, { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
-  ShoppingCart, Package, ShoppingBag, FileText, Settings, Plus, Pencil, Trash2,
+  ShoppingCart, Package, ShoppingBag, FileText, Plus, Pencil, Trash2,
   AlertTriangle, DollarSign, TrendingUp, BarChart3, Shirt, BookOpen, Truck,
   Search, X, ChevronDown, Download, Eye, CheckCircle2, Clock, XCircle,
   LayoutGrid, List, Star, ArrowUpRight, ArrowDownRight, Minus, Tag, ArrowLeft,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
-import { StatGrid, ModuleStatCard, SectionCard } from '@/components/module-ui'
+import { StatGrid, ModuleStatCard, SectionCard, ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog'
@@ -400,15 +400,18 @@ export default function SchoolShopModule() {
 
   return (
     <div className="space-y-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 h-auto gap-1">
-          <TabsTrigger value="overview" className="gap-1.5 text-xs"><ShoppingBag className="h-3.5 w-3.5" />Overview</TabsTrigger>
-          <TabsTrigger value="products" className="gap-1.5 text-xs"><Package className="h-3.5 w-3.5" />Products</TabsTrigger>
-          <TabsTrigger value="orders" className="gap-1.5 text-xs"><ShoppingCart className="h-3.5 w-3.5" />Orders</TabsTrigger>
-          <TabsTrigger value="uniforms" className="gap-1.5 text-xs"><Shirt className="h-3.5 w-3.5" />Uniforms</TabsTrigger>
-          <TabsTrigger value="reports" className="gap-1.5 text-xs"><BarChart3 className="h-3.5 w-3.5" />Reports</TabsTrigger>
-          <TabsTrigger value="settings" className="gap-1.5 text-xs"><Settings className="h-3.5 w-3.5" />Settings</TabsTrigger>
-        </TabsList>
+      <ModulePageLayout
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        actions={<ModuleSettingsButton onClick={() => setActiveTab('settings')} />}
+        tabs={<>
+          <TabsTrigger value="overview" className="gap-1.5"><ShoppingBag className="h-3.5 w-3.5" />Overview</TabsTrigger>
+          <TabsTrigger value="products" className="gap-1.5"><Package className="h-3.5 w-3.5" />Products</TabsTrigger>
+          <TabsTrigger value="orders" className="gap-1.5"><ShoppingCart className="h-3.5 w-3.5" />Orders</TabsTrigger>
+          <TabsTrigger value="uniforms" className="gap-1.5"><Shirt className="h-3.5 w-3.5" />Uniforms</TabsTrigger>
+          <TabsTrigger value="reports" className="gap-1.5"><BarChart3 className="h-3.5 w-3.5" />Reports</TabsTrigger>
+        </>}
+      >
 
         {/* ═══ OVERVIEW TAB ═════════════════════════════════════════════════════ */}
         <TabsContent value="overview" className="space-y-4">
@@ -970,12 +973,12 @@ export default function SchoolShopModule() {
           </div>
 
           <div className="flex justify-end">
-            <Button className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={() => toast.success('Shop settings saved successfully')}>
+            <Button className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={() => { toast.success('Shop settings saved successfully'); setActiveTab('overview') }}>
               <CheckCircle2 className="h-4 w-4" /> Save Settings
             </Button>
           </div>
         </TabsContent>
-      </Tabs>
+      </ModulePageLayout>
 
       {/* ═══ SHARED DIALOGS ══════════════════════════════════════════════════════ */}
 
