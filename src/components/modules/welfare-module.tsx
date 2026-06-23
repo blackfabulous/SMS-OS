@@ -1,6 +1,6 @@
 'use client'
 
-import { ModulePageLayout, ModuleSettingsButton, StatGrid, ModuleStatCard } from '@/components/module-ui';
+import { ModuleContainer, ModulePageLayout, ModuleSettingsButton, StatGrid, ModuleStatCard, SectionCard, TableShell } from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -392,9 +392,8 @@ export default function WelfareModule() {
           <p className="text-sm text-muted-foreground mt-1">Configure welfare and BEAM module preferences</p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="border-0 shadow-md">
-            <CardHeader><CardTitle className="text-base">Programme Defaults</CardTitle><CardDescription>Default settings for new welfare cases</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
+          <SectionCard title="Programme Defaults" description="Default settings for new welfare cases">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div><p className="text-sm font-medium">Default Confidential</p><p className="text-xs text-muted-foreground">New cases are confidential by default</p></div>
                 <Switch checked={settings.defaultConfidential} onCheckedChange={(v) => setSettings({...settings, defaultConfidential: v})} />
@@ -404,11 +403,10 @@ export default function WelfareModule() {
                 <div><p className="text-sm font-medium">Auto-Assign Cases</p><p className="text-xs text-muted-foreground">Automatically assign cases to staff</p></div>
                 <Switch checked={settings.caseAutoAssign} onCheckedChange={(v) => setSettings({...settings, caseAutoAssign: v})} />
               </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-md">
-            <CardHeader><CardTitle className="text-base">Referral & Funding</CardTitle><CardDescription>Referral and funding source settings</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
+            </div>
+          </SectionCard>
+          <SectionCard title="Referral & Funding" description="Referral and funding source settings">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div><p className="text-sm font-medium">Referral Tracking</p><p className="text-xs text-muted-foreground">Track external referrals</p></div>
                 <Switch checked={settings.referralTracking} onCheckedChange={(v) => setSettings({...settings, referralTracking: v})} />
@@ -418,11 +416,10 @@ export default function WelfareModule() {
                 <div><p className="text-sm font-medium">Funding Source Required</p><p className="text-xs text-muted-foreground">Require funding source for BEAM</p></div>
                 <Switch checked={settings.fundingSourceRequired} onCheckedChange={(v) => setSettings({...settings, fundingSourceRequired: v})} />
               </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-md">
-            <CardHeader><CardTitle className="text-base">Report Format</CardTitle><CardDescription>Default format for welfare reports</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
+            </div>
+          </SectionCard>
+          <SectionCard title="Report Format" description="Default format for welfare reports">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div><p className="text-sm font-medium">Report Format</p><p className="text-xs text-muted-foreground">Choose report detail level</p></div>
                 <Select value={settings.reportFormat} onValueChange={(v) => setSettings({...settings, reportFormat: v})}>
@@ -434,8 +431,8 @@ export default function WelfareModule() {
                   </SelectContent>
                 </Select>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
         </div>
         <div className="flex justify-end">
           <Button className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white" onClick={() => { toast.success('Settings saved successfully'); setViewMode('list') }}>Save Settings</Button>
@@ -457,8 +454,7 @@ export default function WelfareModule() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">{addType === 'welfare' ? 'Record a new welfare case for a student. Confidential by default.' : 'Submit a BEAM (Basic Education Assistance Module) application.'}</p>
         </div>
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-6 space-y-4">
+        <SectionCard contentClassName="p-6 space-y-4">
             <div className="grid gap-2">
               <Label>Student</Label>
               <Select value={addType === 'welfare' ? welfareForm.studentId : beamForm.studentId} onValueChange={(v) => addType === 'welfare' ? setWelfareForm((p) => ({ ...p, studentId: v })) : setBeamForm((p) => ({ ...p, studentId: v }))}>
@@ -523,8 +519,7 @@ export default function WelfareModule() {
                 </div>
               </>
             )}
-          </CardContent>
-        </Card>
+        </SectionCard>
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
           <Button className={addType === 'welfare' ? 'bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white' : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white'} disabled={submitting} onClick={addType === 'welfare' ? handleAddWelfare : handleApplyBeam}>
