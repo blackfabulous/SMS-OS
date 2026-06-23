@@ -29,8 +29,8 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { ModuleContainer, TableShell, ModulePageLayout, StatGrid, ModuleStatCard } from '@/components/module-ui'
+import { Card, CardContent } from '@/components/ui/card'
+import { ModuleContainer, TableShell, ModulePageLayout, StatGrid, ModuleStatCard, SectionCard } from '@/components/module-ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -333,12 +333,7 @@ function OverviewTab({ onNavigate }: { onNavigate: (tab: string) => void }) {
       </div>
 
       {/* Fee Summary Table */}
-      <Card className="border-0 shadow-md">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">Fee Structure Summary (USD per Term)</CardTitle>
-          <CardDescription>Quick reference for tuition and boarding fees across all grade levels</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
+      <SectionCard title="Fee Structure Summary (USD per Term)" description="Quick reference for tuition and boarding fees across all grade levels" noPadding>
           <TableShell maxHeight="320px" className="border-0 rounded-none">
             <Table>
               <TableHeader>
@@ -363,8 +358,7 @@ function OverviewTab({ onNavigate }: { onNavigate: (tab: string) => void }) {
               </TableBody>
             </Table>
           </TableShell>
-        </CardContent>
-      </Card>
+        </SectionCard>
     </div>
   )
 }
@@ -433,11 +427,7 @@ function FeeCalculatorTab() {
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Input Card */}
-        <Card className="border-0 shadow-md lg:col-span-1">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold">Configure Fee Calculation</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <SectionCard title="Configure Fee Calculation" className="lg:col-span-1" contentClassName="space-y-4">
             <div className="grid gap-2">
               <Label>Grade Level</Label>
               <Select value={grade} onValueChange={setGrade}>
@@ -504,22 +494,20 @@ function FeeCalculatorTab() {
                 ))}
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </SectionCard>
 
         {/* Result Card */}
-        <Card className="border-0 shadow-md lg:col-span-2">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-semibold">Fee Breakdown</CardTitle>
-              <Button variant="outline" size="sm" className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={handlePrintFeeStatement}>
-                <Printer className="mr-1.5 h-3.5 w-3.5" />
-                Print Statement
-              </Button>
-            </div>
-            <CardDescription>{grade} — {boarding === 'boarder' ? 'Boarder' : 'Day Scholar'}</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <SectionCard
+          title="Fee Breakdown"
+          description={`${grade} — ${boarding === 'boarder' ? 'Boarder' : 'Day Scholar'}`}
+          className="lg:col-span-2"
+          actions={
+            <Button variant="outline" size="sm" className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={handlePrintFeeStatement}>
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Statement
+            </Button>
+          }
+        >
             <div className="space-y-3">
               <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
                 <span className="text-sm">Tuition Fee</span>
@@ -584,20 +572,11 @@ function FeeCalculatorTab() {
                 </p>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </SectionCard>
       </div>
 
       {/* BEAM Eligibility */}
-      <Card className="border-0 shadow-md">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <BadgeCheck className="h-5 w-5 text-emerald-600" />
-            BEAM Scholarship Eligibility Checker
-          </CardTitle>
-          <CardDescription>Select all criteria that apply. Meeting 2+ criteria qualifies for BEAM assistance.</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <SectionCard title="BEAM Scholarship Eligibility Checker" icon={BadgeCheck} description="Select all criteria that apply. Meeting 2+ criteria qualifies for BEAM assistance.">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
             {beamCriteria.map(criterion => (
               <div key={criterion} className="flex items-start gap-2 p-3 rounded-xl border hover:bg-muted/30 transition-colors">
@@ -630,8 +609,7 @@ function FeeCalculatorTab() {
               </>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </SectionCard>
     </div>
   )
 }
@@ -695,15 +673,7 @@ function CurrencyConverterTab() {
     <div className="space-y-6">
       {/* Main Converter */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Globe className="h-5 w-5 text-emerald-600" />
-              USD ↔ ZiG Converter
-            </CardTitle>
-            <CardDescription>Zimbabwe Gold (ZiG) — Current RBZ Rate: 1 USD = {RBZ_RATE} ZiG</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <SectionCard title="USD ↔ ZiG Converter" icon={Globe} description={`Zimbabwe Gold (ZiG) — Current RBZ Rate: 1 USD = ${RBZ_RATE} ZiG`} contentClassName="space-y-4">
             <div className="flex items-center gap-3">
               <div className="flex-1 grid gap-2">
                 <Label>USD Amount</Label>
@@ -784,16 +754,10 @@ function CurrencyConverterTab() {
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
+          </SectionCard>
 
         {/* Historical Rate Trend */}
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold">Exchange Rate Trend (Last 6 Months)</CardTitle>
-            <CardDescription>ZiG per USD — Official RBZ Rate</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <SectionCard title="Exchange Rate Trend (Last 6 Months)" description="ZiG per USD — Official RBZ Rate">
             <ChartContainer config={rateChartConfig} className="h-[260px] w-full">
               <LineChart data={historicalRateData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -803,25 +767,21 @@ function CurrencyConverterTab() {
                 <Line type="monotone" dataKey="rate" stroke="#10b981" strokeWidth={2.5} dot={{ fill: '#10b981', r: 4 }} />
               </LineChart>
             </ChartContainer>
-          </CardContent>
-        </Card>
+          </SectionCard>
       </div>
 
       {/* Batch Conversion */}
-      <Card className="border-0 shadow-md">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base font-semibold">Batch Conversion Table</CardTitle>
-              <CardDescription>Enter USD amounts separated by commas to see ZiG equivalents</CardDescription>
-            </div>
-            <Button variant="outline" size="sm" className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={handleExportReport}>
-              <Download className="mr-1.5 h-3.5 w-3.5" />
-              Export Report
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <SectionCard
+        title="Batch Conversion Table"
+        description="Enter USD amounts separated by commas to see ZiG equivalents"
+        actions={
+          <Button variant="outline" size="sm" className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={handleExportReport}>
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            Export Report
+          </Button>
+        }
+        contentClassName="space-y-4"
+      >
           <div className="grid gap-2">
             <Label>USD Amounts (comma-separated)</Label>
             <Input
@@ -851,16 +811,10 @@ function CurrencyConverterTab() {
             </TableBody>
           </Table>
           </TableShell>
-        </CardContent>
-      </Card>
+        </SectionCard>
 
       {/* Fee Amount Converter */}
-      <Card className="border-0 shadow-md">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Fee Structure in Both Currencies</CardTitle>
-          <CardDescription>Tuition and boarding fees converted at rate 1 USD = {currentRate} ZiG</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
+      <SectionCard title="Fee Structure in Both Currencies" description={`Tuition and boarding fees converted at rate 1 USD = ${currentRate} ZiG`} noPadding>
           <TableShell maxHeight="350px" className="border-0 rounded-none">
             <Table>
               <TableHeader>
@@ -885,8 +839,7 @@ function CurrencyConverterTab() {
               </TableBody>
             </Table>
           </TableShell>
-        </CardContent>
-      </Card>
+        </SectionCard>
     </div>
   )
 }
@@ -946,11 +899,7 @@ function PaymentPlansTab() {
     <div className="space-y-6">
       {/* Generator */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold">Generate Payment Plan</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <SectionCard title="Generate Payment Plan" contentClassName="space-y-4">
             <div className="grid gap-2">
               <Label>Select Student</Label>
               <Select value={selectedStudent} onValueChange={v => { setSelectedStudent(v); setShowPlanResult(false) }}>
@@ -999,23 +948,18 @@ function PaymentPlansTab() {
             >
               Generate Payment Plan
             </Button>
-          </CardContent>
-        </Card>
+          </SectionCard>
 
         {/* Plan Result */}
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-semibold">Payment Plan Summary</CardTitle>
-              {showPlanResult && student && (
-                <Button variant="outline" size="sm" className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={handlePrintPlan}>
-                  <Printer className="mr-1.5 h-3.5 w-3.5" />
-                  Print Agreement
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
+        <SectionCard
+          title="Payment Plan Summary"
+          actions={showPlanResult && student ? (
+            <Button variant="outline" size="sm" className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={handlePrintPlan}>
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Agreement
+            </Button>
+          ) : undefined}
+        >
             {!showPlanResult || !student ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <CreditCard className="h-12 w-12 text-muted-foreground/30 mb-3" />
@@ -1060,17 +1004,11 @@ function PaymentPlansTab() {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </SectionCard>
       </div>
 
       {/* Existing Payment Plans */}
-      <Card className="border-0 shadow-md">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">Active Payment Plans</CardTitle>
-          <CardDescription>Currently active payment plans for students</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
+      <SectionCard title="Active Payment Plans" description="Currently active payment plans for students" noPadding>
           <TableShell className="border-0 rounded-none">
             <Table>
               <TableHeader>
@@ -1110,8 +1048,7 @@ function PaymentPlansTab() {
             </TableBody>
           </Table>
           </TableShell>
-        </CardContent>
-      </Card>
+        </SectionCard>
     </div>
   )
 }
@@ -1202,12 +1139,7 @@ function ScholarshipsTab() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Eligibility Checker */}
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold">Eligibility Checker</CardTitle>
-            <CardDescription>Select criteria to find matching scholarships</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <SectionCard title="Eligibility Checker" description="Select criteria to find matching scholarships">
             <div className="space-y-2">
               {allCriteria.map(criterion => (
                 <div key={criterion} className="flex items-start gap-2 p-2 rounded-lg hover:bg-muted/30 transition-colors">
@@ -1226,16 +1158,10 @@ function ScholarshipsTab() {
                 <p className="text-xs text-emerald-700 font-semibold">{matchingScholarships.length} matching scholarship(s)</p>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </SectionCard>
 
         {/* Scholarships List */}
-        <Card className="border-0 shadow-md lg:col-span-2">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold">Available Scholarships</CardTitle>
-            <CardDescription>{matchingScholarships.length} programs available</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <SectionCard title="Available Scholarships" description={`${matchingScholarships.length} programs available`} className="lg:col-span-2">
             <ScrollArea className="max-h-[500px]">
               <div className="space-y-3">
                 {matchingScholarships.map(scholarship => (
@@ -1277,16 +1203,11 @@ function ScholarshipsTab() {
                 ))}
               </div>
             </ScrollArea>
-          </CardContent>
-        </Card>
+          </SectionCard>
       </div>
 
       {/* By Type Chart */}
-      <Card className="border-0 shadow-md">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Scholarship Recipients by Program</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <SectionCard title="Scholarship Recipients by Program">
           <ChartContainer config={scholarshipTypeChartConfig} className="h-[220px] w-full">
             <BarChart data={scholarshipTypeData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -1296,8 +1217,7 @@ function ScholarshipsTab() {
               <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ChartContainer>
-        </CardContent>
-      </Card>
+        </SectionCard>
 
       {/* Application Dialog */}
       <Dialog open={showApplicationDialog} onOpenChange={setShowApplicationDialog}>
