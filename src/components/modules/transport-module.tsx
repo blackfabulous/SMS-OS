@@ -1,6 +1,6 @@
 'use client'
 
-import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
+import { ModulePageLayout, ModuleSettingsButton, StatGrid, ModuleStatCard } from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -793,60 +793,12 @@ export default function TransportModule() {
 
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Routes</p>
-                    <p className="text-2xl font-bold tracking-tight">{stats?.totalRoutes || 0}</p>
-                    <div className="flex items-center gap-1.5"><Route className="h-3.5 w-3.5 text-cyan-600" /><span className="text-xs font-medium text-cyan-600">Active routes</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50"><Route className="h-5 w-5 text-cyan-600" /></div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-cyan-400 to-teal-500" />
-            </Card>
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Vehicles</p>
-                    <p className="text-2xl font-bold tracking-tight">{stats?.totalVehicles || 0}</p>
-                    <div className="flex items-center gap-1.5"><Car className="h-3.5 w-3.5 text-emerald-600" /><span className="text-xs font-medium text-emerald-600">In fleet</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50"><Car className="h-5 w-5 text-emerald-600" /></div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 to-teal-500" />
-            </Card>
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Students on Transport</p>
-                    <p className="text-2xl font-bold tracking-tight">{stats?.studentsOnTransport || 0}</p>
-                    <div className="flex items-center gap-1.5"><Users className="h-3.5 w-3.5 text-teal-600" /><span className="text-xs font-medium text-teal-600">Using school transport</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50"><Users className="h-5 w-5 text-teal-600" /></div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-teal-400 to-emerald-500" />
-            </Card>
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fee Revenue</p>
-                    <p className="text-2xl font-bold tracking-tight">{formatCurrency(stats?.totalFeeRevenue || 0)}</p>
-                    <div className="flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5 text-amber-600" /><span className="text-xs font-medium text-amber-600">Total expected</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50"><DollarSign className="h-5 w-5 text-amber-600" /></div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-400 to-orange-500" />
-            </Card>
-          </div>
+          <StatGrid cols={4}>
+            <ModuleStatCard icon={Route} label="Total Routes" value={stats?.totalRoutes || 0} accentGradient="from-cyan-400 to-teal-500" bgColor="bg-cyan-50 dark:bg-cyan-950/40" iconColor="text-cyan-600 dark:text-cyan-400" hint="Active routes" index={0} />
+            <ModuleStatCard icon={Car} label="Vehicles" value={stats?.totalVehicles || 0} accentGradient="from-emerald-400 to-teal-500" bgColor="bg-emerald-50 dark:bg-emerald-950/40" iconColor="text-emerald-600 dark:text-emerald-400" hint="In fleet" index={1} />
+            <ModuleStatCard icon={Users} label="Students on Transport" value={stats?.studentsOnTransport || 0} accentGradient="from-teal-400 to-emerald-500" bgColor="bg-teal-50 dark:bg-teal-950/40" iconColor="text-teal-600 dark:text-teal-400" hint="Using school transport" index={2} />
+            <ModuleStatCard icon={DollarSign} label="Fee Revenue" value={formatCurrency(stats?.totalFeeRevenue || 0)} accentGradient="from-amber-400 to-orange-500" bgColor="bg-amber-50 dark:bg-amber-950/40" iconColor="text-amber-600 dark:text-amber-400" hint="Total expected" index={3} />
+          </StatGrid>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card className="border-0 shadow-md">

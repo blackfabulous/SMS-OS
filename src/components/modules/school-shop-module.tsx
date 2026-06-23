@@ -9,6 +9,7 @@ import {
   LayoutGrid, List, Star, ArrowUpRight, ArrowDownRight, Minus, Tag, ArrowLeft,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
+import { StatGrid, ModuleStatCard } from '@/components/module-ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -411,31 +412,16 @@ export default function SchoolShopModule() {
 
         {/* ═══ OVERVIEW TAB ═════════════════════════════════════════════════════ */}
         <TabsContent value="overview" className="space-y-4">
-          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatGrid cols={4}>
             {[
-              { label: 'Total Products', value: products.length, icon: Package, color: 'emerald', sub: `${activeProducts.length} active` },
-              { label: 'Total Orders', value: orders.length, icon: ShoppingCart, color: 'teal', sub: `${orders.filter(o => o.status === 'Pending').length} pending` },
-              { label: 'Revenue', value: `$${totalRevenue.toFixed(2)}`, icon: DollarSign, color: 'amber', sub: 'All time', isText: true },
-              { label: 'Stock Value', value: `$${totalStockValue.toFixed(2)}`, icon: TrendingUp, color: 'cyan', sub: `${lowStockProducts.length + outOfStockProducts.length} alerts`, isText: true },
-            ].map((stat) => (
-              <motion.div key={stat.label} variants={itemVariants}>
-                <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{stat.label}</p>
-                        <p className="text-2xl font-bold">{stat.value}</p>
-                        <p className="text-xs text-muted-foreground">{stat.sub}</p>
-                      </div>
-                      <div className={cn('flex h-11 w-11 items-center justify-center rounded-xl', stat.color === 'emerald' ? 'bg-emerald-50 dark:bg-emerald-900/30' : stat.color === 'teal' ? 'bg-teal-50 dark:bg-teal-900/30' : stat.color === 'amber' ? 'bg-amber-50 dark:bg-amber-900/30' : 'bg-cyan-50 dark:bg-cyan-900/30')}>
-                        <stat.icon className={cn('h-5 w-5', stat.color === 'emerald' ? 'text-emerald-600' : stat.color === 'teal' ? 'text-teal-600' : stat.color === 'amber' ? 'text-amber-600' : 'text-cyan-600')} />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
+              { label: 'Total Products', value: products.length, icon: Package, accent: 'from-emerald-400 to-teal-500', bg: 'bg-emerald-50 dark:bg-emerald-950/40', ic: 'text-emerald-600 dark:text-emerald-400', sub: `${activeProducts.length} active` },
+              { label: 'Total Orders', value: orders.length, icon: ShoppingCart, accent: 'from-teal-400 to-cyan-500', bg: 'bg-teal-50 dark:bg-teal-950/40', ic: 'text-teal-600 dark:text-teal-400', sub: `${orders.filter(o => o.status === 'Pending').length} pending` },
+              { label: 'Revenue', value: `$${totalRevenue.toFixed(2)}`, icon: DollarSign, accent: 'from-amber-400 to-orange-500', bg: 'bg-amber-50 dark:bg-amber-950/40', ic: 'text-amber-600 dark:text-amber-400', sub: 'All time' },
+              { label: 'Stock Value', value: `$${totalStockValue.toFixed(2)}`, icon: TrendingUp, accent: 'from-cyan-400 to-blue-500', bg: 'bg-cyan-50 dark:bg-cyan-950/40', ic: 'text-cyan-600 dark:text-cyan-400', sub: `${lowStockProducts.length + outOfStockProducts.length} alerts` },
+            ].map((stat, i) => (
+              <ModuleStatCard key={stat.label} icon={stat.icon} label={stat.label} value={stat.value} accentGradient={stat.accent} bgColor={stat.bg} iconColor={stat.ic} hint={stat.sub} index={i} />
             ))}
-          </motion.div>
+          </StatGrid>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Recent Orders */}
