@@ -30,7 +30,7 @@ import {
 
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { ModuleContainer, TableShell, ModulePageLayout } from '@/components/module-ui'
+import { ModuleContainer, TableShell, ModulePageLayout, StatGrid, ModuleStatCard } from '@/components/module-ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -270,10 +270,10 @@ export default function FeeCalculatorModule() {
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 function OverviewTab({ onNavigate }: { onNavigate: (tab: string) => void }) {
   const stats = [
-    { icon: Calculator, label: 'Fee Structures', value: '15', color: 'text-emerald-600 bg-emerald-50' },
-    { icon: Award, label: 'Active Scholarships', value: '5', color: 'text-amber-600 bg-amber-50' },
-    { icon: ArrowRightLeft, label: 'Exchange Rate', value: '1 USD = 28.5 ZiG', color: 'text-teal-600 bg-teal-50' },
-    { icon: Percent, label: 'Collection Rate', value: '78.5%', color: 'text-violet-600 bg-violet-50' },
+    { icon: Calculator, label: 'Fee Structures', value: '15', accent: 'from-emerald-400 to-teal-500', bg: 'bg-emerald-50 dark:bg-emerald-950/40', ic: 'text-emerald-600 dark:text-emerald-400' },
+    { icon: Award, label: 'Active Scholarships', value: '5', accent: 'from-amber-400 to-orange-500', bg: 'bg-amber-50 dark:bg-amber-950/40', ic: 'text-amber-600 dark:text-amber-400' },
+    { icon: ArrowRightLeft, label: 'Exchange Rate', value: '1 USD = 28.5 ZiG', accent: 'from-teal-400 to-cyan-500', bg: 'bg-teal-50 dark:bg-teal-950/40', ic: 'text-teal-600 dark:text-teal-400' },
+    { icon: Percent, label: 'Collection Rate', value: '78.5%', accent: 'from-violet-400 to-purple-500', bg: 'bg-violet-50 dark:bg-violet-950/40', ic: 'text-violet-600 dark:text-violet-400' },
   ]
 
   const actions = [
@@ -306,23 +306,11 @@ function OverviewTab({ onNavigate }: { onNavigate: (tab: string) => void }) {
       </Card>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {stats.map((stat) => (
-          <Card key={stat.label} className="border-0 shadow-md">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', stat.color)}>
-                  <stat.icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">{stat.label}</p>
-                  <p className="text-lg font-bold">{stat.value}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      <StatGrid cols={4}>
+        {stats.map((stat, i) => (
+          <ModuleStatCard key={stat.label} icon={stat.icon} label={stat.label} value={stat.value} accentGradient={stat.accent} bgColor={stat.bg} iconColor={stat.ic} index={i} />
         ))}
-      </div>
+      </StatGrid>
 
       {/* Action Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
