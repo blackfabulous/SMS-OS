@@ -1,6 +1,6 @@
 'use client'
 
-import { ModulePageLayout, ModuleSettingsButton, StatGrid, ModuleStatCard } from '@/components/module-ui';
+import { ModulePageLayout, ModuleSettingsButton, StatGrid, ModuleStatCard, SectionCard } from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -641,11 +641,7 @@ export default function TransportModule() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Default Route & Fee */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2"><Navigation className="h-4 w-4 text-cyan-500" /> Route Defaults</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <SectionCard title="Route Defaults" icon={Navigation} contentClassName="space-y-4">
               <div className="grid gap-2">
                 <Label>Default Route for New Assignments</Label>
                 <Select value={settings.defaultRoute} onValueChange={(v) => setSettings((p) => ({ ...p, defaultRoute: v }))}>
@@ -672,15 +668,10 @@ export default function TransportModule() {
                 <Label>Default Departure Time</Label>
                 <Input type="time" value={settings.scheduleDefault} onChange={(e) => setSettings((p) => ({ ...p, scheduleDefault: e.target.value }))} />
               </div>
-            </CardContent>
-          </Card>
+            </SectionCard>
 
           {/* Vehicle & Tracking */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2"><Bus className="h-4 w-4 text-emerald-500" /> Vehicle & Tracking</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <SectionCard title="Vehicle & Tracking" icon={Bus} contentClassName="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <Label>Vehicle GPS Tracking</Label>
@@ -704,15 +695,10 @@ export default function TransportModule() {
                 </div>
                 <Switch checked={settings.showInactiveRoutes} onCheckedChange={(v) => setSettings((p) => ({ ...p, showInactiveRoutes: v }))} />
               </div>
-            </CardContent>
-          </Card>
+            </SectionCard>
 
           {/* Notifications */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2"><Bell className="h-4 w-4 text-amber-500" /> Notifications</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <SectionCard title="Notifications" icon={Bell} contentClassName="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <Label>Delay Notifications</Label>
@@ -728,15 +714,10 @@ export default function TransportModule() {
                 </div>
                 <Switch checked={settings.notifyRouteChange} onCheckedChange={(v) => setSettings((p) => ({ ...p, notifyRouteChange: v }))} />
               </div>
-            </CardContent>
-          </Card>
+            </SectionCard>
 
           {/* Export */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2"><FileDown className="h-4 w-4 text-teal-500" /> Export Settings</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <SectionCard title="Export Settings" icon={FileDown} contentClassName="space-y-4">
               <div className="grid gap-2">
                 <Label>Default Export Format</Label>
                 <Select value={settings.exportFormat} onValueChange={(v) => setSettings((p) => ({ ...p, exportFormat: v }))}>
@@ -751,8 +732,7 @@ export default function TransportModule() {
               <Button variant="outline" className="w-full">
                 <FileDown className="mr-2 h-4 w-4" /> Export Transport Data
               </Button>
-            </CardContent>
-          </Card>
+            </SectionCard>
         </div>
 
         <div className="flex justify-end">
@@ -801,9 +781,7 @@ export default function TransportModule() {
           </StatGrid>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2"><CardTitle className="text-base font-semibold">Route Capacity</CardTitle><CardDescription>Students per route vs capacity</CardDescription></CardHeader>
-              <CardContent>
+            <SectionCard title="Route Capacity" description="Students per route vs capacity">
                 {routeChartData.length > 0 ? (
                   <ChartContainer config={routeChartConfig} className="h-[260px] w-full">
                     <BarChart data={routeChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
@@ -818,11 +796,8 @@ export default function TransportModule() {
                 ) : (
                   <div className="h-[260px] flex items-center justify-center text-sm text-muted-foreground">No route data available</div>
                 )}
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2"><CardTitle className="text-base font-semibold">Route Map</CardTitle><CardDescription>School transport route overview</CardDescription></CardHeader>
-              <CardContent>
+              </SectionCard>
+            <SectionCard title="Route Map" description="School transport route overview">
                 <div className="h-[260px] flex flex-col items-center justify-center rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-dashed border-emerald-200">
                   <MapPin className="h-12 w-12 text-emerald-300 mb-3" />
                   <p className="text-sm font-medium text-emerald-600">Route Map View</p>
@@ -833,8 +808,7 @@ export default function TransportModule() {
                     ))}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </SectionCard>
           </div>
         </TabsContent>
 
@@ -904,9 +878,7 @@ export default function TransportModule() {
               <Plus className="mr-2 h-4 w-4" /> Add Vehicle
             </Button>
           </div>
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Vehicle Registry</CardTitle><CardDescription>School fleet overview</CardDescription></CardHeader>
-            <CardContent>
+          <SectionCard title="Vehicle Registry" description="School fleet overview">
               <div className="max-h-[500px] overflow-y-auto">
                 <Table>
                   <TableHeader>
@@ -933,23 +905,21 @@ export default function TransportModule() {
                   </TableBody>
                 </Table>
               </div>
-            </CardContent>
-          </Card>
+            </SectionCard>
         </TabsContent>
 
         {/* ─── Students Tab ─────────────────────────────────────────────── */}
         <TabsContent value="students" className="space-y-4">
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div><CardTitle className="text-base font-semibold">Students on Transport</CardTitle><CardDescription>{filteredAssignments.length} students using school transport</CardDescription></div>
-                <div className="relative w-full sm:w-72">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input placeholder="Search students..." className="pl-9 h-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-                </div>
+          <SectionCard
+            title="Students on Transport"
+            description={`${filteredAssignments.length} students using school transport`}
+            actions={
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="Search students..." className="pl-9 h-9" value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
-            </CardHeader>
-            <CardContent>
+            }
+          >
               <div className="max-h-[500px] overflow-y-auto">
                 <Table>
                   <TableHeader>
@@ -976,8 +946,7 @@ export default function TransportModule() {
                   </TableBody>
                 </Table>
               </div>
-            </CardContent>
-          </Card>
+            </SectionCard>
         </TabsContent>
       </ModulePageLayout>
     </motion.div>
