@@ -9,7 +9,7 @@ import {
   LayoutGrid, List, Star, ArrowUpRight, ArrowDownRight, Minus, Tag, ArrowLeft,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
-import { StatGrid, ModuleStatCard } from '@/components/module-ui'
+import { StatGrid, ModuleStatCard, SectionCard } from '@/components/module-ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -425,13 +425,7 @@ export default function SchoolShopModule() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Recent Orders */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <ShoppingCart className="h-4 w-4 text-emerald-600" /> Recent Orders
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 max-h-80 overflow-y-auto">
+            <SectionCard title="Recent Orders" icon={ShoppingCart} contentClassName="space-y-2 max-h-80 overflow-y-auto">
                 {orders.slice(0, 6).map(order => (
                   <div key={order.id} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => { setSelectedOrder(order); setOrderDetailOpen(true) }}>
                     <div className="flex items-center gap-3">
@@ -451,17 +445,10 @@ export default function SchoolShopModule() {
                     </div>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+              </SectionCard>
 
             {/* Low Stock Alerts */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600" /> Low Stock Alerts
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 max-h-80 overflow-y-auto">
+            <SectionCard title="Low Stock Alerts" icon={AlertTriangle} contentClassName="space-y-2 max-h-80 overflow-y-auto">
                 {[...lowStockProducts, ...outOfStockProducts].map(product => (
                   <div key={product.id} className="flex items-center justify-between p-2.5 rounded-lg bg-amber-50/60 dark:bg-amber-950/20">
                     <div className="flex items-center gap-3">
@@ -482,18 +469,12 @@ export default function SchoolShopModule() {
                 {lowStockProducts.length === 0 && outOfStockProducts.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground text-sm">All stock levels are healthy ✓</div>
                 )}
-              </CardContent>
-            </Card>
+              </SectionCard>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Category Breakdown */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold">Category Breakdown</CardTitle>
-                <CardDescription>Stock value by category</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <SectionCard title="Category Breakdown" description="Stock value by category">
                 <ChartContainer config={categoryChartConfig} className="h-[260px] w-full">
                   <PieChart>
                     <ChartTooltip content={<ChartTooltipContent />} />
@@ -502,16 +483,10 @@ export default function SchoolShopModule() {
                     </Pie>
                   </PieChart>
                 </ChartContainer>
-              </CardContent>
-            </Card>
+              </SectionCard>
 
             {/* Revenue Trend */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold">Revenue Trend</CardTitle>
-                <CardDescription>Last 6 months</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <SectionCard title="Revenue Trend" description="Last 6 months">
                 <ChartContainer config={revenueChartConfig} className="h-[260px] w-full">
                   <BarChart data={revenueData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
@@ -521,8 +496,7 @@ export default function SchoolShopModule() {
                     <Bar dataKey="revenue" fill="var(--color-revenue)" radius={[6, 6, 0, 0]} maxBarSize={45} />
                   </BarChart>
                 </ChartContainer>
-              </CardContent>
-            </Card>
+              </SectionCard>
           </div>
         </TabsContent>
 
@@ -846,13 +820,7 @@ export default function SchoolShopModule() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Top Selling Products */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Star className="h-4 w-4 text-amber-500" /> Top Selling Products
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <SectionCard title="Top Selling Products" icon={Star} contentClassName="space-y-3">
                 {topSellers.map((item, idx) => (
                   <div key={item.name} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -867,16 +835,10 @@ export default function SchoolShopModule() {
                     <p className="text-sm font-semibold">${item.revenue.toFixed(2)}</p>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+              </SectionCard>
 
             {/* Revenue by Category */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold">Revenue by Category</CardTitle>
-                <CardDescription>Stock value distribution</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <SectionCard title="Revenue by Category" description="Stock value distribution">
                 <ChartContainer config={categoryChartConfig} className="h-[260px] w-full">
                   <PieChart>
                     <ChartTooltip content={<ChartTooltipContent />} />
@@ -885,23 +847,20 @@ export default function SchoolShopModule() {
                     </Pie>
                   </PieChart>
                 </ChartContainer>
-              </CardContent>
-            </Card>
+              </SectionCard>
           </div>
 
           {/* Stock Value Summary */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Package className="h-4 w-4 text-emerald-600" /> Stock Value Summary
-                </CardTitle>
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={exportCSV}>
-                  <Download className="h-3.5 w-3.5" /> Export CSV
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
+          <SectionCard
+            title="Stock Value Summary"
+            icon={Package}
+            actions={
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={exportCSV}>
+                <Download className="h-3.5 w-3.5" /> Export CSV
+              </Button>
+            }
+            noPadding
+          >
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -937,26 +896,20 @@ export default function SchoolShopModule() {
                   </TableRow>
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+            </SectionCard>
         </TabsContent>
 
         {/* ═══ SETTINGS TAB ══════════════════════════════════════════════════════ */}
         <TabsContent value="settings" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Shop Details */}
-            <Card className="border-0 shadow-md">
-              <CardHeader><CardTitle className="text-base font-semibold flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-emerald-600" /> Shop Details</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
+            <SectionCard title="Shop Details" icon={ShoppingBag} contentClassName="space-y-4">
                 <div className="space-y-1.5"><Label className="text-xs">Shop Name</Label><Input value={shopName} onChange={e => setShopName(e.target.value)} /></div>
                 <div className="space-y-1.5"><Label className="text-xs">Description</Label><Textarea value={shopDescription} onChange={e => setShopDescription(e.target.value)} rows={2} /></div>
-              </CardContent>
-            </Card>
+              </SectionCard>
 
             {/* Payment Methods */}
-            <Card className="border-0 shadow-md">
-              <CardHeader><CardTitle className="text-base font-semibold flex items-center gap-2"><DollarSign className="h-4 w-4 text-emerald-600" /> Payment Methods</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
+            <SectionCard title="Payment Methods" icon={DollarSign} contentClassName="space-y-3">
                 {(['Cash', 'EcoCash', 'ZiG', 'Bank Transfer'] as PaymentMethod[]).map(method => (
                   <div key={method} className="flex items-center justify-between p-3 rounded-lg bg-muted/40">
                     <div className="flex items-center gap-3">
@@ -971,13 +924,10 @@ export default function SchoolShopModule() {
                     <Switch checked={paymentMethods[method]} onCheckedChange={v => setPaymentMethods(prev => ({ ...prev, [method]: v }))} />
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+              </SectionCard>
 
             {/* Notifications & Thresholds */}
-            <Card className="border-0 shadow-md">
-              <CardHeader><CardTitle className="text-base font-semibold flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600" /> Alerts & Thresholds</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
+            <SectionCard title="Alerts & Thresholds" icon={AlertTriangle} contentClassName="space-y-4">
                 <div className="flex items-center justify-between">
                   <div><p className="text-sm font-medium">Order Notifications</p><p className="text-xs text-muted-foreground">Get notified for new orders</p></div>
                   <Switch checked={orderNotifications} onCheckedChange={setOrderNotifications} />
@@ -991,13 +941,10 @@ export default function SchoolShopModule() {
                   </div>
                   <p className="text-xs text-muted-foreground">Products below this count trigger alerts</p>
                 </div>
-              </CardContent>
-            </Card>
+              </SectionCard>
 
             {/* Tax & Delivery */}
-            <Card className="border-0 shadow-md">
-              <CardHeader><CardTitle className="text-base font-semibold flex items-center gap-2"><FileText className="h-4 w-4 text-emerald-600" /> Tax & Delivery</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
+            <SectionCard title="Tax & Delivery" icon={FileText} contentClassName="space-y-4">
                 <div className="flex items-center justify-between">
                   <div><p className="text-sm font-medium">Enable Tax</p><p className="text-xs text-muted-foreground">Apply VAT to shop items</p></div>
                   <Switch checked={taxEnabled} onCheckedChange={setTaxEnabled} />
@@ -1019,8 +966,7 @@ export default function SchoolShopModule() {
                     <Switch checked={deliveryEnabled} onCheckedChange={setDeliveryEnabled} />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </SectionCard>
           </div>
 
           <div className="flex justify-end">
