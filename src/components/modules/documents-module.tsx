@@ -1,6 +1,13 @@
 'use client'
 
-import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
+import {
+  ModulePageLayout,
+  ModuleSettingsButton,
+  ModuleContainer,
+  StatGrid,
+  ModuleStatCard,
+  SectionCard,
+} from '@/components/module-ui';
 import React, { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -287,10 +294,10 @@ export default function DocumentsModule() {
         <div className="flex items-center gap-3"><Button variant="ghost" size="sm" onClick={() => setPageViewMode('list')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Back</Button></div>
         <div><h2 className="text-xl font-bold tracking-tight flex items-center gap-2"><Settings className="h-5 w-5 text-gray-500" />Document Settings</h2><p className="text-sm text-muted-foreground mt-1">Configure document templates, numbering, storage, and access</p></div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="border-0 shadow-md"><CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><LayoutTemplate className="h-4 w-4 text-emerald-600" />Default Templates</CardTitle><CardDescription>Document numbering and templates</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid gap-2"><Label className="text-xs">Numbering Format</Label><Input value={docSettings.numberingFormat} onChange={e => setDocSettings(s => ({ ...s, numberingFormat: e.target.value }))} /></div><div className="grid gap-2"><Label className="text-xs">Default Template</Label><Select value="TRANSFER"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="TRANSFER">Transfer Certificate</SelectItem><SelectItem value="REPORT">Report Card</SelectItem><SelectItem value="ADMISSION">Admission Letter</SelectItem></SelectContent></Select></div></CardContent></Card>
-          <Card className="border-0 shadow-md"><CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><HardDrive className="h-4 w-4 text-teal-600" />Storage Settings</CardTitle><CardDescription>File storage and backup configuration</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid gap-2"><Label className="text-xs">Storage Provider</Label><Select value={docSettings.storageProvider} onValueChange={v => setDocSettings(s => ({ ...s, storageProvider: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="LOCAL">Local Server</SelectItem><SelectItem value="CLOUD">Cloud Storage</SelectItem><SelectItem value="HYBRID">Hybrid (Local + Cloud)</SelectItem></SelectContent></Select></div><div className="grid gap-2"><Label className="text-xs">Max File Size (MB)</Label><Input type="number" value={docSettings.maxFileSize} onChange={e => setDocSettings(s => ({ ...s, maxFileSize: e.target.value }))} /></div><div className="flex items-center justify-between"><div><Label className="text-xs">Auto Backup</Label><p className="text-[10px] text-muted-foreground">Automatically backup documents</p></div><Switch checked={docSettings.autoBackup} onCheckedChange={v => setDocSettings(s => ({ ...s, autoBackup: v }))} /></div></CardContent></Card>
-          <Card className="border-0 shadow-md"><CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><Shield className="h-4 w-4 text-amber-600" />Access Permissions</CardTitle><CardDescription>Control who can access documents</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid gap-2"><Label className="text-xs">Permission Model</Label><Select value={docSettings.accessPermissions} onValueChange={v => setDocSettings(s => ({ ...s, accessPermissions: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ROLE_BASED">Role-Based</SelectItem><SelectItem value="INDIVIDUAL">Individual</SelectItem><SelectItem value="DEPARTMENT">Department-Based</SelectItem></SelectContent></Select></div><div className="flex items-center justify-between"><div><Label className="text-xs">Version Control</Label><p className="text-[10px] text-muted-foreground">Track document versions</p></div><Switch checked={docSettings.versionControl} onCheckedChange={v => setDocSettings(s => ({ ...s, versionControl: v }))} /></div></CardContent></Card>
-          <Card className="border-0 shadow-md"><CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><Clock className="h-4 w-4 text-violet-600" />Retention Policy</CardTitle><CardDescription>Document retention and archival</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid gap-2"><Label className="text-xs">Retention Period (days)</Label><Input type="number" value={docSettings.retentionPeriod} onChange={e => setDocSettings(s => ({ ...s, retentionPeriod: e.target.value }))} /></div><div className="p-3 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-100 text-xs text-violet-700">Documents older than the retention period will be automatically archived. Archived documents can still be accessed by administrators.</div></CardContent></Card>
+          <SectionCard title="Default Templates" description="Document numbering and templates" icon={LayoutTemplate}><div className="space-y-4"><div className="grid gap-2"><Label className="text-xs">Numbering Format</Label><Input value={docSettings.numberingFormat} onChange={e => setDocSettings(s => ({ ...s, numberingFormat: e.target.value }))} /></div><div className="grid gap-2"><Label className="text-xs">Default Template</Label><Select value="TRANSFER"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="TRANSFER">Transfer Certificate</SelectItem><SelectItem value="REPORT">Report Card</SelectItem><SelectItem value="ADMISSION">Admission Letter</SelectItem></SelectContent></Select></div></div></SectionCard>
+          <SectionCard title="Storage Settings" description="File storage and backup configuration" icon={HardDrive}><div className="space-y-4"><div className="grid gap-2"><Label className="text-xs">Storage Provider</Label><Select value={docSettings.storageProvider} onValueChange={v => setDocSettings(s => ({ ...s, storageProvider: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="LOCAL">Local Server</SelectItem><SelectItem value="CLOUD">Cloud Storage</SelectItem><SelectItem value="HYBRID">Hybrid (Local + Cloud)</SelectItem></SelectContent></Select></div><div className="grid gap-2"><Label className="text-xs">Max File Size (MB)</Label><Input type="number" value={docSettings.maxFileSize} onChange={e => setDocSettings(s => ({ ...s, maxFileSize: e.target.value }))} /></div><div className="flex items-center justify-between"><div><Label className="text-xs">Auto Backup</Label><p className="text-[10px] text-muted-foreground">Automatically backup documents</p></div><Switch checked={docSettings.autoBackup} onCheckedChange={v => setDocSettings(s => ({ ...s, autoBackup: v }))} /></div></div></SectionCard>
+          <SectionCard title="Access Permissions" description="Control who can access documents" icon={Shield}><div className="space-y-4"><div className="grid gap-2"><Label className="text-xs">Permission Model</Label><Select value={docSettings.accessPermissions} onValueChange={v => setDocSettings(s => ({ ...s, accessPermissions: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ROLE_BASED">Role-Based</SelectItem><SelectItem value="INDIVIDUAL">Individual</SelectItem><SelectItem value="DEPARTMENT">Department-Based</SelectItem></SelectContent></Select></div><div className="flex items-center justify-between"><div><Label className="text-xs">Version Control</Label><p className="text-[10px] text-muted-foreground">Track document versions</p></div><Switch checked={docSettings.versionControl} onCheckedChange={v => setDocSettings(s => ({ ...s, versionControl: v }))} /></div></div></SectionCard>
+          <SectionCard title="Retention Policy" description="Document retention and archival" icon={Clock}><div className="space-y-4"><div className="grid gap-2"><Label className="text-xs">Retention Period (days)</Label><Input type="number" value={docSettings.retentionPeriod} onChange={e => setDocSettings(s => ({ ...s, retentionPeriod: e.target.value }))} /></div><div className="p-3 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-100 text-xs text-violet-700">Documents older than the retention period will be automatically archived. Archived documents can still be accessed by administrators.</div></div></SectionCard>
         </div>
         <div className="flex justify-end"><Button onClick={() => { toast.success('Document settings saved successfully') }} className="bg-emerald-600 hover:bg-emerald-700 text-white"><Save className="h-4 w-4 mr-2" />Save Settings</Button></div>
       </motion.div>
@@ -313,7 +320,7 @@ export default function DocumentsModule() {
   }, 0)
 
   return (
-    <div className="space-y-6">
+    <ModuleContainer>
 <ModulePageLayout
         actions={<>
           <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setPageViewMode('upload')}>
@@ -336,102 +343,87 @@ export default function DocumentsModule() {
         {/* ─── Overview Tab ────────────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-6 mt-4">
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatGrid cols={4}>
             {[
-              { icon: FileText, label: 'Total Documents', value: String(totalDocs), trend: '+8 this month', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-              { icon: Folder, label: 'Categories', value: String(totalCategories), trend: '8 folders', color: 'text-teal-600', bg: 'bg-teal-50' },
-              { icon: Clock, label: 'Recent Uploads', value: String(recentUploads), trend: 'Last 30 days', color: 'text-amber-600', bg: 'bg-amber-50' },
-              { icon: HardDrive, label: 'Storage Used', value: `${totalStorageMB.toFixed(1)} MB`, trend: 'of 5.0 GB', color: 'text-violet-600', bg: 'bg-violet-50' },
-            ].map((stat) => (
-              <Card key={stat.label} className="border-0 shadow-md hover:shadow-lg transition-shadow">
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{stat.label}</p>
-                      <p className="text-2xl font-bold">{stat.value}</p>
-                      <p className="text-xs text-muted-foreground">{stat.trend}</p>
-                    </div>
-                    <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', stat.bg)}>
-                      <stat.icon className={cn('h-5 w-5', stat.color)} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              { icon: FileText, label: 'Total Documents', value: String(totalDocs), hint: '+8 this month', accentGradient: 'from-emerald-400 to-teal-500', bgColor: 'bg-emerald-50 dark:bg-emerald-950/40', iconColor: 'text-emerald-600' },
+              { icon: Folder, label: 'Categories', value: String(totalCategories), hint: '8 folders', accentGradient: 'from-teal-400 to-cyan-500', bgColor: 'bg-teal-50 dark:bg-teal-950/40', iconColor: 'text-teal-600' },
+              { icon: Clock, label: 'Recent Uploads', value: String(recentUploads), hint: 'Last 30 days', accentGradient: 'from-amber-400 to-orange-500', bgColor: 'bg-amber-50 dark:bg-amber-950/40', iconColor: 'text-amber-600' },
+              { icon: HardDrive, label: 'Storage Used', value: `${totalStorageMB.toFixed(1)} MB`, hint: 'of 5.0 GB', accentGradient: 'from-violet-400 to-purple-500', bgColor: 'bg-violet-50 dark:bg-violet-950/40', iconColor: 'text-violet-600' },
+            ].map((stat, i) => (
+              <ModuleStatCard
+                key={stat.label}
+                index={i}
+                icon={stat.icon}
+                label={stat.label}
+                value={stat.value}
+                hint={stat.hint}
+                accentGradient={stat.accentGradient}
+                bgColor={stat.bgColor}
+                iconColor={stat.iconColor}
+              />
             ))}
-          </div>
+          </StatGrid>
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Upload Trend */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Upload Trend</CardTitle>
-                <CardDescription>Monthly document uploads</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={uploadTrendData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip />
-                    <Bar dataKey="uploads" fill="#10b981" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <SectionCard title="Upload Trend" description="Monthly document uploads" icon={TrendingUp}>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={uploadTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Bar dataKey="uploads" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </SectionCard>
 
             {/* Category Distribution */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Documents by Category</CardTitle>
-                <CardDescription>Distribution across folders</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <PieChart>
-                    <Pie
-                      data={categoryChartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      dataKey="count"
-                      nameKey="name"
-                      paddingAngle={2}
-                    >
-                      {categoryChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex flex-wrap gap-2 mt-2 justify-center">
-                  {categoryChartData.map((cat) => (
-                    <div key={cat.name} className="flex items-center gap-1.5 text-xs">
-                      <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: cat.fill }} />
-                      <span className="text-muted-foreground">{cat.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <SectionCard title="Documents by Category" description="Distribution across folders" icon={Folder}>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={categoryChartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    dataKey="count"
+                    nameKey="name"
+                    paddingAngle={2}
+                  >
+                    {categoryChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex flex-wrap gap-2 mt-2 justify-center">
+                {categoryChartData.map((cat) => (
+                  <div key={cat.name} className="flex items-center gap-1.5 text-xs">
+                    <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: cat.fill }} />
+                    <span className="text-muted-foreground">{cat.name}</span>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
           </div>
 
           {/* Recent Documents & Quick Actions */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Recent Documents */}
-            <Card className="border-0 shadow-md lg:col-span-2">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Recent Documents</CardTitle>
-                  <Button variant="ghost" size="sm" className="text-emerald-600" onClick={() => setActiveTab('documents')}>
-                    View All <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
+            <SectionCard
+              className="lg:col-span-2"
+              title="Recent Documents"
+              icon={FileText}
+              actions={
+                <Button variant="ghost" size="sm" className="text-emerald-600" onClick={() => setActiveTab('documents')}>
+                  View All <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              }
+            >
                 <div className="space-y-3">
                   {mockDocuments.slice(0, 6).map((doc) => {
                     const config = fileTypeConfig[doc.fileType]
@@ -455,16 +447,12 @@ export default function DocumentsModule() {
                     )
                   })}
                 </div>
-              </CardContent>
-            </Card>
+            </SectionCard>
 
             {/* Quick Actions & Category Summary */}
             <div className="space-y-4">
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
+              <SectionCard title="Quick Actions" icon={Plus}>
+                <div className="space-y-2">
                   {[
                     { icon: Upload, label: 'Upload Document', desc: 'Add a new file' },
                     { icon: LayoutTemplate, label: 'Browse Templates', desc: 'Use a document template' },
@@ -484,14 +472,10 @@ export default function DocumentsModule() {
                       </div>
                     </button>
                   ))}
-                </CardContent>
-              </Card>
+                </div>
+              </SectionCard>
 
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Storage Usage</CardTitle>
-                </CardHeader>
-                <CardContent>
+              <SectionCard title="Storage Usage" icon={HardDrive}>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
                       <span>Used</span>
@@ -517,8 +501,7 @@ export default function DocumentsModule() {
                       ))}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+              </SectionCard>
             </div>
           </div>
         </TabsContent>
@@ -654,8 +637,7 @@ export default function DocumentsModule() {
               })}
             </div>
           ) : (
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-0">
+            <SectionCard noPadding>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
@@ -704,8 +686,7 @@ export default function DocumentsModule() {
                     </tbody>
                   </table>
                 </div>
-              </CardContent>
-            </Card>
+            </SectionCard>
           )}
 
           {filteredDocuments.length === 0 && (
@@ -764,49 +745,38 @@ export default function DocumentsModule() {
         {/* ─── Shared Tab ────────────────────────────────────────────────────── */}
         <TabsContent value="shared" className="space-y-4 mt-4">
           {/* Shared Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
-                  <Share2 className="h-5 w-5 text-emerald-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{mockSharedDocs.length}</p>
-                  <p className="text-xs text-muted-foreground">Shared Documents</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50">
-                  <Eye className="h-5 w-5 text-teal-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{mockSharedDocs.filter(d => d.permission === 'view').length}</p>
-                  <p className="text-xs text-muted-foreground">View Only</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50">
-                  <Shield className="h-5 w-5 text-amber-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{mockSharedDocs.filter(d => d.permission === 'edit').length}</p>
-                  <p className="text-xs text-muted-foreground">Can Edit</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <StatGrid cols={3}>
+            <ModuleStatCard
+              index={0}
+              icon={Share2}
+              label="Shared Documents"
+              value={mockSharedDocs.length}
+              accentGradient="from-emerald-400 to-teal-500"
+              bgColor="bg-emerald-50 dark:bg-emerald-950/40"
+              iconColor="text-emerald-600"
+            />
+            <ModuleStatCard
+              index={1}
+              icon={Eye}
+              label="View Only"
+              value={mockSharedDocs.filter(d => d.permission === 'view').length}
+              accentGradient="from-teal-400 to-cyan-500"
+              bgColor="bg-teal-50 dark:bg-teal-950/40"
+              iconColor="text-teal-600"
+            />
+            <ModuleStatCard
+              index={2}
+              icon={Shield}
+              label="Can Edit"
+              value={mockSharedDocs.filter(d => d.permission === 'edit').length}
+              accentGradient="from-amber-400 to-orange-500"
+              bgColor="bg-amber-50 dark:bg-amber-950/40"
+              iconColor="text-amber-600"
+            />
+          </StatGrid>
 
           {/* Shared Documents List */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Shared Documents</CardTitle>
-              <CardDescription>Documents shared with other users and their permissions</CardDescription>
-            </CardHeader>
-            <CardContent>
+          <SectionCard title="Shared Documents" description="Documents shared with other users and their permissions" icon={Share2}>
               <div className="space-y-3">
                 {mockSharedDocs.map((doc) => {
                   const config = fileTypeConfig[doc.fileType]
@@ -865,10 +835,9 @@ export default function DocumentsModule() {
                   )
                 })}
               </div>
-            </CardContent>
-          </Card>
+          </SectionCard>
         </TabsContent>
       </ModulePageLayout>
-    </div>
+    </ModuleContainer>
   )
 }

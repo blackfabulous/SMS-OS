@@ -1,6 +1,6 @@
 'use client'
 
-import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
+import { ModulePageLayout, ModuleSettingsButton, ModuleContainer, StatGrid, ModuleStatCard, SectionCard, TableShell, KitEmptyState } from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -672,7 +672,7 @@ export default function CommunicationModule() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
+    <ModuleContainer>
 <ModulePageLayout
         actions={<>
           <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md" onClick={() => setViewMode('compose')}>
@@ -693,105 +693,51 @@ export default function CommunicationModule() {
 
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Messages Sent</p>
-                    <p className="text-2xl font-bold tracking-tight">{stats?.totalMessages || 0}</p>
-                    <div className="flex items-center gap-1.5"><Send className="h-3.5 w-3.5 text-emerald-600" /><span className="text-xs font-medium text-emerald-600">All channels</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50"><MessageSquare className="h-5 w-5 text-emerald-600" /></div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 to-teal-500" />
-            </Card>
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">SMS</p>
-                    <p className="text-2xl font-bold tracking-tight">{stats?.sms || 0}</p>
-                    <div className="flex items-center gap-1.5"><Smartphone className="h-3.5 w-3.5 text-teal-600" /><span className="text-xs font-medium text-teal-600">Text messages</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50"><Smartphone className="h-5 w-5 text-teal-600" /></div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-teal-400 to-cyan-500" />
-            </Card>
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">WhatsApp</p>
-                    <p className="text-2xl font-bold tracking-tight">{stats?.whatsapp || 0}</p>
-                    <div className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-amber-600" /><span className="text-xs font-medium text-amber-600">WhatsApp</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50"><Phone className="h-5 w-5 text-amber-600" /></div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-400 to-orange-500" />
-            </Card>
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email</p>
-                    <p className="text-2xl font-bold tracking-tight">{stats?.email || 0}</p>
-                    <div className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-rose-600" /><span className="text-xs font-medium text-rose-600">Emails sent</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50"><Mail className="h-5 w-5 text-rose-600" /></div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-rose-400 to-pink-500" />
-            </Card>
-          </div>
+          <StatGrid cols={4}>
+            <ModuleStatCard icon={MessageSquare} label="Messages Sent" value={stats?.totalMessages || 0} accentGradient="from-emerald-400 to-teal-500" bgColor="bg-emerald-50 dark:bg-emerald-950/40" iconColor="text-emerald-600" hint="All channels" index={0} />
+            <ModuleStatCard icon={Smartphone} label="SMS" value={stats?.sms || 0} accentGradient="from-teal-400 to-cyan-500" bgColor="bg-teal-50 dark:bg-teal-950/40" iconColor="text-teal-600" hint="Text messages" index={1} />
+            <ModuleStatCard icon={Phone} label="WhatsApp" value={stats?.whatsapp || 0} accentGradient="from-amber-400 to-orange-500" bgColor="bg-amber-50 dark:bg-amber-950/40" iconColor="text-amber-600" hint="WhatsApp" index={2} />
+            <ModuleStatCard icon={Mail} label="Email" value={stats?.email || 0} accentGradient="from-rose-400 to-pink-500" bgColor="bg-rose-50 dark:bg-rose-950/40" iconColor="text-rose-600" hint="Emails sent" index={3} />
+          </StatGrid>
 
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2"><CardTitle className="text-base font-semibold">Channel Distribution</CardTitle><CardDescription>Messages by channel</CardDescription></CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-center">
-                  <ChartContainer config={channelChartConfig} className="h-[220px] w-full">
-                    <PieChart>
-                      <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
-                      <Pie data={channelPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={4} strokeWidth={0}>
-                        {channelPieData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.fill} />))}
-                      </Pie>
-                    </PieChart>
-                  </ChartContainer>
-                </div>
-                <div className="flex items-center justify-center gap-6 mt-2">
-                  {channelDistribution.map((c, i) => (
-                    <div key={c.channel} className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-full" style={{ backgroundColor: CHANNEL_COLORS[i % CHANNEL_COLORS.length] }} />
-                      <span className="text-sm text-muted-foreground">{c.channel} ({c.count})</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2"><CardTitle className="text-base font-semibold">Delivery Status</CardTitle><CardDescription>Message delivery breakdown</CardDescription></CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-100">
-                    <div className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-emerald-600" /><div><p className="text-sm font-medium">Delivered</p><p className="text-xs text-muted-foreground">Successfully sent</p></div></div>
-                    <span className="text-xl font-bold text-emerald-600">{stats?.delivered || 0}</span>
+            <SectionCard title="Channel Distribution" description="Messages by channel">
+              <div className="flex items-center justify-center">
+                <ChartContainer config={channelChartConfig} className="h-[220px] w-full">
+                  <PieChart>
+                    <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                    <Pie data={channelPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={4} strokeWidth={0}>
+                      {channelPieData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.fill} />))}
+                    </Pie>
+                  </PieChart>
+                </ChartContainer>
+              </div>
+              <div className="flex items-center justify-center gap-6 mt-2">
+                {channelDistribution.map((c, i) => (
+                  <div key={c.channel} className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: CHANNEL_COLORS[i % CHANNEL_COLORS.length] }} />
+                    <span className="text-sm text-muted-foreground">{c.channel} ({c.count})</span>
                   </div>
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 border border-amber-100">
-                    <div className="flex items-center gap-3"><Clock className="h-5 w-5 text-amber-600" /><div><p className="text-sm font-medium">Pending</p><p className="text-xs text-muted-foreground">Queued for delivery</p></div></div>
-                    <span className="text-xl font-bold text-amber-600">{stats?.pending || 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-red-50 border border-red-100">
-                    <div className="flex items-center gap-3"><XCircle className="h-5 w-5 text-red-600" /><div><p className="text-sm font-medium">Failed</p><p className="text-xs text-muted-foreground">Delivery failed</p></div></div>
-                    <span className="text-xl font-bold text-red-600">{stats?.failed || 0}</span>
-                  </div>
+                ))}
+              </div>
+            </SectionCard>
+            <SectionCard title="Delivery Status" description="Message delivery breakdown">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                  <div className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-emerald-600" /><div><p className="text-sm font-medium">Delivered</p><p className="text-xs text-muted-foreground">Successfully sent</p></div></div>
+                  <span className="text-xl font-bold text-emerald-600">{stats?.delivered || 0}</span>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 border border-amber-100">
+                  <div className="flex items-center gap-3"><Clock className="h-5 w-5 text-amber-600" /><div><p className="text-sm font-medium">Pending</p><p className="text-xs text-muted-foreground">Queued for delivery</p></div></div>
+                  <span className="text-xl font-bold text-amber-600">{stats?.pending || 0}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-red-50 border border-red-100">
+                  <div className="flex items-center gap-3"><XCircle className="h-5 w-5 text-red-600" /><div><p className="text-sm font-medium">Failed</p><p className="text-xs text-muted-foreground">Delivery failed</p></div></div>
+                  <span className="text-xl font-bold text-red-600">{stats?.failed || 0}</span>
+                </div>
+              </div>
+            </SectionCard>
           </div>
         </TabsContent>
 
@@ -805,8 +751,8 @@ export default function CommunicationModule() {
               </Button>
             ))}
           </div>
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-0">
+          <SectionCard title="Sent Messages" description="All outbound communications" icon={MessageSquare} noPadding>
+            <TableShell isEmpty={messages.length === 0} empty={<KitEmptyState icon={MessageSquare} title="No messages sent yet" />}>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -842,56 +788,38 @@ export default function CommunicationModule() {
                       </TableRow>
                     )
                   })}
-                  {messages.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                        <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                        <p>No messages sent yet</p>
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+            </TableShell>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Templates Tab ────────────────────────────────────────────── */}
         <TabsContent value="templates" className="space-y-4">
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">Message Templates</CardTitle>
-              <CardDescription>Pre-defined templates for common communications</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {messageTemplates.map((template) => (
-                  <div key={template.id} className="p-4 rounded-xl border hover:shadow-md transition-shadow space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">{template.name}</p>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs text-emerald-600" onClick={() => {
-                        setComposeForm((p) => ({ ...p, message: template.message, templateId: template.id }))
-                        setViewMode('compose')
-                      }}>
-                        Use Template
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground line-clamp-3">{template.message}</p>
+          <SectionCard title="Message Templates" description="Pre-defined templates for common communications" icon={FileText}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {messageTemplates.map((template) => (
+                <div key={template.id} className="p-4 rounded-xl border hover:shadow-md transition-shadow space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">{template.name}</p>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-emerald-600" onClick={() => {
+                      setComposeForm((p) => ({ ...p, message: template.message, templateId: template.id }))
+                      setViewMode('compose')
+                    }}>
+                      Use Template
+                    </Button>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <p className="text-xs text-muted-foreground line-clamp-3">{template.message}</p>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Complaints Tab ───────────────────────────────────────────── */}
         <TabsContent value="complaints" className="space-y-4">
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">Parent Complaints</CardTitle>
-              <CardDescription>Complaint log with priority, assignment, and SLA tracking</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
+          <SectionCard title="Parent Complaints" description="Complaint log with priority, assignment, and SLA tracking" icon={AlertTriangle} noPadding>
+            <TableShell>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -924,10 +852,10 @@ export default function CommunicationModule() {
                   ))}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+            </TableShell>
+          </SectionCard>
         </TabsContent>
       </ModulePageLayout>
-    </motion.div>
+    </ModuleContainer>
   )
 }

@@ -1,6 +1,14 @@
 'use client'
 
-import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
+import {
+  ModulePageLayout,
+  ModuleSettingsButton,
+  ModuleContainer,
+  StatGrid,
+  ModuleStatCard,
+  SectionCard,
+  TableShell,
+} from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -340,9 +348,8 @@ export default function BoardingModule() {
         <Separator orientation="vertical" className="h-6" />
         <h2 className="text-lg font-semibold">Assign Boarder</h2>
       </div>
-      <Card className="border-0 shadow-md">
-        <CardContent className="p-6">
-          <div className="grid gap-6 max-w-2xl">
+      <SectionCard title="Assign Boarder" icon={UserCheck}>
+        <div className="grid gap-6 max-w-2xl">
             <div className="grid gap-2">
               <Label className="text-sm font-medium">Student *</Label>
               <Select value={assignForm.studentId} onValueChange={(v) => setAssignForm((p) => ({ ...p, studentId: v }))}>
@@ -384,9 +391,8 @@ export default function BoardingModule() {
               </Button>
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </SectionCard>
     </motion.div>
   )
 
@@ -430,9 +436,7 @@ export default function BoardingModule() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Dormitories</CardTitle></CardHeader>
-              <CardContent>
+            <SectionCard title="Dormitories" icon={BedDouble}>
                 <div className="space-y-3">
                   {selectedHostel.dormitories.map((dorm) => (
                     <div key={dorm.id} className="rounded-lg border p-4">
@@ -461,13 +465,10 @@ export default function BoardingModule() {
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
+            </SectionCard>
           </div>
           <div className="space-y-4">
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Quick Stats</CardTitle></CardHeader>
-              <CardContent>
+            <SectionCard title="Quick Stats" icon={TrendingUp}>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Total Capacity</span>
@@ -486,8 +487,7 @@ export default function BoardingModule() {
                     <span className="text-sm font-semibold">{Math.round(rate)}%</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+            </SectionCard>
           </div>
         </div>
       </motion.div>
@@ -504,11 +504,7 @@ export default function BoardingModule() {
         <h2 className="text-lg font-semibold">Boarding Settings</h2>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold flex items-center gap-2"><Home className="h-4 w-4 text-teal-600" /> House Defaults</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <SectionCard title="House Defaults" icon={Home} contentClassName="space-y-4">
             <div className="grid gap-2">
               <Label className="text-sm">Default Gender Assignment</Label>
               <Select value={settings.defaultGender} onValueChange={(v) => setSettings((p) => ({ ...p, defaultGender: v }))}>
@@ -531,14 +527,9 @@ export default function BoardingModule() {
               <Label className="text-sm">Show Bed Numbers</Label>
               <Switch checked={settings.showBedNumbers} onCheckedChange={(v) => setSettings((p) => ({ ...p, showBedNumbers: v }))} />
             </div>
-          </CardContent>
-        </Card>
+        </SectionCard>
 
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold flex items-center gap-2"><Clock className="h-4 w-4 text-amber-600" /> Check-in / Check-out Rules</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <SectionCard title="Check-in / Check-out Rules" icon={Clock} contentClassName="space-y-4">
             <div className="grid gap-2">
               <Label className="text-sm">Curfew Time</Label>
               <Input type="time" value={settings.curfewTime} onChange={(e) => setSettings((p) => ({ ...p, curfewTime: e.target.value }))} />
@@ -553,14 +544,9 @@ export default function BoardingModule() {
                 <Input type="time" value={settings.checkInEndTime} onChange={(e) => setSettings((p) => ({ ...p, checkInEndTime: e.target.value }))} />
               </div>
             </div>
-          </CardContent>
-        </Card>
+        </SectionCard>
 
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold flex items-center gap-2"><Shield className="h-4 w-4 text-emerald-600" /> Visitor Policies</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <SectionCard title="Visitor Policies" icon={Shield} contentClassName="space-y-4">
             <div className="flex items-center justify-between">
               <Label className="text-sm">Visitors Allowed</Label>
               <Switch checked={settings.visitorAllowed} onCheckedChange={(v) => setSettings((p) => ({ ...p, visitorAllowed: v }))} />
@@ -569,14 +555,9 @@ export default function BoardingModule() {
               <Label className="text-sm">Visitor Hours</Label>
               <Input placeholder="e.g., 10:00-16:00" value={settings.visitorHours} onChange={(e) => setSettings((p) => ({ ...p, visitorHours: e.target.value }))} />
             </div>
-          </CardContent>
-        </Card>
+        </SectionCard>
 
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold flex items-center gap-2"><Bell className="h-4 w-4 text-red-500" /> Notifications</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <SectionCard title="Notifications" icon={Bell} contentClassName="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <Label className="text-sm">Notify on Check-in</Label>
@@ -591,8 +572,7 @@ export default function BoardingModule() {
               </div>
               <Switch checked={settings.notifyOnOverstay} onCheckedChange={(v) => setSettings((p) => ({ ...p, notifyOnOverstay: v }))} />
             </div>
-          </CardContent>
-        </Card>
+        </SectionCard>
       </div>
       <div className="flex items-center gap-3">
         <Button onClick={handleSaveSettings} className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white">
@@ -605,7 +585,7 @@ export default function BoardingModule() {
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
+    <ModuleContainer>
       <AnimatePresence mode="wait">
         {viewMode === 'assign-boarder' && <AssignBoarderInlineForm key="assign-boarder" />}
         {viewMode === 'detail' && <HostelDetailView key="detail" />}
@@ -634,96 +614,50 @@ export default function BoardingModule() {
 
             {/* ─── Overview Tab ─────────────────────────────────────────────── */}
             <TabsContent value="overview" className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Boarders</p>
-                        <p className="text-2xl font-bold tracking-tight">{stats?.totalBoarders || 0}</p>
-                        <div className="flex items-center gap-1.5">
-                          <Users className="h-3.5 w-3.5 text-teal-600" />
-                          <span className="text-xs font-medium text-teal-600">Active boarders</span>
-                        </div>
-                      </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50">
-                        <BedDouble className="h-5 w-5 text-teal-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-teal-400 to-cyan-500" />
-                </Card>
+              <StatGrid cols={4}>
+                <ModuleStatCard
+                  icon={BedDouble}
+                  label="Total Boarders"
+                  value={stats?.totalBoarders || 0}
+                  accentGradient="from-teal-400 to-cyan-500"
+                  bgColor="bg-teal-50 dark:bg-teal-950/40"
+                  iconColor="text-teal-600"
+                  hint="Active boarders"
+                  index={0}
+                />
+                <ModuleStatCard
+                  icon={Home}
+                  label="Hostels"
+                  value={stats?.totalHostels || 0}
+                  accentGradient="from-emerald-400 to-teal-500"
+                  bgColor="bg-emerald-50 dark:bg-emerald-950/40"
+                  iconColor="text-emerald-600"
+                  hint={`${stats?.totalDormitories || 0} dormitories`}
+                  index={1}
+                />
+                <ModuleStatCard
+                  icon={Building2}
+                  label="Occupancy Rate"
+                  value={`${stats?.occupancyRate || '0'}%`}
+                  accentGradient="from-cyan-400 to-teal-500"
+                  bgColor="bg-cyan-50 dark:bg-cyan-950/40"
+                  iconColor="text-cyan-600"
+                  hint={`${stats?.totalOccupancy || 0}/${stats?.totalCapacity || 0} beds`}
+                  index={2}
+                />
+                <ModuleStatCard
+                  icon={UserCheck}
+                  label="Available Beds"
+                  value={(stats?.totalCapacity || 0) - (stats?.totalOccupancy || 0)}
+                  accentGradient="from-emerald-400 to-green-500"
+                  bgColor="bg-emerald-50 dark:bg-emerald-950/40"
+                  iconColor="text-emerald-600"
+                  hint="Open for assignment"
+                  index={3}
+                />
+              </StatGrid>
 
-                <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Hostels</p>
-                        <p className="text-2xl font-bold tracking-tight">{stats?.totalHostels || 0}</p>
-                        <div className="flex items-center gap-1.5">
-                          <Home className="h-3.5 w-3.5 text-emerald-600" />
-                          <span className="text-xs font-medium text-emerald-600">{stats?.totalDormitories || 0} dormitories</span>
-                        </div>
-                      </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
-                        <Home className="h-5 w-5 text-emerald-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 to-teal-500" />
-                </Card>
-
-                <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Occupancy Rate</p>
-                        <p className="text-2xl font-bold tracking-tight">{stats?.occupancyRate || '0'}%</p>
-                        <div className="flex items-center gap-1.5">
-                          {parseFloat(stats?.occupancyRate || '0') >= 90 ? (
-                            <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-                          ) : (
-                            <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                          )}
-                          <span className={cn('text-xs font-medium', parseFloat(stats?.occupancyRate || '0') >= 90 ? 'text-amber-600' : 'text-emerald-600')}>
-                            {stats?.totalOccupancy || 0}/{stats?.totalCapacity || 0} beds
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50">
-                        <Building2 className="h-5 w-5 text-cyan-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-cyan-400 to-teal-500" />
-                </Card>
-
-                <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Available Beds</p>
-                        <p className="text-2xl font-bold tracking-tight">{(stats?.totalCapacity || 0) - (stats?.totalOccupancy || 0)}</p>
-                        <div className="flex items-center gap-1.5">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                          <span className="text-xs font-medium text-emerald-600">Open for assignment</span>
-                        </div>
-                      </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
-                        <UserCheck className="h-5 w-5 text-emerald-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 to-green-500" />
-                </Card>
-              </div>
-
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-semibold">Hostel Occupancy</CardTitle>
-                  <CardDescription>Current occupancy vs capacity by hostel</CardDescription>
-                </CardHeader>
-                <CardContent>
+              <SectionCard title="Hostel Occupancy" description="Current occupancy vs capacity by hostel" icon={TrendingUp}>
                   {occupancyChartData.length > 0 ? (
                     <ChartContainer config={occupancyChartConfig} className="h-[280px] w-full">
                       <BarChart data={occupancyChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
@@ -738,8 +672,7 @@ export default function BoardingModule() {
                   ) : (
                     <div className="h-[280px] flex items-center justify-center text-sm text-muted-foreground">No hostel data available</div>
                   )}
-                </CardContent>
-              </Card>
+              </SectionCard>
             </TabsContent>
 
             {/* ─── Hostels Tab ──────────────────────────────────────────────── */}
@@ -822,21 +755,18 @@ export default function BoardingModule() {
 
             {/* ─── Boarders Tab ─────────────────────────────────────────────── */}
             <TabsContent value="boarders" className="space-y-4">
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                      <CardTitle className="text-base font-semibold">Boarding Students</CardTitle>
-                      <CardDescription>{filteredAssignments.length} students assigned to boarding</CardDescription>
-                    </div>
-                    <div className="relative w-full sm:w-72">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input placeholder="Search boarders..." className="pl-9 h-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-                    </div>
+              <SectionCard
+                title="Boarding Students"
+                description={`${filteredAssignments.length} students assigned to boarding`}
+                icon={Users}
+                actions={
+                  <div className="relative w-full sm:w-72">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input placeholder="Search boarders..." className="pl-9 h-9" value={search} onChange={(e) => setSearch(e.target.value)} />
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="max-h-96 overflow-y-auto">
+                }
+              >
+                  <TableShell maxHeight="24rem">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -887,13 +817,12 @@ export default function BoardingModule() {
                         )}
                       </TableBody>
                     </Table>
-                  </div>
-                </CardContent>
-              </Card>
+                  </TableShell>
+              </SectionCard>
             </TabsContent>
           </ModulePageLayout>
         </motion.div>
       )}
-    </motion.div>
+    </ModuleContainer>
   )
 }

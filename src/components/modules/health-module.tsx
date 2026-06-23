@@ -1,6 +1,15 @@
 'use client'
 
-import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
+import {
+  ModulePageLayout,
+  ModuleSettingsButton,
+  ModuleContainer,
+  StatGrid,
+  ModuleStatCard,
+  SectionCard,
+  TableShell,
+  KitEmptyState,
+} from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -753,7 +762,7 @@ export default function HealthModule() {
   // ─── Main List View ────────────────────────────────────────────────────
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
+    <ModuleContainer>
 <ModulePageLayout
         actions={<>
           <Button variant="outline" size="sm" className={cn('border-red-200', showConfidential ? 'text-red-700 bg-red-50' : 'text-muted-foreground')} onClick={() => setShowConfidential(!showConfidential)}>
@@ -781,101 +790,83 @@ export default function HealthModule() {
 
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sick Bay Visits</p>
-                    <p className="text-2xl font-bold tracking-tight">{sickBayVisits}</p>
-                    <div className="flex items-center gap-1.5"><Activity className="h-3.5 w-3.5 text-teal-600" /><span className="text-xs font-medium text-teal-600">This term</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50"><Thermometer className="h-5 w-5 text-teal-600" /></div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-teal-400 to-cyan-500" />
-            </Card>
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Hospital Referrals</p>
-                    <p className="text-2xl font-bold tracking-tight">{hospitalReferrals}</p>
-                    <div className="flex items-center gap-1.5"><Ambulance className="h-3.5 w-3.5 text-red-500" /><span className="text-xs font-medium text-red-500">Referred out</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50"><Ambulance className="h-5 w-5 text-red-600" /></div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-red-400 to-rose-500" />
-            </Card>
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Immunisation Records</p>
-                    <p className="text-2xl font-bold tracking-tight">{immunisationRecords}</p>
-                    <div className="flex items-center gap-1.5"><Syringe className="h-3.5 w-3.5 text-purple-600" /><span className="text-xs font-medium text-purple-600">Vaccinations</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50"><Syringe className="h-5 w-5 text-purple-600" /></div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-purple-400 to-violet-500" />
-            </Card>
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Chronic Conditions</p>
-                    <p className="text-2xl font-bold tracking-tight">{studentsWithChronic}</p>
-                    <div className="flex items-center gap-1.5"><HeartPulse className="h-3.5 w-3.5 text-amber-600" /><span className="text-xs font-medium text-amber-600">Ongoing care</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50"><HeartPulse className="h-5 w-5 text-amber-600" /></div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-400 to-orange-500" />
-            </Card>
-          </div>
+          <StatGrid cols={4}>
+            <ModuleStatCard
+              icon={Thermometer}
+              label="Sick Bay Visits"
+              value={sickBayVisits}
+              hint="This term"
+              accentGradient="from-teal-400 to-cyan-500"
+              bgColor="bg-teal-50"
+              iconColor="text-teal-600"
+              index={0}
+            />
+            <ModuleStatCard
+              icon={Ambulance}
+              label="Hospital Referrals"
+              value={hospitalReferrals}
+              hint="Referred out"
+              accentGradient="from-red-400 to-rose-500"
+              bgColor="bg-red-50"
+              iconColor="text-red-600"
+              index={1}
+            />
+            <ModuleStatCard
+              icon={Syringe}
+              label="Immunisation Records"
+              value={immunisationRecords}
+              hint="Vaccinations"
+              accentGradient="from-purple-400 to-violet-500"
+              bgColor="bg-purple-50"
+              iconColor="text-purple-600"
+              index={2}
+            />
+            <ModuleStatCard
+              icon={HeartPulse}
+              label="Chronic Conditions"
+              value={studentsWithChronic}
+              hint="Ongoing care"
+              accentGradient="from-amber-400 to-orange-500"
+              bgColor="bg-amber-50"
+              iconColor="text-amber-600"
+              index={3}
+            />
+          </StatGrid>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2"><CardTitle className="text-base font-semibold">Visits by Type</CardTitle><CardDescription>Health visit distribution</CardDescription></CardHeader>
-              <CardContent>
-                {visitChartData.length > 0 ? (
-                  <ChartContainer config={visitChartConfig} className="h-[250px] w-full">
-                    <BarChart data={visitChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="type" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-                      <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="count" fill="var(--color-count)" radius={[6, 6, 0, 0]} maxBarSize={48} />
-                    </BarChart>
-                  </ChartContainer>
-                ) : (<div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">No health data yet</div>)}
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2"><CardTitle className="text-base font-semibold">Visit Distribution</CardTitle><CardDescription>Breakdown by visit type</CardDescription></CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-center">
-                  <ChartContainer config={visitDonutConfig} className="h-[220px] w-full">
-                    <PieChart>
-                      <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
-                      <Pie data={visitDonutData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={4} strokeWidth={0}>
-                        {visitDonutData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.fill} />))}
-                      </Pie>
-                    </PieChart>
-                  </ChartContainer>
-                </div>
-                <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
-                  {visitDonutData.map((item) => (
-                    <div key={item.name} className="flex items-center gap-1.5">
-                      <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.name === 'Sick Bay' ? '#14b8a6' : item.name === 'Injury' ? '#f97316' : item.name === 'Hospital' ? '#ef4444' : item.name === 'Checkup' ? '#10b981' : '#a855f7' }} />
-                      <span className="text-xs text-muted-foreground">{item.name} ({item.value})</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <SectionCard title="Visits by Type" description="Health visit distribution" icon={Activity}>
+              {visitChartData.length > 0 ? (
+                <ChartContainer config={visitChartConfig} className="h-[250px] w-full">
+                  <BarChart data={visitChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="type" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="count" fill="var(--color-count)" radius={[6, 6, 0, 0]} maxBarSize={48} />
+                  </BarChart>
+                </ChartContainer>
+              ) : (<div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">No health data yet</div>)}
+            </SectionCard>
+            <SectionCard title="Visit Distribution" description="Breakdown by visit type" icon={HeartPulse}>
+              <div className="flex items-center justify-center">
+                <ChartContainer config={visitDonutConfig} className="h-[220px] w-full">
+                  <PieChart>
+                    <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                    <Pie data={visitDonutData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={4} strokeWidth={0}>
+                      {visitDonutData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.fill} />))}
+                    </Pie>
+                  </PieChart>
+                </ChartContainer>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
+                {visitDonutData.map((item) => (
+                  <div key={item.name} className="flex items-center gap-1.5">
+                    <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.name === 'Sick Bay' ? '#14b8a6' : item.name === 'Injury' ? '#f97316' : item.name === 'Hospital' ? '#ef4444' : item.name === 'Checkup' ? '#10b981' : '#a855f7' }} />
+                    <span className="text-xs text-muted-foreground">{item.name} ({item.value})</span>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
           </div>
         </TabsContent>
 
@@ -888,37 +879,35 @@ export default function HealthModule() {
             </div>
             <Badge variant="outline" className="text-xs">{filteredRecords.length} records</Badge>
           </div>
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-0">
-              <div className="max-h-[500px] overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow><TableHead className="text-xs">Student</TableHead><TableHead className="text-xs">Visit Type</TableHead><TableHead className="text-xs">Description</TableHead><TableHead className="text-xs">Treatment</TableHead><TableHead className="text-xs">Date</TableHead><TableHead className="text-xs">Access</TableHead><TableHead className="text-xs"></TableHead></TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredRecords.map((record) => {
-                      const isHidden = record.isConfidential && !showConfidential
-                      const VisitIcon = visitTypeIcons[record.visitType] || Stethoscope
-                      return (
-                        <TableRow key={record.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => { setSelectedRecord(record); setViewMode('detail') }}>
-                          <TableCell className="font-medium text-sm">{isHidden ? <span className="text-muted-foreground italic">Confidential</span> : `${record.student.firstName} ${record.student.lastName}`}</TableCell>
-                          <TableCell><Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', visitTypeColors[record.visitType] || 'bg-muted text-muted-foreground')}><VisitIcon className="mr-1 h-3 w-3" />{visitTypeLabels[record.visitType] || record.visitType}</Badge></TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{isHidden ? '\u2022\u2022\u2022\u2022\u2022\u2022' : record.description}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">{isHidden ? '\u2022\u2022\u2022\u2022\u2022\u2022' : (record.treatment || '\u2014')}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{formatDate(record.visitDate)}</TableCell>
-                          <TableCell>{record.isConfidential ? <div className="flex items-center gap-1 text-red-500"><Lock className="h-3.5 w-3.5" /><span className="text-[10px] font-medium">Restricted</span></div> : <span className="text-[10px] text-muted-foreground">Open</span>}</TableCell>
-                          <TableCell><Eye className="h-4 w-4 text-muted-foreground" /></TableCell>
-                        </TableRow>
-                      )
-                    })}
-                    {filteredRecords.length === 0 && (
-                      <TableRow><TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">No health records found</TableCell></TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+          <SectionCard title="Health Records" icon={FileHeart} noPadding>
+            <TableShell maxHeight="500px">
+              <Table>
+                <TableHeader>
+                  <TableRow><TableHead className="text-xs">Student</TableHead><TableHead className="text-xs">Visit Type</TableHead><TableHead className="text-xs">Description</TableHead><TableHead className="text-xs">Treatment</TableHead><TableHead className="text-xs">Date</TableHead><TableHead className="text-xs">Access</TableHead><TableHead className="text-xs"></TableHead></TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredRecords.map((record) => {
+                    const isHidden = record.isConfidential && !showConfidential
+                    const VisitIcon = visitTypeIcons[record.visitType] || Stethoscope
+                    return (
+                      <TableRow key={record.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => { setSelectedRecord(record); setViewMode('detail') }}>
+                        <TableCell className="font-medium text-sm">{isHidden ? <span className="text-muted-foreground italic">Confidential</span> : `${record.student.firstName} ${record.student.lastName}`}</TableCell>
+                        <TableCell><Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', visitTypeColors[record.visitType] || 'bg-muted text-muted-foreground')}><VisitIcon className="mr-1 h-3 w-3" />{visitTypeLabels[record.visitType] || record.visitType}</Badge></TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{isHidden ? '\u2022\u2022\u2022\u2022\u2022\u2022' : record.description}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">{isHidden ? '\u2022\u2022\u2022\u2022\u2022\u2022' : (record.treatment || '\u2014')}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{formatDate(record.visitDate)}</TableCell>
+                        <TableCell>{record.isConfidential ? <div className="flex items-center gap-1 text-red-500"><Lock className="h-3.5 w-3.5" /><span className="text-[10px] font-medium">Restricted</span></div> : <span className="text-[10px] text-muted-foreground">Open</span>}</TableCell>
+                        <TableCell><Eye className="h-4 w-4 text-muted-foreground" /></TableCell>
+                      </TableRow>
+                    )
+                  })}
+                  {filteredRecords.length === 0 && (
+                    <TableRow><TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">No health records found</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableShell>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Sick Bay Today Tab ───────────────────────────────────────── */}
@@ -962,15 +951,17 @@ export default function HealthModule() {
               ))}
             </div>
           ) : (
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-8 text-center">
-                <Thermometer className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-30" />
-                <p className="text-muted-foreground">No sick bay visits recorded today.</p>
-                <Button variant="outline" className="mt-3 border-red-200 text-red-700 hover:bg-red-50" onClick={() => setViewMode('quick-sickbay')}>
-                  <Plus className="mr-2 h-4 w-4" /> Record First Visit
-                </Button>
-              </CardContent>
-            </Card>
+            <SectionCard>
+              <KitEmptyState
+                icon={Thermometer}
+                title="No sick bay visits recorded today."
+                action={
+                  <Button variant="outline" className="border-red-200 text-red-700 hover:bg-red-50" onClick={() => setViewMode('quick-sickbay')}>
+                    <Plus className="mr-2 h-4 w-4" /> Record First Visit
+                  </Button>
+                }
+              />
+            </SectionCard>
           )}
         </TabsContent>
 
@@ -1014,16 +1005,13 @@ export default function HealthModule() {
               )
             })}
             {students.length === 0 && (
-              <Card className="border-0 shadow-md col-span-full">
-                <CardContent className="p-8 text-center">
-                  <UserCircle className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-30" />
-                  <p className="text-muted-foreground">No student profiles available</p>
-                </CardContent>
-              </Card>
+              <SectionCard className="col-span-full">
+                <KitEmptyState icon={UserCircle} title="No student profiles available" />
+              </SectionCard>
             )}
           </div>
         </TabsContent>
       </ModulePageLayout>
-    </motion.div>
+    </ModuleContainer>
   )
 }

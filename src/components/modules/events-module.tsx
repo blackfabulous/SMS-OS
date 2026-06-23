@@ -1,6 +1,6 @@
 'use client'
 
-import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
+import { ModuleContainer, ModulePageLayout, ModuleSettingsButton, StatGrid, ModuleStatCard, SectionCard } from '@/components/module-ui';
 import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -1209,13 +1209,8 @@ export default function EventsModule() {
   // ─── MAIN TAB VIEW ───────────────────────────────────────────────────
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="space-y-6"
-    >
-<ModulePageLayout
+    <ModuleContainer>
+      <ModulePageLayout
         actions={<>
           <Button variant="outline" size="sm" onClick={handleAddFixture}>
             <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -1225,6 +1220,7 @@ export default function EventsModule() {
             <Plus className="mr-2 h-4 w-4" />
             Add Event
           </Button>
+          <ModuleSettingsButton onClick={() => navigateTo('settings')} />
         </>}
         activeTab={activeTab}
         onTabChange={handleTabChange}
@@ -1242,93 +1238,53 @@ export default function EventsModule() {
           <PageTransition pageKey="events-overview">
             <div className="space-y-4">
               {/* Stats Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Upcoming Events</p>
-                        <p className="text-2xl font-bold tracking-tight">{upcomingEvents.length}</p>
-                        <div className="flex items-center gap-1.5">
-                          <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                          <span className="text-xs font-medium text-emerald-600">This year</span>
-                        </div>
-                      </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
-                        <Calendar className="h-5 w-5 text-emerald-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 to-teal-500" />
-                </Card>
-
-                <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sports Activities</p>
-                        <p className="text-2xl font-bold tracking-tight">{sportsCount}</p>
-                        <div className="flex items-center gap-1.5">
-                          <Trophy className="h-3.5 w-3.5 text-teal-600" />
-                          <span className="text-xs font-medium text-teal-600">Active codes</span>
-                        </div>
-                      </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50">
-                        <Trophy className="h-5 w-5 text-teal-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-teal-400 to-cyan-500" />
-                </Card>
-
-                <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Matches Won</p>
-                        <p className="text-2xl font-bold tracking-tight">{winsCount}</p>
-                        <div className="flex items-center gap-1.5">
-                          <Medal className="h-3.5 w-3.5 text-amber-600" />
-                          <span className="text-xs font-medium text-amber-600">Of {fixtures.filter((f) => f.result !== 'Pending').length} played</span>
-                        </div>
-                      </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
-                        <Medal className="h-5 w-5 text-amber-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-400 to-orange-500" />
-                </Card>
-
-                <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pending Fixtures</p>
-                        <p className="text-2xl font-bold tracking-tight">{pendingFixtures}</p>
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="h-3.5 w-3.5 text-violet-600" />
-                          <span className="text-xs font-medium text-violet-600">Upcoming matches</span>
-                        </div>
-                      </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-50">
-                        <Flag className="h-5 w-5 text-violet-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-400 to-purple-500" />
-                </Card>
-              </div>
+              <StatGrid cols={4}>
+                <ModuleStatCard
+                  icon={Calendar}
+                  label="Upcoming Events"
+                  value={upcomingEvents.length}
+                  accentGradient="from-emerald-400 to-teal-500"
+                  bgColor="bg-emerald-50"
+                  iconColor="text-emerald-600"
+                  hint="This year"
+                  index={0}
+                />
+                <ModuleStatCard
+                  icon={Trophy}
+                  label="Sports Activities"
+                  value={sportsCount}
+                  accentGradient="from-teal-400 to-cyan-500"
+                  bgColor="bg-teal-50"
+                  iconColor="text-teal-600"
+                  hint="Active codes"
+                  index={1}
+                />
+                <ModuleStatCard
+                  icon={Medal}
+                  label="Matches Won"
+                  value={winsCount}
+                  accentGradient="from-amber-400 to-orange-500"
+                  bgColor="bg-amber-50"
+                  iconColor="text-amber-600"
+                  hint={`Of ${fixtures.filter((f) => f.result !== 'Pending').length} played`}
+                  index={2}
+                />
+                <ModuleStatCard
+                  icon={Flag}
+                  label="Pending Fixtures"
+                  value={pendingFixtures}
+                  accentGradient="from-violet-400 to-purple-500"
+                  bgColor="bg-violet-50"
+                  iconColor="text-violet-600"
+                  hint="Upcoming matches"
+                  index={3}
+                />
+              </StatGrid>
 
               {/* Upcoming Events & Calendar Preview */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Upcoming Events */}
-                <Card className="border-0 shadow-md">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-semibold">Upcoming Events</CardTitle>
-                    <CardDescription>Next events on the calendar</CardDescription>
-                  </CardHeader>
-                  <CardContent>
+                <SectionCard title="Upcoming Events" description="Next events on the calendar">
                     <div className="space-y-3 max-h-[350px] overflow-y-auto">
                       {upcomingEvents.slice(0, 8).map((ev) => {
                         const daysUntil = getDaysUntil(ev.startDate)
@@ -1367,27 +1323,22 @@ export default function EventsModule() {
                         <p className="text-sm text-muted-foreground text-center py-8">No upcoming events</p>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
+                </SectionCard>
 
                 {/* Calendar Preview */}
-                <Card className="border-0 shadow-md">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base font-semibold">
-                        {MONTH_NAMES[calMonth]} {calYear}
-                      </CardTitle>
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={prevMonth}>
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={nextMonth}>
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
+                <SectionCard
+                  title={`${MONTH_NAMES[calMonth]} ${calYear}`}
+                  actions={
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={prevMonth}>
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={nextMonth}>
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
                     </div>
-                  </CardHeader>
-                  <CardContent>
+                  }
+                >
                     <div className="grid grid-cols-7 gap-1">
                       {DAY_NAMES.map((d) => (
                         <div key={d} className="text-center text-[10px] font-semibold text-muted-foreground py-1">{d}</div>
@@ -1417,17 +1368,11 @@ export default function EventsModule() {
                         )
                       })}
                     </div>
-                  </CardContent>
-                </Card>
+                </SectionCard>
               </div>
 
               {/* Sports Codes Overview */}
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold">Sports Codes</CardTitle>
-                  <CardDescription>Active sports and teams</CardDescription>
-                </CardHeader>
-                <CardContent>
+              <SectionCard title="Sports Codes" description="Active sports and teams">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {sportsCodes.map((code) => (
                       <div key={code.id} className="p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
@@ -1450,8 +1395,7 @@ export default function EventsModule() {
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
+                </SectionCard>
             </div>
           </PageTransition>
         </TabsContent>
@@ -1485,8 +1429,7 @@ export default function EventsModule() {
               </div>
 
               {/* Events List */}
-              <Card className="border-0 shadow-md">
-                <CardContent className="p-0">
+              <SectionCard title="Events" icon={Calendar} noPadding>
                   <ScrollArea className="max-h-[600px]">
                     <Table>
                       <TableHeader>
@@ -1556,8 +1499,7 @@ export default function EventsModule() {
                       </TableBody>
                     </Table>
                   </ScrollArea>
-                </CardContent>
-              </Card>
+              </SectionCard>
             </div>
           </PageTransition>
         </TabsContent>
@@ -1785,6 +1727,6 @@ export default function EventsModule() {
 
         {/* ─── Settings Tab ─────────────────────────────────────────────── */}
         </ModulePageLayout>
-    </motion.div>
+    </ModuleContainer>
   )
 }

@@ -1,12 +1,21 @@
 'use client'
 
-import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
+import {
+  ModulePageLayout,
+  ModuleSettingsButton,
+  ModuleContainer,
+  StatGrid,
+  ModuleStatCard,
+  SectionCard,
+  ModuleToolbar,
+  TableShell,
+  KitEmptyState,
+} from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   Scale,
   Plus,
-  Search,
   AlertTriangle,
   CheckCircle2,
   Clock,
@@ -39,7 +48,7 @@ import {
 } from 'recharts'
 
 import { cn } from '@/lib/utils'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -521,100 +530,88 @@ export default function DisciplineModule() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Merit/Demerit Point System */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><Award className="h-4 w-4 text-emerald-500" /> Merit/Demerit System</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
+          <SectionCard title="Merit/Demerit System" icon={Award} contentClassName="space-y-4">
+            <div className="grid gap-2">
+              <Label>Point System</Label>
+              <Select value={settings.meritSystem} onValueChange={(v) => setSettings((p) => ({ ...p, meritSystem: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="STANDARD">Standard (1 point per incident)</SelectItem>
+                  <SelectItem value="WEIGHTED">Weighted (severity-based)</SelectItem>
+                  <SelectItem value="CUSTOM">Custom values</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label>Point System</Label>
-                <Select value={settings.meritSystem} onValueChange={(v) => setSettings((p) => ({ ...p, meritSystem: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="STANDARD">Standard (1 point per incident)</SelectItem>
-                    <SelectItem value="WEIGHTED">Weighted (severity-based)</SelectItem>
-                    <SelectItem value="CUSTOM">Custom values</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Default Merit Value</Label>
+                <Input type="number" min="1" value={settings.meritValue} onChange={(e) => setSettings((p) => ({ ...p, meritValue: e.target.value }))} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label>Default Merit Value</Label>
-                  <Input type="number" min="1" value={settings.meritValue} onChange={(e) => setSettings((p) => ({ ...p, meritValue: e.target.value }))} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Default Demerit Value</Label>
-                  <Input type="number" min="1" value={settings.demeritValue} onChange={(e) => setSettings((p) => ({ ...p, demeritValue: e.target.value }))} />
-                </div>
+              <div className="grid gap-2">
+                <Label>Default Demerit Value</Label>
+                <Input type="number" min="1" value={settings.demeritValue} onChange={(e) => setSettings((p) => ({ ...p, demeritValue: e.target.value }))} />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
 
           {/* Auto-Escalation */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-red-500" /> Auto-Escalation Rules</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div><Label>Auto-Escalation</Label><p className="text-xs text-muted-foreground">Automatically escalate serious cases</p></div>
-                <Switch checked={settings.autoEscalation} onCheckedChange={(v) => setSettings((p) => ({ ...p, autoEscalation: v }))} />
-              </div>
-              <Separator />
-              <div className="grid gap-2">
-                <Label>Demerit Escalation Threshold</Label>
-                <Input type="number" min="1" value={settings.escalationThreshold} onChange={(e) => setSettings((p) => ({ ...p, escalationThreshold: e.target.value }))} />
-                <p className="text-xs text-muted-foreground">Auto-escalate when student reaches this many demerits</p>
-              </div>
-            </CardContent>
-          </Card>
+          <SectionCard title="Auto-Escalation Rules" icon={ShieldAlert} contentClassName="space-y-4">
+            <div className="flex items-center justify-between">
+              <div><Label>Auto-Escalation</Label><p className="text-xs text-muted-foreground">Automatically escalate serious cases</p></div>
+              <Switch checked={settings.autoEscalation} onCheckedChange={(v) => setSettings((p) => ({ ...p, autoEscalation: v }))} />
+            </div>
+            <Separator />
+            <div className="grid gap-2">
+              <Label>Demerit Escalation Threshold</Label>
+              <Input type="number" min="1" value={settings.escalationThreshold} onChange={(e) => setSettings((p) => ({ ...p, escalationThreshold: e.target.value }))} />
+              <p className="text-xs text-muted-foreground">Auto-escalate when student reaches this many demerits</p>
+            </div>
+          </SectionCard>
 
           {/* Parent Notification */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><Bell className="h-4 w-4 text-amber-500" /> Parent Notifications</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div><Label>Notify for Serious Incidents</Label><p className="text-xs text-muted-foreground">Auto-notify parents of serious incidents</p></div>
-                <Switch checked={settings.parentNotifySerious} onCheckedChange={(v) => setSettings((p) => ({ ...p, parentNotifySerious: v }))} />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div><Label>Notify for All Incidents</Label><p className="text-xs text-muted-foreground">Auto-notify parents for every incident</p></div>
-                <Switch checked={settings.parentNotifyAll} onCheckedChange={(v) => setSettings((p) => ({ ...p, parentNotifyAll: v }))} />
-              </div>
-              <Separator />
-              <div className="grid gap-2">
-                <Label>Notification Method</Label>
-                <Select value={settings.notifyMethod} onValueChange={(v) => setSettings((p) => ({ ...p, notifyMethod: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SMS">SMS</SelectItem>
-                    <SelectItem value="EMAIL">Email</SelectItem>
-                    <SelectItem value="BOTH">SMS + Email</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
+          <SectionCard title="Parent Notifications" icon={Bell} contentClassName="space-y-4">
+            <div className="flex items-center justify-between">
+              <div><Label>Notify for Serious Incidents</Label><p className="text-xs text-muted-foreground">Auto-notify parents of serious incidents</p></div>
+              <Switch checked={settings.parentNotifySerious} onCheckedChange={(v) => setSettings((p) => ({ ...p, parentNotifySerious: v }))} />
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div><Label>Notify for All Incidents</Label><p className="text-xs text-muted-foreground">Auto-notify parents for every incident</p></div>
+              <Switch checked={settings.parentNotifyAll} onCheckedChange={(v) => setSettings((p) => ({ ...p, parentNotifyAll: v }))} />
+            </div>
+            <Separator />
+            <div className="grid gap-2">
+              <Label>Notification Method</Label>
+              <Select value={settings.notifyMethod} onValueChange={(v) => setSettings((p) => ({ ...p, notifyMethod: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SMS">SMS</SelectItem>
+                  <SelectItem value="EMAIL">Email</SelectItem>
+                  <SelectItem value="BOTH">SMS + Email</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </SectionCard>
 
           {/* Report & Display */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><FileDown className="h-4 w-4 text-teal-500" /> Report & Display</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-2">
-                <Label>Report Format</Label>
-                <Select value={settings.reportFormat} onValueChange={(v) => setSettings((p) => ({ ...p, reportFormat: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PDF">PDF</SelectItem>
-                    <SelectItem value="CSV">CSV</SelectItem>
-                    <SelectItem value="EXCEL">Excel</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div><Label>Show Resolved Cases</Label><p className="text-xs text-muted-foreground">Display resolved/closed cases in lists</p></div>
-                <Switch checked={settings.showResolved} onCheckedChange={(v) => setSettings((p) => ({ ...p, showResolved: v }))} />
-              </div>
-            </CardContent>
-          </Card>
+          <SectionCard title="Report & Display" icon={FileDown} contentClassName="space-y-4">
+            <div className="grid gap-2">
+              <Label>Report Format</Label>
+              <Select value={settings.reportFormat} onValueChange={(v) => setSettings((p) => ({ ...p, reportFormat: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PDF">PDF</SelectItem>
+                  <SelectItem value="CSV">CSV</SelectItem>
+                  <SelectItem value="EXCEL">Excel</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div><Label>Show Resolved Cases</Label><p className="text-xs text-muted-foreground">Display resolved/closed cases in lists</p></div>
+              <Switch checked={settings.showResolved} onCheckedChange={(v) => setSettings((p) => ({ ...p, showResolved: v }))} />
+            </div>
+          </SectionCard>
         </div>
 
         <div className="flex justify-end">
@@ -629,8 +626,8 @@ export default function DisciplineModule() {
   // ─── Main List View ────────────────────────────────────────────────────
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
-<ModulePageLayout
+    <ModuleContainer>
+      <ModulePageLayout
         actions={<>
           <Button onClick={() => setViewMode('add')} className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-md">
             <Plus className="mr-2 h-4 w-4" /> Add Incident
@@ -649,153 +646,134 @@ export default function DisciplineModule() {
 
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Open Cases</p>
-                    <p className="text-2xl font-bold tracking-tight">{openCases}</p>
-                    <div className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-amber-600" /><span className="text-xs font-medium text-amber-600">Pending resolution</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50"><Clock className="h-5 w-5 text-amber-600" /></div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-400 to-orange-500" />
-            </Card>
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Resolved This Term</p>
-                    <p className="text-2xl font-bold tracking-tight">{resolvedThisTerm}</p>
-                    <div className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /><span className="text-xs font-medium text-emerald-600">Cases closed</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50"><CheckCircle2 className="h-5 w-5 text-emerald-600" /></div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 to-teal-500" />
-            </Card>
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Merit Points Total</p>
-                    <p className="text-2xl font-bold tracking-tight text-emerald-700">{totalMerit}</p>
-                    <div className="flex items-center gap-1.5"><ThumbsUp className="h-3.5 w-3.5 text-emerald-600" /><span className="text-xs font-medium text-emerald-600">Positive behaviour</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50"><Award className="h-5 w-5 text-emerald-600" /></div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 to-green-500" />
-            </Card>
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Demerit Points Total</p>
-                    <p className="text-2xl font-bold tracking-tight text-red-700">{totalDemerit}</p>
-                    <div className="flex items-center gap-1.5"><ThumbsDown className="h-3.5 w-3.5 text-red-500" /><span className="text-xs font-medium text-red-500">Needs attention</span></div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50"><AlertTriangle className="h-5 w-5 text-red-600" /></div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-red-400 to-rose-500" />
-            </Card>
-          </div>
+          <StatGrid cols={4}>
+            <ModuleStatCard
+              icon={Clock}
+              label="Open Cases"
+              value={openCases}
+              accentGradient="from-amber-400 to-orange-500"
+              bgColor="bg-amber-50 dark:bg-amber-950/40"
+              iconColor="text-amber-600"
+              hint="Pending resolution"
+              index={0}
+            />
+            <ModuleStatCard
+              icon={CheckCircle2}
+              label="Resolved This Term"
+              value={resolvedThisTerm}
+              accentGradient="from-emerald-400 to-teal-500"
+              bgColor="bg-emerald-50 dark:bg-emerald-950/40"
+              iconColor="text-emerald-600"
+              hint="Cases closed"
+              index={1}
+            />
+            <ModuleStatCard
+              icon={Award}
+              label="Merit Points Total"
+              value={totalMerit}
+              accentGradient="from-emerald-400 to-green-500"
+              bgColor="bg-emerald-50 dark:bg-emerald-950/40"
+              iconColor="text-emerald-600"
+              hint="Positive behaviour"
+              valueClassName="text-emerald-700"
+              index={2}
+            />
+            <ModuleStatCard
+              icon={AlertTriangle}
+              label="Demerit Points Total"
+              value={totalDemerit}
+              accentGradient="from-red-400 to-rose-500"
+              bgColor="bg-red-50 dark:bg-red-950/40"
+              iconColor="text-red-600"
+              hint="Needs attention"
+              valueClassName="text-red-700"
+              index={3}
+            />
+          </StatGrid>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2"><CardTitle className="text-base font-semibold">Incidents by Type</CardTitle><CardDescription>Breakdown of disciplinary incidents</CardDescription></CardHeader>
-              <CardContent>
-                {incidentChartData.length > 0 ? (
-                  <ChartContainer config={incidentChartConfig} className="h-[250px] w-full">
-                    <BarChart data={incidentChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="type" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} angle={-20} textAnchor="end" height={60} />
-                      <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="count" fill="var(--color-count)" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                    </BarChart>
-                  </ChartContainer>
-                ) : (<div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">No incident data yet</div>)}
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2"><CardTitle className="text-base font-semibold">Severity Distribution</CardTitle><CardDescription>Incident severity breakdown</CardDescription></CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-center">
-                  <ChartContainer config={severityDonutConfig} className="h-[220px] w-full">
-                    <PieChart>
-                      <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
-                      <Pie data={severityDonutData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={4} strokeWidth={0}>
-                        {severityDonutData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.fill} />))}
-                      </Pie>
-                    </PieChart>
-                  </ChartContainer>
-                </div>
-                <div className="flex flex-wrap items-center justify-center gap-4 mt-2">
-                  <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full bg-red-500" /><span className="text-sm text-muted-foreground">Serious ({severityCounts.serious})</span></div>
-                  <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full bg-amber-500" /><span className="text-sm text-muted-foreground">Moderate ({severityCounts.moderate})</span></div>
-                  <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full bg-emerald-500" /><span className="text-sm text-muted-foreground">Minor ({severityCounts.minor})</span></div>
-                </div>
-              </CardContent>
-            </Card>
+            <SectionCard title="Incidents by Type" description="Breakdown of disciplinary incidents">
+              {incidentChartData.length > 0 ? (
+                <ChartContainer config={incidentChartConfig} className="h-[250px] w-full">
+                  <BarChart data={incidentChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="type" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} angle={-20} textAnchor="end" height={60} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="count" fill="var(--color-count)" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                  </BarChart>
+                </ChartContainer>
+              ) : (<div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">No incident data yet</div>)}
+            </SectionCard>
+            <SectionCard title="Severity Distribution" description="Incident severity breakdown">
+              <div className="flex items-center justify-center">
+                <ChartContainer config={severityDonutConfig} className="h-[220px] w-full">
+                  <PieChart>
+                    <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                    <Pie data={severityDonutData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={4} strokeWidth={0}>
+                      {severityDonutData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.fill} />))}
+                    </Pie>
+                  </PieChart>
+                </ChartContainer>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-4 mt-2">
+                <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full bg-red-500" /><span className="text-sm text-muted-foreground">Serious ({severityCounts.serious})</span></div>
+                <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full bg-amber-500" /><span className="text-sm text-muted-foreground">Moderate ({severityCounts.moderate})</span></div>
+                <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full bg-emerald-500" /><span className="text-sm text-muted-foreground">Minor ({severityCounts.minor})</span></div>
+              </div>
+            </SectionCard>
           </div>
         </TabsContent>
 
         {/* ─── Incidents Tab ────────────────────────────────────────────── */}
         <TabsContent value="incidents" className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search incidents..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-            </div>
-            <div className="flex items-center gap-2">
+          <ModuleToolbar
+            search={searchQuery}
+            onSearch={setSearchQuery}
+            searchPlaceholder="Search incidents..."
+            filters={<>
               {['ALL', 'SERIOUS', 'MODERATE', 'MINOR'].map((sev) => (
                 <Button key={sev} variant={filterSeverity === sev ? 'default' : 'outline'} size="sm" className={cn('h-8 text-xs', filterSeverity === sev && sev === 'SERIOUS' && 'bg-red-500 hover:bg-red-600 text-white', filterSeverity === sev && sev === 'MODERATE' && 'bg-amber-500 hover:bg-amber-600 text-white', filterSeverity === sev && sev === 'MINOR' && 'bg-emerald-500 hover:bg-emerald-600 text-white', filterSeverity === sev && sev === 'ALL' && 'bg-orange-500 hover:bg-orange-600 text-white')} onClick={() => setFilterSeverity(sev)}>
                   {sev === 'ALL' ? 'All' : sev.charAt(0) + sev.slice(1).toLowerCase()}
                 </Button>
               ))}
-            </div>
-            <Badge variant="outline" className="text-xs">{filteredRecords.length} records</Badge>
-          </div>
+            </>}
+            actions={<Badge variant="outline" className="text-xs">{filteredRecords.length} records</Badge>}
+          />
 
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-0">
-              <div className="max-h-[500px] overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Student</TableHead><TableHead className="text-xs">Incident Type</TableHead><TableHead className="text-xs">Severity</TableHead><TableHead className="text-xs">Date</TableHead><TableHead className="text-xs">Action</TableHead><TableHead className="text-xs text-center">Merit</TableHead><TableHead className="text-xs text-center">Demerit</TableHead><TableHead className="text-xs">Status</TableHead><TableHead className="text-xs">Parent</TableHead><TableHead className="text-xs"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredRecords.map((record) => {
-                      const sev = incidentSeverity[record.incidentType]
-                      return (
-                        <TableRow key={record.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => { setSelectedRecord(record); setViewMode('detail') }}>
-                          <TableCell className="font-medium text-sm">{record.student.firstName} {record.student.lastName}</TableCell>
-                          <TableCell><Badge variant="outline" className="text-[10px] px-1.5 py-0 border">{incidentTypeLabels[record.incidentType] || record.incidentType}</Badge></TableCell>
-                          <TableCell>{sev && <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', sev.badgeBg)}>{sev.level}</Badge>}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{formatDate(record.date)}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">{record.action || '\u2014'}</TableCell>
-                          <TableCell className="text-center">{record.meritPoints > 0 ? <span className="text-xs font-semibold text-emerald-600">+{record.meritPoints}</span> : <span className="text-xs text-muted-foreground">\u2014</span>}</TableCell>
-                          <TableCell className="text-center">{record.demeritPoints > 0 ? <span className="text-xs font-semibold text-red-600">-{record.demeritPoints}</span> : <span className="text-xs text-muted-foreground">\u2014</span>}</TableCell>
-                          <TableCell><Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', statusColors[record.status] || 'bg-muted text-muted-foreground')}>{record.status}</Badge></TableCell>
-                          <TableCell>{record.parentNotified ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <span className="text-xs text-muted-foreground">No</span>}</TableCell>
-                          <TableCell><Eye className="h-4 w-4 text-muted-foreground" /></TableCell>
-                        </TableRow>
-                      )
-                    })}
-                    {filteredRecords.length === 0 && (
-                      <TableRow><TableCell colSpan={10} className="text-center text-sm text-muted-foreground py-8">No discipline records found</TableCell></TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+          <SectionCard noPadding>
+            <TableShell maxHeight="500px">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Student</TableHead><TableHead className="text-xs">Incident Type</TableHead><TableHead className="text-xs">Severity</TableHead><TableHead className="text-xs">Date</TableHead><TableHead className="text-xs">Action</TableHead><TableHead className="text-xs text-center">Merit</TableHead><TableHead className="text-xs text-center">Demerit</TableHead><TableHead className="text-xs">Status</TableHead><TableHead className="text-xs">Parent</TableHead><TableHead className="text-xs"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredRecords.map((record) => {
+                    const sev = incidentSeverity[record.incidentType]
+                    return (
+                      <TableRow key={record.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => { setSelectedRecord(record); setViewMode('detail') }}>
+                        <TableCell className="font-medium text-sm">{record.student.firstName} {record.student.lastName}</TableCell>
+                        <TableCell><Badge variant="outline" className="text-[10px] px-1.5 py-0 border">{incidentTypeLabels[record.incidentType] || record.incidentType}</Badge></TableCell>
+                        <TableCell>{sev && <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', sev.badgeBg)}>{sev.level}</Badge>}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{formatDate(record.date)}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">{record.action || '\u2014'}</TableCell>
+                        <TableCell className="text-center">{record.meritPoints > 0 ? <span className="text-xs font-semibold text-emerald-600">+{record.meritPoints}</span> : <span className="text-xs text-muted-foreground">\u2014</span>}</TableCell>
+                        <TableCell className="text-center">{record.demeritPoints > 0 ? <span className="text-xs font-semibold text-red-600">-{record.demeritPoints}</span> : <span className="text-xs text-muted-foreground">\u2014</span>}</TableCell>
+                        <TableCell><Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', statusColors[record.status] || 'bg-muted text-muted-foreground')}>{record.status}</Badge></TableCell>
+                        <TableCell>{record.parentNotified ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <span className="text-xs text-muted-foreground">No</span>}</TableCell>
+                        <TableCell><Eye className="h-4 w-4 text-muted-foreground" /></TableCell>
+                      </TableRow>
+                    )
+                  })}
+                  {filteredRecords.length === 0 && (
+                    <TableRow><TableCell colSpan={10} className="text-center text-sm text-muted-foreground py-8">No discipline records found</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableShell>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Merit Board Tab ──────────────────────────────────────────── */}
@@ -849,15 +827,16 @@ export default function DisciplineModule() {
               })}
             </div>
           ) : (
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-8 text-center">
-                <Award className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-30" />
-                <p className="text-muted-foreground">No merit data available yet. Record incidents to see the leaderboard.</p>
-              </CardContent>
-            </Card>
+            <SectionCard>
+              <KitEmptyState
+                icon={Award}
+                title="No merit data available yet"
+                description="Record incidents to see the leaderboard."
+              />
+            </SectionCard>
           )}
         </TabsContent>
       </ModulePageLayout>
-    </motion.div>
+    </ModuleContainer>
   )
 }

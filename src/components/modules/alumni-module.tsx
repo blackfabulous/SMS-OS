@@ -1,6 +1,13 @@
 'use client'
 
-import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
+import {
+  ModulePageLayout,
+  ModuleSettingsButton,
+  ModuleContainer,
+  StatGrid,
+  ModuleStatCard,
+  SectionCard,
+} from '@/components/module-ui';
 import React, { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -448,8 +455,8 @@ export default function AlumniModule() {
   }
 
   return (
-    <div className="space-y-6">
-<ModulePageLayout
+    <ModuleContainer>
+      <ModulePageLayout
         actions={<>
           <ModuleSettingsButton onClick={() => { setViewMode('settings'); setSelectedId(null) }} />
         </>}
@@ -468,102 +475,86 @@ export default function AlumniModule() {
         {/* ─── Overview Tab ────────────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-6 mt-4">
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatGrid cols={4}>
             {[
-              { icon: UsersRound, label: 'Total Alumni', value: String(totalAlumni), trend: '+12 this year', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-              { icon: DollarSign, label: 'Total Contributions', value: `$${(totalContributions).toLocaleString()}`, trend: '+18% YoY', color: 'text-amber-600', bg: 'bg-amber-50' },
-              { icon: Star, label: 'Notable Alumni', value: String(notableAlumni.length), trend: 'Distinguished', color: 'text-violet-600', bg: 'bg-violet-50' },
-              { icon: PartyPopper, label: 'Upcoming Reunions', value: String(upcomingReunions.length), trend: 'This year', color: 'text-pink-600', bg: 'bg-pink-50' },
-            ].map((stat) => (
-              <Card key={stat.label} className="border-0 shadow-md hover:shadow-lg transition-shadow">
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{stat.label}</p>
-                      <p className="text-2xl font-bold">{stat.value}</p>
-                      <p className="text-xs text-muted-foreground">{stat.trend}</p>
-                    </div>
-                    <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', stat.bg)}>
-                      <stat.icon className={cn('h-5 w-5', stat.color)} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              { icon: UsersRound, label: 'Total Alumni', value: String(totalAlumni), hint: '+12 this year', accentGradient: 'from-emerald-400 to-teal-500', bgColor: 'bg-emerald-50 dark:bg-emerald-950/40', iconColor: 'text-emerald-600 dark:text-emerald-400' },
+              { icon: DollarSign, label: 'Total Contributions', value: `$${(totalContributions).toLocaleString()}`, hint: '+18% YoY', accentGradient: 'from-amber-400 to-orange-500', bgColor: 'bg-amber-50 dark:bg-amber-950/40', iconColor: 'text-amber-600 dark:text-amber-400' },
+              { icon: Star, label: 'Notable Alumni', value: String(notableAlumni.length), hint: 'Distinguished', accentGradient: 'from-violet-400 to-purple-500', bgColor: 'bg-violet-50 dark:bg-violet-950/40', iconColor: 'text-violet-600 dark:text-violet-400' },
+              { icon: PartyPopper, label: 'Upcoming Reunions', value: String(upcomingReunions.length), hint: 'This year', accentGradient: 'from-rose-400 to-pink-500', bgColor: 'bg-rose-50 dark:bg-rose-950/40', iconColor: 'text-rose-600 dark:text-rose-400' },
+            ].map((stat, i) => (
+              <ModuleStatCard
+                key={stat.label}
+                index={i}
+                icon={stat.icon}
+                label={stat.label}
+                value={stat.value}
+                hint={stat.hint}
+                accentGradient={stat.accentGradient}
+                bgColor={stat.bgColor}
+                iconColor={stat.iconColor}
+              />
             ))}
-          </div>
+          </StatGrid>
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Graduation Years Chart */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Alumni by Graduation Year</CardTitle>
-                <CardDescription>Distribution across graduating classes</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={graduationYearData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="year" tick={{ fontSize: 10 }} interval={1} />
-                    <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#10b981" radius={[3, 3, 0, 0]} name="Alumni" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <SectionCard title="Alumni by Graduation Year" description="Distribution across graduating classes" icon={GraduationCap}>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={graduationYearData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="year" tick={{ fontSize: 10 }} interval={1} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#10b981" radius={[3, 3, 0, 0]} name="Alumni" />
+                </BarChart>
+              </ResponsiveContainer>
+            </SectionCard>
 
             {/* Location Distribution */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Alumni by Location</CardTitle>
-                <CardDescription>Geographic distribution of alumni</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <PieChart>
-                    <Pie
-                      data={locationChartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      dataKey="value"
-                      nameKey="name"
-                      paddingAngle={2}
-                    >
-                      {locationChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex flex-wrap gap-2 mt-2 justify-center">
-                  {locationChartData.map((loc) => (
-                    <div key={loc.name} className="flex items-center gap-1.5 text-xs">
-                      <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: loc.fill }} />
-                      <span className="text-muted-foreground">{loc.name} ({loc.value}%)</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <SectionCard title="Alumni by Location" description="Geographic distribution of alumni" icon={Globe}>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={locationChartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    dataKey="value"
+                    nameKey="name"
+                    paddingAngle={2}
+                  >
+                    {locationChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex flex-wrap gap-2 mt-2 justify-center">
+                {locationChartData.map((loc) => (
+                  <div key={loc.name} className="flex items-center gap-1.5 text-xs">
+                    <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: loc.fill }} />
+                    <span className="text-muted-foreground">{loc.name} ({loc.value}%)</span>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
           </div>
 
           {/* Notable Alumni & Upcoming Reunions */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Notable Alumni */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Notable Alumni</CardTitle>
-                  <Badge variant="secondary" className="text-[10px] bg-amber-50 text-amber-700">
-                    <Star className="h-3 w-3 mr-1" /> Featured
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
+            <SectionCard
+              title="Notable Alumni"
+              icon={Star}
+              actions={
+                <Badge variant="secondary" className="text-[10px] bg-amber-50 text-amber-700">
+                  <Star className="h-3 w-3 mr-1" /> Featured
+                </Badge>
+              }
+            >
                 <div className="space-y-3">
                   {notableAlumni.map((alumni) => (
                     <div key={alumni.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors">
@@ -584,20 +575,18 @@ export default function AlumniModule() {
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
+            </SectionCard>
 
             {/* Upcoming Reunions */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Upcoming Reunions</CardTitle>
-                  <Button variant="ghost" size="sm" className="text-emerald-600" onClick={() => setActiveTab('events')}>
-                    View All <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
+            <SectionCard
+              title="Upcoming Reunions"
+              icon={PartyPopper}
+              actions={
+                <Button variant="ghost" size="sm" className="text-emerald-600" onClick={() => setActiveTab('events')}>
+                  View All <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              }
+            >
                 <div className="space-y-3">
                   {upcomingReunions.map((event) => (
                     <div key={event.id} className="p-3 rounded-lg border hover:border-emerald-200 hover:bg-emerald-50/30 transition-all">
@@ -625,8 +614,7 @@ export default function AlumniModule() {
                     </div>
                   )}
                 </div>
-              </CardContent>
-            </Card>
+            </SectionCard>
           </div>
         </TabsContent>
 
@@ -772,68 +760,51 @@ export default function AlumniModule() {
         {/* ─── Contributions Tab ────────────────────────────────────────────────── */}
         <TabsContent value="contributions" className="space-y-6 mt-4">
           {/* Contribution Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
-                  <DollarSign className="h-5 w-5 text-emerald-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">${totalContributions.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">Total Contributions</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50">
-                  <Heart className="h-5 w-5 text-teal-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{mockContributions.length}</p>
-                  <p className="text-xs text-muted-foreground">Recent Donations</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50">
-                  <TrendingUp className="h-5 w-5 text-amber-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">${Math.round(totalContributions / mockContributions.length).toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">Avg. Donation</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <StatGrid cols={3}>
+            <ModuleStatCard
+              index={0}
+              icon={DollarSign}
+              label="Total Contributions"
+              value={`$${totalContributions.toLocaleString()}`}
+              accentGradient="from-emerald-400 to-teal-500"
+              bgColor="bg-emerald-50 dark:bg-emerald-950/40"
+              iconColor="text-emerald-600 dark:text-emerald-400"
+            />
+            <ModuleStatCard
+              index={1}
+              icon={Heart}
+              label="Recent Donations"
+              value={mockContributions.length}
+              accentGradient="from-teal-400 to-cyan-500"
+              bgColor="bg-teal-50 dark:bg-teal-950/40"
+              iconColor="text-teal-600 dark:text-teal-400"
+            />
+            <ModuleStatCard
+              index={2}
+              icon={TrendingUp}
+              label="Avg. Donation"
+              value={`$${Math.round(totalContributions / mockContributions.length).toLocaleString()}`}
+              accentGradient="from-amber-400 to-orange-500"
+              bgColor="bg-amber-50 dark:bg-amber-950/40"
+              iconColor="text-amber-600 dark:text-amber-400"
+            />
+          </StatGrid>
 
           {/* Contribution Chart & Recent Donations */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Monthly Contributions</CardTitle>
-                <CardDescription>Donation trend over the past months</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={280}>
-                  <AreaChart data={contributionChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip formatter={(value: number) => [`$${value.toLocaleString()}`, 'Amount']} />
-                    <Area type="monotone" dataKey="amount" stroke="#10b981" fill="#10b981" fillOpacity={0.15} strokeWidth={2} name="Amount" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <SectionCard title="Monthly Contributions" description="Donation trend over the past months" icon={TrendingUp}>
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={contributionChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip formatter={(value: number) => [`$${value.toLocaleString()}`, 'Amount']} />
+                  <Area type="monotone" dataKey="amount" stroke="#10b981" fill="#10b981" fillOpacity={0.15} strokeWidth={2} name="Amount" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </SectionCard>
 
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Recent Donations</CardTitle>
-                <CardDescription>Latest alumni contributions</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <SectionCard title="Recent Donations" description="Latest alumni contributions" icon={Heart}>
                 <ScrollArea className="h-[280px]">
                   <div className="space-y-3">
                     {mockContributions.map((contrib) => (
@@ -855,17 +826,11 @@ export default function AlumniModule() {
                     ))}
                   </div>
                 </ScrollArea>
-              </CardContent>
-            </Card>
+            </SectionCard>
           </div>
 
           {/* Active Campaigns */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Fundraising Campaigns</CardTitle>
-              <CardDescription>Active and upcoming fundraising initiatives</CardDescription>
-            </CardHeader>
-            <CardContent>
+          <SectionCard title="Fundraising Campaigns" description="Active and upcoming fundraising initiatives" icon={Trophy}>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {mockCampaigns.map((campaign) => (
                   <div key={campaign.id} className="p-4 rounded-lg border hover:border-emerald-200 hover:bg-emerald-50/20 transition-all">
@@ -900,19 +865,20 @@ export default function AlumniModule() {
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Events Tab ────────────────────────────────────────────────────────── */}
         <TabsContent value="events" className="space-y-4 mt-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Alumni Events</h3>
-                <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { setViewMode('add'); setNewEvent({ name: '', date: '', location: '', type: 'reunion', description: '' }) }}>
-                  <Plus className="h-4 w-4 mr-2" /> Add Event
-                </Button>
-          </div>
-
+          <SectionCard
+            title="Alumni Events"
+            icon={Calendar}
+            actions={
+              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { setViewMode('add'); setNewEvent({ name: '', date: '', location: '', type: 'reunion', description: '' }) }}>
+                <Plus className="h-4 w-4 mr-2" /> Add Event
+              </Button>
+            }
+          >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {mockEvents.map((event) => {
               const typeStyle = eventTypeColors[event.type] || eventTypeColors.social
@@ -962,46 +928,43 @@ export default function AlumniModule() {
               )
             })}
           </div>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Communications Tab ────────────────────────────────────────────────── */}
         <TabsContent value="communications" className="space-y-6 mt-4">
           {/* Comms Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <StatGrid cols={4}>
             {[
-              { icon: Mail, label: 'Total Subscribers', value: '250', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-              { icon: Send, label: 'Newsletters Sent', value: '3', color: 'text-teal-600', bg: 'bg-teal-50' },
-              { icon: Eye, label: 'Avg. Open Rate', value: '68%', color: 'text-amber-600', bg: 'bg-amber-50' },
-              { icon: MessageSquare, label: 'Click Rate', value: '28%', color: 'text-violet-600', bg: 'bg-violet-50' },
-            ].map((stat) => (
-              <Card key={stat.label} className="border-0 shadow-md">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', stat.bg)}>
-                    <stat.icon className={cn('h-4 w-4', stat.color)} />
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold">{stat.value}</p>
-                    <p className="text-[10px] text-muted-foreground">{stat.label}</p>
-                  </div>
-                </CardContent>
-              </Card>
+              { icon: Mail, label: 'Total Subscribers', value: '250', accentGradient: 'from-emerald-400 to-teal-500', bgColor: 'bg-emerald-50 dark:bg-emerald-950/40', iconColor: 'text-emerald-600 dark:text-emerald-400' },
+              { icon: Send, label: 'Newsletters Sent', value: '3', accentGradient: 'from-teal-400 to-cyan-500', bgColor: 'bg-teal-50 dark:bg-teal-950/40', iconColor: 'text-teal-600 dark:text-teal-400' },
+              { icon: Eye, label: 'Avg. Open Rate', value: '68%', accentGradient: 'from-amber-400 to-orange-500', bgColor: 'bg-amber-50 dark:bg-amber-950/40', iconColor: 'text-amber-600 dark:text-amber-400' },
+              { icon: MessageSquare, label: 'Click Rate', value: '28%', accentGradient: 'from-violet-400 to-purple-500', bgColor: 'bg-violet-50 dark:bg-violet-950/40', iconColor: 'text-violet-600 dark:text-violet-400' },
+            ].map((stat, i) => (
+              <ModuleStatCard
+                key={stat.label}
+                index={i}
+                icon={stat.icon}
+                label={stat.label}
+                value={stat.value}
+                accentGradient={stat.accentGradient}
+                bgColor={stat.bgColor}
+                iconColor={stat.iconColor}
+              />
             ))}
-          </div>
+          </StatGrid>
 
           {/* Newsletter Management */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base">Newsletter Management</CardTitle>
-                  <CardDescription>Manage alumni newsletters and email campaigns</CardDescription>
-                </div>
-                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700">
-                  <Plus className="h-3.5 w-3.5 mr-1" /> New Newsletter
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
+          <SectionCard
+            title="Newsletter Management"
+            description="Manage alumni newsletters and email campaigns"
+            icon={Mail}
+            actions={
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+                <Plus className="h-3.5 w-3.5 mr-1" /> New Newsletter
+              </Button>
+            }
+          >
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -1082,41 +1045,29 @@ export default function AlumniModule() {
                   </tbody>
                 </table>
               </div>
-            </CardContent>
-          </Card>
+          </SectionCard>
 
           {/* Engagement Stats */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Email Engagement</CardTitle>
-                <CardDescription>Open and click rates over time</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={[
-                    { newsletter: 'Q1 Update', openRate: 68, clickRate: 24 },
-                    { newsletter: 'Scholarship', openRate: 72, clickRate: 31 },
-                    { newsletter: 'Reunion', openRate: 65, clickRate: 28 },
-                    { newsletter: 'Avg. Industry', openRate: 45, clickRate: 15 },
-                  ]}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="newsletter" tick={{ fontSize: 10 }} />
-                    <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip />
-                    <Bar dataKey="openRate" fill="#10b981" name="Open Rate %" radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="clickRate" fill="#14b8a6" name="Click Rate %" radius={[3, 3, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <SectionCard title="Email Engagement" description="Open and click rates over time" icon={BarChart3}>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={[
+                  { newsletter: 'Q1 Update', openRate: 68, clickRate: 24 },
+                  { newsletter: 'Scholarship', openRate: 72, clickRate: 31 },
+                  { newsletter: 'Reunion', openRate: 65, clickRate: 28 },
+                  { newsletter: 'Avg. Industry', openRate: 45, clickRate: 15 },
+                ]}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="newsletter" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Bar dataKey="openRate" fill="#10b981" name="Open Rate %" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="clickRate" fill="#14b8a6" name="Click Rate %" radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </SectionCard>
 
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Quick Compose</CardTitle>
-                <CardDescription>Send a quick message to alumni</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <SectionCard title="Quick Compose" description="Send a quick message to alumni" icon={Send} contentClassName="space-y-4">
                 <div className="space-y-2">
                   <Label>Recipients</Label>
                   <Select defaultValue="all">
@@ -1148,11 +1099,10 @@ export default function AlumniModule() {
                   </Button>
                   <Button variant="outline">Save Draft</Button>
                 </div>
-              </CardContent>
-            </Card>
+            </SectionCard>
           </div>
         </TabsContent>
       </ModulePageLayout>
-    </div>
+    </ModuleContainer>
   )
 }

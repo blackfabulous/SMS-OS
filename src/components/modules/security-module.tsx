@@ -1,6 +1,6 @@
 'use client'
 
-import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
+import { ModulePageLayout, ModuleSettingsButton, ModuleContainer, StatGrid, ModuleStatCard, SectionCard } from '@/components/module-ui';
 import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -381,7 +381,7 @@ export default function SecurityModule() {
   }
 
   return (
-    <div className="space-y-6">
+    <ModuleContainer>
 <ModulePageLayout
         actions={<>
           <ModuleSettingsButton onClick={() => setViewMode('settings')} />
@@ -400,87 +400,52 @@ export default function SecurityModule() {
         {/* ─── Overview Tab ─────────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
           {/* Stats Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Visitors Today</p>
-                    <p className="text-2xl font-bold">{visitorsToday}</p>
-                    <div className="flex items-center gap-1">
-                      <TrendingUp className="h-3 w-3 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-600">+3 vs yesterday</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
-                    <Users className="h-5 w-5 text-emerald-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Currently On Campus</p>
-                    <p className="text-2xl font-bold">{currentlyOnCampus}</p>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3 text-teal-600" />
-                      <span className="text-xs font-medium text-teal-600">Active visitors</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50">
-                    <Eye className="h-5 w-5 text-teal-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Incidents This Month</p>
-                    <p className="text-2xl font-bold">{incidentsThisMonth}</p>
-                    <div className="flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3 text-amber-600" />
-                      <span className="text-xs font-medium text-amber-600">{openIncidents} open</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
-                    <AlertTriangle className="h-5 w-5 text-amber-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Access Points</p>
-                    <p className="text-2xl font-bold">{accessPoints.length}</p>
-                    <div className="flex items-center gap-1">
-                      <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-600">{accessPoints.filter(a => a.status === 'Active').length} active</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50">
-                    <DoorOpen className="h-5 w-5 text-cyan-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <StatGrid cols={4}>
+            <ModuleStatCard
+              icon={Users}
+              label="Visitors Today"
+              value={visitorsToday}
+              accentGradient="from-emerald-400 to-teal-500"
+              bgColor="bg-emerald-50 dark:bg-emerald-950/40"
+              iconColor="text-emerald-600"
+              trend={{ value: '+3 vs yesterday', positive: true }}
+              index={0}
+            />
+            <ModuleStatCard
+              icon={Eye}
+              label="Currently On Campus"
+              value={currentlyOnCampus}
+              accentGradient="from-teal-400 to-cyan-500"
+              bgColor="bg-teal-50 dark:bg-teal-950/40"
+              iconColor="text-teal-600"
+              hint="Active visitors"
+              index={1}
+            />
+            <ModuleStatCard
+              icon={AlertTriangle}
+              label="Incidents This Month"
+              value={incidentsThisMonth}
+              accentGradient="from-amber-400 to-orange-500"
+              bgColor="bg-amber-50 dark:bg-amber-950/40"
+              iconColor="text-amber-600"
+              hint={`${openIncidents} open`}
+              index={2}
+            />
+            <ModuleStatCard
+              icon={DoorOpen}
+              label="Access Points"
+              value={accessPoints.length}
+              accentGradient="from-blue-400 to-cyan-500"
+              bgColor="bg-cyan-50 dark:bg-cyan-950/40"
+              iconColor="text-cyan-600"
+              hint={`${accessPoints.filter(a => a.status === 'Active').length} active`}
+              index={3}
+            />
+          </StatGrid>
 
           {/* Visitor Timeline + Security Alerts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-emerald-600" />
-                  Today&apos;s Visitor Timeline
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 max-h-96 overflow-y-auto">
+            <SectionCard title="Today's Visitor Timeline" icon={Clock} contentClassName="space-y-2 max-h-96 overflow-y-auto">
                 {visitorTimeline.map((entry, idx) => (
                   <div key={idx} className="flex items-start gap-3">
                     <div className="flex flex-col items-center">
@@ -498,17 +463,9 @@ export default function SecurityModule() {
                     </div>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+            </SectionCard>
 
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-amber-500" />
-                  Security Alerts
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <SectionCard title="Security Alerts" icon={AlertCircle} contentClassName="space-y-3">
                 {securityAlerts.map(alert => (
                   <div key={alert.id} className={cn(
                     'rounded-lg border p-3',
@@ -535,19 +492,11 @@ export default function SecurityModule() {
                     </div>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+            </SectionCard>
           </div>
 
           {/* Active Visitors Quick View */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Users className="h-4 w-4 text-teal-600" />
-                Currently On Campus ({currentlyOnCampus})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+          <SectionCard title={`Currently On Campus (${currentlyOnCampus})`} icon={Users}>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {activeVisitors.map(v => (
                   <div key={v.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
@@ -568,8 +517,7 @@ export default function SecurityModule() {
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+          </SectionCard>
         </TabsContent>
 
         {/* ─── Visitor Log Tab ──────────────────────────────────────────────── */}
@@ -864,6 +812,6 @@ export default function SecurityModule() {
           </Card>
         </TabsContent>
       </ModulePageLayout>
-    </div>
+    </ModuleContainer>
   )
 }

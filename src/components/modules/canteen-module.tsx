@@ -1,6 +1,14 @@
 'use client'
 
-import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
+import {
+  ModulePageLayout,
+  ModuleSettingsButton,
+  ModuleContainer,
+  StatGrid,
+  ModuleStatCard,
+  SectionCard,
+  TableShell,
+} from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -33,7 +41,7 @@ import {
   Loader2,
   Receipt,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -729,7 +737,7 @@ export default function CanteenModule() {
       </AnimatePresence>
 
       {viewMode === 'list' && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+        <ModuleContainer>
 <ModulePageLayout
         actions={<>
           <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => {
@@ -754,139 +762,115 @@ export default function CanteenModule() {
 
             {/* ─── Overview Tab ─────────────────────────────────────────────── */}
             <TabsContent value="overview" className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="border-0 shadow-md">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Today&apos;s Sales</p>
-                        <p className="text-2xl font-bold">${(stats?.todayRevenue || 0).toFixed(2)}</p>
-                        <div className="flex items-center gap-1"><TrendingUp className="h-3 w-3 text-emerald-600" /><span className="text-xs font-medium text-emerald-600">{stats?.todayTransactions || 0} transactions</span></div>
-                      </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50"><DollarSign className="h-5 w-5 text-emerald-600" /></div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-0 shadow-md">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Menu Items</p>
-                        <p className="text-2xl font-bold">{stats?.totalItems || 0}</p>
-                        <div className="flex items-center gap-1"><Package className="h-3 w-3 text-teal-600" /><span className="text-xs font-medium text-teal-600">Active items</span></div>
-                      </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50"><ShoppingCart className="h-5 w-5 text-teal-600" /></div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-0 shadow-md">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Low Stock</p>
-                        <p className="text-2xl font-bold">{stats?.lowStockItems || 0}</p>
-                        <div className="flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-amber-600" /><span className="text-xs font-medium text-amber-600">Needs attention</span></div>
-                      </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50"><AlertTriangle className="h-5 w-5 text-amber-600" /></div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-0 shadow-md">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Categories</p>
-                        <p className="text-2xl font-bold">{stats?.categoryBreakdown?.length || 0}</p>
-                        <div className="flex items-center gap-1"><BarChart3 className="h-3 w-3 text-cyan-600" /><span className="text-xs font-medium text-cyan-600">Item groups</span></div>
-                      </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50"><BarChart3 className="h-5 w-5 text-cyan-600" /></div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+              <StatGrid cols={4}>
+                <ModuleStatCard
+                  icon={DollarSign}
+                  label="Today's Sales"
+                  value={`$${(stats?.todayRevenue || 0).toFixed(2)}`}
+                  hint={`${stats?.todayTransactions || 0} transactions`}
+                  accentGradient="from-emerald-400 to-teal-500"
+                  bgColor="bg-emerald-50 dark:bg-emerald-950/40"
+                  iconColor="text-emerald-600"
+                  index={0}
+                />
+                <ModuleStatCard
+                  icon={ShoppingCart}
+                  label="Menu Items"
+                  value={stats?.totalItems || 0}
+                  hint="Active items"
+                  accentGradient="from-teal-400 to-cyan-500"
+                  bgColor="bg-teal-50 dark:bg-teal-950/40"
+                  iconColor="text-teal-600"
+                  index={1}
+                />
+                <ModuleStatCard
+                  icon={AlertTriangle}
+                  label="Low Stock"
+                  value={stats?.lowStockItems || 0}
+                  hint="Needs attention"
+                  accentGradient="from-amber-400 to-orange-500"
+                  bgColor="bg-amber-50 dark:bg-amber-950/40"
+                  iconColor="text-amber-600"
+                  index={2}
+                />
+                <ModuleStatCard
+                  icon={BarChart3}
+                  label="Categories"
+                  value={stats?.categoryBreakdown?.length || 0}
+                  hint="Item groups"
+                  accentGradient="from-cyan-400 to-blue-500"
+                  bgColor="bg-cyan-50 dark:bg-cyan-950/40"
+                  iconColor="text-cyan-600"
+                  index={3}
+                />
+              </StatGrid>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <Card className="border-0 shadow-md">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-semibold flex items-center gap-2"><Star className="h-4 w-4 text-amber-500" /> Low Stock Items</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 max-h-64 overflow-y-auto">
-                    {lowStockItems.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-4">All stock levels are healthy</p>
-                    ) : (
-                      lowStockItems.map(item => (
-                        <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-amber-50/60 dark:bg-amber-950/30">
-                          <div className="flex items-center gap-2">
-                            <Badge variant={item.stockQuantity === 0 ? 'destructive' : 'secondary'} className="text-[10px]">
-                              {item.stockQuantity === 0 ? 'Out of Stock' : 'Low Stock'}
-                            </Badge>
-                            <span className="text-sm">{item.name}</span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">{item.stockQuantity}/{item.reorderLevel}</span>
+                <SectionCard title="Low Stock Items" icon={Star} contentClassName="space-y-2 max-h-64 overflow-y-auto">
+                  {lowStockItems.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">All stock levels are healthy</p>
+                  ) : (
+                    lowStockItems.map(item => (
+                      <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-amber-50/60 dark:bg-amber-950/30">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={item.stockQuantity === 0 ? 'destructive' : 'secondary'} className="text-[10px]">
+                            {item.stockQuantity === 0 ? 'Out of Stock' : 'Low Stock'}
+                          </Badge>
+                          <span className="text-sm">{item.name}</span>
                         </div>
-                      ))
-                    )}
-                  </CardContent>
-                </Card>
+                        <span className="text-xs text-muted-foreground">{item.stockQuantity}/{item.reorderLevel}</span>
+                      </div>
+                    ))
+                  )}
+                </SectionCard>
 
-                <Card className="border-0 shadow-md">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base font-semibold">Items by Category</CardTitle>
-                    <CardDescription>Distribution across categories</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {categoryChartData.length > 0 ? (
-                      <ChartContainer config={categoryChartConfig} className="h-[220px] w-full">
-                        <PieChart>
-                          <ChartTooltip content={<ChartTooltipContent />} />
-                          <Pie data={categoryChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={4} strokeWidth={0}>
-                            {categoryChartData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.fill} />
-                            ))}
-                          </Pie>
-                        </PieChart>
-                      </ChartContainer>
-                    ) : (
-                      <div className="h-[220px] flex items-center justify-center text-sm text-muted-foreground">No data available</div>
-                    )}
-                  </CardContent>
-                </Card>
+                <SectionCard title="Items by Category" description="Distribution across categories">
+                  {categoryChartData.length > 0 ? (
+                    <ChartContainer config={categoryChartConfig} className="h-[220px] w-full">
+                      <PieChart>
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Pie data={categoryChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={4} strokeWidth={0}>
+                          {categoryChartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ChartContainer>
+                  ) : (
+                    <div className="h-[220px] flex items-center justify-center text-sm text-muted-foreground">No data available</div>
+                  )}
+                </SectionCard>
               </div>
 
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold">Recent Transactions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="max-h-64 overflow-y-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Receipt #</TableHead>
-                          <TableHead>Buyer</TableHead>
-                          <TableHead>Payment</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Time</TableHead>
+              <SectionCard title="Recent Transactions" noPadding>
+                <TableShell maxHeight="16rem">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Receipt #</TableHead>
+                        <TableHead>Buyer</TableHead>
+                        <TableHead>Payment</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Time</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {transactions.slice(0, 10).map(tx => (
+                        <TableRow key={tx.id}>
+                          <TableCell className="font-mono text-xs">{tx.transactionNumber}</TableCell>
+                          <TableCell className="text-sm">{tx.buyerName}</TableCell>
+                          <TableCell><Badge variant="outline" className="text-[10px]">{tx.paymentMethod}</Badge></TableCell>
+                          <TableCell className="text-sm font-semibold">${tx.totalAmount.toFixed(2)}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleTimeString('en-ZW', { hour: '2-digit', minute: '2-digit' })}</TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {transactions.slice(0, 10).map(tx => (
-                          <TableRow key={tx.id}>
-                            <TableCell className="font-mono text-xs">{tx.transactionNumber}</TableCell>
-                            <TableCell className="text-sm">{tx.buyerName}</TableCell>
-                            <TableCell><Badge variant="outline" className="text-[10px]">{tx.paymentMethod}</Badge></TableCell>
-                            <TableCell className="text-sm font-semibold">${tx.totalAmount.toFixed(2)}</TableCell>
-                            <TableCell className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleTimeString('en-ZW', { hour: '2-digit', minute: '2-digit' })}</TableCell>
-                          </TableRow>
-                        ))}
-                        {transactions.length === 0 && (
-                          <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-4">No transactions yet</TableCell></TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
+                      ))}
+                      {transactions.length === 0 && (
+                        <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-4">No transactions yet</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableShell>
+              </SectionCard>
             </TabsContent>
 
             {/* ─── Menu Items Tab ───────────────────────────────────────────── */}
@@ -897,8 +881,8 @@ export default function CanteenModule() {
                   <Input placeholder="Search menu items..." className="pl-9 h-9" value={searchMenu} onChange={e => setSearchMenu(e.target.value)} />
                 </div>
               </div>
-              <Card className="border-0 shadow-md">
-                <CardContent className="p-0">
+              <SectionCard noPadding>
+                <TableShell>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -947,8 +931,8 @@ export default function CanteenModule() {
                       )}
                     </TableBody>
                   </Table>
-                </CardContent>
-              </Card>
+                </TableShell>
+              </SectionCard>
             </TabsContent>
 
             {/* ─── Point of Sale Tab ────────────────────────────────────────── */}
@@ -987,14 +971,12 @@ export default function CanteenModule() {
                 </div>
 
                 <div className="space-y-4">
-                  <Card className="border-0 shadow-md">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base font-semibold flex items-center gap-2">
-                        <ShoppingCart className="h-4 w-4" /> Cart
-                        {cart.length > 0 && <Badge className="ml-auto">{cart.length}</Badge>}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
+                  <SectionCard
+                    title="Cart"
+                    icon={ShoppingCart}
+                    actions={cart.length > 0 ? <Badge>{cart.length}</Badge> : undefined}
+                    contentClassName="space-y-3"
+                  >
                       {cart.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-6">Cart is empty</p>
                       ) : (
@@ -1024,12 +1006,9 @@ export default function CanteenModule() {
                           </div>
                         </>
                       )}
-                    </CardContent>
-                  </Card>
+                  </SectionCard>
 
-                  <Card className="border-0 shadow-md">
-                    <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Payment</CardTitle></CardHeader>
-                    <CardContent className="space-y-3">
+                  <SectionCard title="Payment" contentClassName="space-y-3">
                       <div className="space-y-2">
                         <Label className="text-xs">Customer Name</Label>
                         <Input placeholder="Student/Staff name" value={customerName} onChange={e => setCustomerName(e.target.value)} />
@@ -1068,8 +1047,7 @@ export default function CanteenModule() {
                         {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                         Process Payment
                       </Button>
-                    </CardContent>
-                  </Card>
+                  </SectionCard>
                 </div>
               </div>
             </TabsContent>
@@ -1082,8 +1060,8 @@ export default function CanteenModule() {
                   <Input placeholder="Search stock..." className="pl-9 h-9" value={searchStock} onChange={e => setSearchStock(e.target.value)} />
                 </div>
               </div>
-              <Card className="border-0 shadow-md">
-                <CardContent className="p-0">
+              <SectionCard noPadding>
+                <TableShell>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1110,19 +1088,14 @@ export default function CanteenModule() {
                       ))}
                     </TableBody>
                   </Table>
-                </CardContent>
-              </Card>
+                </TableShell>
+              </SectionCard>
             </TabsContent>
 
             {/* ─── Sales Reports Tab ─────────────────────────────────────────── */}
             <TabsContent value="reports" className="space-y-4">
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold">Sales Transactions</CardTitle>
-                  <CardDescription>{transactions.length} transactions recorded</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="max-h-[500px] overflow-y-auto">
+              <SectionCard title="Sales Transactions" description={`${transactions.length} transactions recorded`} noPadding>
+                <TableShell maxHeight="500px">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -1152,12 +1125,11 @@ export default function CanteenModule() {
                         )}
                       </TableBody>
                     </Table>
-                  </div>
-                </CardContent>
-              </Card>
+                </TableShell>
+              </SectionCard>
             </TabsContent>
           </ModulePageLayout>
-        </motion.div>
+        </ModuleContainer>
       )}
 
       {/* Receipt Modal */}
