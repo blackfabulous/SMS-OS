@@ -1,6 +1,6 @@
 'use client'
 
-import { ModulePageLayout, ModuleSettingsButton, StatGrid, ModuleStatCard } from '@/components/module-ui';
+import { ModulePageLayout, ModuleSettingsButton, StatGrid, ModuleStatCard, SectionCard } from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -30,7 +30,7 @@ import {
 } from 'recharts'
 
 import { cn } from '@/lib/utils'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -247,9 +247,7 @@ export default function SDCModule() {
           <p className="text-sm text-muted-foreground mt-1">Configure SDC/SDA governance module</p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="border-0 shadow-md">
-            <CardHeader><CardTitle className="text-base">Meeting Schedule</CardTitle><CardDescription>Default meeting configuration</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
+          <SectionCard title="Meeting Schedule" description="Default meeting configuration" contentClassName="space-y-4">
               <div className="flex items-center justify-between">
                 <div><p className="text-sm font-medium">Auto-Schedule Meetings</p><p className="text-xs text-muted-foreground">Automatically schedule recurring meetings</p></div>
                 <Switch checked={settings.autoScheduleMeetings} onCheckedChange={(v) => setSettings({...settings, autoScheduleMeetings: v})} />
@@ -266,11 +264,8 @@ export default function SDCModule() {
                   </SelectContent>
                 </Select>
               </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-md">
-            <CardHeader><CardTitle className="text-base">Voting & Quorum</CardTitle><CardDescription>Voting and quorum settings</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
+            </SectionCard>
+          <SectionCard title="Voting & Quorum" description="Voting and quorum settings" contentClassName="space-y-4">
               <div className="flex items-center justify-between">
                 <div><p className="text-sm font-medium">Voting Enabled</p><p className="text-xs text-muted-foreground">Enable voting on resolutions</p></div>
                 <Switch checked={settings.votingEnabled} onCheckedChange={(v) => setSettings({...settings, votingEnabled: v})} />
@@ -287,17 +282,13 @@ export default function SDCModule() {
                   </SelectContent>
                 </Select>
               </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-md">
-            <CardHeader><CardTitle className="text-base">Document Templates</CardTitle><CardDescription>Meeting minutes and agenda templates</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
+            </SectionCard>
+          <SectionCard title="Document Templates" description="Meeting minutes and agenda templates" contentClassName="space-y-4">
               <div className="flex items-center justify-between">
                 <div><p className="text-sm font-medium">Use Document Templates</p><p className="text-xs text-muted-foreground">Auto-generate minutes templates</p></div>
                 <Switch checked={settings.documentTemplates} onCheckedChange={(v) => setSettings({...settings, documentTemplates: v})} />
               </div>
-            </CardContent>
-          </Card>
+            </SectionCard>
         </div>
         <div className="flex justify-end">
           <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white" onClick={() => { toast.success('Settings saved successfully'); setViewMode('list') }}>Save Settings</Button>
@@ -423,11 +414,7 @@ export default function SDCModule() {
 
           {/* Key Members */}
           {schoolInfo && (
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold">SDC Leadership</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <SectionCard title="SDC Leadership">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {['Chairperson', 'Secretary', 'Treasurer'].map((position) => {
                     const name = schoolInfo[`sdc${position}` as keyof typeof schoolInfo]
@@ -446,19 +433,13 @@ export default function SDCModule() {
                     )
                   })}
                 </div>
-              </CardContent>
-            </Card>
+            </SectionCard>
           )}
         </TabsContent>
 
         {/* ─── Members Tab ──────────────────────────────────────────────── */}
         <TabsContent value="members" className="space-y-4">
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">SDC Members</CardTitle>
-              <CardDescription>Committee members and their positions</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
+          <SectionCard title="SDC Members" description="Committee members and their positions" noPadding>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -522,18 +503,12 @@ export default function SDCModule() {
                   )}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+            </SectionCard>
         </TabsContent>
 
         {/* ─── Meetings Tab ─────────────────────────────────────────────── */}
         <TabsContent value="meetings" className="space-y-4">
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">Meeting Records</CardTitle>
-              <CardDescription>SDC meetings with agendas, minutes, and resolutions</CardDescription>
-            </CardHeader>
-            <CardContent>
+          <SectionCard title="Meeting Records" description="SDC meetings with agendas, minutes, and resolutions">
               {meetings.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Calendar className="h-8 w-8 mx-auto mb-2 opacity-40" />
@@ -572,18 +547,12 @@ export default function SDCModule() {
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </SectionCard>
         </TabsContent>
 
         {/* ─── Projects Tab ─────────────────────────────────────────────── */}
         <TabsContent value="projects" className="space-y-4">
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">School Development Projects</CardTitle>
-              <CardDescription>Projects with budgets, progress, and timelines</CardDescription>
-            </CardHeader>
-            <CardContent>
+          <SectionCard title="School Development Projects" description="Projects with budgets, progress, and timelines">
               {projects.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <FolderKanban className="h-8 w-8 mx-auto mb-2 opacity-40" />
@@ -621,18 +590,12 @@ export default function SDCModule() {
                   })}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </SectionCard>
         </TabsContent>
 
         {/* ─── Finances Tab ─────────────────────────────────────────────── */}
         <TabsContent value="finances" className="space-y-4">
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">SDC Fund Management</CardTitle>
-              <CardDescription>Budget vs Actual expenditure</CardDescription>
-            </CardHeader>
-            <CardContent>
+          <SectionCard title="SDC Fund Management" description="Budget vs Actual expenditure">
               <ChartContainer config={budgetChartConfig} className="h-[280px] w-full">
                 <BarChart data={budgetData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
@@ -643,14 +606,9 @@ export default function SDCModule() {
                   <Bar dataKey="actual" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={32} name="Actual" />
                 </BarChart>
               </ChartContainer>
-            </CardContent>
-          </Card>
+            </SectionCard>
 
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Budget Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <SectionCard title="Budget Summary" noPadding>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -684,8 +642,7 @@ export default function SDCModule() {
                   </TableRow>
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+            </SectionCard>
         </TabsContent>
       </ModulePageLayout>
     </motion.div>
