@@ -1,6 +1,6 @@
 'use client'
 
-import { ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui';
+import { ModulePageLayout, ModuleSettingsButton, StatGrid, ModuleStatCard } from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -607,83 +607,12 @@ export default function WelfareModule() {
         {/* ─── Overview Tab ─────────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Welfare Cases</p>
-                    <p className="text-2xl font-bold tracking-tight">{totalCases}</p>
-                    <div className="flex items-center gap-1.5">
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-                      <span className="text-xs font-medium text-amber-600">{statusBreakdown.open} open</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50">
-                    <Heart className="h-5 w-5 text-rose-600" />
-                  </div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-rose-400 to-pink-500" />
-            </Card>
-
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">BEAM Beneficiaries</p>
-                    <p className="text-2xl font-bold tracking-tight">{beamCount}</p>
-                    <div className="flex items-center gap-1.5">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-600">{beamApproved} approved</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
-                    <Shield className="h-5 w-5 text-emerald-600" />
-                  </div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 to-teal-500" />
-            </Card>
-
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Orphans</p>
-                    <p className="text-2xl font-bold tracking-tight">{orphans}</p>
-                    <div className="flex items-center gap-1.5">
-                      <TrendingUp className="h-3.5 w-3.5 text-rose-600" />
-                      <span className="text-xs font-medium text-rose-600">Require support</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50">
-                    <Baby className="h-5 w-5 text-rose-600" />
-                  </div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-rose-400 to-red-500" />
-            </Card>
-
-            <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Vulnerable Children</p>
-                    <p className="text-2xl font-bold tracking-tight">{vulnerable}</p>
-                    <div className="flex items-center gap-1.5">
-                      <Users className="h-3.5 w-3.5 text-amber-600" />
-                      <span className="text-xs font-medium text-amber-600">Need attention</span>
-                    </div>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
-                    <UserCheck className="h-5 w-5 text-amber-600" />
-                  </div>
-                </div>
-              </CardContent>
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-400 to-orange-500" />
-            </Card>
-          </div>
+          <StatGrid cols={4}>
+            <ModuleStatCard icon={Heart} label="Total Welfare Cases" value={totalCases} accentGradient="from-rose-400 to-pink-500" bgColor="bg-rose-50 dark:bg-rose-950/40" iconColor="text-rose-600 dark:text-rose-400" hint={`${statusBreakdown.open} open`} index={0} />
+            <ModuleStatCard icon={Shield} label="BEAM Beneficiaries" value={beamCount} accentGradient="from-emerald-400 to-teal-500" bgColor="bg-emerald-50 dark:bg-emerald-950/40" iconColor="text-emerald-600 dark:text-emerald-400" hint={`${beamApproved} approved`} index={1} />
+            <ModuleStatCard icon={Baby} label="Orphans" value={orphans} accentGradient="from-rose-400 to-red-500" bgColor="bg-rose-50 dark:bg-rose-950/40" iconColor="text-rose-600 dark:text-rose-400" hint="Require support" index={2} />
+            <ModuleStatCard icon={UserCheck} label="Vulnerable Children" value={vulnerable} accentGradient="from-amber-400 to-orange-500" bgColor="bg-amber-50 dark:bg-amber-950/40" iconColor="text-amber-600 dark:text-amber-400" hint="Need attention" index={3} />
+          </StatGrid>
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
