@@ -1,7 +1,7 @@
 'use client'
 
 import { ModulePageLayout, ModuleSettingsButton, ModuleContainer, StatGrid, ModuleStatCard, SectionCard } from '@/components/module-ui';
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   Shield,
@@ -88,17 +88,33 @@ interface SecurityIncident {
   severity: 'Low' | 'Medium' | 'High' | 'Critical'
 }
 
+// ─── API mapping (live data ↔ /api/security) ────────────────────────────────
+const VIS_STATUS_FROM_API: Record<string, Visitor['status']> = { ON_CAMPUS: 'On Campus', OFF_CAMPUS: 'Checked Out' }
+const INC_STATUS_FROM_API: Record<string, SecurityIncident['status']> = { OPEN: 'Open', INVESTIGATING: 'Under Investigation', RESOLVED: 'Resolved', CLOSED: 'Closed' }
+const SEVERITY_FROM_API: Record<string, SecurityIncident['severity']> = { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High', CRITICAL: 'Critical' }
+const SEVERITY_TO_API: Record<SecurityIncident['severity'], string> = { Low: 'LOW', Medium: 'MEDIUM', High: 'HIGH', Critical: 'CRITICAL' }
+const INCIDENT_TYPES: SecurityIncident['type'][] = ['Unauthorized Access', 'Property Damage', 'Theft', 'Disturbance', 'Other']
+
+function fmtTime(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-ZW', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+interface ApiVisitor { id: string; name: string; idNumber: string | null; purpose: string; hostPerson: string | null; vehicleReg: string | null; phone: string | null; checkInTime: string; checkOutTime: string | null; status: string }
+interface ApiIncident { id: string; incidentType: string; location: string | null; severity: string; description: string; reporter: string | null; status: string; createdAt: string }
+interface VisitorStats { visitorsToday: number; currentlyOnCampus: number; incidentsThisMonth: number; openIncidents: number; totalVisitors: number }
+interface IncidentStats { total: number; open: number; investigating: number; resolved: number; closed: number; critical: number; high: number }
+
+function apiToVisitor(v: ApiVisitor): Visitor {
+  return { id: v.id, name: v.name, idNumber: v.idNumber ?? '', purpose: v.purpose, hostPerson: v.hostPerson ?? '', vehicleReg: v.vehicleReg ?? '', timeIn: fmtTime(v.checkInTime), timeOut: v.checkOutTime ? fmtTime(v.checkOutTime) : null, status: VIS_STATUS_FROM_API[v.status] || 'Checked Out', phone: v.phone ?? '' }
+}
+function apiToIncident(i: ApiIncident): SecurityIncident {
+  const t = INCIDENT_TYPES.includes(i.incidentType as SecurityIncident['type']) ? (i.incidentType as SecurityIncident['type']) : 'Other'
+  return { id: i.id, type: t, location: i.location ?? '', date: (i.createdAt ?? '').slice(0, 10), description: i.description, status: INC_STATUS_FROM_API[i.status] || 'Open', reporter: i.reporter ?? '', severity: SEVERITY_FROM_API[i.severity] || 'Medium' }
+}
+
 // ─── Mock Data ────────────────────────────────────────────────────────────────
-const mockVisitors: Visitor[] = [
-  { id: '1', name: 'Mrs. Chido Ndlovu', idNumber: '63-123456A78', purpose: 'Parent-Teacher Meeting', hostPerson: 'Mr. Moyo (Deputy Head)', vehicleReg: 'ABZ 1234', timeIn: '08:30', timeOut: null, status: 'On Campus', phone: '+263 77 123 4567' },
-  { id: '2', name: 'Mr. James Smith', idNumber: '12-987654B32', purpose: 'Delivery - Textbooks', hostPerson: 'Mrs. Dube (Bursar)', vehicleReg: 'DEF 5678', timeIn: '09:15', timeOut: '10:00', status: 'Checked Out', phone: '+263 71 987 6543' },
-  { id: '3', name: 'Dr. Grace Mutasa', idNumber: '45-555666C44', purpose: 'MOESD Inspector Visit', hostPerson: 'Mr. Hove (Headmaster)', vehicleReg: 'GVT 0001', timeIn: '10:00', timeOut: null, status: 'On Campus', phone: '+263 73 555 6667' },
-  { id: '4', name: 'Ms. Tariro Gumbo', idNumber: '78-222333D55', purpose: 'SDC Committee Meeting', hostPerson: 'Mr. Chikumbu (SDC Chair)', vehicleReg: '', timeIn: '14:00', timeOut: null, status: 'On Campus', phone: '+263 77 222 3334' },
-  { id: '5', name: 'Mr. Peter Zvambe', idNumber: '23-444555E66', purpose: 'Plumbing Repairs', hostPerson: 'Mr. Tafara (Maintenance)', vehicleReg: 'WRK 9012', timeIn: '07:45', timeOut: '12:30', status: 'Checked Out', phone: '+263 78 444 5556' },
-  { id: '6', name: 'Mrs. Rumbi Kazembe', idNumber: '56-777888F77', purpose: 'Collect Sick Child', hostPerson: 'Sister Bvirindi (Sick Bay)', vehicleReg: 'JKL 3456', timeIn: '11:20', timeOut: '11:45', status: 'Checked Out', phone: '+263 77 777 8889' },
-  { id: '7', name: 'Mr. Tendai Machingaidze', idNumber: '89-111222G88', purpose: 'Internet Installation', hostPerson: 'Mr. Kufa (IT Dept)', vehicleReg: 'TEL 7890', timeIn: '13:00', timeOut: null, status: 'On Campus', phone: '+263 71 111 2223' },
-  { id: '8', name: 'Ms. Netsai Shumba', idNumber: '34-333444H99', purpose: 'Library Book Donation', hostPerson: 'Mrs. Mlambo (Librarian)', vehicleReg: '', timeIn: '09:30', timeOut: '10:15', status: 'Checked Out', phone: '+263 73 333 4445' },
-]
 
 const mockAccessPoints: AccessPoint[] = [
   { id: '1', name: 'Main Gate', type: 'Gate', status: 'Active', authorizedRoles: ['All Staff', 'Registered Visitors', 'Students'], lastActivity: '2 min ago', todayCount: 47 },
@@ -111,16 +127,6 @@ const mockAccessPoints: AccessPoint[] = [
   { id: '8', name: 'Sports Field Gate', type: 'Gate', status: 'Active', authorizedRoles: ['Sports Staff', 'Students with Permission', 'PE Teachers'], lastActivity: '20 min ago', todayCount: 22 },
 ]
 
-const mockIncidents: SecurityIncident[] = [
-  { id: '1', type: 'Unauthorized Access', location: 'Dormitory Gate', date: '2026-02-28', description: 'Unknown individual attempted to enter dormitory area without identification. Security personnel turned them away.', status: 'Resolved', reporter: 'Guard Chikuni', severity: 'Medium' },
-  { id: '2', type: 'Property Damage', location: 'Form 2B Classroom', date: '2026-02-27', description: 'Window broken in Form 2B classroom. Suspected vandalism during lunch break.', status: 'Under Investigation', reporter: 'Mr. Gumbo (Class Teacher)', severity: 'Low' },
-  { id: '3', type: 'Theft', location: 'Boys Hostel - Room 4', date: '2026-02-25', description: 'Student reported missing mobile phone from dormitory room. Two suspects identified.', status: 'Under Investigation', reporter: 'Tafara Moyo (Student)', severity: 'High' },
-  { id: '4', type: 'Disturbance', location: 'Tuck Shop Area', date: '2026-02-24', description: 'Altercation between Form 4 and Form 5 students at tuck shop. No injuries reported. Prefects intervened.', status: 'Resolved', reporter: 'Prefect Chimurenga', severity: 'Medium' },
-  { id: '5', type: 'Other', location: 'Main Gate', date: '2026-02-22', description: 'Suspicious package found near main gate. Police notified. Package contained school textbooks from a supplier.', status: 'Closed', reporter: 'Guard Dhliwayo', severity: 'Low' },
-  { id: '6', type: 'Unauthorized Access', location: 'Computer Lab', date: '2026-03-01', description: 'Students found in computer lab after hours without teacher supervision. Lab was locked but window left open.', status: 'Open', reporter: 'Mr. Kufa (IT Dept)', severity: 'Medium' },
-  { id: '7', type: 'Theft', location: 'Staff Room', date: '2026-03-01', description: 'Petty cash box tampered with. Approximately $15 USD missing from staff tea fund.', status: 'Open', reporter: 'Mrs. Chikumba (Staff Rep)', severity: 'High' },
-  { id: '8', type: 'Property Damage', location: 'Sports Field', date: '2026-02-20', description: 'Goal posts damaged during weekend. Appears to be from unauthorized use of sports field.', status: 'Closed', reporter: 'Mr. Banda (Sports Dept)', severity: 'Low' },
-]
 
 const visitorTimeline = [
   { time: '07:45', event: 'Mr. Peter Zvambe checked in - Plumbing Repairs', type: 'check-in' as const },
@@ -149,9 +155,13 @@ export default function SecurityModule() {
   const [activeTab, setActiveTab] = useState('overview')
   const [viewMode, setViewMode] = useState<'list' | 'add-visitor' | 'add-incident' | 'detail-visitor' | 'detail-incident' | 'settings'>('list')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [visitors, setVisitors] = useState<Visitor[]>(mockVisitors)
-  const [incidents, setIncidents] = useState<SecurityIncident[]>(mockIncidents)
+  const [visitors, setVisitors] = useState<Visitor[]>([])
+  const [incidents, setIncidents] = useState<SecurityIncident[]>([])
   const [accessPoints, setAccessPoints] = useState<AccessPoint[]>(mockAccessPoints)
+  const [visitorStats, setVisitorStats] = useState<VisitorStats | null>(null)
+  const [incidentStats, setIncidentStats] = useState<IncidentStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchVisitor, setSearchVisitor] = useState('')
   const [searchIncident, setSearchIncident] = useState('')
 
@@ -176,11 +186,36 @@ export default function SecurityModule() {
     ipRestrictions: '', auditRetention: '365', visitorAutoCheckout: true, incidentEscalation: true,
   })
 
+  const fetchSecurity = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [vRes, iRes] = await Promise.all([
+        fetch('/api/security?limit=200'),
+        fetch('/api/security?type=incidents&limit=200'),
+      ])
+      const vJson = await vRes.json()
+      const iJson = await iRes.json()
+      if (!vRes.ok) throw new Error(vJson.error || 'Failed to load visitors')
+      if (!iRes.ok) throw new Error(iJson.error || 'Failed to load incidents')
+      setVisitors((vJson.data || []).map(apiToVisitor))
+      setVisitorStats(vJson.stats || null)
+      setIncidents((iJson.data || []).map(apiToIncident))
+      setIncidentStats(iJson.stats || null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load security data')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchSecurity() }, [fetchSecurity])
+
   // Computed values
-  const visitorsToday = visitors.length
-  const currentlyOnCampus = visitors.filter(v => v.status === 'On Campus').length
-  const incidentsThisMonth = incidents.length
-  const openIncidents = incidents.filter(i => i.status === 'Open' || i.status === 'Under Investigation').length
+  const visitorsToday = visitorStats?.visitorsToday ?? visitors.length
+  const currentlyOnCampus = visitorStats?.currentlyOnCampus ?? visitors.filter(v => v.status === 'On Campus').length
+  const incidentsThisMonth = incidentStats?.total ?? incidents.length
+  const openIncidents = incidentStats ? incidentStats.open + incidentStats.investigating : incidents.filter(i => i.status === 'Open' || i.status === 'Under Investigation').length
 
   const activeVisitors = visitors.filter(v => v.status === 'On Campus')
   const checkedOutVisitors = visitors.filter(v => v.status === 'Checked Out')
@@ -197,34 +232,58 @@ export default function SecurityModule() {
     i.description.toLowerCase().includes(searchIncident.toLowerCase())
   )
 
-  const handleAddVisitor = () => {
+  const handleAddVisitor = async () => {
     if (!newVisitorName || !newVisitorId || !newVisitorPurpose || !newVisitorHost) return
-    const newVisitor: Visitor = {
-      id: String(visitors.length + 1), name: newVisitorName, idNumber: newVisitorId, purpose: newVisitorPurpose, hostPerson: newVisitorHost, vehicleReg: newVisitorVehicle,
-      timeIn: new Date().toLocaleTimeString('en-ZW', { hour: '2-digit', minute: '2-digit', hour12: false }), timeOut: null, status: 'On Campus', phone: newVisitorPhone,
+    try {
+      const res = await fetch('/api/security', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'registerVisitor', name: newVisitorName, idNumber: newVisitorId, purpose: newVisitorPurpose, hostPerson: newVisitorHost, vehicleReg: newVisitorVehicle, phone: newVisitorPhone }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to register visitor')
+      await fetchSecurity()
+      setNewVisitorName(''); setNewVisitorId(''); setNewVisitorPurpose(''); setNewVisitorHost(''); setNewVisitorVehicle(''); setNewVisitorPhone('')
+      toast.success('Visitor registered and checked in')
+      setViewMode('list')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to register visitor')
     }
-    setVisitors(prev => [newVisitor, ...prev])
-    setNewVisitorName(''); setNewVisitorId(''); setNewVisitorPurpose(''); setNewVisitorHost(''); setNewVisitorVehicle(''); setNewVisitorPhone('')
-    toast.success('Visitor registered and checked in')
-    setViewMode('list')
   }
 
-  const handleAddIncident = () => {
+  const handleAddIncident = async () => {
     if (!newIncidentLocation || !newIncidentDesc || !newIncidentReporter) return
-    const newIncident: SecurityIncident = {
-      id: String(incidents.length + 1), type: newIncidentType, location: newIncidentLocation, date: new Date().toISOString().split('T')[0],
-      description: newIncidentDesc, status: 'Open', reporter: newIncidentReporter, severity: newIncidentSeverity,
+    try {
+      const res = await fetch('/api/security', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reportIncident', incidentType: newIncidentType, location: newIncidentLocation, severity: SEVERITY_TO_API[newIncidentSeverity], description: newIncidentDesc, reporter: newIncidentReporter }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to report incident')
+      await fetchSecurity()
+      setNewIncidentType('Other'); setNewIncidentLocation(''); setNewIncidentDesc(''); setNewIncidentReporter(''); setNewIncidentSeverity('Medium')
+      toast.success('Security incident reported')
+      setViewMode('list')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to report incident')
     }
-    setIncidents(prev => [newIncident, ...prev])
-    setNewIncidentType('Other'); setNewIncidentLocation(''); setNewIncidentDesc(''); setNewIncidentReporter(''); setNewIncidentSeverity('Medium')
-    toast.success('Security incident reported')
-    setViewMode('list')
   }
 
-  const checkoutVisitor = (id: string) => {
-    setVisitors(prev => prev.map(v =>
-      v.id === id ? { ...v, timeOut: new Date().toLocaleTimeString('en-ZW', { hour: '2-digit', minute: '2-digit', hour12: false }), status: 'Checked Out' as const } : v
-    ))
+  const checkoutVisitor = async (id: string) => {
+    try {
+      const res = await fetch('/api/security', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'checkOut', visitorId: id }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to check out visitor')
+      await fetchSecurity()
+      toast.success('Visitor checked out')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to check out visitor')
+    }
   }
 
   const toggleAccessPoint = (id: string) => {
@@ -380,8 +439,17 @@ export default function SecurityModule() {
     )
   }
 
+  if (loading && visitors.length === 0 && incidents.length === 0) {
+    return <ModuleContainer><div className="py-20 text-center text-sm text-muted-foreground">Loading security data…</div></ModuleContainer>
+  }
+
   return (
     <ModuleContainer>
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+          {error} · <button onClick={() => fetchSecurity()} className="underline underline-offset-2">retry</button>
+        </div>
+      )}
 <ModulePageLayout
         actions={<>
           <ModuleSettingsButton onClick={() => setViewMode('settings')} />
