@@ -92,6 +92,44 @@ model School {
   partners               Partner[]
   siteTheme              SiteTheme?
   faqs                   Faq[]
+  notificationLogs       NotificationLog[]
+  notificationTemplates  NotificationTemplate[]
+}
+
+model NotificationLog {
+  id           String   @id @default(cuid())
+  schoolId     String
+  channel      String   @default("SMS")
+  recipients   Int      @default(1)
+  subject      String?
+  body         String
+  status       String   @default("Delivered")
+  deliveryRate Float    @default(100)
+  phone        String?
+  eventType    String?
+  createdAt    DateTime @default(now())
+
+  school       School   @relation(fields: [schoolId], references: [id])
+
+  @@index([schoolId, createdAt])
+}
+
+model NotificationTemplate {
+  id          String    @id @default(cuid())
+  schoolId    String
+  name        String
+  category    String    @default("General")
+  channels    String    @default("SMS")
+  subject     String?
+  body        String
+  usageCount  Int       @default(0)
+  lastUsed    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  school      School    @relation(fields: [schoolId], references: [id])
+
+  @@index([schoolId])
 }
 
 model AcademicYear {

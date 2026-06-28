@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Bell,
@@ -145,142 +145,10 @@ const CHANNEL_PIE_COLORS = ['#10b981', '#14b8a6', '#f59e0b']
 
 // ─── Mock Data ──────────────────────────────────────────────────────────────
 
-const messageVolumeData = [
-  { day: 'Mon', sms: 32, whatsapp: 48, email: 5 },
-  { day: 'Tue', sms: 28, whatsapp: 52, email: 8 },
-  { day: 'Wed', sms: 45, whatsapp: 61, email: 12 },
-  { day: 'Thu', sms: 38, whatsapp: 55, email: 6 },
-  { day: 'Fri', sms: 42, whatsapp: 68, email: 10 },
-  { day: 'Sat', sms: 12, whatsapp: 22, email: 3 },
-  { day: 'Sun', sms: 5, whatsapp: 10, email: 1 },
-]
 
-const channelUsageData = [
-  { name: 'SMS', value: 202, fill: '#10b981' },
-  { name: 'WhatsApp', value: 316, fill: '#14b8a6' },
-  { name: 'Email', value: 45, fill: '#f59e0b' },
-]
 
-const recentActivity = [
-  { id: '1', type: 'sms', message: 'Fee reminder sent to 45 parents', time: '2 min ago', status: 'delivered', icon: Smartphone },
-  { id: '2', type: 'whatsapp', message: 'Meeting notice delivered to SDC members', time: '15 min ago', status: 'delivered', icon: Phone },
-  { id: '3', type: 'sms', message: 'Attendance alert for Tendai Moyo sent', time: '32 min ago', status: 'delivered', icon: Smartphone },
-  { id: '4', type: 'whatsapp', message: 'Exam schedule broadcast to Form 4 parents', time: '1 hour ago', status: 'delivered', icon: Phone },
-  { id: '5', type: 'email', message: 'Term calendar emailed to all parents', time: '2 hours ago', status: 'pending', icon: Mail },
-  { id: '6', type: 'sms', message: 'Payment received confirmation to Chido Ndlovu', time: '3 hours ago', status: 'delivered', icon: Smartphone },
-  { id: '7', type: 'whatsapp', message: 'Emergency alert: Water cut-off notice', time: '4 hours ago', status: 'failed', icon: Phone },
-  { id: '8', type: 'sms', message: 'Holiday notice sent to BEAM beneficiaries', time: '5 hours ago', status: 'delivered', icon: Smartphone },
-]
 
-// History data - 30 entries
-const historyData = [
-  { id: 'h1', date: '2025-03-04 08:15', recipients: 45, channel: 'SMS', subject: 'Fee Reminder - Term 1 2025', status: 'Delivered', deliveryRate: 97.8, phone: '+263 773 123 456' },
-  { id: 'h2', date: '2025-03-04 07:30', recipients: 12, channel: 'WhatsApp', subject: 'SDC Meeting Notice - 10 Mar', status: 'Delivered', deliveryRate: 100, phone: '+263 712 345 678' },
-  { id: 'h3', date: '2025-03-03 16:45', recipients: 1, channel: 'SMS', subject: 'Absence Alert - Tendai Moyo', status: 'Delivered', deliveryRate: 100, phone: '+263 782 456 789' },
-  { id: 'h4', date: '2025-03-03 14:20', recipients: 68, channel: 'WhatsApp', subject: 'Exam Schedule - Mid-Term', status: 'Delivered', deliveryRate: 95.6, phone: '+263 773 234 567' },
-  { id: 'h5', date: '2025-03-03 11:00', recipients: 520, channel: 'Email', subject: 'Term 1 Calendar 2025', status: 'Pending', deliveryRate: 78.2, phone: '+263 712 567 890' },
-  { id: 'h6', date: '2025-03-02 09:30', recipients: 1, channel: 'SMS', subject: 'Payment Confirmed - $350.00', status: 'Delivered', deliveryRate: 100, phone: '+263 782 678 901' },
-  { id: 'h7', date: '2025-03-02 08:00', recipients: 120, channel: 'WhatsApp', subject: 'Emergency: Water Cut-off Notice', status: 'Failed', deliveryRate: 42.5, phone: '+263 773 789 012' },
-  { id: 'h8', date: '2025-03-01 15:30', recipients: 35, channel: 'SMS', subject: 'Holiday Notice - Independence Day', status: 'Delivered', deliveryRate: 94.3, phone: '+263 712 890 123' },
-  { id: 'h9', date: '2025-03-01 12:00', recipients: 22, channel: 'WhatsApp', subject: 'Sports Day Registration Open', status: 'Delivered', deliveryRate: 100, phone: '+263 782 901 234' },
-  { id: 'h10', date: '2025-02-28 10:15', recipients: 45, channel: 'SMS', subject: 'Fee Reminder - Outstanding Balance', status: 'Delivered', deliveryRate: 93.3, phone: '+263 773 012 345' },
-  { id: 'h11', date: '2025-02-28 09:00', recipients: 85, channel: 'WhatsApp', subject: 'Parent-Teacher Meeting Invite', status: 'Delivered', deliveryRate: 98.8, phone: '+263 712 123 456' },
-  { id: 'h12', date: '2025-02-27 16:30', recipients: 15, channel: 'Email', subject: 'BEAM Application Forms', status: 'Delivered', deliveryRate: 86.7, phone: '+263 782 234 567' },
-  { id: 'h13', date: '2025-02-27 14:00', recipients: 3, channel: 'SMS', subject: 'Late Arrival Alert - Form 2B', status: 'Delivered', deliveryRate: 100, phone: '+263 773 345 678' },
-  { id: 'h14', date: '2025-02-27 11:30', recipients: 45, channel: 'WhatsApp', subject: 'Results Available - Form 3', status: 'Delivered', deliveryRate: 95.6, phone: '+263 712 456 789' },
-  { id: 'h15', date: '2025-02-26 08:45', recipients: 68, channel: 'SMS', subject: 'Fee Reminder - Term 1', status: 'Delivered', deliveryRate: 91.2, phone: '+263 782 567 890' },
-  { id: 'h16', date: '2025-02-26 07:30', recipients: 520, channel: 'WhatsApp', subject: 'School Closure - Staff Development', status: 'Delivered', deliveryRate: 97.3, phone: '+263 773 678 901' },
-  { id: 'h17', date: '2025-02-25 15:00', recipients: 8, channel: 'SMS', subject: 'Outstanding Balance Alert', status: 'Failed', deliveryRate: 62.5, phone: '+263 712 789 012' },
-  { id: 'h18', date: '2025-02-25 12:30', recipients: 45, channel: 'WhatsApp', subject: 'ZIMSEC Registration Reminder', status: 'Delivered', deliveryRate: 100, phone: '+263 782 890 123' },
-  { id: 'h19', date: '2025-02-24 10:00', recipients: 12, channel: 'Email', subject: 'SDC Minutes - February Meeting', status: 'Delivered', deliveryRate: 91.7, phone: '+263 773 901 234' },
-  { id: 'h20', date: '2025-02-24 08:00', recipients: 35, channel: 'SMS', subject: 'Attendance Alert - 3+ Absences', status: 'Delivered', deliveryRate: 94.3, phone: '+263 712 012 345' },
-  { id: 'h21', date: '2025-02-23 14:30', recipients: 520, channel: 'WhatsApp', subject: 'Mid-Term Break Notice', status: 'Delivered', deliveryRate: 96.5, phone: '+263 782 123 456' },
-  { id: 'h22', date: '2025-02-23 11:00', recipients: 1, channel: 'SMS', subject: 'Payment Confirmed - $200.00', status: 'Delivered', deliveryRate: 100, phone: '+263 773 234 567' },
-  { id: 'h23', date: '2025-02-22 16:00', recipients: 22, channel: 'WhatsApp', subject: 'Inter-House Athletics Day', status: 'Delivered', deliveryRate: 100, phone: '+263 712 345 678' },
-  { id: 'h24', date: '2025-02-22 09:30', recipients: 85, channel: 'Email', subject: 'Report Cards - Term 1 Progress', status: 'Pending', deliveryRate: 72.9, phone: '+263 782 456 789' },
-  { id: 'h25', date: '2025-02-21 13:00', recipients: 45, channel: 'SMS', subject: 'Fee Reminder - EcoCash Payment', status: 'Delivered', deliveryRate: 88.9, phone: '+263 773 567 890' },
-  { id: 'h26', date: '2025-02-21 08:15', recipients: 15, channel: 'WhatsApp', subject: 'Boarding Parents Meeting', status: 'Delivered', deliveryRate: 100, phone: '+263 712 678 901' },
-  { id: 'h27', date: '2025-02-20 14:45', recipients: 3, channel: 'SMS', subject: 'Emergency Alert - Storm Warning', status: 'Delivered', deliveryRate: 100, phone: '+263 782 789 012' },
-  { id: 'h28', date: '2025-02-20 10:30', recipients: 520, channel: 'WhatsApp', subject: 'Africa Day Holiday Notice', status: 'Delivered', deliveryRate: 94.2, phone: '+263 773 890 123' },
-  { id: 'h29', date: '2025-02-19 09:00', recipients: 68, channel: 'Email', subject: 'School Uniform Policy Update', status: 'Delivered', deliveryRate: 83.8, phone: '+263 712 901 234' },
-  { id: 'h30', date: '2025-02-19 07:45', recipients: 45, channel: 'SMS', subject: 'Term Calendar Update', status: 'Delivered', deliveryRate: 95.6, phone: '+263 782 012 345' },
-]
 
-// Templates data - 12 templates
-const templatesData = [
-  {
-    id: 't1', name: 'Fee Reminder', category: 'Finance', channels: ['SMS', 'WhatsApp'],
-    subject: 'Outstanding Fee Balance',
-    body: 'Dear Parent, the outstanding fee balance for {student_name} in {class} is USD {amount}. Please pay via EcoCash or at the school bursar by {date}. Thank you.',
-    usageCount: 342, lastUsed: '2025-03-04',
-  },
-  {
-    id: 't2', name: 'Payment Received', category: 'Finance', channels: ['SMS', 'WhatsApp'],
-    subject: 'Payment Confirmation',
-    body: 'Dear Parent, we have received your payment of USD {amount} for {student_name}. Receipt #{receipt_no}. Balance: USD {balance}. Thank you for your payment.',
-    usageCount: 256, lastUsed: '2025-03-03',
-  },
-  {
-    id: 't3', name: 'Outstanding Balance Alert', category: 'Finance', channels: ['SMS'],
-    subject: 'Urgent: Outstanding Fees',
-    body: 'URGENT: {student_name} ({class}) has an outstanding balance of USD {amount}. Payment is overdue by {days_overdue} days. Please settle immediately to avoid penalties.',
-    usageCount: 128, lastUsed: '2025-03-02',
-  },
-  {
-    id: 't4', name: 'Exam Schedule', category: 'Academics', channels: ['SMS', 'WhatsApp', 'Email'],
-    subject: 'Examination Timetable',
-    body: 'Dear Parent, the {exam_type} examinations for {class} will commence on {date}. Please ensure {student_name} is well prepared. Timetable available at the school office.',
-    usageCount: 189, lastUsed: '2025-03-03',
-  },
-  {
-    id: 't5', name: 'Results Available', category: 'Academics', channels: ['WhatsApp', 'Email'],
-    subject: 'Examination Results Ready',
-    body: 'Dear Parent, {exam_type} results for {student_name} ({class}) are now available. Please collect from the school office or view on the parent portal.',
-    usageCount: 145, lastUsed: '2025-02-27',
-  },
-  {
-    id: 't6', name: 'Parent-Teacher Meeting', category: 'Academics', channels: ['WhatsApp', 'Email'],
-    subject: 'Parent-Teacher Consultation',
-    body: 'Dear Parent, you are invited to a parent-teacher meeting on {date} at {time} in the school hall. Your child {student_name} in {class} would benefit from your attendance.',
-    usageCount: 98, lastUsed: '2025-02-28',
-  },
-  {
-    id: 't7', name: 'Absence Notification', category: 'Attendance', channels: ['SMS', 'WhatsApp'],
-    subject: 'Student Absence Alert',
-    body: 'Dear Parent, {student_name} in {class} was absent from school today ({date}). Please notify the school of the reason. Contact: +263 773 800 900.',
-    usageCount: 412, lastUsed: '2025-03-04',
-  },
-  {
-    id: 't8', name: 'Late Arrival Alert', category: 'Attendance', channels: ['SMS'],
-    subject: 'Late Arrival Notice',
-    body: 'Dear Parent, {student_name} arrived late at school today at {time}. Punctuality is important for academic success. Please ensure timely arrival.',
-    usageCount: 67, lastUsed: '2025-02-27',
-  },
-  {
-    id: 't9', name: 'Holiday Notice', category: 'General', channels: ['SMS', 'WhatsApp', 'Email'],
-    subject: 'School Holiday Notice',
-    body: 'Dear Parent, school will be closed from {date} to {end_date} for {holiday_name}. Students resume on {resume_date}. Have a safe holiday!',
-    usageCount: 234, lastUsed: '2025-03-01',
-  },
-  {
-    id: 't10', name: 'School Closure', category: 'General', channels: ['SMS', 'WhatsApp'],
-    subject: 'School Closure Notice',
-    body: 'URGENT: School will be closed on {date} due to {reason}. Please make arrangements for {student_name}. We will notify you when school reopens.',
-    usageCount: 45, lastUsed: '2025-02-26',
-  },
-  {
-    id: 't11', name: 'Emergency Alert', category: 'General', channels: ['SMS', 'WhatsApp'],
-    subject: 'Emergency Notification',
-    body: 'EMERGENCY: {message}. All parents are advised to {action}. Contact the school at +263 773 800 900 for more information. Student safety is our priority.',
-    usageCount: 23, lastUsed: '2025-02-20',
-  },
-  {
-    id: 't12', name: 'Term Calendar', category: 'General', channels: ['WhatsApp', 'Email'],
-    subject: 'Term Calendar 2025',
-    body: 'Dear Parent, the Term {term} calendar is now available. Key dates: Opening - {date}, Mid-term - {mid_date}, Closing - {end_date}. Full calendar on the parent portal.',
-    usageCount: 178, lastUsed: '2025-02-19',
-  },
-]
 
 // ─── Helper Functions ───────────────────────────────────────────────────────
 
@@ -330,6 +198,66 @@ export default function NotificationCenterModule() {
   // Settings state
   const [settingsTab, setSettingsTab] = useState('gateway')
 
+  // ─── Live data (↔ /api/notifications + /api/notifications/templates) ───────
+  const [messageVolumeData, setMessageVolumeData] = useState<{ day: string; sms: number; whatsapp: number; email: number }[]>([])
+  const [channelUsageData, setChannelUsageData] = useState<{ name: string; value: number; fill: string }[]>([])
+  const [recentActivity, setRecentActivity] = useState<{ id: string; type: string; message: string; time: string; status: string; icon: React.ElementType }[]>([])
+  const [historyData, setHistoryData] = useState<{ id: string; date: string; recipients: number; channel: string; subject: string; status: string; deliveryRate: number; phone: string }[]>([])
+  const [templatesData, setTemplatesData] = useState<{ id: string; name: string; category: string; channels: string[]; subject: string; body: string; usageCount: number; lastUsed: string }[]>([])
+  const [notifStats, setNotifStats] = useState<{ sentToday: number; deliveryRate: number; smsCreditsRemaining: number; whatsappMessages: number } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [newTemplate, setNewTemplate] = useState({ name: '', category: 'General', channels: 'sms_whatsapp', subject: '', body: '' })
+
+  const iconForType = (type: string): React.ElementType => (type === 'whatsapp' ? Phone : type === 'email' ? Mail : Smartphone)
+
+  const fetchNotifications = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [nRes, tRes] = await Promise.all([fetch('/api/notifications'), fetch('/api/notifications/templates')])
+      const nJson = await nRes.json()
+      const tJson = await tRes.json()
+      if (!nRes.ok) throw new Error(nJson.error || 'Failed to load notifications')
+      setMessageVolumeData(nJson.dailyVolume || [])
+      setChannelUsageData(nJson.channelUsage || [])
+      setHistoryData(nJson.history || [])
+      setNotifStats(nJson.stats || null)
+      const acts = (nJson.recentActivity || []) as { id: string; type: string; message: string; time: string; status: string }[]
+      setRecentActivity(acts.map((a) => ({ ...a, icon: iconForType(a.type) })))
+      if (tRes.ok) {
+        const tpl = (tJson.data || []) as { id: string; name: string; category: string; channels: string; subject: string | null; body: string; usageCount: number; lastUsed: string | null }[]
+        setTemplatesData(tpl.map((t) => ({ id: t.id, name: t.name, category: t.category, channels: typeof t.channels === 'string' ? t.channels.split(',').map((c) => c.trim()).filter(Boolean) : [], subject: t.subject ?? '', body: t.body, usageCount: t.usageCount ?? 0, lastUsed: t.lastUsed ? String(t.lastUsed).slice(0, 10) : '' })))
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load notifications')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchNotifications() }, [fetchNotifications])
+
+  const handleCreateTemplate = async () => {
+    if (!newTemplate.name || !newTemplate.body) { toast.error('Template name and body are required'); return }
+    const channelMap: Record<string, string> = { sms_whatsapp: 'SMS,WhatsApp', all: 'SMS,WhatsApp,Email', sms: 'SMS', whatsapp_email: 'WhatsApp,Email' }
+    try {
+      const res = await fetch('/api/notifications/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newTemplate.name, category: newTemplate.category, channels: channelMap[newTemplate.channels] || 'SMS', subject: newTemplate.subject, body: newTemplate.body }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to create template')
+      await fetchNotifications()
+      setCreateTemplateOpen(false)
+      setNewTemplate({ name: '', category: 'General', channels: 'sms_whatsapp', subject: '', body: '' })
+      toast.success('Template created successfully')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to create template')
+    }
+  }
+
   // Computed recipient count
   const recipientCounts: Record<string, number> = {
     all_parents: 520,
@@ -355,7 +283,7 @@ export default function NotificationCenterModule() {
       const matchStatus = historyStatusFilter === 'All' || h.status === historyStatusFilter
       return matchSearch && matchChannel && matchStatus
     })
-  }, [historySearch, historyChannelFilter, historyStatusFilter])
+  }, [historyData, historySearch, historyChannelFilter, historyStatusFilter])
 
   // Apply template
   const applyTemplate = (templateId: string) => {
@@ -374,21 +302,39 @@ export default function NotificationCenterModule() {
 
   const confirmSend = async () => {
     setSending(true)
-    // Simulate sending
-    await new Promise((r) => setTimeout(r, 1500))
-    setSending(false)
-    setConfirmSendOpen(false)
-    setComposeMessage('')
-    setComposeSubject('')
-    setComposeTemplate('')
-    setComposeChannel('SMS')
-    setComposeRecipients('all_parents')
-    setScheduleToggle(false)
-    setScheduleDate('')
-    setScheduleTime('')
-    toast.success('Message sent successfully!', {
-      description: `Message delivered to ${currentRecipientCount} recipients via ${composeChannel}`,
-    })
+    try {
+      const res = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: composeChannel === 'All' ? 'SMS' : composeChannel,
+          recipients: currentRecipientCount,
+          subject: composeSubject,
+          body: composeMessage,
+          status: 'Delivered',
+          eventType: 'general',
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to send message')
+      await fetchNotifications()
+      setConfirmSendOpen(false)
+      setComposeMessage('')
+      setComposeSubject('')
+      setComposeTemplate('')
+      setComposeChannel('SMS')
+      setComposeRecipients('all_parents')
+      setScheduleToggle(false)
+      setScheduleDate('')
+      setScheduleTime('')
+      toast.success('Message sent successfully!', {
+        description: `Recorded for ${currentRecipientCount} recipients via ${composeChannel}`,
+      })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to send message')
+    } finally {
+      setSending(false)
+    }
   }
 
   // Copy template
@@ -776,8 +722,17 @@ export default function NotificationCenterModule() {
     )
   }
 
+  if (loading && historyData.length === 0 && !notifStats) {
+    return <ModuleContainer><div className="py-20 text-center text-sm text-muted-foreground">Loading notifications…</div></ModuleContainer>
+  }
+
   return (
     <ModuleContainer>
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+          {error} · <button onClick={() => fetchNotifications()} className="underline underline-offset-2">retry</button>
+        </div>
+      )}
       <ModuleToolbar
         actions={
           <div className="flex items-center gap-2">
@@ -813,7 +768,7 @@ export default function NotificationCenterModule() {
             <ModuleStatCard
               icon={Send}
               label="Messages Sent Today"
-              value="45"
+              value={String(notifStats?.sentToday ?? 0)}
               accentGradient="from-emerald-400 to-teal-500"
               bgColor="bg-emerald-50"
               footer={<div className="flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5 text-emerald-600" /><span className="text-xs font-medium text-emerald-600">+12% vs yesterday</span></div>}
@@ -821,7 +776,7 @@ export default function NotificationCenterModule() {
             <ModuleStatCard
               icon={CheckCircle2}
               label="Delivery Rate"
-              value="94.2%"
+              value={`${notifStats?.deliveryRate ?? 0}%`}
               accentGradient="from-teal-400 to-cyan-500"
               bgColor="bg-teal-50"
               iconColor="text-teal-600"
@@ -830,7 +785,7 @@ export default function NotificationCenterModule() {
             <ModuleStatCard
               icon={CreditCard}
               label="SMS Credits Remaining"
-              value="2,350"
+              value={(notifStats?.smsCreditsRemaining ?? 0).toLocaleString()}
               accentGradient="from-amber-400 to-orange-500"
               bgColor="bg-amber-50"
               iconColor="text-amber-600"
@@ -839,7 +794,7 @@ export default function NotificationCenterModule() {
             <ModuleStatCard
               icon={Phone}
               label="WhatsApp Messages"
-              value="128"
+              value={String(notifStats?.whatsappMessages ?? 0)}
               accentGradient="from-teal-400 to-emerald-500"
               bgColor="bg-teal-50"
               iconColor="text-teal-600"
@@ -1632,12 +1587,12 @@ export default function NotificationCenterModule() {
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
                     <Label>Template Name</Label>
-                    <Input placeholder="e.g., Sports Day Notice" />
+                    <Input placeholder="e.g., Sports Day Notice" value={newTemplate.name} onChange={(e) => setNewTemplate((t) => ({ ...t, name: e.target.value }))} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
                       <Label>Category</Label>
-                      <Select>
+                      <Select value={newTemplate.category} onValueChange={(v) => setNewTemplate((t) => ({ ...t, category: v }))}>
                         <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="Finance">Finance</SelectItem>
@@ -1649,7 +1604,7 @@ export default function NotificationCenterModule() {
                     </div>
                     <div className="grid gap-2">
                       <Label>Channels</Label>
-                      <Select>
+                      <Select value={newTemplate.channels} onValueChange={(v) => setNewTemplate((t) => ({ ...t, channels: v }))}>
                         <SelectTrigger><SelectValue placeholder="Select channels" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="sms_whatsapp">SMS + WhatsApp</SelectItem>
@@ -1662,19 +1617,21 @@ export default function NotificationCenterModule() {
                   </div>
                   <div className="grid gap-2">
                     <Label>Subject</Label>
-                    <Input placeholder="Template subject line" />
+                    <Input placeholder="Template subject line" value={newTemplate.subject} onChange={(e) => setNewTemplate((t) => ({ ...t, subject: e.target.value }))} />
                   </div>
                   <div className="grid gap-2">
                     <Label>Message Body</Label>
                     <Textarea
                       placeholder="Dear Parent, ... Use {student_name}, {class}, {amount}, {date} as placeholders"
                       className="min-h-[120px] resize-none"
+                      value={newTemplate.body}
+                      onChange={(e) => setNewTemplate((t) => ({ ...t, body: e.target.value }))}
                     />
                   </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setCreateTemplateOpen(false)}>Cancel</Button>
-                  <Button onClick={() => { setCreateTemplateOpen(false); toast.success('Template created successfully') }} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white">
+                  <Button onClick={handleCreateTemplate} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white">
                     Create Template
                   </Button>
                 </DialogFooter>
