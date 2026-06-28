@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   ShoppingCart, Package, ShoppingBag, FileText, Plus, Pencil, Trash2,
@@ -67,6 +67,31 @@ interface Order {
   paymentMethod: PaymentMethod
 }
 
+// ─── API mapping (live data ↔ /api/school-shop) ──────────────────────────────
+const KNOWN_CATEGORIES: Category[] = ['Uniforms', 'Stationery', 'Textbooks', 'Sports Equipment', 'Accessories', 'Other']
+const CATEGORY_FROM_ENUM: Record<string, Category> = { UNIFORM: 'Uniforms', STATIONERY: 'Stationery', TEXTBOOK: 'Textbooks', SPORTS: 'Sports Equipment', ACCESSORIES: 'Accessories', OTHER: 'Other' }
+function normalizeCategory(c: string | null | undefined): Category {
+  if (c && (KNOWN_CATEGORIES as string[]).includes(c)) return c as Category
+  return (c && CATEGORY_FROM_ENUM[c.toUpperCase()]) || 'Other'
+}
+function parseList(s: string | null | undefined): string[] {
+  return s ? s.split(',').map((x) => x.trim()).filter(Boolean) : []
+}
+const STATUS_FROM_API: Record<string, OrderStatus> = { PENDING: 'Pending', PROCESSING: 'Processing', READY: 'Ready', COLLECTED: 'Collected', CANCELLED: 'Cancelled' }
+const STATUS_TO_API: Record<OrderStatus, string> = { Pending: 'PENDING', Processing: 'PROCESSING', Ready: 'READY', Collected: 'COLLECTED', Cancelled: 'CANCELLED' }
+
+interface ApiProduct { id: string; name: string; description: string | null; category: string; price: number | string; currency: Currency; imageUrl: string | null; sizes: string | null; colors: string | null; stockQuantity: number; isActive: boolean }
+interface ApiOrder { id: string; orderNumber: string; parentName: string | null; parentPhone: string | null; items: string; totalAmount: number | string; status: string; createdAt: string }
+
+function apiToProduct(p: ApiProduct): Product {
+  return { id: p.id, name: p.name, description: p.description ?? '', category: normalizeCategory(p.category), price: Number(p.price) || 0, currency: (p.currency as Currency) || 'USD', stock: p.stockQuantity ?? 0, sizes: parseList(p.sizes), colors: parseList(p.colors), active: p.isActive, image: p.imageUrl ?? undefined }
+}
+function apiToOrder(o: ApiOrder): Order {
+  let items: Order['items'] = []
+  try { const parsed = JSON.parse(o.items); if (Array.isArray(parsed)) items = parsed } catch { /* malformed items JSON */ }
+  return { id: o.id, orderNumber: o.orderNumber, customerName: o.parentName ?? '—', phone: o.parentPhone ?? '', items, total: Number(o.totalAmount) || 0, status: STATUS_FROM_API[o.status] || 'Pending', date: (o.createdAt ?? '').slice(0, 10), paymentMethod: 'Cash' }
+}
+
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 const categoryColors: Record<Category, string> = {
   Uniforms: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
@@ -86,51 +111,7 @@ const categoryPieColors: Record<Category, string> = {
   Other: '#6b7280',
 }
 
-const initialProducts: Product[] = [
-  // Uniforms
-  { id: '1', name: 'School Blazer', description: 'Official navy school blazer with embroidered badge', category: 'Uniforms', price: 65.00, currency: 'USD', stock: 45, sizes: ['30','32','34','36','38','40','42','44'], colors: ['Navy'], active: true },
-  { id: '2', name: 'White Shirt (Boys)', description: 'Long-sleeve white cotton shirt for boys', category: 'Uniforms', price: 15.00, currency: 'USD', stock: 120, sizes: ['S','M','L','XL','XXL'], colors: ['White'], active: true },
-  { id: '3', name: 'White Blouse (Girls)', description: 'Short-sleeve white polyester-cotton blouse', category: 'Uniforms', price: 18.00, currency: 'USD', stock: 95, sizes: ['S','M','L','XL','XXL'], colors: ['White'], active: true },
-  { id: '4', name: 'Grey Trousers (Boys)', description: 'Grey poly-wool blend school trousers', category: 'Uniforms', price: 25.00, currency: 'USD', stock: 80, sizes: ['28','30','32','34','36','38'], colors: ['Grey'], active: true },
-  { id: '5', name: 'Navy Skirt (Girls)', description: 'Pleated navy skirt for girls', category: 'Uniforms', price: 22.00, currency: 'USD', stock: 70, sizes: ['S','M','L','XL','XXL'], colors: ['Navy'], active: true },
-  { id: '6', name: 'School Tie', description: 'Official striped school tie', category: 'Uniforms', price: 8.00, currency: 'USD', stock: 150, sizes: [], colors: ['Navy/Gold'], active: true },
-  { id: '7', name: 'Navy Jersey', description: 'V-neck navy school jersey', category: 'Uniforms', price: 35.00, currency: 'USD', stock: 55, sizes: ['S','M','L','XL','XXL'], colors: ['Navy'], active: true },
-  { id: '8', name: 'Track Suit', description: 'School track suit with logo', category: 'Uniforms', price: 45.00, currency: 'USD', stock: 40, sizes: ['S','M','L','XL','XXL'], colors: ['Navy/White'], active: true },
-  { id: '9', name: 'School Hat', description: 'Wide-brim sun hat with school badge', category: 'Uniforms', price: 12.00, currency: 'USD', stock: 60, sizes: [], colors: ['Navy'], active: true },
-  { id: '10', name: 'White Socks (pair)', description: 'Plain white school socks', category: 'Uniforms', price: 3.00, currency: 'USD', stock: 200, sizes: [], colors: ['White'], active: true },
-  // Stationery
-  { id: '11', name: 'Exercise Book (A4, 96pg)', description: 'A4 96-page exercise book with margin', category: 'Stationery', price: 2.50, currency: 'USD', stock: 300, sizes: [], colors: ['Blue','Green','Red','Yellow'], active: true },
-  { id: '12', name: 'Exam Pad', description: 'A4 examination pad with 80 leaves', category: 'Stationery', price: 3.00, currency: 'USD', stock: 150, sizes: [], colors: ['White'], active: true },
-  { id: '13', name: 'Scientific Calculator', description: 'Casio fx-991EX scientific calculator', category: 'Stationery', price: 15.00, currency: 'USD', stock: 25, sizes: [], colors: ['Black'], active: true },
-  { id: '14', name: 'Geometry Set', description: 'Complete mathematical geometry set', category: 'Stationery', price: 8.00, currency: 'USD', stock: 45, sizes: [], colors: ['Blue'], active: true },
-  { id: '15', name: 'School Bag', description: 'Durable school backpack with compartments', category: 'Stationery', price: 25.00, currency: 'USD', stock: 35, sizes: [], colors: ['Navy','Black'], active: true },
-  // Textbooks
-  { id: '16', name: 'O-Level Maths Textbook', description: 'ZIMSEC O-Level Mathematics textbook', category: 'Textbooks', price: 18.00, currency: 'USD', stock: 55, sizes: [], colors: [], active: true },
-  { id: '17', name: 'O-Level English Textbook', description: 'ZIMSEC O-Level English Language textbook', category: 'Textbooks', price: 16.00, currency: 'USD', stock: 50, sizes: [], colors: [], active: true },
-  { id: '18', name: 'O-Level Science Textbook', description: 'ZIMSEC O-Level Combined Science textbook', category: 'Textbooks', price: 20.00, currency: 'USD', stock: 40, sizes: [], colors: [], active: true },
-  // Sports Equipment
-  { id: '19', name: 'Soccer Ball', description: 'FIFA standard size 5 soccer ball', category: 'Sports Equipment', price: 22.00, currency: 'USD', stock: 15, sizes: ['Size 5'], colors: ['White/Black'], active: true },
-  { id: '20', name: 'Netball', description: 'Official size netball', category: 'Sports Equipment', price: 18.00, currency: 'USD', stock: 10, sizes: [], colors: ['White'], active: true },
-  // Accessories
-  { id: '21', name: 'School Badge', description: 'Metal school badge for blazer', category: 'Accessories', price: 5.00, currency: 'USD', stock: 100, sizes: [], colors: ['Gold'], active: true },
-  { id: '22', name: 'Name Tag', description: 'Custom embroidered name tag', category: 'Accessories', price: 3.50, currency: 'USD', stock: 80, sizes: [], colors: ['Navy'], active: true },
-  // Other - low stock items
-  { id: '23', name: 'Lab Coat', description: 'White laboratory coat for science practicals', category: 'Other', price: 20.00, currency: 'USD', stock: 4, sizes: ['S','M','L'], colors: ['White'], active: true },
-  { id: '24', name: 'Art Smock', description: 'Protective art smock for practical lessons', category: 'Other', price: 12.00, currency: 'USD', stock: 0, sizes: ['S','M','L','XL'], colors: ['Navy'], active: false },
-]
 
-const initialOrders: Order[] = [
-  { id: '1', orderNumber: 'SHP-2026-001', customerName: 'Tendai Moyo', phone: '+263 77 234 5678', items: [{ productName: 'School Blazer', quantity: 1, price: 65.00, size: '36' }, { productName: 'School Tie', quantity: 1, price: 8.00 }, { productName: 'White Shirt (Boys)', quantity: 2, price: 15.00, size: 'M' }], total: 103.00, status: 'Collected', date: '2026-02-15', paymentMethod: 'EcoCash' },
-  { id: '2', orderNumber: 'SHP-2026-002', customerName: 'Chiedza Ncube', phone: '+263 71 345 6789', items: [{ productName: 'Navy Skirt (Girls)', quantity: 1, price: 22.00, size: 'S' }, { productName: 'White Blouse (Girls)', quantity: 2, price: 18.00, size: 'M' }, { productName: 'School Hat', quantity: 1, price: 12.00 }], total: 70.00, status: 'Ready', date: '2026-02-20', paymentMethod: 'Cash' },
-  { id: '3', orderNumber: 'SHP-2026-003', customerName: 'Kudzai Chiweshe', phone: '+263 73 456 7890', items: [{ productName: 'Track Suit', quantity: 1, price: 45.00, size: 'L' }, { productName: 'White Socks (pair)', quantity: 3, price: 3.00 }], total: 54.00, status: 'Processing', date: '2026-03-01', paymentMethod: 'Bank Transfer' },
-  { id: '4', orderNumber: 'SHP-2026-004', customerName: 'Rumbidzai Dube', phone: '+263 77 567 8901', items: [{ productName: 'O-Level Maths Textbook', quantity: 1, price: 18.00 }, { productName: 'O-Level English Textbook', quantity: 1, price: 16.00 }, { productName: 'Exercise Book (A4, 96pg)', quantity: 5, price: 2.50 }, { productName: 'Scientific Calculator', quantity: 1, price: 15.00 }], total: 67.50, status: 'Pending', date: '2026-03-02', paymentMethod: 'EcoCash' },
-  { id: '5', orderNumber: 'SHP-2026-005', customerName: 'Tapiwa Gumbo', phone: '+263 71 678 9012', items: [{ productName: 'Grey Trousers (Boys)', quantity: 2, price: 25.00, size: '30' }, { productName: 'Navy Jersey', quantity: 1, price: 35.00, size: 'S' }, { productName: 'School Bag', quantity: 1, price: 25.00 }], total: 110.00, status: 'Collected', date: '2026-02-10', paymentMethod: 'Cash' },
-  { id: '6', orderNumber: 'SHP-2026-006', customerName: 'Nyasha Mutasa', phone: '+263 73 789 0123', items: [{ productName: 'School Blazer', quantity: 1, price: 65.00, size: '38' }, { productName: 'Geometry Set', quantity: 1, price: 8.00 }, { productName: 'Exam Pad', quantity: 2, price: 3.00 }], total: 79.00, status: 'Processing', date: '2026-03-03', paymentMethod: 'ZiG' },
-  { id: '7', orderNumber: 'SHP-2026-007', customerName: 'Farai Chikumbu', phone: '+263 77 890 1234', items: [{ productName: 'Soccer Ball', quantity: 1, price: 22.00 }, { productName: 'O-Level Science Textbook', quantity: 1, price: 20.00 }], total: 42.00, status: 'Cancelled', date: '2026-02-25', paymentMethod: 'Cash' },
-  { id: '8', orderNumber: 'SHP-2026-008', customerName: 'Tafadzwa Hove', phone: '+263 71 901 2345', items: [{ productName: 'White Shirt (Boys)', quantity: 3, price: 15.00, size: 'L' }, { productName: 'School Tie', quantity: 1, price: 8.00 }, { productName: 'White Socks (pair)', quantity: 5, price: 3.00 }, { productName: 'School Badge', quantity: 1, price: 5.00 }], total: 73.00, status: 'Ready', date: '2026-03-01', paymentMethod: 'EcoCash' },
-  { id: '9', orderNumber: 'SHP-2026-009', customerName: 'Mutsa Matarutse', phone: '+263 73 012 3456', items: [{ productName: 'White Blouse (Girls)', quantity: 2, price: 18.00, size: 'S' }, { productName: 'Navy Skirt (Girls)', quantity: 1, price: 22.00, size: 'M' }, { productName: 'School Hat', quantity: 1, price: 12.00 }, { productName: 'Name Tag', quantity: 1, price: 3.50 }], total: 73.50, status: 'Pending', date: '2026-03-04', paymentMethod: 'Bank Transfer' },
-  { id: '10', orderNumber: 'SHP-2026-010', customerName: 'Blessing Mahachi', phone: '+263 77 123 4567', items: [{ productName: 'Track Suit', quantity: 1, price: 45.00, size: 'M' }, { productName: 'Navy Jersey', quantity: 1, price: 35.00, size: 'L' }, { productName: 'Lab Coat', quantity: 1, price: 20.00, size: 'M' }], total: 100.00, status: 'Processing', date: '2026-03-04', paymentMethod: 'Cash' },
-]
 
 const revenueData = [
   { month: 'Oct', revenue: 2450 },
@@ -141,14 +122,6 @@ const revenueData = [
   { month: 'Mar', revenue: 2900 },
 ]
 
-const categoryData: { name: Category; value: number; fill: string }[] = [
-  { name: 'Uniforms', value: 915, fill: '#10b981' },
-  { name: 'Stationery', value: 310, fill: '#f59e0b' },
-  { name: 'Textbooks', value: 180, fill: '#3b82f6' },
-  { name: 'Sports Equipment', value: 40, fill: '#ef4444' },
-  { name: 'Accessories', value: 78, fill: '#8b5cf6' },
-  { name: 'Other', value: 32, fill: '#6b7280' },
-]
 
 const revenueChartConfig = {
   revenue: { label: 'Revenue (USD)', color: '#10b981' },
@@ -215,8 +188,10 @@ function getOrderStatusIcon(status: OrderStatus) {
 export default function SchoolShopModule() {
   const { schoolName } = useAppStore()
   const [activeTab, setActiveTab] = useState('overview')
-  const [products, setProducts] = useState<Product[]>(initialProducts)
-  const [orders, setOrders] = useState<Order[]>(initialOrders)
+  const [products, setProducts] = useState<Product[]>([])
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<Category | 'All'>('All')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -253,12 +228,38 @@ export default function SchoolShopModule() {
   const [newStock, setNewStock] = useState('')
   const [newActive, setNewActive] = useState(true)
 
+  const fetchShop = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/school-shop?section=all')
+      const json = await res.json()
+      if (!res.ok || !json.success) throw new Error(json.error || 'Failed to load shop data')
+      setProducts((json.data.products || []).map(apiToProduct))
+      setOrders((json.data.orders || []).map(apiToOrder))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load shop data')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchShop() }, [fetchShop])
+
   // Computed
   const activeProducts = products.filter(p => p.active)
   const lowStockProducts = products.filter(p => p.stock > 0 && p.stock <= 10)
   const outOfStockProducts = products.filter(p => p.stock === 0)
   const totalRevenue = orders.filter(o => o.status !== 'Cancelled').reduce((s, o) => s + o.total, 0)
   const totalStockValue = products.reduce((s, p) => s + p.price * p.stock, 0)
+
+  const categoryData = useMemo(() => (
+    KNOWN_CATEGORIES.map((c) => ({
+      name: c,
+      value: Math.round(products.filter((p) => p.category === c).reduce((s, p) => s + p.price * p.stock, 0)),
+      fill: categoryPieColors[c],
+    })).filter((d) => d.value > 0)
+  ), [products])
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
@@ -282,7 +283,8 @@ export default function SchoolShopModule() {
   }, [uniformGenderFilter, uniformSeasonFilter])
 
   // Today's sales
-  const todayOrders = orders.filter(o => o.date === '2026-03-04' && o.status !== 'Cancelled')
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayOrders = orders.filter(o => o.date === todayStr && o.status !== 'Cancelled')
   const todayRevenue = todayOrders.reduce((s, o) => s + o.total, 0)
   const weekOrders = orders.filter(o => o.status !== 'Cancelled')
   const weekRevenue = weekOrders.reduce((s, o) => s + o.total, 0)
@@ -301,56 +303,101 @@ export default function SchoolShopModule() {
   }, [orders])
 
   // CRUD handlers
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
     if (!newName || !newPrice || !newStock) {
       toast.error('Please fill in all required fields')
       return
     }
     const sizes = newSizes ? newSizes.split(',').map(s => s.trim()).filter(Boolean) : []
     const colors = newColors ? newColors.split(',').map(s => s.trim()).filter(Boolean) : []
-    const product: Product = {
-      id: String(products.length + 1),
-      name: newName,
-      description: newDescription,
-      category: newCategory,
-      price: parseFloat(newPrice),
-      currency: newCurrency,
-      stock: parseInt(newStock),
-      sizes,
-      colors,
-      active: newActive,
+    const name = newName
+    try {
+      const res = await fetch('/api/school-shop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'createProduct', data: { name: newName, description: newDescription, category: newCategory, price: parseFloat(newPrice), currency: newCurrency, sizes: sizes.join(','), colors: colors.join(','), stockQuantity: parseInt(newStock), isActive: newActive } }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) throw new Error(json.error || 'Failed to add product')
+      await fetchShop()
+      resetAddForm()
+      setAddProductOpen(false)
+      toast.success(`"${name}" added to shop`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to add product')
     }
-    setProducts(prev => [...prev, product])
-    resetAddForm()
-    setAddProductOpen(false)
-    toast.success(`"${product.name}" added to shop`)
   }
 
-  const handleEditProduct = () => {
+  const handleEditProduct = async () => {
     if (!editingProduct || !editingProduct.name) return
-    setProducts(prev => prev.map(p => p.id === editingProduct.id ? editingProduct : p))
-    setEditProductOpen(false)
-    setEditingProduct(null)
-    toast.success(`"${editingProduct.name}" updated`)
+    const p = editingProduct
+    try {
+      const res = await fetch('/api/school-shop', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'updateProduct', id: p.id, data: { name: p.name, description: p.description, category: p.category, price: p.price, currency: p.currency, sizes: p.sizes.join(','), colors: p.colors.join(','), stockQuantity: p.stock, isActive: p.active } }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) throw new Error(json.error || 'Failed to update product')
+      await fetchShop()
+      setEditProductOpen(false)
+      setEditingProduct(null)
+      toast.success(`"${p.name}" updated`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update product')
+    }
   }
 
-  const handleDeleteProduct = () => {
+  const handleDeleteProduct = async () => {
     if (!deletingId) return
     const product = products.find(p => p.id === deletingId)
-    setProducts(prev => prev.filter(p => p.id !== deletingId))
-    setDeleteConfirmOpen(false)
-    setDeletingId(null)
-    toast.success(`"${product?.name}" removed from shop`)
+    try {
+      const res = await fetch('/api/school-shop', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deleteProduct', id: deletingId }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) throw new Error(json.error || 'Failed to delete product')
+      await fetchShop()
+      setDeleteConfirmOpen(false)
+      setDeletingId(null)
+      toast.success(`"${product?.name}" removed from shop`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to delete product')
+    }
   }
 
-  const handleUpdateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o))
-    toast.success(`Order status updated to ${newStatus}`)
+  const handleUpdateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
+    try {
+      const res = await fetch('/api/school-shop', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'updateOrderStatus', id: orderId, data: { status: STATUS_TO_API[newStatus] } }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) throw new Error(json.error || 'Failed to update order status')
+      await fetchShop()
+      toast.success(`Order status updated to ${newStatus}`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update order status')
+    }
   }
 
-  const handleDeleteOrder = (orderId: string) => {
-    setOrders(prev => prev.filter(o => o.id !== orderId))
-    toast.success('Order deleted')
+  const handleDeleteOrder = async (orderId: string) => {
+    try {
+      const res = await fetch('/api/school-shop', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deleteOrder', id: orderId }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) throw new Error(json.error || 'Failed to delete order')
+      await fetchShop()
+      toast.success('Order deleted')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to delete order')
+    }
   }
 
   const resetAddForm = () => {
@@ -398,8 +445,17 @@ export default function SchoolShopModule() {
 
   const categories: (Category | 'All')[] = ['All', 'Uniforms', 'Stationery', 'Textbooks', 'Sports Equipment', 'Accessories', 'Other']
 
+  if (loading && products.length === 0 && orders.length === 0) {
+    return <div className="py-20 text-center text-sm text-muted-foreground">Loading shop…</div>
+  }
+
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+          {error} · <button onClick={() => fetchShop()} className="underline underline-offset-2">retry</button>
+        </div>
+      )}
       <ModulePageLayout
         activeTab={activeTab}
         onTabChange={setActiveTab}
