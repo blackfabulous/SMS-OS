@@ -8,7 +8,7 @@ import {
   ModuleStatCard,
   SectionCard,
 } from '@/components/module-ui';
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   UsersRound,
@@ -126,25 +126,18 @@ interface Newsletter {
   status: 'draft' | 'sent' | 'scheduled'
 }
 
+// ─── API mapping (live data ↔ /api/alumni) ──────────────────────────────────
+function initialsOf(first: string, last: string): string {
+  return `${(first || '').charAt(0)}${(last || '').charAt(0)}`.toUpperCase()
+}
+interface ApiContribution { id: string; amount: number | string; contributionType: string; description: string | null; campaign: string | null; date: string }
+interface ApiAlumni { id: string; firstName: string; lastName: string; graduationYear: number; email: string | null; phone: string | null; occupation: string | null; company: string | null; location: string | null; isNotable: boolean; totalContributions: number | string; contributions?: ApiContribution[] }
+interface AlumniApiStats { totalAlumni: number; totalContributions: number; notableAlumni: number; byGraduationYear: { year: number; count: number }[]; byLocation: { location: string; count: number }[] }
+function apiToAlumni(a: ApiAlumni): AlumniProfile {
+  return { id: a.id, name: `${a.firstName} ${a.lastName}`.trim(), graduationYear: a.graduationYear, occupation: a.occupation ?? '', company: a.company ?? '', location: a.location ?? '', email: a.email ?? '', phone: a.phone ?? '', photo: initialsOf(a.firstName, a.lastName), notable: a.isNotable, contributionTotal: Number(a.totalContributions) || 0, tags: [] }
+}
+
 // ─── Mock Data ────────────────────────────────────────────────────────────────
-const mockAlumni: AlumniProfile[] = [
-  { id: '1', name: 'Tendai Moyo', graduationYear: 2005, occupation: 'Medical Doctor', company: 'Parirenyatwa Hospital', location: 'Harare, Zimbabwe', email: 'tendai.moyo@email.co.zw', phone: '+263 772 123 456', photo: 'TM', notable: true, contributionTotal: 5000, tags: ['medicine', 'healthcare'] },
-  { id: '2', name: 'Chido Ndlovu', graduationYear: 2010, occupation: 'Software Engineer', company: 'Cassava Smartech', location: 'Harare, Zimbabwe', email: 'chido.ndlovu@email.co.zw', phone: '+263 713 234 567', photo: 'CN', notable: false, contributionTotal: 1200, tags: ['technology', 'it'] },
-  { id: '3', name: 'Kudzai Chikumbu', graduationYear: 2008, occupation: 'Chartered Accountant', company: 'Deloitte Zimbabwe', location: 'Harare, Zimbabwe', email: 'kudzai.c@email.co.zw', phone: '+263 774 345 678', photo: 'KC', notable: true, contributionTotal: 8500, tags: ['finance', 'accounting'] },
-  { id: '4', name: 'Rumbidzai Dube', graduationYear: 2012, occupation: 'Lawyer', company: 'Atherstone & Cook', location: 'Bulawayo, Zimbabwe', email: 'rumbi.dube@email.co.zw', phone: '+263 715 456 789', photo: 'RD', notable: false, contributionTotal: 3000, tags: ['law', 'legal'] },
-  { id: '5', name: 'Tapiwa Gumbo', graduationYear: 2003, occupation: 'Professor', company: 'University of Zimbabwe', location: 'Harare, Zimbabwe', email: 'tapiwa.gumbo@email.co.zw', phone: '+263 776 567 890', photo: 'TG', notable: true, contributionTotal: 12000, tags: ['education', 'academia'] },
-  { id: '6', name: 'Nyasha Sithole', graduationYear: 2015, occupation: 'Entrepreneur', company: 'Sithole Agribusiness', location: 'Mutare, Zimbabwe', email: 'nyasha.s@email.co.zw', phone: '+263 717 678 901', photo: 'NS', notable: false, contributionTotal: 2500, tags: ['agriculture', 'business'] },
-  { id: '7', name: 'Munyaradzi Zhou', graduationYear: 2007, occupation: 'Civil Engineer', company: 'ZINWA', location: 'Harare, Zimbabwe', email: 'munya.zhou@email.co.zw', phone: '+263 778 789 012', photo: 'MZ', notable: false, contributionTotal: 4000, tags: ['engineering', 'infrastructure'] },
-  { id: '8', name: 'Tatenda Maposa', graduationYear: 2018, occupation: 'Data Scientist', company: 'Econet Wireless', location: 'Harare, Zimbabwe', email: 'tatenda.m@email.co.zw', phone: '+263 719 890 123', photo: 'TM', notable: false, contributionTotal: 800, tags: ['technology', 'data'] },
-  { id: '9', name: 'Rutendo Ncube', graduationYear: 2006, occupation: 'Architect', company: 'Pearl Properties', location: 'Harare, Zimbabwe', email: 'rutendo.n@email.co.zw', phone: '+263 770 901 234', photo: 'RN', notable: false, contributionTotal: 3500, tags: ['architecture', 'design'] },
-  { id: '10', name: 'Farai Machirori', graduationYear: 2001, occupation: 'Bank Executive', company: 'CBZ Bank', location: 'Harare, Zimbabwe', email: 'farai.m@email.co.zw', phone: '+263 771 012 345', photo: 'FM', notable: true, contributionTotal: 15000, tags: ['banking', 'finance'] },
-  { id: '11', name: 'Sibusisiwe Bhebhe', graduationYear: 2014, occupation: 'Pharmacist', company: 'Wellness Pharmacy', location: 'Bulawayo, Zimbabwe', email: 'sibu.b@email.co.zw', phone: '+263 712 123 456', photo: 'SB', notable: false, contributionTotal: 1500, tags: ['pharmacy', 'healthcare'] },
-  { id: '12', name: 'Tawanda Chidavaenzi', graduationYear: 2009, occupation: 'Marketing Director', company: 'Delta Corporation', location: 'Harare, Zimbabwe', email: 'tawanda.c@email.co.zw', phone: '+263 773 234 567', photo: 'TC', notable: false, contributionTotal: 6000, tags: ['marketing', 'corporate'] },
-  { id: '13', name: 'Petronella Mataruse', graduationYear: 2016, occupation: 'Veterinarian', company: 'Matopo Vet Clinic', location: 'Matebeleland South, Zimbabwe', email: 'petro.m@email.co.zw', phone: '+263 714 345 678', photo: 'PM', notable: false, contributionTotal: 900, tags: ['veterinary', 'agriculture'] },
-  { id: '14', name: 'Zviko Mapuranga', graduationYear: 2011, occupation: 'Journalist', company: 'The Herald', location: 'Harare, Zimbabwe', email: 'zviko.m@email.co.zw', phone: '+263 775 456 789', photo: 'ZM', notable: false, contributionTotal: 2000, tags: ['media', 'journalism'] },
-  { id: '15', name: 'Nhamo Chigwedere', graduationYear: 2000, occupation: 'School Principal', company: 'Prince Edward School', location: 'Harare, Zimbabwe', email: 'nhamo.c@email.co.zw', phone: '+263 776 567 890', photo: 'NC', notable: true, contributionTotal: 20000, tags: ['education', 'leadership'] },
-  { id: '16', name: 'Blessing Mahachi', graduationYear: 2019, occupation: 'Graphic Designer', company: 'Freelance', location: 'Gweru, Zimbabwe', email: 'blessing.m@email.co.zw', phone: '+263 717 678 901', photo: 'BM', notable: false, contributionTotal: 500, tags: ['design', 'creative'] },
-]
 
 const mockCampaigns: Campaign[] = [
   { id: 'c1', name: 'Science Lab Renovation', description: 'Upgrading the school science laboratories with modern equipment', target: 50000, raised: 32500, donors: 42, endDate: '2025-06-30', status: 'active' },
@@ -154,18 +147,6 @@ const mockCampaigns: Campaign[] = [
   { id: 'c5', name: 'Computer Lab Upgrade', description: 'Purchasing 30 new computers for the IT lab', target: 30000, raised: 0, donors: 0, endDate: '2025-09-30', status: 'upcoming' },
 ]
 
-const mockContributions: Contribution[] = [
-  { id: 'cn1', alumniName: 'Nhamo Chigwedere', amount: 5000, date: '2025-03-01', campaign: 'Scholarship Endowment', method: 'Bank Transfer' },
-  { id: 'cn2', alumniName: 'Farai Machirori', amount: 3000, date: '2025-02-28', campaign: 'Science Lab Renovation', method: 'EcoCash' },
-  { id: 'cn3', alumniName: 'Tapiwa Gumbo', amount: 2500, date: '2025-02-25', campaign: 'Scholarship Endowment', method: 'Bank Transfer' },
-  { id: 'cn4', alumniName: 'Kudzai Chikumbu', amount: 2000, date: '2025-02-20', campaign: 'Science Lab Renovation', method: 'PayPal' },
-  { id: 'cn5', alumniName: 'Tawanda Chidavaenzi', amount: 1500, date: '2025-02-18', campaign: 'Sports Equipment Fund', method: 'EcoCash' },
-  { id: 'cn6', alumniName: 'Munyaradzi Zhou', amount: 1000, date: '2025-02-15', campaign: 'Science Lab Renovation', method: 'Bank Transfer' },
-  { id: 'cn7', alumniName: 'Rutendo Ncube', amount: 800, date: '2025-02-12', campaign: 'Sports Equipment Fund', method: 'EcoCash' },
-  { id: 'cn8', alumniName: 'Tendai Moyo', amount: 2000, date: '2025-02-10', campaign: 'Scholarship Endowment', method: 'PayPal' },
-  { id: 'cn9', alumniName: 'Rumbidzai Dube', amount: 750, date: '2025-02-08', campaign: 'Library Book Drive', method: 'Bank Transfer' },
-  { id: 'cn10', alumniName: 'Nyasha Sithole', amount: 500, date: '2025-02-05', campaign: 'Sports Equipment Fund', method: 'EcoCash' },
-]
 
 const mockEvents: AlumniEvent[] = [
   { id: 'e1', name: 'Class of 2005 - 20 Year Reunion', date: '2025-07-15', location: 'School Main Hall', type: 'reunion', attendees: 45, maxAttendees: 80, description: 'Celebrating 20 years since graduation. Dinner, speeches, and campus tour.' },
@@ -184,28 +165,6 @@ const mockNewsletters: Newsletter[] = [
   { id: 'n5', title: 'Sports Day Invitation', sentDate: '2025-04-01', recipients: 250, openRate: 0, clickRate: 0, status: 'scheduled' },
 ]
 
-const graduationYearData = [
-  { year: '2000', count: 8 },
-  { year: '2001', count: 6 },
-  { year: '2002', count: 9 },
-  { year: '2003', count: 12 },
-  { year: '2004', count: 10 },
-  { year: '2005', count: 15 },
-  { year: '2006', count: 13 },
-  { year: '2007', count: 11 },
-  { year: '2008', count: 14 },
-  { year: '2009', count: 10 },
-  { year: '2010', count: 16 },
-  { year: '2011', count: 12 },
-  { year: '2012', count: 14 },
-  { year: '2013', count: 11 },
-  { year: '2014', count: 13 },
-  { year: '2015', count: 15 },
-  { year: '2016', count: 10 },
-  { year: '2017', count: 12 },
-  { year: '2018', count: 14 },
-  { year: '2019', count: 11 },
-]
 
 const contributionChartData = [
   { month: 'Sep', amount: 2800 },
@@ -217,14 +176,6 @@ const contributionChartData = [
   { month: 'Mar', amount: 3300 },
 ]
 
-const locationChartData = [
-  { name: 'Harare', value: 45, fill: '#10b981' },
-  { name: 'Bulawayo', value: 18, fill: '#14b8a6' },
-  { name: 'Mutare', value: 8, fill: '#06b6d4' },
-  { name: 'Gweru', value: 6, fill: '#8b5cf6' },
-  { name: 'Diaspora', value: 15, fill: '#f59e0b' },
-  { name: 'Other', value: 8, fill: '#ec4899' },
-]
 
 const eventTypeColors: Record<string, { color: string; bg: string }> = {
   reunion: { color: 'text-emerald-700', bg: 'bg-emerald-50' },
@@ -254,20 +205,49 @@ export default function AlumniModule() {
     emailDigest: 'weekly',
   })
 
+  const [alumni, setAlumni] = useState<AlumniProfile[]>([])
+  const [contributions, setContributions] = useState<Contribution[]>([])
+  const [alumniStats, setAlumniStats] = useState<AlumniApiStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchAlumni = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/alumni?limit=500')
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to load alumni')
+      const list: ApiAlumni[] = json.data || []
+      setAlumni(list.map(apiToAlumni))
+      setAlumniStats(json.stats || null)
+      const flat: Contribution[] = []
+      list.forEach((a) => (a.contributions || []).forEach((c) => flat.push({ id: c.id, alumniName: `${a.firstName} ${a.lastName}`.trim(), amount: Number(c.amount) || 0, date: (c.date ?? '').slice(0, 10), campaign: c.campaign ?? '—', method: c.contributionType ?? '—' })))
+      flat.sort((x, y) => (y.date || '').localeCompare(x.date || ''))
+      setContributions(flat)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load alumni')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchAlumni() }, [fetchAlumni])
+
   // Derived data
-  const totalAlumni = mockAlumni.length
-  const totalContributions = mockContributions.reduce((a, c) => a + c.amount, 0)
-  const notableAlumni = mockAlumni.filter(a => a.notable)
+  const totalAlumni = alumniStats?.totalAlumni ?? alumni.length
+  const totalContributions = alumniStats?.totalContributions ?? contributions.reduce((a, c) => a + c.amount, 0)
+  const notableAlumni = alumni.filter(a => a.notable)
   const upcomingReunions = mockEvents.filter(e => e.type === 'reunion')
 
   // Unique values for filters
-  const graduationYears = [...new Set(mockAlumni.map(a => a.graduationYear))].sort((a, b) => b - a)
-  const occupations = [...new Set(mockAlumni.map(a => a.occupation))].sort()
-  const locations = [...new Set(mockAlumni.map(a => a.location))].sort()
+  const graduationYears = [...new Set(alumni.map(a => a.graduationYear))].sort((a, b) => b - a)
+  const occupations = [...new Set(alumni.map(a => a.occupation))].sort()
+  const locations = [...new Set(alumni.map(a => a.location))].sort()
 
   // Filter alumni
   const filteredAlumni = useMemo(() => {
-    return mockAlumni.filter(a => {
+    return alumni.filter(a => {
       const matchesSearch = a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         a.occupation.toLowerCase().includes(searchQuery.toLowerCase()) ||
         a.company.toLowerCase().includes(searchQuery.toLowerCase())
@@ -276,10 +256,18 @@ export default function AlumniModule() {
       const matchesLocation = locationFilter === 'all' || a.location === locationFilter
       return matchesSearch && matchesYear && matchesOccupation && matchesLocation
     })
-  }, [searchQuery, yearFilter, occupationFilter, locationFilter])
+  }, [alumni, searchQuery, yearFilter, occupationFilter, locationFilter])
+
+  const graduationYearData = useMemo(() => (
+    (alumniStats?.byGraduationYear ?? []).slice().sort((a, b) => a.year - b.year).map((g) => ({ year: String(g.year), count: g.count }))
+  ), [alumniStats])
+  const locationChartData = useMemo(() => {
+    const palette = ['#10b981', '#14b8a6', '#06b6d4', '#8b5cf6', '#f59e0b', '#ec4899']
+    return (alumniStats?.byLocation ?? []).map((l, i) => ({ name: l.location || 'Unknown', value: l.count, fill: palette[i % palette.length] }))
+  }, [alumniStats])
 
   // Get selected alumni for detail view
-  const selectedAlumni = mockAlumni.find(a => a.id === selectedId)
+  const selectedAlumni = alumni.find(a => a.id === selectedId)
   const selectedEvent = mockEvents.find(e => e.id === selectedId)
 
   // Settings view
@@ -454,8 +442,17 @@ export default function AlumniModule() {
     )
   }
 
+  if (loading && alumni.length === 0) {
+    return <ModuleContainer><div className="py-20 text-center text-sm text-muted-foreground">Loading alumni…</div></ModuleContainer>
+  }
+
   return (
     <ModuleContainer>
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+          {error} · <button onClick={() => fetchAlumni()} className="underline underline-offset-2">retry</button>
+        </div>
+      )}
       <ModulePageLayout
         actions={<>
           <ModuleSettingsButton onClick={() => { setViewMode('settings'); setSelectedId(null) }} />
@@ -774,7 +771,7 @@ export default function AlumniModule() {
               index={1}
               icon={Heart}
               label="Recent Donations"
-              value={mockContributions.length}
+              value={contributions.length}
               accentGradient="from-teal-400 to-cyan-500"
               bgColor="bg-teal-50 dark:bg-teal-950/40"
               iconColor="text-teal-600 dark:text-teal-400"
@@ -783,7 +780,7 @@ export default function AlumniModule() {
               index={2}
               icon={TrendingUp}
               label="Avg. Donation"
-              value={`$${Math.round(totalContributions / mockContributions.length).toLocaleString()}`}
+              value={`$${contributions.length ? Math.round(totalContributions / contributions.length).toLocaleString() : 0}`}
               accentGradient="from-amber-400 to-orange-500"
               bgColor="bg-amber-50 dark:bg-amber-950/40"
               iconColor="text-amber-600 dark:text-amber-400"
@@ -807,7 +804,7 @@ export default function AlumniModule() {
             <SectionCard title="Recent Donations" description="Latest alumni contributions" icon={Heart}>
                 <ScrollArea className="h-[280px]">
                   <div className="space-y-3">
-                    {mockContributions.map((contrib) => (
+                    {contributions.map((contrib) => (
                       <div key={contrib.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors">
                         <Avatar className="h-9 w-9">
                           <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-xs font-semibold">
