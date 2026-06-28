@@ -1082,60 +1082,12 @@ function ScholarshipsTab() {
   return (
     <div className="space-y-6">
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
-                <Award className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total Scholars</p>
-                <p className="text-lg font-bold">{totalScholars}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50">
-                <DollarSign className="h-5 w-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total Value</p>
-                <p className="text-lg font-bold">${totalValue.toLocaleString()}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50">
-                <Users className="h-5 w-5 text-teal-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Programs</p>
-                <p className="text-lg font-bold">{scholarships.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50">
-                <Percent className="h-5 w-5 text-violet-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Coverage Avg</p>
-                <p className="text-lg font-bold">75%</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <StatGrid cols={4}>
+        <ModuleStatCard icon={Award} label="Total Scholars" value={totalScholars} accentGradient="from-emerald-400 to-teal-500" bgColor="bg-emerald-50 dark:bg-emerald-950/40" iconColor="text-emerald-600 dark:text-emerald-400" index={0} />
+        <ModuleStatCard icon={DollarSign} label="Total Value" value={`$${totalValue.toLocaleString()}`} accentGradient="from-amber-400 to-orange-500" bgColor="bg-amber-50 dark:bg-amber-950/40" iconColor="text-amber-600 dark:text-amber-400" index={1} />
+        <ModuleStatCard icon={Users} label="Programs" value={scholarships.length} accentGradient="from-teal-400 to-cyan-500" bgColor="bg-teal-50 dark:bg-teal-950/40" iconColor="text-teal-600 dark:text-teal-400" index={2} />
+        <ModuleStatCard icon={Percent} label="Coverage Avg" value="75%" accentGradient="from-violet-400 to-purple-500" bgColor="bg-violet-50 dark:bg-violet-950/40" iconColor="text-violet-600 dark:text-violet-400" index={3} />
+      </StatGrid>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Eligibility Checker */}

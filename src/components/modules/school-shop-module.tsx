@@ -854,28 +854,15 @@ export default function SchoolShopModule() {
         {/* ═══ REPORTS TAB ═══════════════════════════════════════════════════════ */}
         <TabsContent value="reports" className="space-y-4">
           {/* Sales Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <StatGrid cols={3}>
             {[
-              { label: "Today's Sales", value: `$${todayRevenue.toFixed(2)}`, count: todayOrders.length, icon: DollarSign, color: 'emerald' },
-              { label: 'This Week', value: `$${weekRevenue.toFixed(2)}`, count: weekOrders.length, icon: TrendingUp, color: 'teal' },
-              { label: 'This Month', value: `$${totalRevenue.toFixed(2)}`, count: orders.filter(o => o.status !== 'Cancelled').length, icon: BarChart3, color: 'amber' },
-            ].map(stat => (
-              <Card key={stat.label} className="border-0 shadow-md">
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{stat.label}</p>
-                      <p className="text-2xl font-bold">{stat.value}</p>
-                      <p className="text-xs text-muted-foreground">{stat.count} orders</p>
-                    </div>
-                    <div className={cn('flex h-11 w-11 items-center justify-center rounded-xl', stat.color === 'emerald' ? 'bg-emerald-50 dark:bg-emerald-900/30' : stat.color === 'teal' ? 'bg-teal-50 dark:bg-teal-900/30' : 'bg-amber-50 dark:bg-amber-900/30')}>
-                      <stat.icon className={cn('h-5 w-5', stat.color === 'emerald' ? 'text-emerald-600' : stat.color === 'teal' ? 'text-teal-600' : 'text-amber-600')} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              { label: "Today's Sales", value: `$${todayRevenue.toFixed(2)}`, count: todayOrders.length, icon: DollarSign, accent: 'from-emerald-400 to-teal-500', bg: 'bg-emerald-50 dark:bg-emerald-950/40', ic: 'text-emerald-600 dark:text-emerald-400' },
+              { label: 'This Week', value: `$${weekRevenue.toFixed(2)}`, count: weekOrders.length, icon: TrendingUp, accent: 'from-teal-400 to-cyan-500', bg: 'bg-teal-50 dark:bg-teal-950/40', ic: 'text-teal-600 dark:text-teal-400' },
+              { label: 'This Month', value: `$${totalRevenue.toFixed(2)}`, count: orders.filter(o => o.status !== 'Cancelled').length, icon: BarChart3, accent: 'from-amber-400 to-orange-500', bg: 'bg-amber-50 dark:bg-amber-950/40', ic: 'text-amber-600 dark:text-amber-400' },
+            ].map((stat, i) => (
+              <ModuleStatCard key={stat.label} icon={stat.icon} label={stat.label} value={stat.value} hint={`${stat.count} orders`} accentGradient={stat.accent} bgColor={stat.bg} iconColor={stat.ic} index={i} />
             ))}
-          </div>
+          </StatGrid>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Top Selling Products */}
