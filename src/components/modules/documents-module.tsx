@@ -8,7 +8,7 @@ import {
   ModuleStatCard,
   SectionCard,
 } from '@/components/module-ui';
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   FileText,
@@ -120,25 +120,31 @@ const fileTypeConfig: Record<FileType, { icon: React.ElementType; color: string;
 
 const categories = ['All', 'Admissions', 'Academics', 'Finance', 'HR', 'Boarding', 'Legal', 'Correspondence', 'Reports']
 
+// ─── API mapping (live data ↔ /api/documents) ───────────────────────────────
+const FILETYPE_FROM_API: Record<string, FileType> = { PDF: 'pdf', DOC: 'doc', DOCX: 'doc', XLS: 'xls', XLSX: 'xls', CSV: 'xls', IMG: 'img', PNG: 'img', JPG: 'img', JPEG: 'img', ZIP: 'img', PPT: 'ppt', PPTX: 'ppt' }
+function normalizeFileType(t: string | null | undefined): FileType {
+  if (!t) return 'other'
+  return FILETYPE_FROM_API[t.toUpperCase()] || 'other'
+}
+function fileTypeFromName(name: string): string {
+  const ext = (name.split('.').pop() || '').toUpperCase()
+  return ext || 'PDF'
+}
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return '0 KB'
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+function parseTags(s: string | null | undefined): string[] {
+  return s ? s.split(/[,|]/).map((x) => x.trim()).filter(Boolean) : []
+}
+interface ApiDocument { id: string; title: string; fileName: string | null; category: string; description: string | null; fileType: string; fileSize: number; uploadedBy: string | null; tags: string | null; createdAt: string }
+interface DocStats { totalDocuments: number; templates: number; categories: number; totalSize: number }
+function apiToDocument(d: ApiDocument): Document {
+  return { id: d.id, name: d.fileName || d.title, category: d.category, description: d.description ?? '', fileType: normalizeFileType(d.fileType), size: formatBytes(d.fileSize), uploadedBy: d.uploadedBy ?? '—', uploadedAt: (d.createdAt ?? '').slice(0, 10), tags: parseTags(d.tags), shared: false }
+}
+
 // ─── Mock Data ────────────────────────────────────────────────────────────────
-const mockDocuments: Document[] = [
-  { id: '1', name: 'Form_1_Enrollment_Register_2025.pdf', category: 'Admissions', description: 'Official enrollment register for Form 1 students 2025', fileType: 'pdf', size: '2.4 MB', uploadedBy: 'Mrs. Moyo', uploadedAt: '2025-02-28', tags: ['enrollment', 'form-1'], shared: true },
-  { id: '2', name: 'Term_1_Exam_Results_Form4.xlsx', category: 'Academics', description: 'Term 1 examination results for Form 4 classes', fileType: 'xls', size: '1.8 MB', uploadedBy: 'Mr. Ndlovu', uploadedAt: '2025-03-15', tags: ['exams', 'form-4', 'term-1'], shared: false },
-  { id: '3', name: 'School_Fee_Structure_2025.pdf', category: 'Finance', description: 'Approved fee structure for the 2025 academic year', fileType: 'pdf', size: '540 KB', uploadedBy: 'Mr. Chikumbu', uploadedAt: '2025-01-10', tags: ['fees', '2025'], shared: true },
-  { id: '4', name: 'Staff_Contract_Template.docx', category: 'HR', description: 'Standard employment contract template for teaching staff', fileType: 'doc', size: '320 KB', uploadedBy: 'Mrs. Dube', uploadedAt: '2025-01-05', tags: ['contract', 'template', 'hr'], shared: false },
-  { id: '5', name: 'Boarding_House_Rules_2025.pdf', category: 'Boarding', description: 'Updated rules and regulations for boarding students', fileType: 'pdf', size: '890 KB', uploadedBy: 'Mr. Gumbo', uploadedAt: '2025-02-01', tags: ['boarding', 'rules'], shared: true },
-  { id: '6', name: 'ZIMSEC_Registration_List.pdf', category: 'Academics', description: 'List of students registered for ZIMSEC O-Level examinations', fileType: 'pdf', size: '1.1 MB', uploadedBy: 'Mrs. Zhou', uploadedAt: '2025-03-01', tags: ['zimsec', 'o-level'], shared: false },
-  { id: '7', name: 'BEAM_Application_Forms_2025.pdf', category: 'Finance', description: 'BEAM scholarship application forms for eligible students', fileType: 'pdf', size: '750 KB', uploadedBy: 'Ms. Ncube', uploadedAt: '2025-01-20', tags: ['beam', 'scholarship'], shared: true },
-  { id: '8', name: 'SDC_Meeting_Minutes_Feb2025.docx', category: 'Correspondence', description: 'Minutes from the SDC meeting held on 15 February 2025', fileType: 'doc', size: '280 KB', uploadedBy: 'Mrs. Sithole', uploadedAt: '2025-02-20', tags: ['sdc', 'meeting'], shared: true },
-  { id: '9', name: 'School_Inspiration_Day_Photos.zip', category: 'Academics', description: 'Photos from the annual Inspiration Day event', fileType: 'img', size: '45.2 MB', uploadedBy: 'Mr. Maposa', uploadedAt: '2025-03-10', tags: ['events', 'photos'], shared: false },
-  { id: '10', name: 'Quarterly_Financial_Report_Q4.pdf', category: 'Finance', description: 'Financial report for Q4 2024 including budget vs actuals', fileType: 'pdf', size: '1.6 MB', uploadedBy: 'Mr. Chikumbu', uploadedAt: '2025-01-15', tags: ['finance', 'quarterly', 'report'], shared: true },
-  { id: '11', name: 'Employment_Contract_Ndhlovu.pdf', category: 'HR', description: 'Signed employment contract for T. Ndlovu', fileType: 'pdf', size: '420 KB', uploadedBy: 'Mrs. Dube', uploadedAt: '2025-02-05', tags: ['contract', 'signed'], shared: false },
-  { id: '12', name: 'Transfer_Certificate_Template.pdf', category: 'Legal', description: 'Standard transfer certificate template for outgoing students', fileType: 'pdf', size: '180 KB', uploadedBy: 'Mrs. Moyo', uploadedAt: '2025-01-08', tags: ['transfer', 'template'], shared: false },
-  { id: '13', name: 'Term_1_Calendar_Events.xlsx', category: 'Academics', description: 'Calendar of events and key dates for Term 1 2025', fileType: 'xls', size: '340 KB', uploadedBy: 'Mrs. Zhou', uploadedAt: '2025-01-03', tags: ['calendar', 'events'], shared: true },
-  { id: '14', name: 'Discipline_Policy_2025.pdf', category: 'Legal', description: 'School discipline policy document for 2025', fileType: 'pdf', size: '560 KB', uploadedBy: 'Mr. Gumbo', uploadedAt: '2025-01-12', tags: ['discipline', 'policy'], shared: true },
-  { id: '15', name: 'Parent_Meeting_Invitation.docx', category: 'Correspondence', description: 'Invitation letter for the upcoming parents meeting', fileType: 'doc', size: '150 KB', uploadedBy: 'Mrs. Sithole', uploadedAt: '2025-03-05', tags: ['parents', 'meeting'], shared: false },
-  { id: '16', name: 'Annual_School_Report_2024.pdf', category: 'Reports', description: 'Comprehensive annual school report for 2024', fileType: 'pdf', size: '3.8 MB', uploadedBy: 'Headmaster', uploadedAt: '2025-01-30', tags: ['annual', 'report'], shared: true },
-]
 
 const mockTemplates: Template[] = [
   { id: 't1', name: 'Transfer Certificate', description: 'Official student transfer certificate for school leaving', category: 'Admissions', fileType: 'pdf', usageCount: 23 },
@@ -166,16 +172,6 @@ const mockSharedDocs: SharedDoc[] = [
   { id: 's8', name: 'Annual_School_Report_2024.pdf', fileType: 'pdf', sharedBy: 'Headmaster', sharedWith: ['SDC Members', 'Staff', 'Parents'], permission: 'view', sharedAt: '2025-01-30' },
 ]
 
-const categoryChartData = [
-  { name: 'Admissions', count: 28, fill: '#10b981' },
-  { name: 'Academics', count: 45, fill: '#14b8a6' },
-  { name: 'Finance', count: 32, fill: '#f59e0b' },
-  { name: 'HR', count: 18, fill: '#8b5cf6' },
-  { name: 'Boarding', count: 12, fill: '#06b6d4' },
-  { name: 'Legal', count: 8, fill: '#ef4444' },
-  { name: 'Correspondence', count: 22, fill: '#ec4899' },
-  { name: 'Reports', count: 15, fill: '#6366f1' },
-]
 
 const uploadTrendData = [
   { month: 'Sep', uploads: 12 },
@@ -195,6 +191,10 @@ export default function DocumentsModule() {
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
+  const [documents, setDocuments] = useState<Document[]>([])
+  const [docStats, setDocStats] = useState<DocStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   // Upload form state
   const [uploadForm, setUploadForm] = useState({
@@ -215,16 +215,73 @@ export default function DocumentsModule() {
     retentionPeriod: '365',
   })
 
+  const fetchDocuments = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/documents?limit=200')
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to load documents')
+      setDocuments((json.data || []).map(apiToDocument))
+      setDocStats(json.stats || null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load documents')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchDocuments() }, [fetchDocuments])
+
+  const handleUpload = async () => {
+    if (!uploadForm.filename) { toast.error('Filename is required'); return }
+    try {
+      const res = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: uploadForm.filename, fileName: uploadForm.filename, category: uploadForm.category || 'GENERAL', description: uploadForm.description, tags: uploadForm.tags, fileType: fileTypeFromName(uploadForm.filename), fileSize: 0 }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to add document')
+      await fetchDocuments()
+      setUploadForm({ filename: '', category: '', description: '', tags: '' })
+      setPageViewMode('list')
+      toast.success('Document added successfully')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to add document')
+    }
+  }
+
+  const handleDeleteDoc = async (id: string) => {
+    try {
+      const res = await fetch(`/api/documents?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to delete document')
+      await fetchDocuments()
+      setPageViewMode('list')
+      toast.success('Document deleted')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to delete document')
+    }
+  }
+
   // Filter documents
   const filteredDocuments = useMemo(() => {
-    return mockDocuments.filter((doc) => {
+    return documents.filter((doc) => {
       const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         doc.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         doc.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()))
       const matchesCategory = selectedCategory === 'All' || doc.category === selectedCategory
       return matchesSearch && matchesCategory
     })
-  }, [searchQuery, selectedCategory])
+  }, [documents, searchQuery, selectedCategory])
+
+  const categoryChartData = useMemo(() => {
+    const palette = ['#10b981', '#14b8a6', '#f59e0b', '#8b5cf6', '#06b6d4', '#ef4444', '#ec4899', '#6366f1']
+    const counts = new Map<string, number>()
+    documents.forEach((d) => counts.set(d.category, (counts.get(d.category) || 0) + 1))
+    return Array.from(counts.entries()).map(([name, count], i) => ({ name, count, fill: palette[i % palette.length] }))
+  }, [documents])
 
   // ─── Inline: Upload Document ─────────────────────────────────────────────
   if (pageViewMode === 'upload') {
@@ -243,7 +300,7 @@ export default function DocumentsModule() {
             </CardContent>
             <CardFooter className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => setPageViewMode('list')}>Cancel</Button>
-              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { toast.success('Document uploaded successfully'); setPageViewMode('list') }}>Upload</Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleUpload}>Upload</Button>
             </CardFooter>
           </Card>
         </div>
@@ -253,7 +310,7 @@ export default function DocumentsModule() {
 
   // ─── Inline: Document Detail ─────────────────────────────────────────────
   if (pageViewMode === 'detail' && selectedDocId) {
-    const doc = mockDocuments.find(d => d.id === selectedDocId)
+    const doc = documents.find(d => d.id === selectedDocId)
     if (!doc) return null
     const config = fileTypeConfig[doc.fileType]
     const IconComp = config.icon
@@ -279,7 +336,7 @@ export default function DocumentsModule() {
             <CardFooter className="flex justify-end gap-3">
               <Button variant="outline"><Download className="h-4 w-4 mr-2" />Download</Button>
               <Button variant="outline"><Share2 className="h-4 w-4 mr-2" />Share</Button>
-              <Button variant="destructive" onClick={() => { toast.success('Document deleted'); setPageViewMode('list') }}><Trash2 className="h-4 w-4 mr-2" />Delete</Button>
+              <Button variant="destructive" onClick={() => handleDeleteDoc(doc.id)}><Trash2 className="h-4 w-4 mr-2" />Delete</Button>
             </CardFooter>
           </Card>
         </div>
@@ -304,23 +361,27 @@ export default function DocumentsModule() {
     )
   }
 
-  const totalDocs = mockDocuments.length
-  const totalCategories = categories.length - 1 // exclude 'All'
-  const recentUploads = mockDocuments.filter(d => {
+  const totalDocs = docStats?.totalDocuments ?? documents.length
+  const totalCategories = docStats?.categories ?? (categories.length - 1)
+  const recentUploads = documents.filter(d => {
     const date = new Date(d.uploadedAt)
     const now = new Date()
     const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
     return diffDays <= 30
   }).length
-  const totalStorageMB = mockDocuments.reduce((acc, d) => {
-    const sizeStr = d.size
-    if (sizeStr.includes('MB')) return acc + parseFloat(sizeStr)
-    if (sizeStr.includes('KB')) return acc + parseFloat(sizeStr) / 1024
-    return acc
-  }, 0)
+  const totalStorageMB = (docStats?.totalSize ?? 0) / (1024 * 1024)
+
+  if (loading && documents.length === 0) {
+    return <ModuleContainer><div className="py-20 text-center text-sm text-muted-foreground">Loading documents…</div></ModuleContainer>
+  }
 
   return (
     <ModuleContainer>
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+          {error} · <button onClick={() => fetchDocuments()} className="underline underline-offset-2">retry</button>
+        </div>
+      )}
 <ModulePageLayout
         actions={<>
           <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setPageViewMode('upload')}>
@@ -425,7 +486,7 @@ export default function DocumentsModule() {
               }
             >
                 <div className="space-y-3">
-                  {mockDocuments.slice(0, 6).map((doc) => {
+                  {documents.slice(0, 6).map((doc) => {
                     const config = fileTypeConfig[doc.fileType]
                     const IconComp = config.icon
                     return (
