@@ -16,8 +16,10 @@
 --      rows (fail-closed). The app must set RLS_ENABLED=true so the db extension +
 --      auth helpers establish the GUC on every authenticated request.
 --   3. Relation-scoped tables WITHOUT a schoolId column (FeePayment, AssessmentMark,
---      ZimsecCandidate, etc.) are NOT covered here — they remain app-layer scoped.
---      Add per-relation EXISTS policies in a follow-up for full DB coverage.
+--      ZimsecCandidate, etc.) are covered by the EXISTS-based policies in the second
+--      block below — each row's tenant is resolved through its parent (student/staff/
+--      alumni/course/etc.). Rows whose anchor FK is NULL fail closed (hidden when a
+--      GUC is set); app-layer scoping remains the primary guard either way.
 
 DO $$
 DECLARE t text;
@@ -50,3 +52,70 @@ ALTER TABLE "School" FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON "School";
 CREATE POLICY tenant_isolation ON "School"
   USING ("id" = current_setting('app.current_school_id', true));
+
+-- ============================================================================
+-- Relation-scoped children (no schoolId column): resolve tenant via parent.
+-- Each (child, fkColumn, parent) below gets an EXISTS policy joining the child's
+-- FK to a parent that carries schoolId. Skipped gracefully if the table is absent.
+-- ============================================================================
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN
+    SELECT * FROM (VALUES
+      ('Term','academicYearId','AcademicYear'),
+      ('GradeSubject','gradeId','Grade'),
+      ('StudentParent','studentId','Student'),
+      ('StudentEnrollment','studentId','Student'),
+      ('Attendance','studentId','Student'),
+      ('AssessmentMark','studentId','Student'),
+      ('ReportCard','studentId','Student'),
+      ('FeeInvoice','studentId','Student'),
+      ('FeePayment','studentId','Student'),
+      ('Scholarship','studentId','Student'),
+      ('ZimsecCandidate','studentId','Student'),
+      ('BeamApplication','studentId','Student'),
+      ('WelfareRecord','studentId','Student'),
+      ('DisciplineRecord','studentId','Student'),
+      ('HealthRecord','studentId','Student'),
+      ('Dormitory','hostelId','Hostel'),
+      ('BoardingAssignment','studentId','Student'),
+      ('TransportAssignment','studentId','Student'),
+      ('LibraryTransaction','bookId','LibraryBook'),
+      ('Payslip','staffId','Staff'),
+      ('LeaveRecord','staffId','Staff'),
+      ('AppraisalRecord','staffId','Staff'),
+      ('StaffDiscipline','staffId','Staff'),
+      ('CanteenTransactionItem','transactionId','CanteenTransaction'),
+      ('PurchaseOrderItem','purchaseOrderId','PurchaseOrder'),
+      ('AlumniContribution','alumniId','Alumni'),
+      ('CourseResource','courseId','Course'),
+      ('CourseAssignment','courseId','Course')
+    ) AS v(child, fkcol, parent)
+  LOOP
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=r.child) THEN
+      EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', r.child);
+      EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', r.child);
+      EXECUTE format('DROP POLICY IF EXISTS tenant_isolation ON %I;', r.child);
+      EXECUTE format(
+        'CREATE POLICY tenant_isolation ON %I '
+        'USING (EXISTS (SELECT 1 FROM %I p WHERE p."id" = %I.%I AND p."schoolId" = current_setting(''app.current_school_id'', true))) '
+        'WITH CHECK (EXISTS (SELECT 1 FROM %I p WHERE p."id" = %I.%I AND p."schoolId" = current_setting(''app.current_school_id'', true)));',
+        r.child, r.parent, r.child, r.fkcol, r.parent, r.child, r.fkcol
+      );
+    END IF;
+  END LOOP;
+END $$;
+
+-- InvoiceItem is two hops from a schoolId (InvoiceItem -> FeeInvoice -> Student).
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='InvoiceItem') THEN
+    ALTER TABLE "InvoiceItem" ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE "InvoiceItem" FORCE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS tenant_isolation ON "InvoiceItem";
+    CREATE POLICY tenant_isolation ON "InvoiceItem"
+      USING (EXISTS (SELECT 1 FROM "FeeInvoice" fi JOIN "Student" s ON s."id" = fi."studentId" WHERE fi."id" = "InvoiceItem"."invoiceId" AND s."schoolId" = current_setting('app.current_school_id', true)))
+      WITH CHECK (EXISTS (SELECT 1 FROM "FeeInvoice" fi JOIN "Student" s ON s."id" = fi."studentId" WHERE fi."id" = "InvoiceItem"."invoiceId" AND s."schoolId" = current_setting('app.current_school_id', true)));
+  END IF;
+END $$;

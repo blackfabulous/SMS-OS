@@ -87,10 +87,13 @@ and set `RLS_ENABLED=false` (or unset) + redeploy.
 ## Not yet covered (follow-ups)
 
 - **Relation-scoped tables** without a `schoolId` column (e.g. `FeePayment`,
-  `AssessmentMark`, `ZimsecCandidate`, `CourseResource`) are **not** covered by the
-  dynamic policy — they remain protected by the app-layer scoping/ownership guards
-  added across the route handlers. For full DB coverage, add `EXISTS`-based
-  policies that join to the parent (e.g. `student.schoolId`).
+  `AssessmentMark`, `ZimsecCandidate`, `CourseResource`, `AlumniContribution`,
+  `Payslip`, line-item tables, …) are now covered by `EXISTS`-based policies in the
+  second block of `enable-rls.sql` — each resolves its tenant through a parent that
+  carries `schoolId` (student/staff/alumni/course/hostel/…; `InvoiceItem` joins two
+  hops via `FeeInvoice`→`Student`). Rows whose anchor FK is NULL fail closed. App-layer
+  scoping/ownership guards remain the primary line of defence. (Validated: both
+  `enable-rls.sql` and `disable-rls.sql` run cleanly against the dev DB.)
 - **`School` write policy** is read-only (`USING` only) to avoid blocking setup;
   school mutations stay app-layer controlled.
 - Pair with **RA-02** (cross-tenant test suite) as the standing regression guard.

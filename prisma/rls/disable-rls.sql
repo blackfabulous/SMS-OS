@@ -23,3 +23,23 @@ END $$;
 
 DROP POLICY IF EXISTS tenant_isolation ON "School";
 ALTER TABLE "School" DISABLE ROW LEVEL SECURITY;
+
+-- Relation-scoped children covered by enable-rls.sql's EXISTS policies.
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY[
+    'Term','GradeSubject','StudentParent','StudentEnrollment','Attendance','AssessmentMark',
+    'ReportCard','FeeInvoice','FeePayment','Scholarship','ZimsecCandidate','BeamApplication',
+    'WelfareRecord','DisciplineRecord','HealthRecord','Dormitory','BoardingAssignment',
+    'TransportAssignment','LibraryTransaction','Payslip','LeaveRecord','AppraisalRecord',
+    'StaffDiscipline','CanteenTransactionItem','PurchaseOrderItem','AlumniContribution',
+    'CourseResource','CourseAssignment','InvoiceItem'
+  ]
+  LOOP
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=t) THEN
+      EXECUTE format('DROP POLICY IF EXISTS tenant_isolation ON %I;', t);
+      EXECUTE format('ALTER TABLE %I DISABLE ROW LEVEL SECURITY;', t);
+    END IF;
+  END LOOP;
+END $$;
