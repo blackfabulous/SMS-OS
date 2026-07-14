@@ -28,7 +28,7 @@
 | Tests | 13 Vitest files, including `tests/tenant-safety.test.ts`, `tests/tenant-context.test.ts`, `tests/finance-scope.test.ts`, `tests/student-access.test.ts` | Partial |
 | Observability | `console.*` only; no Pino/Sentry | Full |
 | Outbox / durable jobs | `Outbox` model + `src/server/outbox.ts` (`enqueueOutbox`, `processOutbox`) added; not yet wired into notifications | Done (model + worker) |
-| Ops | Root `Dockerfile`, `.dockerignore`, `.github/workflows/ci.yml`, and `package.json` `typecheck` script added | Done |
+| Ops | Root `Dockerfile`, `.dockerignore`, `scripts/github-ci.yml`, and `package.json` `typecheck` script added; `.github/workflows/ci.yml` needs GitHub `workflow` OAuth scope to push | Done |
 | Public site | Real App Router routes, metadata, sitemap/robots/JSON-LD | Done |
 | Settings registry | `src/lib/settings-schema.ts` + `src/lib/settings.ts` with Zod, categories, defaults, UI hints | Done |
 | Finance allocation | `PaymentAllocation` model added; payment creation (`/api/finance/payments`, `/api/finance/beam/apply`) creates allocations; reverse deletes allocations; `FeeInvoice.balance` still cached during transition | Done (ledger + cached balance) |
