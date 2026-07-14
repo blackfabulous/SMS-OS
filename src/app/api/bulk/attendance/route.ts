@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
+import { logAudit } from '@/lib/audit'
 import { notifyStudentGuardiansBatch } from '@/lib/notifications'
 
 export async function POST(request: NextRequest) {
@@ -148,17 +149,12 @@ export async function POST(request: NextRequest) {
     ).catch(() => {})
 
     // Log audit entry
-    try {
-      await db.auditLog.create({
-        data: {
-          action: 'BULK_ATTENDANCE',
-          entity: 'Attendance',
-          details: `Recorded attendance for ${created + updated} students in ${classData.name} on ${dateOnly.toISOString().split('T')[0]}`,
-        },
-      })
-    } catch {
-      // Audit log failure should not break the operation
-    }
+    logAudit({
+      action: 'BULK_ATTENDANCE',
+      entity: 'Attendance',
+      schoolId,
+      details: `Recorded attendance for ${created + updated} students in ${classData.name} on ${dateOnly.toISOString().split('T')[0]}`,
+    }).catch(() => {})
 
     return NextResponse.json({
       created,

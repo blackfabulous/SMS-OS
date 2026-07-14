@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { validateRole } from '@/lib/api-auth'
+import { logAudit } from '@/lib/audit'
 import type { Currency } from '@prisma/client'
 
 // ─── Multi-School Setup Wizard API ──────────────────────────────────────────
@@ -288,14 +289,13 @@ export async function POST(request: NextRequest) {
     }
 
     // ─── Create Audit Log ───────────────────────────────────────────────────
-    await db.auditLog.create({
-      data: {
-        action: 'SCHOOL_SETUP',
-        entity: 'School',
-        entityId: school.id,
-        performedBy: 'setup_wizard',
-        details: `School "${school.name}" setup completed with ${Object.keys(gradeMap).length} grades, ${Object.keys(subjectMap).length} subjects, ${data.academic.classes?.length || 0} classes, ${staffToCreate.length} staff`,
-      },
+    await logAudit({
+      action: 'SCHOOL_SETUP',
+      entity: 'School',
+      entityId: school.id,
+      schoolId: school.id,
+      afterValue: { name: school.name },
+      details: `School "${school.name}" setup completed with ${Object.keys(gradeMap).length} grades, ${Object.keys(subjectMap).length} subjects, ${data.academic.classes?.length || 0} classes, ${staffToCreate.length} staff`,
     })
 
     return NextResponse.json({

@@ -442,6 +442,7 @@ export async function seedDatabase() {
         invoiceNumber: `INV2025${invoiceSeq.toString().padStart(3, '0')}`,
         studentId: student.id,
         termId: term3.id,
+        schoolId: school.id,
         totalAmount,
         amountPaid: 0,
         balance: totalAmount,
@@ -449,9 +450,9 @@ export async function seedDatabase() {
         status: 'PENDING',
         items: {
           create: [
-            { description: 'Tuition Fee', amount: baseAmount, feeType: 'TUITION' },
-            { description: 'Levy Fee', amount: Math.floor(baseAmount * 0.3), feeType: 'LEVY' },
-            { description: 'Development Levy', amount: Math.floor(baseAmount * 0.2), feeType: 'DEVELOPMENT' },
+            { description: 'Tuition Fee', amount: baseAmount, feeType: 'TUITION', schoolId: school.id },
+            { description: 'Levy Fee', amount: Math.floor(baseAmount * 0.3), feeType: 'LEVY', schoolId: school.id },
+            { description: 'Development Levy', amount: Math.floor(baseAmount * 0.2), feeType: 'DEVELOPMENT', schoolId: school.id },
           ],
         },
       },
@@ -466,6 +467,7 @@ export async function seedDatabase() {
           receiptNumber: `RCP2025${paymentSeq.toString().padStart(3, '0')}`,
           studentId: student.id,
           invoiceId: invoice.id,
+          schoolId: school.id,
           parentId: parents[i % parents.length].id,
           amount: paymentAmount,
           paymentMethod: ['CASH', 'ECOCASH', 'BANK_TRANSFER'][i % 3] as PaymentMethod,

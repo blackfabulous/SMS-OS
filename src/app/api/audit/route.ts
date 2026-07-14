@@ -17,7 +17,8 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
 
-    const where: Record<string, unknown> = {}
+    const schoolId = authResult.session.user.schoolId
+    const where: Record<string, unknown> = { schoolId }
     if (user && user !== 'ALL') where.performedBy = user
     if (moduleFilter && moduleFilter !== 'ALL') where.entity = moduleFilter
     if (action && action !== 'ALL') where.action = action
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
     ])
 
     // Get unique values for filters
-    const allLogs = await db.auditLog.findMany({ take: 1000 })
+    const allLogs = await db.auditLog.findMany({ where: { schoolId }, take: 1000 })
     const users = [...new Set(allLogs.map((l) => l.performedBy).filter(Boolean))] as string[]
     const modules = [...new Set(allLogs.map((l) => l.entity))]
     const actions = [...new Set(allLogs.map((l) => l.action))]
@@ -70,20 +71,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Action and entity are required' }, { status: 400 })
     }
 
-    const log = await db.auditLog.create({
-      data: {
-        action,
-        entity,
-        entityId: entityId || null,
-        performedBy: performedBy || null,
-        details: details || null,
-        beforeValue: beforeValue || null,
-        afterValue: afterValue || null,
-      },
+    await logAudit({
+      action,
+      entity,
+      entityId: entityId || null,
+      schoolId: authResult.session.user.schoolId,
+      details,
+      beforeValue,
+      afterValue,
     })
 
-    logAudit({ action: 'CREATE', entity: 'audit', entityId: (log as any)?.id, afterValue: log }).catch(() => {})
-    return NextResponse.json(log, { status: 201 })
+    return NextResponse.json({ success: true }, { status: 201 })
   } catch (error) {
     console.error('Error creating audit log:', error)
     return NextResponse.json({ error: 'Failed to create audit log' }, { status: 500 })

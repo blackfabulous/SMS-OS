@@ -1,10 +1,18 @@
+import { Prisma } from '@prisma/client'
 import { db } from './db'
 import { getServerSession } from './auth'
+import { currentSchoolId } from '@/server/tenant-context'
+
+function toJson(value: unknown): Prisma.InputJsonValue | undefined {
+  if (value === undefined || value === null) return undefined
+  return value as Prisma.InputJsonValue
+}
 
 export async function logAudit(params: {
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'BULK_CREATE' | 'BULK_UPDATE' | 'BULK_DELETE'
+  action: string
   entity: string
   entityId?: string | null
+  schoolId?: string | null
   details?: string
   beforeValue?: unknown
   afterValue?: unknown
@@ -12,16 +20,20 @@ export async function logAudit(params: {
   try {
     const session = await getServerSession()
     const userId = session?.user?.id ?? null
+    const schoolId = params.schoolId ?? session?.user?.schoolId ?? currentSchoolId()
+    if (!schoolId) return
 
     await db.auditLog.create({
       data: {
+        schoolId,
         action: params.action,
         entity: params.entity,
         entityId: params.entityId || null,
         performedBy: userId,
+        actorId: userId,
         details: params.details || null,
-        beforeValue: params.beforeValue ? JSON.stringify(params.beforeValue) : null,
-        afterValue: params.afterValue ? JSON.stringify(params.afterValue) : null,
+        beforeValue: toJson(params.beforeValue),
+        afterValue: toJson(params.afterValue),
       },
     })
   } catch {
@@ -33,17 +45,21 @@ export async function logSecurityEvent(params: {
   event: 'RATE_LIMIT_EXCEEDED' | 'AUTH_FAILURE' | 'UNAUTHORIZED_ACCESS' | 'SUSPICIOUS_ACTIVITY' | 'DDOS_BLOCKED' | 'CSRF_VIOLATION' | 'INPUT_VALIDATION_FAILED'
   ip?: string
   userId?: string | null
+  schoolId?: string | null
   details?: string
   severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
 }): Promise<void> {
   try {
+    const schoolId = params.schoolId ?? currentSchoolId()
     await db.auditLog.create({
       data: {
+        schoolId,
         action: params.event,
         entity: 'SECURITY',
         performedBy: params.userId ?? null,
+        actorId: params.userId ?? null,
         details: params.details || null,
-        afterValue: JSON.stringify({
+        afterValue: toJson({
           ip: params.ip ?? null,
           severity: params.severity ?? 'MEDIUM',
           timestamp: new Date().toISOString(),

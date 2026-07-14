@@ -137,6 +137,7 @@ export async function POST(request: NextRequest) {
             data: {
               studentId,
               invoiceId: invoiceId || null,
+              schoolId: session.user.schoolId,
               receiptNumber: `RCT-${reference}`,
               amount: paymentAmount,
               paymentMethod: 'PAYNOW',
@@ -180,6 +181,7 @@ export async function POST(request: NextRequest) {
       data: {
         studentId,
         invoiceId: invoiceId || null,
+        schoolId: session.user.schoolId,
         receiptNumber: `RCT-${reference}`,
         amount: paymentAmount,
         paymentMethod: 'PAYNOW',

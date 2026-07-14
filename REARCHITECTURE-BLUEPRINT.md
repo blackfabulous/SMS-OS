@@ -3,7 +3,7 @@
 > A clean, standards-first design for the whole system **as if building it fresh** — database → API → UI/UX.
 > Grounded in a six-lens analysis of the current app (DB, backend/auth, frontend, UI/UX, feature coverage, non-functional).
 > Execution backlog: `REARCH-TASKS.md`. Product feature backlog: `full school management plan.md`.
-> Status: Proposal · 2026-06
+> Status: Updated · 2026-07-10
 
 ---
 
@@ -13,11 +13,11 @@ The current app is feature-rich (~78 Prisma models, ~62 API routes, ~41 dashboar
 
 | Layer | Non-standard pattern found | Risk |
 |------|----------------------------|------|
-| DB | Money as `Float`; status/role as free `String` (no Prisma enums); `studentNumber`/`staffNumber` globally `@unique` (not per-school); `isActive` booleans instead of `deletedAt`; `AuditLog` has no `schoolId`; tenancy enforced **only** in app code (no DB-level guard) | Rounding errors in finance; invalid states; multi-tenant ID collisions; no deletion trail; cross-tenant leaks |
-| Backend | Tenant scoping applied inconsistently (adversarial review found cross-tenant read/write holes in attendance, bulk-attendance and report-card GET); business logic lives **inside route handlers**; duplicated hardcoded grading ladders; mixed validation (some Zod, some raw `body`); ad-hoc error shapes; side-effects fire-and-forget with no queue | Security bugs, duplication, untestable logic, lost background work |
+| DB | Money mostly `Decimal` (50 fields) but 11 `Float`s remain; 23 Prisma enums defined but some status/type columns still `String`; `deletedAt` soft-delete added to 77 tenant-owned models; `schoolId` added to finance tables (`FeeInvoice`, `FeePayment`, `InvoiceItem`, `PaymentAllocation`, `Outbox`, `AuditLog`); `AuditLog` now tenant-scoped with `Json` before/after; `FeeInvoice`/`FeePayment` numbers per-school unique; `PaymentAllocation` ledger introduced; `isActive` still present as legacy | Rounding risk in `exchangeRate`/`discountPercentage`; invalid states; remaining relation-scoped child/join tables; migration still manual |
+| Backend | Tenant context + RLS extension provide DB backstop; `PaymentAllocation`/`Outbox` services added; business logic still lives inside many route handlers | Inconsistent app-layer scoping, untestable logic, lost background work |
 | Frontend | Dashboard is **one** `'use client'` page swapping ~41 lazy modules by a Zustand `activeModule` flag — no URL routing, no deep-links/back-button, no per-route SSR or code-split; module files are 800–1,500-line monoliths; ad-hoc `fetch` instead of a query cache | No shareable URLs, large bundles, poor UX, hard to maintain |
 | UI/UX | Emerald system exists but applied inconsistently; loading/empty/error states ad-hoc; accessibility gaps | Inconsistent, less accessible UX |
-| Non-functional | Tests minimal (until recently); no E2E; in-memory rate-limit; `console.*` logging; a real credential committed in `.env.example`; no CI/Docker | Regressions, no prod observability, security exposure |
+| Non-functional | Cross-tenant static tests and several unit tests exist; root `Dockerfile` + GitHub Actions CI added; `typecheck` script added; no E2E; `console.*` logging; `.env.example` cleaned of real credentials | Regressions, no prod observability; CI still needs Bun + DB wiring for tests |
 
 **Design goals for the rebuild:** correctness & data integrity first; security & multi-tenancy by construction (defense in depth); real routing & SSR; a thin, typed, testable service layer; one design system; and operability (logging, CI, deploys).
 
@@ -194,8 +194,9 @@ A module is "done to standard" when it has: enum-backed schema with `schoolId` +
 ---
 
 ### Appendix — most urgent corrections (do first, regardless of pace)
-1. Rotate & remove the committed Supabase password in `.env.example`.
-2. Make `studentNumber`/`staffNumber` per-school unique; switch money to `Decimal`.
-3. Land the automated **cross-tenant isolation test suite** (the reviews proved this class of bug recurs).
-4. Move grading/finance/report-card logic fully into services (kill remaining duplication).
-5. Add Postgres RLS as the tenancy backstop.
+1. Add `deletedAt` soft-delete to every tenant-owned table and a Prisma extension that enforces it.
+2. Add `PaymentAllocation` and stop mutating `FeeInvoice.balance`.
+3. Add `schoolId` to child/join tables and make invoice/receipt numbers per-school unique.
+4. Improve `AuditLog` (tenant-scoped, actor, JSON before/after) and add an `Outbox` table + worker.
+5. Add root `Dockerfile` + GitHub Actions CI (typecheck/tests/build/RLS safety).
+6. Continue moving grading/finance/report-card logic fully into services under `src/server/services/<context>/`.

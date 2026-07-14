@@ -77,7 +77,7 @@ export async function POST(request: Request) {
 
     const currentYear = new Date().getFullYear()
     const lastInvoice = await db.feeInvoice.findFirst({
-      where: { invoiceNumber: { startsWith: `INV${currentYear}` } },
+      where: { schoolId: ctx.schoolId, invoiceNumber: { startsWith: `INV${currentYear}` } },
       orderBy: { invoiceNumber: 'desc' },
     })
     let sequence = 1
@@ -92,6 +92,7 @@ export async function POST(request: Request) {
         invoiceNumber,
         studentId: data.studentId,
         termId: data.termId,
+        schoolId: ctx.schoolId,
         totalAmount,
         amountPaid: 0,
         balance: totalAmount,
@@ -102,6 +103,7 @@ export async function POST(request: Request) {
             description: item.description,
             amount: item.amount,
             feeType: item.feeType,
+            schoolId: ctx.schoolId,
           })),
         },
       },

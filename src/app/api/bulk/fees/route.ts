@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { validateRole } from '@/lib/api-auth'
+import { logAudit } from '@/lib/audit'
 
 export async function POST(request: NextRequest) {
   const authResult = await validateRole(['ADMIN', 'BURSAR'])
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const body = await request.json()
@@ -80,6 +82,7 @@ export async function POST(request: NextRequest) {
 
     // Get the last invoice number for generating the next one
     const lastInvoice = await db.feeInvoice.findFirst({
+      where: { schoolId },
       orderBy: { createdAt: 'desc' },
       select: { invoiceNumber: true },
     })
@@ -129,6 +132,7 @@ export async function POST(request: NextRequest) {
           data: {
             studentId: enrollment.studentId,
             termId: targetTermId,
+            schoolId,
             invoiceNumber,
             totalAmount: feeStructure.amount,
             amountPaid: 0,
@@ -140,6 +144,7 @@ export async function POST(request: NextRequest) {
                 description: feeStructure.name,
                 amount: feeStructure.amount,
                 feeType: feeStructure.feeType,
+                schoolId,
               },
             },
           },
@@ -155,17 +160,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Log audit entry
-    try {
-      await db.auditLog.create({
-        data: {
-          action: 'BULK_FEE_ASSIGNMENT',
-          entity: 'FeeInvoice',
-          details: `Assigned ${feeStructure.name} (${feeStructure.feeType}) to ${created} students. Total: $${totalAmount.toFixed(2)}`,
-        },
-      })
-    } catch {
-      // Audit log failure should not break the operation
-    }
+    logAudit({
+      action: 'BULK_FEE_ASSIGNMENT',
+      entity: 'FeeInvoice',
+      schoolId,
+      details: `Assigned ${feeStructure.name} (${feeStructure.feeType}) to ${created} students. Total: $${totalAmount.toFixed(2)}`,
+    }).catch(() => {})
 
     return NextResponse.json({
       created,

@@ -8,7 +8,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL") // pooled connection (PgBouncer, port 6543, ?pgbouncer=true)
-  directUrl = env("DIRECT_URL")   // direct connection (port 5432) — used for schema ops/migrations
+  directUrl = env("DIRECT_URL") // direct connection (port 5432) — used for schema ops/migrations
 }
 
 // ============================================
@@ -16,40 +16,40 @@ datasource db {
 // ============================================
 
 model School {
-  id                    String   @id @default(cuid())
-  name                  String
-  code                  String   @unique
-  motto                 String?
-  logo                  String?
-  zimsecCentreNumber    String?
-  mopseDistrict         String?
-  province              String
-  schoolType            String   @default("GOVERNMENT")
-  ownershipType         String   @default("GOVERNMENT")
-  levelType             String   @default("PRIMARY")
-  registrationStatus    String   @default("REGISTERED")
-  headName              String?
-  deputyHeadName        String?
-  contactEmail          String?
-  contactPhone          String?
-  physicalAddress       String?
-  gpsLatitude           String?
-  gpsLongitude          String?
-  catchmentArea         String?
-  responsibleAuthority  String?
-  establishedYear       Int?
-  isActive              Boolean  @default(true)
-  bankName              String?
-  bankAccountNumber     String?
-  bankBranch            String?
-  taxNumber             String?
-  nssaNumber            String?
-  zimdefNumber          String?
-  sdcChairperson        String?
-  sdcSecretary          String?
-  sdcTreasurer          String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  name                 String
+  code                 String   @unique
+  motto                String?
+  logo                 String?
+  zimsecCentreNumber   String?
+  mopseDistrict        String?
+  province             String
+  schoolType           String   @default("GOVERNMENT")
+  ownershipType        String   @default("GOVERNMENT")
+  levelType            String   @default("PRIMARY")
+  registrationStatus   String   @default("REGISTERED")
+  headName             String?
+  deputyHeadName       String?
+  contactEmail         String?
+  contactPhone         String?
+  physicalAddress      String?
+  gpsLatitude          String?
+  gpsLongitude         String?
+  catchmentArea        String?
+  responsibleAuthority String?
+  establishedYear      Int?
+  isActive             Boolean  @default(true)
+  bankName             String?
+  bankAccountNumber    String?
+  bankBranch           String?
+  taxNumber            String?
+  nssaNumber           String?
+  zimdefNumber         String?
+  sdcChairperson       String?
+  sdcSecretary         String?
+  sdcTreasurer         String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   academicYears         AcademicYear[]
   grades                Grade[]
@@ -72,28 +72,34 @@ model School {
   clubs                 Club[]
   sportsCodes           SportsCode[]
   users                 User[]
-  canteenItems           CanteenItem[]
-  canteenTransactions    CanteenTransaction[]
-  purchaseOrders         PurchaseOrder[]
-  requisitions           Requisition[]
-  documents              Document[]
-  alumni                 Alumni[]
-  visitors               Visitor[]
-  securityIncidents      SecurityIncident[]
-  courses                Course[]
-  timetableEntries       TimetableEntry[]
-  websitePages           WebsitePage[]
-  newsArticles           NewsArticle[]
-  galleryImages          GalleryImage[]
-  shopItems              SchoolShopItem[]
-  shopOrders             SchoolShopOrder[]
-  seoSettings            SEOSetting[]
-  settings               SchoolSetting[]
-  partners               Partner[]
-  siteTheme              SiteTheme?
-  faqs                   Faq[]
-  notificationLogs       NotificationLog[]
-  notificationTemplates  NotificationTemplate[]
+  canteenItems          CanteenItem[]
+  canteenTransactions   CanteenTransaction[]
+  purchaseOrders        PurchaseOrder[]
+  requisitions          Requisition[]
+  documents             Document[]
+  alumni                Alumni[]
+  visitors              Visitor[]
+  securityIncidents     SecurityIncident[]
+  courses               Course[]
+  timetableEntries      TimetableEntry[]
+  websitePages          WebsitePage[]
+  newsArticles          NewsArticle[]
+  galleryImages         GalleryImage[]
+  shopItems             SchoolShopItem[]
+  shopOrders            SchoolShopOrder[]
+  seoSettings           SEOSetting[]
+  settings              SchoolSetting[]
+  partners              Partner[]
+  siteTheme             SiteTheme?
+  faqs                  Faq[]
+  notificationLogs      NotificationLog[]
+  notificationTemplates NotificationTemplate[]
+  auditLogs             AuditLog[]
+  outboxMessages        Outbox[]
+  feeInvoices           FeeInvoice[]
+  feePayments           FeePayment[]
+  invoiceItems          InvoiceItem[]
+  paymentAllocations    PaymentAllocation[]
 }
 
 model NotificationLog {
@@ -109,150 +115,169 @@ model NotificationLog {
   eventType    String?
   createdAt    DateTime @default(now())
 
-  school       School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
 
   @@index([schoolId, createdAt])
+  @@index([deletedAt])
 }
 
 model NotificationTemplate {
-  id          String    @id @default(cuid())
-  schoolId    String
-  name        String
-  category    String    @default("General")
-  channels    String    @default("SMS")
-  subject     String?
-  body        String
-  usageCount  Int       @default(0)
-  lastUsed    DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id         String    @id @default(cuid())
+  schoolId   String
+  name       String
+  category   String    @default("General")
+  channels   String    @default("SMS")
+  subject    String?
+  body       String
+  usageCount Int       @default(0)
+  lastUsed   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  school      School    @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
 
   @@index([schoolId])
+  @@index([deletedAt])
 }
 
 model AcademicYear {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  name                  String
-  startDate             DateTime
-  endDate               DateTime
-  isCurrent             Boolean  @default(false)
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id        String   @id @default(cuid())
+  schoolId  String
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
-  terms                 Term[]
-  studentEnrollments    StudentEnrollment[]
+  school             School              @relation(fields: [schoolId], references: [id])
+  terms              Term[]
+  studentEnrollments StudentEnrollment[]
+  deletedAt          DateTime?
 
   @@unique([schoolId, name])
+  @@index([deletedAt])
 }
 
 model Term {
-  id                    String   @id @default(cuid())
-  academicYearId        String
-  name                  String
-  termNumber            Int
-  startDate             DateTime
-  endDate               DateTime
-  openingDate           DateTime?
-  closingDate           DateTime?
-  isCurrent             Boolean  @default(false)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id             String    @id @default(cuid())
+  academicYearId String
+  name           String
+  termNumber     Int
+  startDate      DateTime
+  endDate        DateTime
+  openingDate    DateTime?
+  closingDate    DateTime?
+  isCurrent      Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  academicYear          AcademicYear @relation(fields: [academicYearId], references: [id])
-  attendanceRecords     Attendance[]
-  assessments           Assessment[]
-  feeInvoices           FeeInvoice[]
+  academicYear      AcademicYear @relation(fields: [academicYearId], references: [id])
+  attendanceRecords Attendance[]
+  assessments       Assessment[]
+  feeInvoices       FeeInvoice[]
+  deletedAt         DateTime?
 
   @@unique([academicYearId, termNumber])
+  @@index([deletedAt])
 }
 
 model Grade {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  name                  String
-  level                 String   @default("PRIMARY")
-  sequence              Int
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id        String   @id @default(cuid())
+  schoolId  String
+  name      String
+  level     String   @default("PRIMARY")
+  sequence  Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
-  classes               Class[]
-  gradeSubjects         GradeSubject[]
-  feeStructures         FeeStructure[]
+  school        School         @relation(fields: [schoolId], references: [id])
+  classes       Class[]
+  gradeSubjects GradeSubject[]
+  feeStructures FeeStructure[]
+  deletedAt     DateTime?
 
   @@unique([schoolId, name])
+  @@index([deletedAt])
 }
 
 model Class {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  gradeId               String
-  name                  String
-  stream                String?
-  academicYear          String
-  capacity              Int      @default(40)
-  classTeacherId        String?
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id             String   @id @default(cuid())
+  schoolId       String
+  gradeId        String
+  name           String
+  stream         String?
+  academicYear   String
+  capacity       Int      @default(40)
+  classTeacherId String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  grade                 Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
-  enrollments           StudentEnrollment[]
-  timetableEntries      TimetableEntry[]
+  grade            Grade               @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  enrollments      StudentEnrollment[]
+  timetableEntries TimetableEntry[]
+  deletedAt        DateTime?
 
   @@unique([schoolId, gradeId, name, academicYear])
+  @@index([deletedAt])
 }
 
 model Subject {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  code                  String
-  name                  String
-  department            String?
-  isCore                Boolean  @default(false)
-  isPractical           Boolean  @default(false)
-  passMark              Float    @default(50)
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id          String   @id @default(cuid())
+  schoolId    String
+  code        String
+  name        String
+  department  String?
+  isCore      Boolean  @default(false)
+  isPractical Boolean  @default(false)
+  passMark    Float    @default(50)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
-  gradeSubjects         GradeSubject[]
-  assessments           Assessment[]
-  timetableEntries      TimetableEntry[]
+  school           School           @relation(fields: [schoolId], references: [id])
+  gradeSubjects    GradeSubject[]
+  assessments      Assessment[]
+  timetableEntries TimetableEntry[]
+  deletedAt        DateTime?
 
   @@unique([schoolId, code])
+  @@index([deletedAt])
 }
 
 model GradeSubject {
-  id                    String   @id @default(cuid())
-  gradeId               String
-  subjectId             String
-  isCompulsory          Boolean  @default(true)
-  periodsPerWeek        Int      @default(5)
-  createdAt             DateTime @default(now())
+  id             String   @id @default(cuid())
+  gradeId        String
+  subjectId      String
+  isCompulsory   Boolean  @default(true)
+  periodsPerWeek Int      @default(5)
+  createdAt      DateTime @default(now())
 
-  grade                 Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
-  subject               Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  grade     Grade     @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  subject   Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  deletedAt DateTime?
 
   @@unique([gradeId, subjectId])
+  @@index([deletedAt])
 }
 
 model Department {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  name                  String
-  headId                String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id        String   @id @default(cuid())
+  schoolId  String
+  name      String
+  headId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -260,129 +285,137 @@ model Department {
 // ============================================
 
 model Student {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  studentNumber         String
-  firstName             String
-  lastName              String
-  middleName            String?
-  preferredName         String?
-  dateOfBirth           DateTime
-  gender                Gender
-  birthCertNumber       String?
-  nationalId            String?
-  passportNumber        String?
-  photo                 String?
-  religion              String?
-  homeLanguage          String?
-  languagePreference    String   @default("ENGLISH")
-  nationality           String   @default("Zimbabwean")
-  bloodGroup            String?
-  allergies             String?
-  chronicConditions     String?
-  medications           String?
-  doctorName            String?
-  doctorPhone           String?
-  enrollmentStatus      EnrollmentStatus @default(ACTIVE)
-  boardingStatus        BoardingStatus?
-  beamStatus            String?
-  isSpecialNeeds        Boolean  @default(false)
-  specialNeedsDetails   String?
-  previousSchool        String?
-  admissionDate         DateTime @default(now())
-  transferDate          DateTime?
-  exitDate              DateTime?
-  exitReason            String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                  String           @id @default(cuid())
+  schoolId            String
+  studentNumber       String
+  firstName           String
+  lastName            String
+  middleName          String?
+  preferredName       String?
+  dateOfBirth         DateTime
+  gender              Gender
+  birthCertNumber     String?
+  nationalId          String?
+  passportNumber      String?
+  photo               String?
+  religion            String?
+  homeLanguage        String?
+  languagePreference  String           @default("ENGLISH")
+  nationality         String           @default("Zimbabwean")
+  bloodGroup          String?
+  allergies           String?
+  chronicConditions   String?
+  medications         String?
+  doctorName          String?
+  doctorPhone         String?
+  enrollmentStatus    EnrollmentStatus @default(ACTIVE)
+  boardingStatus      BoardingStatus?
+  beamStatus          String?
+  isSpecialNeeds      Boolean          @default(false)
+  specialNeedsDetails String?
+  previousSchool      String?
+  admissionDate       DateTime         @default(now())
+  transferDate        DateTime?
+  exitDate            DateTime?
+  exitReason          String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 
-  school                School             @relation(fields: [schoolId], references: [id])
-  parentLinks           StudentParent[]
-  enrollments           StudentEnrollment[]
-  attendanceRecords     Attendance[]
-  assessmentMarks       AssessmentMark[]
-  feeInvoices           FeeInvoice[]
-  feePayments           FeePayment[]
-  disciplineRecords     DisciplineRecord[]
-  healthRecords         HealthRecord[]
-  welfareRecords        WelfareRecord[]
-  beamApplication       BeamApplication?
-  scholarships          Scholarship[]
-  libraryTransactions   LibraryTransaction[]
-  transportAssignment   TransportAssignment?
-  boardingAssignment    BoardingAssignment?
-  reportCards           ReportCard[]
-  zimsecCandidate       ZimsecCandidate?
-  user                  User?
+  school              School               @relation(fields: [schoolId], references: [id])
+  parentLinks         StudentParent[]
+  enrollments         StudentEnrollment[]
+  attendanceRecords   Attendance[]
+  assessmentMarks     AssessmentMark[]
+  feeInvoices         FeeInvoice[]
+  feePayments         FeePayment[]
+  disciplineRecords   DisciplineRecord[]
+  healthRecords       HealthRecord[]
+  welfareRecords      WelfareRecord[]
+  beamApplication     BeamApplication?
+  scholarships        Scholarship[]
+  libraryTransactions LibraryTransaction[]
+  transportAssignment TransportAssignment?
+  boardingAssignment  BoardingAssignment?
+  reportCards         ReportCard[]
+  zimsecCandidate     ZimsecCandidate?
+  user                User?
+  deletedAt           DateTime?
 
   @@unique([schoolId, studentNumber])
   @@index([schoolId])
   @@index([enrollmentStatus])
   @@index([schoolId, enrollmentStatus])
+  @@index([deletedAt])
 }
 
 model Parent {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  title                 String?
-  firstName             String
-  lastName              String
-  nationalId            String?
-  email                 String?
-  phone                 String
-  whatsappNumber        String?
-  address               String?
-  employer              String?
-  occupation            String?
-  preferredContact      String   @default("SMS")
-  isFeeResponsible      Boolean  @default(false)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id               String   @id @default(cuid())
+  schoolId         String
+  title            String?
+  firstName        String
+  lastName         String
+  nationalId       String?
+  email            String?
+  phone            String
+  whatsappNumber   String?
+  address          String?
+  employer         String?
+  occupation       String?
+  preferredContact String   @default("SMS")
+  isFeeResponsible Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  school                School             @relation(fields: [schoolId], references: [id])
-  studentLinks          StudentParent[]
-  feePayments           FeePayment[]
-  communications        Communication[]
+  school         School          @relation(fields: [schoolId], references: [id])
+  studentLinks   StudentParent[]
+  feePayments    FeePayment[]
+  communications Communication[]
+  deletedAt      DateTime?
 
   @@index([schoolId])
   @@index([phone])
+  @@index([deletedAt])
 }
 
 model StudentParent {
-  id                    String   @id @default(cuid())
-  studentId             String
-  parentId              String
-  relationship          String
-  isPrimary             Boolean  @default(false)
-  isFeeResponsible      Boolean  @default(false)
-  hasPickupPermission   Boolean  @default(true)
-  hasCustody            Boolean  @default(true)
-  custodyRestrictions   String?
-  createdAt             DateTime @default(now())
+  id                  String   @id @default(cuid())
+  studentId           String
+  parentId            String
+  relationship        String
+  isPrimary           Boolean  @default(false)
+  isFeeResponsible    Boolean  @default(false)
+  hasPickupPermission Boolean  @default(true)
+  hasCustody          Boolean  @default(true)
+  custodyRestrictions String?
+  createdAt           DateTime @default(now())
 
-  student               Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  parent                Parent   @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  parent    Parent    @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  deletedAt DateTime?
 
   @@unique([studentId, parentId])
+  @@index([deletedAt])
 }
 
 model StudentEnrollment {
-  id                    String   @id @default(cuid())
-  studentId             String
-  classId               String
-  academicYearId        String
-  enrollmentDate        DateTime @default(now())
-  exitDate              DateTime?
-  status                String   @default("ACTIVE")
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id             String    @id @default(cuid())
+  studentId      String
+  classId        String
+  academicYearId String
+  enrollmentDate DateTime  @default(now())
+  exitDate       DateTime?
+  status         String    @default("ACTIVE")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  student               Student      @relation(fields: [studentId], references: [id])
-  class                 Class        @relation(fields: [classId], references: [id])
-  academicYear          AcademicYear @relation(fields: [academicYearId], references: [id])
+  student      Student      @relation(fields: [studentId], references: [id])
+  class        Class        @relation(fields: [classId], references: [id])
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  deletedAt    DateTime?
 
   @@unique([studentId, academicYearId])
   @@index([classId, academicYearId])
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -390,55 +423,57 @@ model StudentEnrollment {
 // ============================================
 
 model Staff {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  staffNumber           String
-  title                 String?
-  firstName             String
-  lastName              String
-  middleName            String?
-  nationalId            String?
-  dateOfBirth           DateTime?
-  gender                Gender?
-  address               String?
-  phone                 String?
-  email                 String?
-  nextOfKin             String?
-  nextOfKinPhone        String?
-  position              String
-  department            String?
-  staffType             StaffType @default(TEACHING)
-  payType               String   @default("SCHOOL_PAID")
-  qualifications        String?
-  subjectSpecialisation String?
-  employmentDate        DateTime?
-  contractType          String   @default("PERMANENT")
-  payrollStatus         String   @default("ACTIVE")
-  bankName              String?
-  bankAccountNumber     String?
-  nssaNumber            String?
-  taxNumber             String?
-  basicSalary           Decimal  @default(0) @db.Decimal(15, 2)
-  housingAllowance      Decimal  @default(0) @db.Decimal(15, 2)
-  transportAllowance    Decimal  @default(0) @db.Decimal(15, 2)
-  responsibilityAllowance Decimal @default(0) @db.Decimal(15, 2)
-  photo                 String?
-  isActive              Boolean  @default(true)
+  id                      String    @id @default(cuid())
+  schoolId                String
+  staffNumber             String
+  title                   String?
+  firstName               String
+  lastName                String
+  middleName              String?
+  nationalId              String?
+  dateOfBirth             DateTime?
+  gender                  Gender?
+  address                 String?
+  phone                   String?
+  email                   String?
+  nextOfKin               String?
+  nextOfKinPhone          String?
+  position                String
+  department              String?
+  staffType               StaffType @default(TEACHING)
+  payType                 String    @default("SCHOOL_PAID")
+  qualifications          String?
+  subjectSpecialisation   String?
+  employmentDate          DateTime?
+  contractType            String    @default("PERMANENT")
+  payrollStatus           String    @default("ACTIVE")
+  bankName                String?
+  bankAccountNumber       String?
+  nssaNumber              String?
+  taxNumber               String?
+  basicSalary             Decimal   @default(0) @db.Decimal(15, 2)
+  housingAllowance        Decimal   @default(0) @db.Decimal(15, 2)
+  transportAllowance      Decimal   @default(0) @db.Decimal(15, 2)
+  responsibilityAllowance Decimal   @default(0) @db.Decimal(15, 2)
+  photo                   String?
+  isActive                Boolean   @default(true)
   // Public website ("Our team" on the About page)
-  showOnWebsite         Boolean  @default(false)
-  websiteBio            String?
-  websiteOrder          Int      @default(0)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  showOnWebsite           Boolean   @default(false)
+  websiteBio              String?
+  websiteOrder            Int       @default(0)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
-  school                School             @relation(fields: [schoolId], references: [id])
-  leaveRecords          LeaveRecord[]
-  payslips              Payslip[]
-  appraisalRecords      AppraisalRecord[]
-  disciplinaryRecords   StaffDiscipline[]
-  user                  User?
+  school              School            @relation(fields: [schoolId], references: [id])
+  leaveRecords        LeaveRecord[]
+  payslips            Payslip[]
+  appraisalRecords    AppraisalRecord[]
+  disciplinaryRecords StaffDiscipline[]
+  user                User?
+  deletedAt           DateTime?
 
   @@unique([schoolId, staffNumber])
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -446,21 +481,23 @@ model Staff {
 // ============================================
 
 model Attendance {
-  id                    String   @id @default(cuid())
-  studentId             String?
-  termId                String
-  date                  DateTime
-  attendanceType        String   @default("DAILY")
-  status                AttendanceStatus @default(PRESENT)
-  remarks               String?
-  createdAt             DateTime @default(now())
+  id             String           @id @default(cuid())
+  studentId      String?
+  termId         String
+  date           DateTime
+  attendanceType String           @default("DAILY")
+  status         AttendanceStatus @default(PRESENT)
+  remarks        String?
+  createdAt      DateTime         @default(now())
 
-  student               Student? @relation(fields: [studentId], references: [id])
-  term                  Term     @relation(fields: [termId], references: [id])
+  student   Student?  @relation(fields: [studentId], references: [id])
+  term      Term      @relation(fields: [termId], references: [id])
+  deletedAt DateTime?
 
   @@index([studentId, date])
   @@index([termId])
   @@index([termId, date])
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -468,64 +505,71 @@ model Attendance {
 // ============================================
 
 model Assessment {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  termId                String
-  subjectId             String
-  classId               String?
-  name                  String
-  assessmentType        String   @default("TEST")
-  totalMarks            Float    @default(100)
-  weight                Float    @default(1)
-  date                  DateTime?
-  isLocked              Boolean  @default(false)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id             String    @id @default(cuid())
+  schoolId       String
+  termId         String
+  subjectId      String
+  classId        String?
+  name           String
+  assessmentType String    @default("TEST")
+  totalMarks     Float     @default(100)
+  weight         Float     @default(1)
+  date           DateTime?
+  isLocked       Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  subject               Subject  @relation(fields: [subjectId], references: [id])
-  term                  Term     @relation(fields: [termId], references: [id])
-  marks                 AssessmentMark[]
+  subject   Subject          @relation(fields: [subjectId], references: [id])
+  term      Term             @relation(fields: [termId], references: [id])
+  marks     AssessmentMark[]
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model AssessmentMark {
-  id                    String   @id @default(cuid())
-  assessmentId          String
-  studentId             String
-  marksObtained         Float
-  grade                 String?
-  comments              String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id            String   @id @default(cuid())
+  assessmentId  String
+  studentId     String
+  marksObtained Float
+  grade         String?
+  comments      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  assessment            Assessment @relation(fields: [assessmentId], references: [id])
-  student               Student   @relation(fields: [studentId], references: [id])
+  assessment Assessment @relation(fields: [assessmentId], references: [id])
+  student    Student    @relation(fields: [studentId], references: [id])
+  deletedAt  DateTime?
 
   @@unique([assessmentId, studentId])
   @@index([studentId])
+  @@index([deletedAt])
 }
 
 model ReportCard {
-  id                    String   @id @default(cuid())
-  studentId             String
-  termId                String
-  classId               String
-  overallGrade          String?
-  overallPosition       Int?
-  classTeacherComment   String?
-  headComment           String?
-  attendanceDays        Int?
-  daysPresent           Int?
-  status                String   @default("DRAFT") // DRAFT, SUBMITTED, COUNTERSIGNED, PUBLISHED
-  classTeacherSignedAt  DateTime?
-  headSignedAt          DateTime?
-  isPublished           Boolean  @default(false)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                   String    @id @default(cuid())
+  studentId            String
+  termId               String
+  classId              String
+  overallGrade         String?
+  overallPosition      Int?
+  classTeacherComment  String?
+  headComment          String?
+  attendanceDays       Int?
+  daysPresent          Int?
+  status               String    @default("DRAFT") // DRAFT, SUBMITTED, COUNTERSIGNED, PUBLISHED
+  classTeacherSignedAt DateTime?
+  headSignedAt         DateTime?
+  isPublished          Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  student               Student  @relation(fields: [studentId], references: [id])
+  student   Student   @relation(fields: [studentId], references: [id])
+  deletedAt DateTime?
 
   @@unique([studentId, termId])
   @@index([classId, termId])
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -533,109 +577,157 @@ model ReportCard {
 // ============================================
 
 model FeeStructure {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  gradeId               String
-  termId                String?
-  name                  String
-  feeType               String
-  amount                Decimal  @db.Decimal(15, 2)
-  currency              Currency @default(USD)
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id        String   @id @default(cuid())
+  schoolId  String
+  gradeId   String
+  termId    String?
+  name      String
+  feeType   String
+  amount    Decimal  @db.Decimal(15, 2)
+  currency  Currency @default(USD)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
-  grade                 Grade    @relation(fields: [gradeId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  grade     Grade     @relation(fields: [gradeId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model FeeInvoice {
-  id                    String   @id @default(cuid())
-  studentId             String
-  termId                String
-  invoiceNumber         String   @unique
-  totalAmount           Decimal  @db.Decimal(15, 2)
-  amountPaid            Decimal  @default(0) @db.Decimal(15, 2)
-  balance               Decimal  @db.Decimal(15, 2)
-  dueDate               DateTime
-  status                InvoiceStatus @default(PENDING)
-  lateFeeApplied        Boolean  @default(false) // guards against compounding the overdue penalty
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id             String        @id @default(cuid())
+  studentId      String
+  termId         String
+  schoolId       String
+  invoiceNumber  String
+  totalAmount    Decimal       @db.Decimal(15, 2)
+  amountPaid     Decimal       @default(0) @db.Decimal(15, 2)
+  balance        Decimal       @db.Decimal(15, 2)
+  dueDate        DateTime
+  status         InvoiceStatus @default(PENDING)
+  lateFeeApplied Boolean       @default(false) // guards against compounding the overdue penalty
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  student               Student    @relation(fields: [studentId], references: [id])
-  term                  Term       @relation(fields: [termId], references: [id])
-  payments              FeePayment[]
-  items                 InvoiceItem[]
+  student     Student             @relation(fields: [studentId], references: [id])
+  term        Term                @relation(fields: [termId], references: [id])
+  school      School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  allocations PaymentAllocation[]
+  payments    FeePayment[]
+  items       InvoiceItem[]
+  deletedAt   DateTime?
 
+  @@unique([schoolId, invoiceNumber])
   @@index([studentId, status])
   @@index([termId])
+  @@index([deletedAt])
+  @@index([schoolId])
 }
 
 model InvoiceItem {
-  id                    String   @id @default(cuid())
-  invoiceId             String
-  description           String
-  amount                Decimal  @db.Decimal(15, 2)
-  feeType               String
-  createdAt             DateTime @default(now())
+  id          String   @id @default(cuid())
+  invoiceId   String
+  description String
+  amount      Decimal  @db.Decimal(15, 2)
+  feeType     String
+  schoolId    String
+  createdAt   DateTime @default(now())
 
-  invoice               FeeInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice   FeeInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  school    School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  deletedAt DateTime?
+
+  @@index([deletedAt])
+  @@index([schoolId])
 }
 
 model FeePayment {
-  id                    String   @id @default(cuid())
-  studentId             String
-  invoiceId             String?
-  parentId              String?
-  receiptNumber         String   @unique
-  amount                Decimal  @db.Decimal(15, 2)
-  paymentMethod         PaymentMethod @default(CASH)
-  currency              Currency @default(USD)
-  exchangeRate          Float    @default(1)
-  reference             String?
-  isReversed            Boolean  @default(false)
-  createdAt             DateTime @default(now())
+  id            String        @id @default(cuid())
+  studentId     String
+  invoiceId     String?
+  parentId      String?
+  schoolId      String
+  receiptNumber String
+  amount        Decimal       @db.Decimal(15, 2)
+  paymentMethod PaymentMethod @default(CASH)
+  currency      Currency      @default(USD)
+  exchangeRate  Float         @default(1)
+  reference     String?
+  isReversed    Boolean       @default(false)
+  createdAt     DateTime      @default(now())
 
-  student               Student    @relation(fields: [studentId], references: [id])
-  invoice               FeeInvoice? @relation(fields: [invoiceId], references: [id])
-  parent                Parent?    @relation(fields: [parentId], references: [id])
+  student     Student             @relation(fields: [studentId], references: [id])
+  invoice     FeeInvoice?         @relation(fields: [invoiceId], references: [id])
+  parent      Parent?             @relation(fields: [parentId], references: [id])
+  school      School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  allocations PaymentAllocation[]
+  deletedAt   DateTime?
 
+  @@unique([schoolId, receiptNumber])
   @@index([studentId])
   @@index([invoiceId])
   @@index([parentId])
+  @@index([deletedAt])
+  @@index([schoolId])
+}
+
+model PaymentAllocation {
+  id          String    @id @default(cuid())
+  paymentId   String
+  invoiceId   String
+  schoolId    String
+  amount      Decimal   @db.Decimal(15, 2)
+  allocatedAt DateTime  @default(now())
+  deletedAt   DateTime?
+
+  payment FeePayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoice FeeInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  school  School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([invoiceId])
+  @@index([schoolId])
+  @@index([deletedAt])
 }
 
 model BankAccount {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  bankName              String
-  accountName           String
-  accountNumber         String
-  branch                String?
-  branchCode            String?
-  accountType           AccountType @default(CURRENT)
-  currency              Currency @default(USD)
-  balance               Decimal  @default(0) @db.Decimal(15, 2)
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
+  id            String      @id @default(cuid())
+  schoolId      String
+  bankName      String
+  accountName   String
+  accountNumber String
+  branch        String?
+  branchCode    String?
+  accountType   AccountType @default(CURRENT)
+  currency      Currency    @default(USD)
+  balance       Decimal     @default(0) @db.Decimal(15, 2)
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model Scholarship {
-  id                    String   @id @default(cuid())
-  studentId             String
-  name                  String
-  discountPercentage    Float
-  amount                Decimal? @db.Decimal(15, 2)
-  donor                 String?
-  startDate             DateTime
-  endDate               DateTime?
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
+  id                 String    @id @default(cuid())
+  studentId          String
+  name               String
+  discountPercentage Float
+  amount             Decimal?  @db.Decimal(15, 2)
+  donor              String?
+  startDate          DateTime
+  endDate            DateTime?
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
 
-  student               Student  @relation(fields: [studentId], references: [id])
+  student   Student   @relation(fields: [studentId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -643,20 +735,23 @@ model Scholarship {
 // ============================================
 
 model ZimsecCandidate {
-  id                    String   @id @default(cuid())
-  studentId             String   @unique
-  centreNumber          String?
-  candidateNumber       String?
-  examLevel             ExamLevel
-  examYear              Int
-  registrationStatus    String   @default("PENDING")
-  subjects              String?
-  totalFees             Decimal  @default(0) @db.Decimal(15, 2)
-  feesPaid              Decimal  @default(0) @db.Decimal(15, 2)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                 String    @id @default(cuid())
+  studentId          String    @unique
+  centreNumber       String?
+  candidateNumber    String?
+  examLevel          ExamLevel
+  examYear           Int
+  registrationStatus String    @default("PENDING")
+  subjects           String?
+  totalFees          Decimal   @default(0) @db.Decimal(15, 2)
+  feesPaid           Decimal   @default(0) @db.Decimal(15, 2)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  student               Student  @relation(fields: [studentId], references: [id])
+  student   Student   @relation(fields: [studentId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -664,36 +759,42 @@ model ZimsecCandidate {
 // ============================================
 
 model BeamApplication {
-  id                    String   @id @default(cuid())
-  studentId             String   @unique
-  applicationDate       DateTime @default(now())
-  status                BeamStatus @default(APPLIED)
-  coveredAmount         Decimal  @default(0) @db.Decimal(15, 2)
-  outstandingBalance    Decimal  @default(0) @db.Decimal(15, 2)
-  socialWelfareRef      String?
-  guardianSituation     String?
-  orphanStatus          String?
-  notes                 String?
-  coverageAppliedAt     DateTime? // set when the approved coverage has been posted to invoices (idempotency)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                 String     @id @default(cuid())
+  studentId          String     @unique
+  applicationDate    DateTime   @default(now())
+  status             BeamStatus @default(APPLIED)
+  coveredAmount      Decimal    @default(0) @db.Decimal(15, 2)
+  outstandingBalance Decimal    @default(0) @db.Decimal(15, 2)
+  socialWelfareRef   String?
+  guardianSituation  String?
+  orphanStatus       String?
+  notes              String?
+  coverageAppliedAt  DateTime? // set when the approved coverage has been posted to invoices (idempotency)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
-  student               Student  @relation(fields: [studentId], references: [id])
+  student   Student   @relation(fields: [studentId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model WelfareRecord {
-  id                    String   @id @default(cuid())
-  studentId             String
-  category              String
-  description           String?
-  actionTaken           String?
-  referredTo            String?
-  status                String   @default("OPEN")
-  isConfidential        Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id             String   @id @default(cuid())
+  studentId      String
+  category       String
+  description    String?
+  actionTaken    String?
+  referredTo     String?
+  status         String   @default("OPEN")
+  isConfidential Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  student               Student  @relation(fields: [studentId], references: [id])
+  student   Student   @relation(fields: [studentId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -701,35 +802,41 @@ model WelfareRecord {
 // ============================================
 
 model DisciplineRecord {
-  id                    String   @id @default(cuid())
-  studentId             String
-  incidentType          String
-  description           String
-  date                  DateTime
-  action                String?
-  meritPoints           Int      @default(0)
-  demeritPoints         Int      @default(0)
-  parentNotified        Boolean  @default(false)
-  status                String   @default("OPEN")
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id             String   @id @default(cuid())
+  studentId      String
+  incidentType   String
+  description    String
+  date           DateTime
+  action         String?
+  meritPoints    Int      @default(0)
+  demeritPoints  Int      @default(0)
+  parentNotified Boolean  @default(false)
+  status         String   @default("OPEN")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  student               Student  @relation(fields: [studentId], references: [id])
+  student   Student   @relation(fields: [studentId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model HealthRecord {
-  id                    String   @id @default(cuid())
-  studentId             String
-  visitType             String
-  description           String
-  treatment             String?
-  medicationGiven       String?
-  referredTo            String?
-  visitDate             DateTime @default(now())
-  isConfidential        Boolean  @default(true)
-  createdAt             DateTime @default(now())
+  id              String   @id @default(cuid())
+  studentId       String
+  visitType       String
+  description     String
+  treatment       String?
+  medicationGiven String?
+  referredTo      String?
+  visitDate       DateTime @default(now())
+  isConfidential  Boolean  @default(true)
+  createdAt       DateTime @default(now())
 
-  student               Student  @relation(fields: [studentId], references: [id])
+  student   Student   @relation(fields: [studentId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -737,42 +844,51 @@ model HealthRecord {
 // ============================================
 
 model Hostel {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  name                  String
-  gender                String?
-  capacity              Int      @default(50)
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
+  id        String   @id @default(cuid())
+  schoolId  String
+  name      String
+  gender    String?
+  capacity  Int      @default(50)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
 
-  school                School   @relation(fields: [schoolId], references: [id])
-  dormitories           Dormitory[]
+  school      School      @relation(fields: [schoolId], references: [id])
+  dormitories Dormitory[]
+  deletedAt   DateTime?
+
+  @@index([deletedAt])
 }
 
 model Dormitory {
-  id                    String   @id @default(cuid())
-  hostelId              String
-  name                  String
-  capacity              Int      @default(20)
-  currentOccupancy      Int      @default(0)
-  createdAt             DateTime @default(now())
+  id               String   @id @default(cuid())
+  hostelId         String
+  name             String
+  capacity         Int      @default(20)
+  currentOccupancy Int      @default(0)
+  createdAt        DateTime @default(now())
 
-  hostel                Hostel   @relation(fields: [hostelId], references: [id])
-  boardingAssignments   BoardingAssignment[]
+  hostel              Hostel               @relation(fields: [hostelId], references: [id])
+  boardingAssignments BoardingAssignment[]
+  deletedAt           DateTime?
+
+  @@index([deletedAt])
 }
 
 model BoardingAssignment {
-  id                    String   @id @default(cuid())
-  studentId             String   @unique
-  dormitoryId           String
-  bedNumber             String?
-  startDate             DateTime @default(now())
-  endDate               DateTime?
-  status                String   @default("ACTIVE")
-  createdAt             DateTime @default(now())
+  id          String    @id @default(cuid())
+  studentId   String    @unique
+  dormitoryId String
+  bedNumber   String?
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  status      String    @default("ACTIVE")
+  createdAt   DateTime  @default(now())
 
-  student               Student    @relation(fields: [studentId], references: [id])
-  dormitory             Dormitory  @relation(fields: [dormitoryId], references: [id])
+  student   Student   @relation(fields: [studentId], references: [id])
+  dormitory Dormitory @relation(fields: [dormitoryId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -780,47 +896,56 @@ model BoardingAssignment {
 // ============================================
 
 model TransportRoute {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  name                  String
-  description           String?
-  fee                   Decimal  @default(0) @db.Decimal(15, 2)
-  capacity              Int      @default(50)
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
+  id          String   @id @default(cuid())
+  schoolId    String
+  name        String
+  description String?
+  fee         Decimal  @default(0) @db.Decimal(15, 2)
+  capacity    Int      @default(50)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
 
-  school                School   @relation(fields: [schoolId], references: [id])
-  assignments           TransportAssignment[]
+  school      School                @relation(fields: [schoolId], references: [id])
+  assignments TransportAssignment[]
+  deletedAt   DateTime?
+
+  @@index([deletedAt])
 }
 
 model Vehicle {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  registrationNumber    String
-  make                  String?
-  model                 String?
-  year                  Int?
-  capacity              Int?
-  driverName            String?
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
+  id                 String   @id @default(cuid())
+  schoolId           String
+  registrationNumber String
+  make               String?
+  model              String?
+  year               Int?
+  capacity           Int?
+  driverName         String?
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model TransportAssignment {
-  id                    String   @id @default(cuid())
-  studentId             String   @unique
-  routeId               String
-  pickupPoint           String?
-  dropoffPoint          String?
-  startDate             DateTime @default(now())
-  endDate               DateTime?
-  status                String   @default("ACTIVE")
-  createdAt             DateTime @default(now())
+  id           String    @id @default(cuid())
+  studentId    String    @unique
+  routeId      String
+  pickupPoint  String?
+  dropoffPoint String?
+  startDate    DateTime  @default(now())
+  endDate      DateTime?
+  status       String    @default("ACTIVE")
+  createdAt    DateTime  @default(now())
 
-  student               Student        @relation(fields: [studentId], references: [id])
-  route                 TransportRoute @relation(fields: [routeId], references: [id])
+  student   Student        @relation(fields: [studentId], references: [id])
+  route     TransportRoute @relation(fields: [routeId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -828,37 +953,43 @@ model TransportAssignment {
 // ============================================
 
 model LibraryBook {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  isbn                  String?
-  title                 String
-  author                String?
-  publisher             String?
-  category              String?
-  shelfLocation         String?
-  totalCopies           Int      @default(1)
-  availableCopies       Int      @default(1)
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
+  id              String   @id @default(cuid())
+  schoolId        String
+  isbn            String?
+  title           String
+  author          String?
+  publisher       String?
+  category        String?
+  shelfLocation   String?
+  totalCopies     Int      @default(1)
+  availableCopies Int      @default(1)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
 
-  school                School   @relation(fields: [schoolId], references: [id])
-  transactions          LibraryTransaction[]
+  school       School               @relation(fields: [schoolId], references: [id])
+  transactions LibraryTransaction[]
+  deletedAt    DateTime?
+
+  @@index([deletedAt])
 }
 
 model LibraryTransaction {
-  id                    String   @id @default(cuid())
-  bookId                String
-  studentId             String
-  transactionType       String
-  issueDate             DateTime @default(now())
-  dueDate               DateTime?
-  returnDate            DateTime?
-  fine                  Decimal  @default(0) @db.Decimal(15, 2)
-  conditionOnReturn     String?
-  createdAt             DateTime @default(now())
+  id                String    @id @default(cuid())
+  bookId            String
+  studentId         String
+  transactionType   String
+  issueDate         DateTime  @default(now())
+  dueDate           DateTime?
+  returnDate        DateTime?
+  fine              Decimal   @default(0) @db.Decimal(15, 2)
+  conditionOnReturn String?
+  createdAt         DateTime  @default(now())
 
-  book                  LibraryBook @relation(fields: [bookId], references: [id])
-  student               Student     @relation(fields: [studentId], references: [id])
+  book      LibraryBook @relation(fields: [bookId], references: [id])
+  student   Student     @relation(fields: [studentId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -866,39 +997,45 @@ model LibraryTransaction {
 // ============================================
 
 model Asset {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  assetTag              String   @unique
-  name                  String
-  category              String
-  location              String?
-  purchaseCost          Decimal  @default(0) @db.Decimal(15, 2)
-  purchaseDate          DateTime?
-  donorSource           String?
-  condition             AssetCondition @default(GOOD)
-  custodian             String?
-  isDisposed            Boolean  @default(false)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id           String         @id @default(cuid())
+  schoolId     String
+  assetTag     String         @unique
+  name         String
+  category     String
+  location     String?
+  purchaseCost Decimal        @default(0) @db.Decimal(15, 2)
+  purchaseDate DateTime?
+  donorSource  String?
+  condition    AssetCondition @default(GOOD)
+  custodian    String?
+  isDisposed   Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
-  maintenanceRequests   MaintenanceRequest[]
+  school              School               @relation(fields: [schoolId], references: [id])
+  maintenanceRequests MaintenanceRequest[]
+  deletedAt           DateTime?
+
+  @@index([deletedAt])
 }
 
 model MaintenanceRequest {
-  id                    String   @id @default(cuid())
-  assetId               String?
-  schoolId              String
-  category              String
-  description           String
-  priority              Priority @default(MEDIUM)
-  status                String   @default("PENDING")
-  estimatedCost         Decimal? @db.Decimal(15, 2)
-  actualCost            Decimal? @db.Decimal(15, 2)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id            String   @id @default(cuid())
+  assetId       String?
+  schoolId      String
+  category      String
+  description   String
+  priority      Priority @default(MEDIUM)
+  status        String   @default("PENDING")
+  estimatedCost Decimal? @db.Decimal(15, 2)
+  actualCost    Decimal? @db.Decimal(15, 2)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  asset                 Asset?   @relation(fields: [assetId], references: [id])
+  asset     Asset?    @relation(fields: [assetId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -906,79 +1043,90 @@ model MaintenanceRequest {
 // ============================================
 
 model Payslip {
-  id                    String   @id @default(cuid())
-  staffId               String
-  periodMonth           Int
-  periodYear            Int
-  basicSalary           Decimal  @default(0) @db.Decimal(15, 2)
-  housingAllowance      Decimal  @default(0) @db.Decimal(15, 2)
-  transportAllowance    Decimal  @default(0) @db.Decimal(15, 2)
-  responsibilityAllowance Decimal @default(0) @db.Decimal(15, 2)
-  overtime              Decimal  @default(0) @db.Decimal(15, 2)
-  grossPay              Decimal  @default(0) @db.Decimal(15, 2)
-  paye                  Decimal  @default(0) @db.Decimal(15, 2)
-  nssaEmployee          Decimal  @default(0) @db.Decimal(15, 2)
-  nssaEmployer          Decimal  @default(0) @db.Decimal(15, 2)
-  aidsLevy              Decimal  @default(0) @db.Decimal(15, 2)
-  zimdef                Decimal  @default(0) @db.Decimal(15, 2)
-  pension               Decimal  @default(0) @db.Decimal(15, 2)
-  medicalAid            Decimal  @default(0) @db.Decimal(15, 2)
-  funeralPolicy         Decimal  @default(0) @db.Decimal(15, 2)
-  otherDeductions       Decimal  @default(0) @db.Decimal(15, 2)
-  netPay                Decimal  @default(0) @db.Decimal(15, 2)
-  currency              Currency @default(USD)
-  status                String   @default("DRAFT")
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                      String   @id @default(cuid())
+  staffId                 String
+  periodMonth             Int
+  periodYear              Int
+  basicSalary             Decimal  @default(0) @db.Decimal(15, 2)
+  housingAllowance        Decimal  @default(0) @db.Decimal(15, 2)
+  transportAllowance      Decimal  @default(0) @db.Decimal(15, 2)
+  responsibilityAllowance Decimal  @default(0) @db.Decimal(15, 2)
+  overtime                Decimal  @default(0) @db.Decimal(15, 2)
+  grossPay                Decimal  @default(0) @db.Decimal(15, 2)
+  paye                    Decimal  @default(0) @db.Decimal(15, 2)
+  nssaEmployee            Decimal  @default(0) @db.Decimal(15, 2)
+  nssaEmployer            Decimal  @default(0) @db.Decimal(15, 2)
+  aidsLevy                Decimal  @default(0) @db.Decimal(15, 2)
+  zimdef                  Decimal  @default(0) @db.Decimal(15, 2)
+  pension                 Decimal  @default(0) @db.Decimal(15, 2)
+  medicalAid              Decimal  @default(0) @db.Decimal(15, 2)
+  funeralPolicy           Decimal  @default(0) @db.Decimal(15, 2)
+  otherDeductions         Decimal  @default(0) @db.Decimal(15, 2)
+  netPay                  Decimal  @default(0) @db.Decimal(15, 2)
+  currency                Currency @default(USD)
+  status                  String   @default("DRAFT")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
-  staff                 Staff   @relation(fields: [staffId], references: [id])
+  staff     Staff     @relation(fields: [staffId], references: [id])
+  deletedAt DateTime?
 
   @@unique([staffId, periodMonth, periodYear])
+  @@index([deletedAt])
 }
 
 model LeaveRecord {
-  id                    String   @id @default(cuid())
-  staffId               String
-  leaveType             LeaveType
-  startDate             DateTime
-  endDate               DateTime
-  days                  Int
-  reason                String?
-  status                LeaveStatus @default(PENDING)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id        String      @id @default(cuid())
+  staffId   String
+  leaveType LeaveType
+  startDate DateTime
+  endDate   DateTime
+  days      Int
+  reason    String?
+  status    LeaveStatus @default(PENDING)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
-  staff                 Staff   @relation(fields: [staffId], references: [id])
+  staff     Staff     @relation(fields: [staffId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model AppraisalRecord {
-  id                    String   @id @default(cuid())
-  staffId               String
-  period                String
-  rating                Float
-  comments              String?
-  strengths             String?
-  areasForImprovement   String?
-  goals                 String?
-  status                String   @default("DRAFT")
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  staffId             String
+  period              String
+  rating              Float
+  comments            String?
+  strengths           String?
+  areasForImprovement String?
+  goals               String?
+  status              String   @default("DRAFT")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  staff                 Staff   @relation(fields: [staffId], references: [id])
+  staff     Staff     @relation(fields: [staffId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model StaffDiscipline {
-  id                    String   @id @default(cuid())
-  staffId               String
-  incidentType          String
-  description           String
-  date                  DateTime
-  action                String?
-  status                String   @default("OPEN")
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id           String   @id @default(cuid())
+  staffId      String
+  incidentType String
+  description  String
+  date         DateTime
+  action       String?
+  status       String   @default("OPEN")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  staff                 Staff   @relation(fields: [staffId], references: [id])
+  staff     Staff     @relation(fields: [staffId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -986,18 +1134,21 @@ model StaffDiscipline {
 // ============================================
 
 model SDCMember {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  name                  String
-  position              String
-  phone                 String?
-  email                 String?
-  termStart             DateTime?
-  termEnd               DateTime?
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
+  id        String    @id @default(cuid())
+  schoolId  String
+  name      String
+  position  String
+  phone     String?
+  email     String?
+  termStart DateTime?
+  termEnd   DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1005,17 +1156,20 @@ model SDCMember {
 // ============================================
 
 model Communication {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  parentId              String?
-  channel               String
-  subject               String?
-  message               String
-  status                String   @default("PENDING")
-  sentAt                DateTime?
-  createdAt             DateTime @default(now())
+  id        String    @id @default(cuid())
+  schoolId  String
+  parentId  String?
+  channel   String
+  subject   String?
+  message   String
+  status    String    @default("PENDING")
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
 
-  parent                Parent?  @relation(fields: [parentId], references: [id])
+  parent    Parent?   @relation(fields: [parentId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1023,50 +1177,62 @@ model Communication {
 // ============================================
 
 model SchoolEvent {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  title                 String
-  description           String?
-  eventType             String
-  startDate             DateTime
-  endDate               DateTime?
-  venue                 String?
-  createdAt             DateTime @default(now())
+  id          String    @id @default(cuid())
+  schoolId    String
+  title       String
+  description String?
+  eventType   String
+  startDate   DateTime
+  endDate     DateTime?
+  venue       String?
+  createdAt   DateTime  @default(now())
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model Club {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  name                  String
-  description           String?
-  meetingDay            String?
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
+  id          String   @id @default(cuid())
+  schoolId    String
+  name        String
+  description String?
+  meetingDay  String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model SportsCode {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  name                  String
-  season                String?
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
+  id        String   @id @default(cuid())
+  schoolId  String
+  name      String
+  season    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model House {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  name                  String
-  colour                String?
-  createdAt             DateTime @default(now())
+  id        String   @id @default(cuid())
+  schoolId  String
+  name      String
+  colour    String?
+  createdAt DateTime @default(now())
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1074,21 +1240,24 @@ model House {
 // ============================================
 
 model Supplier {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  name                  String
-  contactPerson         String?
-  phone                 String?
-  email                 String?
-  address               String?
-  taxNumber             String?
-  bankName              String?
-  bankAccount           String?
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
+  id            String   @id @default(cuid())
+  schoolId      String
+  name          String
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+  taxNumber     String?
+  bankName      String?
+  bankAccount   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
 
-  school                School   @relation(fields: [schoolId], references: [id])
-  purchaseOrders        PurchaseOrder[]
+  school         School          @relation(fields: [schoolId], references: [id])
+  purchaseOrders PurchaseOrder[]
+  deletedAt      DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1264,26 +1433,28 @@ enum ShopOrderStatus {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  name          String
-  role          Role      @default(ADMIN)
-  staffId       String?   @unique
-  studentId     String?   @unique
-  parentId      String?
-  schoolId      String
-  isActive      Boolean   @default(true)
-  lastLogin     DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id        String    @id @default(cuid())
+  email     String    @unique
+  password  String
+  name      String
+  role      Role      @default(ADMIN)
+  staffId   String?   @unique
+  studentId String?   @unique
+  parentId  String?
+  schoolId  String
+  isActive  Boolean   @default(true)
+  lastLogin DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  staff         Staff?    @relation(fields: [staffId], references: [id])
-  student       Student?  @relation(fields: [studentId], references: [id])
-  school        School    @relation(fields: [schoolId], references: [id])
+  staff     Staff?    @relation(fields: [staffId], references: [id])
+  student   Student?  @relation(fields: [studentId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
 
   @@index([email])
   @@index([role])
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1291,19 +1462,46 @@ model User {
 // ============================================
 
 model AuditLog {
-  id                    String   @id @default(cuid())
-  action                String
-  entity                String
-  entityId              String?
-  performedBy           String?
-  details               String?
-  beforeValue           String?
-  afterValue            String?
-  createdAt             DateTime @default(now())
+  id          String    @id @default(cuid())
+  schoolId    String?
+  action      String
+  entity      String
+  entityId    String?
+  performedBy String?
+  actorId     String?
+  details     String?
+  beforeValue Json?
+  afterValue  Json?
+  createdAt   DateTime  @default(now())
+  deletedAt   DateTime?
+
+  school School? @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@index([entity])
   @@index([action])
   @@index([createdAt])
+  @@index([deletedAt])
+  @@index([schoolId])
+}
+
+model Outbox {
+  id          String    @id @default(cuid())
+  schoolId    String?
+  topic       String
+  payload     Json
+  status      String    @default("PENDING")
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  error       String?
+  scheduledAt DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  school      School?   @relation(fields: [schoolId], references: [id])
+
+  @@index([status, scheduledAt])
+  @@index([schoolId])
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1311,48 +1509,57 @@ model AuditLog {
 // ============================================
 
 model CanteenItem {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  name                  String
-  category              String   @default("FOOD")
-  price                 Decimal  @default(0) @db.Decimal(15, 2)
-  costPrice             Decimal  @default(0) @db.Decimal(15, 2)
-  stockQuantity         Int      @default(0)
-  reorderLevel          Int      @default(5)
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id            String   @id @default(cuid())
+  schoolId      String
+  name          String
+  category      String   @default("FOOD")
+  price         Decimal  @default(0) @db.Decimal(15, 2)
+  costPrice     Decimal  @default(0) @db.Decimal(15, 2)
+  stockQuantity Int      @default(0)
+  reorderLevel  Int      @default(5)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
-  transactionItems      CanteenTransactionItem[]
+  school           School                   @relation(fields: [schoolId], references: [id])
+  transactionItems CanteenTransactionItem[]
+  deletedAt        DateTime?
+
+  @@index([deletedAt])
 }
 
 model CanteenTransaction {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  transactionNumber     String   @unique
-  buyerType             String   @default("STUDENT")
-  buyerId               String?
-  buyerName             String
-  totalAmount           Decimal  @default(0) @db.Decimal(15, 2)
-  paymentMethod         PaymentMethod @default(CASH)
-  status                String   @default("COMPLETED")
-  createdAt             DateTime @default(now())
+  id                String        @id @default(cuid())
+  schoolId          String
+  transactionNumber String        @unique
+  buyerType         String        @default("STUDENT")
+  buyerId           String?
+  buyerName         String
+  totalAmount       Decimal       @default(0) @db.Decimal(15, 2)
+  paymentMethod     PaymentMethod @default(CASH)
+  status            String        @default("COMPLETED")
+  createdAt         DateTime      @default(now())
 
-  school                School   @relation(fields: [schoolId], references: [id])
-  items                 CanteenTransactionItem[]
+  school    School                   @relation(fields: [schoolId], references: [id])
+  items     CanteenTransactionItem[]
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model CanteenTransactionItem {
-  id                    String   @id @default(cuid())
-  transactionId         String
-  itemId                String
-  quantity              Int      @default(1)
-  unitPrice             Decimal  @db.Decimal(15, 2)
-  totalPrice            Decimal  @db.Decimal(15, 2)
+  id            String  @id @default(cuid())
+  transactionId String
+  itemId        String
+  quantity      Int     @default(1)
+  unitPrice     Decimal @db.Decimal(15, 2)
+  totalPrice    Decimal @db.Decimal(15, 2)
 
-  transaction           CanteenTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  item                  CanteenItem       @relation(fields: [itemId], references: [id])
+  transaction CanteenTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  item        CanteenItem        @relation(fields: [itemId], references: [id])
+  deletedAt   DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1360,51 +1567,60 @@ model CanteenTransactionItem {
 // ============================================
 
 model PurchaseOrder {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  orderNumber           String   @unique
-  supplierId            String?
-  title                 String
-  description           String?
-  totalAmount           Decimal  @default(0) @db.Decimal(15, 2)
-  status                String   @default("DRAFT")
-  requestedBy           String?
-  approvedBy            String?
-  orderDate             DateTime @default(now())
-  expectedDate          DateTime?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id           String    @id @default(cuid())
+  schoolId     String
+  orderNumber  String    @unique
+  supplierId   String?
+  title        String
+  description  String?
+  totalAmount  Decimal   @default(0) @db.Decimal(15, 2)
+  status       String    @default("DRAFT")
+  requestedBy  String?
+  approvedBy   String?
+  orderDate    DateTime  @default(now())
+  expectedDate DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
-  supplier              Supplier? @relation(fields: [supplierId], references: [id])
-  items                 PurchaseOrderItem[]
+  school    School              @relation(fields: [schoolId], references: [id])
+  supplier  Supplier?           @relation(fields: [supplierId], references: [id])
+  items     PurchaseOrderItem[]
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model PurchaseOrderItem {
-  id                    String   @id @default(cuid())
-  purchaseOrderId       String
-  description           String
-  quantity              Int      @default(1)
-  unitPrice             Decimal  @default(0) @db.Decimal(15, 2)
-  totalPrice            Decimal  @default(0) @db.Decimal(15, 2)
+  id              String  @id @default(cuid())
+  purchaseOrderId String
+  description     String
+  quantity        Int     @default(1)
+  unitPrice       Decimal @default(0) @db.Decimal(15, 2)
+  totalPrice      Decimal @default(0) @db.Decimal(15, 2)
 
-  purchaseOrder         PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  deletedAt     DateTime?
+
+  @@index([deletedAt])
 }
 
 model Requisition {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  title                 String
-  description           String?
-  requestedBy           String?
-  department            String?
-  estimatedCost         Decimal? @db.Decimal(15, 2)
-  status                String   @default("PENDING")
-  priority              Priority @default(MEDIUM)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id            String   @id @default(cuid())
+  schoolId      String
+  title         String
+  description   String?
+  requestedBy   String?
+  department    String?
+  estimatedCost Decimal? @db.Decimal(15, 2)
+  status        String   @default("PENDING")
+  priority      Priority @default(MEDIUM)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1412,22 +1628,25 @@ model Requisition {
 // ============================================
 
 model Document {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  title                 String
-  category              String   @default("GENERAL")
-  description           String?
-  fileName              String
-  fileType              String   @default("PDF")
-  fileSize              Int      @default(0)
-  uploadedBy            String?
-  tags                  String?
-  isTemplate            Boolean  @default(false)
-  version               Int      @default(1)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id          String   @id @default(cuid())
+  schoolId    String
+  title       String
+  category    String   @default("GENERAL")
+  description String?
+  fileName    String
+  fileType    String   @default("PDF")
+  fileSize    Int      @default(0)
+  uploadedBy  String?
+  tags        String?
+  isTemplate  Boolean  @default(false)
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1435,37 +1654,43 @@ model Document {
 // ============================================
 
 model Alumni {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  firstName             String
-  lastName              String
-  graduationYear        Int
-  email                 String?
-  phone                 String?
-  occupation            String?
-  company               String?
-  location              String?
-  isNotable             Boolean  @default(false)
-  totalContributions    Decimal  @default(0) @db.Decimal(15, 2)
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  schoolId           String
+  firstName          String
+  lastName           String
+  graduationYear     Int
+  email              String?
+  phone              String?
+  occupation         String?
+  company            String?
+  location           String?
+  isNotable          Boolean  @default(false)
+  totalContributions Decimal  @default(0) @db.Decimal(15, 2)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
-  contributions         AlumniContribution[]
+  school        School               @relation(fields: [schoolId], references: [id])
+  contributions AlumniContribution[]
+  deletedAt     DateTime?
+
+  @@index([deletedAt])
 }
 
 model AlumniContribution {
-  id                    String   @id @default(cuid())
-  alumniId              String
-  amount                Decimal  @db.Decimal(15, 2)
-  contributionType      String   @default("DONATION")
-  description           String?
-  campaign              String?
-  date                  DateTime @default(now())
-  createdAt             DateTime @default(now())
+  id               String   @id @default(cuid())
+  alumniId         String
+  amount           Decimal  @db.Decimal(15, 2)
+  contributionType String   @default("DONATION")
+  description      String?
+  campaign         String?
+  date             DateTime @default(now())
+  createdAt        DateTime @default(now())
 
-  alumni                Alumni   @relation(fields: [alumniId], references: [id])
+  alumni    Alumni    @relation(fields: [alumniId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1473,36 +1698,42 @@ model AlumniContribution {
 // ============================================
 
 model Visitor {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  name                  String
-  idNumber              String?
-  purpose               String
-  hostPerson            String?
-  vehicleReg            String?
-  phone                 String?
-  checkInTime           DateTime @default(now())
-  checkOutTime          DateTime?
-  status                VisitorStatus @default(ON_CAMPUS)
-  createdAt             DateTime @default(now())
+  id           String        @id @default(cuid())
+  schoolId     String
+  name         String
+  idNumber     String?
+  purpose      String
+  hostPerson   String?
+  vehicleReg   String?
+  phone        String?
+  checkInTime  DateTime      @default(now())
+  checkOutTime DateTime?
+  status       VisitorStatus @default(ON_CAMPUS)
+  createdAt    DateTime      @default(now())
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model SecurityIncident {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  incidentType          String
-  location              String?
-  severity              Severity @default(LOW)
-  description           String
-  reporter              String?
-  status                IncidentStatus @default(OPEN)
-  resolution            String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id           String         @id @default(cuid())
+  schoolId     String
+  incidentType String
+  location     String?
+  severity     Severity       @default(LOW)
+  description  String
+  reporter     String?
+  status       IncidentStatus @default(OPEN)
+  resolution   String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1510,51 +1741,60 @@ model SecurityIncident {
 // ============================================
 
 model Course {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  subjectId             String?
-  name                  String
-  description           String?
-  instructor            String?
-  enrollmentCount       Int      @default(0)
-  syllabusCompletion    Float    @default(0)
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  schoolId           String
+  subjectId          String?
+  name               String
+  description        String?
+  instructor         String?
+  enrollmentCount    Int      @default(0)
+  syllabusCompletion Float    @default(0)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
-  resources             CourseResource[]
-  assignments           CourseAssignment[]
+  school      School             @relation(fields: [schoolId], references: [id])
+  resources   CourseResource[]
+  assignments CourseAssignment[]
+  deletedAt   DateTime?
+
+  @@index([deletedAt])
 }
 
 model CourseResource {
-  id                    String   @id @default(cuid())
-  courseId              String
-  title                 String
-  resourceType          ResourceType @default(NOTES)
-  url                   String?
-  fileSize              Int      @default(0)
-  downloads             Int      @default(0)
-  uploadedBy            String?
-  createdAt             DateTime @default(now())
+  id           String       @id @default(cuid())
+  courseId     String
+  title        String
+  resourceType ResourceType @default(NOTES)
+  url          String?
+  fileSize     Int          @default(0)
+  downloads    Int          @default(0)
+  uploadedBy   String?
+  createdAt    DateTime     @default(now())
 
-  course                Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model CourseAssignment {
-  id                    String   @id @default(cuid())
-  courseId              String
-  title                 String
-  description           String?
-  maxMarks              Float    @default(100)
-  dueDate               DateTime?
-  status                AssignmentStatus @default(OPEN)
-  submissionsCount      Int      @default(0)
-  avgScore              Float?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id               String           @id @default(cuid())
+  courseId         String
+  title            String
+  description      String?
+  maxMarks         Float            @default(100)
+  dueDate          DateTime?
+  status           AssignmentStatus @default(OPEN)
+  submissionsCount Int              @default(0)
+  avgScore         Float?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
-  course                Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1562,23 +1802,26 @@ model CourseAssignment {
 // ============================================
 
 model TimetableEntry {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  classId               String
-  subjectId             String
-  staffId               String?
-  dayOfWeek             Int      @default(1)
-  period                Int      @default(1)
-  room                  String?
-  startTime             String?
-  endTime               String?
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id        String   @id @default(cuid())
+  schoolId  String
+  classId   String
+  subjectId String
+  staffId   String?
+  dayOfWeek Int      @default(1)
+  period    Int      @default(1)
+  room      String?
+  startTime String?
+  endTime   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
-  class                 Class    @relation(fields: [classId], references: [id])
-  subject               Subject  @relation(fields: [subjectId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  class     Class     @relation(fields: [classId], references: [id])
+  subject   Subject   @relation(fields: [subjectId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1586,212 +1829,234 @@ model TimetableEntry {
 // ============================================
 
 model WebsitePage {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  slug                  String
-  title                 String
-  content               String
-  heroImage             String?
-  metaTitle             String?
-  metaDescription       String?
-  metaKeywords          String?
-  schemaMarkup          String?
-  isPublished           Boolean  @default(false)
-  showInNavigation      Boolean  @default(true)
-  sortOrder             Int      @default(0)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id               String   @id @default(cuid())
+  schoolId         String
+  slug             String
+  title            String
+  content          String
+  heroImage        String?
+  metaTitle        String?
+  metaDescription  String?
+  metaKeywords     String?
+  schemaMarkup     String?
+  isPublished      Boolean  @default(false)
+  showInNavigation Boolean  @default(true)
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
 
   @@unique([schoolId, slug])
+  @@index([deletedAt])
 }
 
 model NewsArticle {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  title                 String
-  slug                  String
-  excerpt               String?
-  content               String
-  featuredImage         String?
-  category              String   @default("GENERAL")
-  authorName            String?
-  isPublished           Boolean  @default(false)
-  isFeatured            Boolean  @default(false)
-  publishedAt           DateTime?
-  metaTitle             String?
-  metaDescription       String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id              String    @id @default(cuid())
+  schoolId        String
+  title           String
+  slug            String
+  excerpt         String?
+  content         String
+  featuredImage   String?
+  category        String    @default("GENERAL")
+  authorName      String?
+  isPublished     Boolean   @default(false)
+  isFeatured      Boolean   @default(false)
+  publishedAt     DateTime?
+  metaTitle       String?
+  metaDescription String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
 
   @@unique([schoolId, slug])
+  @@index([deletedAt])
 }
 
 model GalleryImage {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  title                 String?
-  description           String?
-  imageUrl              String
-  category              String   @default("GENERAL")
-  isFeatured            Boolean  @default(false)
-  sortOrder             Int      @default(0)
-  createdAt             DateTime @default(now())
+  id          String   @id @default(cuid())
+  schoolId    String
+  title       String?
+  description String?
+  imageUrl    String
+  category    String   @default("GENERAL")
+  isFeatured  Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ── Public website: accreditation / partner logos (carousel on the home page) ──
 model Partner {
-  id          String   @id @default(cuid())
-  schoolId    String
-  name        String
-  logoUrl     String?  // image URL; when null the public site renders a text badge
-  websiteUrl  String?
-  category    PartnerCategory @default(PARTNER) // ACCREDITATION | PARTNER | AFFILIATION
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String          @id @default(cuid())
+  schoolId   String
+  name       String
+  logoUrl    String? // image URL; when null the public site renders a text badge
+  websiteUrl String?
+  category   PartnerCategory @default(PARTNER) // ACCREDITATION | PARTNER | AFFILIATION
+  sortOrder  Int             @default(0)
+  isActive   Boolean         @default(true)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
 
-  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school    School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  deletedAt DateTime?
 
   @@index([schoolId, isActive])
+  @@index([deletedAt])
 }
 
 // ── Public website theme & home-page content (one row per school) ──
 model SiteTheme {
-  id                 String   @id @default(cuid())
-  schoolId           String   @unique
+  id       String @id @default(cuid())
+  schoolId String @unique
 
   // Brand / theme tokens (CSS variables applied to the public site)
-  primaryColor       String   @default("#047857") // emerald-700
-  secondaryColor     String   @default("#0f766e") // teal-700
-  accentColor        String   @default("#facc15") // yellow-400
-  darkColor          String   @default("#022c22") // emerald-950
-  headingFont        String   @default("Geist")
-  bodyFont           String   @default("Geist")
-  radius             String   @default("0.75rem")
+  primaryColor   String @default("#047857") // emerald-700
+  secondaryColor String @default("#0f766e") // teal-700
+  accentColor    String @default("#facc15") // yellow-400
+  darkColor      String @default("#022c22") // emerald-950
+  headingFont    String @default("Geist")
+  bodyFont       String @default("Geist")
+  radius         String @default("0.75rem")
 
   // Hero section
-  heroImageUrl       String   @default("/images/campus-hero.jpg")
+  heroImageUrl       String  @default("/images/campus-hero.jpg")
   heroBadge          String?
-  heroHeadline       String?  // falls back to school.name
-  heroMotto          String?  // falls back to school.motto
+  heroHeadline       String? // falls back to school.name
+  heroMotto          String? // falls back to school.motto
   heroSubtitle       String?
-  heroPrimaryLabel   String   @default("Apply for Admission")
-  heroPrimaryHref    String   @default("/admissions/apply")
-  heroSecondaryLabel String   @default("Discover Our School")
-  heroSecondaryHref  String   @default("/about")
+  heroPrimaryLabel   String  @default("Apply for Admission")
+  heroPrimaryHref    String  @default("/admissions/apply")
+  heroSecondaryLabel String  @default("Discover Our School")
+  heroSecondaryHref  String  @default("/about")
 
   // Hero colour overlay
-  overlayFrom        String   @default("#022c22")
-  overlayTo          String   @default("#134e4a")
-  overlayOpacity     Int      @default(80) // 0–100
+  overlayFrom    String @default("#022c22")
+  overlayTo      String @default("#134e4a")
+  overlayOpacity Int    @default(80) // 0–100
 
   // Repeating home content stored as JSON strings
-  statsJson          String   @default("[]") // [{ value, label }]
-  valuesJson         String   @default("[]") // [{ icon, title, desc }]
-  testimonialsJson   String   @default("[]") // [{ quote, name, role }]
+  statsJson        String @default("[]") // [{ value, label }]
+  valuesJson       String @default("[]") // [{ icon, title, desc }]
+  testimonialsJson String @default("[]") // [{ quote, name, role }]
 
   // About page prose (editable; null → built-in defaults)
-  aboutHistory       String?
-  missionText        String?
-  visionText         String?
+  aboutHistory String?
+  missionText  String?
+  visionText   String?
 
   // Home section visibility toggles
-  showStats          Boolean  @default(true)
-  showPartners       Boolean  @default(true)
-  showValues         Boolean  @default(true)
-  showGallery        Boolean  @default(true)
-  showTestimonials   Boolean  @default(true)
-  showNews           Boolean  @default(true)
-  showEvents         Boolean  @default(true)
+  showStats        Boolean @default(true)
+  showPartners     Boolean @default(true)
+  showValues       Boolean @default(true)
+  showGallery      Boolean @default(true)
+  showTestimonials Boolean @default(true)
+  showNews         Boolean @default(true)
+  showEvents       Boolean @default(true)
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  school             School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school    School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 // ── Public website: frequently-asked questions (admin-editable accordion) ──
 model Faq {
-  id          String   @id @default(cuid())
-  schoolId    String
-  question    String
-  answer      String
-  category    String   @default("GENERAL")
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  schoolId  String
+  question  String
+  answer    String
+  category  String   @default("GENERAL")
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school    School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  deletedAt DateTime?
 
   @@index([schoolId, isActive])
+  @@index([deletedAt])
 }
 
 model SchoolShopItem {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  name                  String
-  description           String?
-  category              String   @default("UNIFORM")
-  price                 Decimal  @default(0) @db.Decimal(15, 2)
-  currency              Currency @default(USD)
-  imageUrl              String?
-  sizes                 String?
-  colors                String?
-  stockQuantity         Int      @default(0)
-  isActive              Boolean  @default(true)
-  sortOrder             Int      @default(0)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id            String   @id @default(cuid())
+  schoolId      String
+  name          String
+  description   String?
+  category      String   @default("UNIFORM")
+  price         Decimal  @default(0) @db.Decimal(15, 2)
+  currency      Currency @default(USD)
+  imageUrl      String?
+  sizes         String?
+  colors        String?
+  stockQuantity Int      @default(0)
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model SchoolShopOrder {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  orderNumber           String   @unique
-  studentId             String?
-  parentName            String?
-  parentPhone           String?
-  parentEmail           String?
-  items                 String
-  totalAmount           Decimal  @default(0) @db.Decimal(15, 2)
-  currency              Currency @default(USD)
-  status                ShopOrderStatus @default(PENDING)
-  notes                 String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id          String          @id @default(cuid())
+  schoolId    String
+  orderNumber String          @unique
+  studentId   String?
+  parentName  String?
+  parentPhone String?
+  parentEmail String?
+  items       String
+  totalAmount Decimal         @default(0) @db.Decimal(15, 2)
+  currency    Currency        @default(USD)
+  status      ShopOrderStatus @default(PENDING)
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model SEOSetting {
-  id                    String   @id @default(cuid())
-  schoolId              String
-  pageSlug              String
-  metaTitle             String?
-  metaDescription       String?
-  metaKeywords          String?
-  ogTitle               String?
-  ogDescription         String?
-  ogImage               String?
-  schemaMarkup          String?
-  canonicalUrl          String?
-  robotsDirective       String   @default("index, follow")
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id              String   @id @default(cuid())
+  schoolId        String
+  pageSlug        String
+  metaTitle       String?
+  metaDescription String?
+  metaKeywords    String?
+  ogTitle         String?
+  ogDescription   String?
+  ogImage         String?
+  schemaMarkup    String?
+  canonicalUrl    String?
+  robotsDirective String   @default("index, follow")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  school                School   @relation(fields: [schoolId], references: [id])
+  school    School    @relation(fields: [schoolId], references: [id])
+  deletedAt DateTime?
 
   @@unique([schoolId, pageSlug])
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1799,12 +2064,12 @@ model SEOSetting {
 // ============================================
 
 model PasswordResetToken {
-  id         String    @id @default(cuid())
-  email      String
-  tokenHash  String    @unique // sha256 of the raw token emailed to the user
-  expiresAt  DateTime
-  usedAt     DateTime?
-  createdAt  DateTime  @default(now())
+  id        String    @id @default(cuid())
+  email     String
+  tokenHash String    @unique // sha256 of the raw token emailed to the user
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
   @@index([email])
 }
@@ -1822,8 +2087,10 @@ model SchoolSetting {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school    School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  deletedAt DateTime?
 
   @@unique([schoolId, key])
   @@index([schoolId, category])
+  @@index([deletedAt])
 }

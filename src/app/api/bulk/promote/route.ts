@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { validateRole } from '@/lib/api-auth'
+import { logAudit } from '@/lib/audit'
 
 export async function POST(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
@@ -138,17 +139,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Log audit entry
-    try {
-      await db.auditLog.create({
-        data: {
-          action: 'BULK_PROMOTE',
-          entity: 'StudentEnrollment',
-          details: `Promoted ${promoted} students from ${fromGrade.name} to ${toGrade.name} for ${academicYear.name}`,
-        },
-      })
-    } catch {
-      // Audit log failure should not break the operation
-    }
+    logAudit({
+      action: 'BULK_PROMOTE',
+      entity: 'StudentEnrollment',
+      schoolId,
+      details: `Promoted ${promoted} students from ${fromGrade.name} to ${toGrade.name} for ${academicYear.name}`,
+    }).catch(() => {})
 
     return NextResponse.json({
       promoted,

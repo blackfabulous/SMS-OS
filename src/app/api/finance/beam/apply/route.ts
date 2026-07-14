@@ -48,11 +48,12 @@ export async function POST(request: Request) {
     for (const a of allocations) {
       const inv = byId.get(a.invoiceId)!
       seq += 1
-      await tx.feePayment.create({
+      const payment = await tx.feePayment.create({
         data: {
           receiptNumber: `BEAM${year}${Date.now().toString(36).toUpperCase()}${seq}`,
           studentId: student.id,
           invoiceId: a.invoiceId,
+          schoolId: ctx.schoolId,
           amount: a.applied,
           paymentMethod: 'BEAM',
           currency: 'USD',
@@ -62,6 +63,14 @@ export async function POST(request: Request) {
       await tx.feeInvoice.update({
         where: { id: a.invoiceId },
         data: applyPayment({ totalAmount: inv.totalAmount, amountPaid: inv.amountPaid }, a.applied),
+      })
+      await tx.paymentAllocation.create({
+        data: {
+          paymentId: payment.id,
+          invoiceId: a.invoiceId,
+          schoolId: ctx.schoolId,
+          amount: a.applied,
+        },
       })
     }
     await tx.beamApplication.update({

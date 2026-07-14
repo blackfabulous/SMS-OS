@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { currentSchoolId, isInTenantTx, withTenantTxFlag } from '@/server/tenant-context'
+import { hasSoftDelete } from '@/lib/soft-delete-models'
 
 /**
  * Row-Level Security is enabled per-deployment with RLS_ENABLED=true (RA-B3).
@@ -36,6 +37,9 @@ function createPrisma() {
         amount: { needs: { amount: true }, compute: (r) => Number(r.amount) },
       },
       feePayment: {
+        amount: { needs: { amount: true }, compute: (r) => Number(r.amount) },
+      },
+      paymentAllocation: {
         amount: { needs: { amount: true }, compute: (r) => Number(r.amount) },
       },
       bankAccount: {
@@ -125,12 +129,36 @@ function createPrisma() {
     },
     query: {
       $allModels: {
-        async $allOperations({ args, query }) {
+        async $allOperations({ model, operation, args, query }) {
+          const hasSd = hasSoftDelete(model as string)
+
+          // Soft-delete: redirect delete / deleteMany to an update that sets deletedAt.
+          if (hasSd && (operation === 'delete' || operation === 'deleteMany')) {
+            const target = operation === 'delete' ? 'update' : 'updateMany'
+            return ((this as unknown as Record<string, unknown>)[model as string] as any)[target]({
+              ...args,
+              data: { deletedAt: new Date() },
+            })
+          }
+
+          // Filter out soft-deleted rows by default for reads and updates.
+          if (
+            hasSd &&
+            args &&
+            typeof args === 'object' &&
+            ['findUnique', 'findFirst', 'findMany', 'count', 'aggregate', 'groupBy', 'update', 'updateMany'].includes(operation)
+          ) {
+            const a = args as Record<string, unknown>
+            if (!a.where || typeof a.where !== 'object' || !('deletedAt' in a.where)) {
+              const where = a.where && typeof a.where === 'object' ? { ...a.where, deletedAt: null } : { deletedAt: null }
+              const nextArgs = { ...a, where } as unknown
+              return query(nextArgs as typeof args)
+            }
+          }
+
+          // Row-Level Security: set the tenant GUC per query unless already in a tenant transaction.
           if (!RLS_ENABLED) return query(args)
           const schoolId = currentSchoolId()
-          // No tenant context (public/seed/pre-auth) or already inside a tenant
-          // transaction → run as-is. Otherwise wrap so SET LOCAL + the query run
-          // on one connection (required under PgBouncer transaction pooling).
           if (!schoolId || isInTenantTx()) return query(args)
           const [, result] = await base.$transaction([setGuc(schoolId), query(args)])
           return result

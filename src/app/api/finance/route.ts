@@ -73,25 +73,35 @@ export async function PUT(request: Request) {
     const { action, id, ...updates } = body
 
     if (action === 'reversePayment' && id) {
-      const payment = await db.feePayment.update({
-        where: { id },
-        data: { isReversed: true },
-        include: { student: { select: { firstName: true, lastName: true } }, invoice: true },
-      })
-
-      // Reverse the invoice update
-      if (payment.invoiceId && payment.invoice) {
-        const newAmountPaid = payment.invoice.amountPaid - payment.amount
-        const newBalance = payment.invoice.totalAmount - newAmountPaid
-        let newStatus: InvoiceStatus = 'PENDING'
-        if (newBalance <= 0) newStatus = 'PAID'
-        else if (newAmountPaid > 0) newStatus = 'PARTIAL'
-
-        await db.feeInvoice.update({
-          where: { id: payment.invoiceId },
-          data: { amountPaid: Math.max(0, newAmountPaid), balance: Math.max(0, newBalance), status: newStatus },
+      const payment = await db.$transaction(async (tx: any) => {
+        const p = await tx.feePayment.update({
+          where: { id },
+          data: { isReversed: true },
+          include: { student: { select: { firstName: true, lastName: true } }, invoice: true },
         })
-      }
+
+        if (p.invoiceId && p.invoice) {
+          const allocations = await tx.paymentAllocation.findMany({
+            where: { paymentId: id },
+            select: { amount: true },
+          })
+          const allocated = allocations.reduce((sum: number, a: { amount: number }) => sum + a.amount, 0)
+          await tx.paymentAllocation.deleteMany({ where: { paymentId: id } })
+
+          const newAmountPaid = Math.max(0, p.invoice.amountPaid - allocated)
+          const newBalance = Math.max(0, p.invoice.totalAmount - newAmountPaid)
+          let newStatus: InvoiceStatus = 'PENDING'
+          if (newBalance <= 0) newStatus = 'PAID'
+          else if (newAmountPaid > 0) newStatus = 'PARTIAL'
+
+          await tx.feeInvoice.update({
+            where: { id: p.invoiceId },
+            data: { amountPaid: newAmountPaid, balance: newBalance, status: newStatus },
+          })
+        }
+
+        return p
+      })
 
       logAudit({ action: 'UPDATE', entity: 'finance', entityId: (payment as any)?.id, afterValue: payment }).catch(() => {})
       return NextResponse.json(payment)

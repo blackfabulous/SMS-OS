@@ -24,6 +24,7 @@ async function createPaymentTxn(
   data: CreatePaymentInput,
   amount: number,
   baseAmount: number,
+  schoolId: string,
 ) {
   return db.$transaction(async (tx) => {
     const newPayment = await tx.feePayment.create({
@@ -32,6 +33,7 @@ async function createPaymentTxn(
         studentId: data.studentId,
         invoiceId: data.invoiceId || null,
         parentId: data.parentId || null,
+        schoolId,
         amount,
         paymentMethod: data.paymentMethod || 'CASH',
         currency: data.currency || 'USD',
@@ -50,6 +52,14 @@ async function createPaymentTxn(
         await tx.feeInvoice.update({
           where: { id: data.invoiceId },
           data: applyPayment(invoice, baseAmount),
+        })
+        await tx.paymentAllocation.create({
+          data: {
+            paymentId: newPayment.id,
+            invoiceId: invoice.id,
+            schoolId,
+            amount: baseAmount,
+          },
         })
       }
     }
@@ -168,7 +178,7 @@ export async function POST(request: Request) {
     const MAX_ATTEMPTS = 5
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
-        payment = await createPaymentTxn(generateReceiptNumber(year), data, amount, baseAmount)
+        payment = await createPaymentTxn(generateReceiptNumber(year), data, amount, baseAmount, ctx.schoolId)
         break
       } catch (err: unknown) {
         const code = (err as { code?: string })?.code
@@ -264,9 +274,15 @@ export async function DELETE(request: Request) {
       if (payment.invoiceId) {
         const invoice = await tx.feeInvoice.findUnique({ where: { id: payment.invoiceId } })
         if (invoice) {
+          const allocations = await tx.paymentAllocation.findMany({
+            where: { paymentId: id },
+            select: { amount: true },
+          })
+          const allocated = allocations.reduce((sum, a) => sum + Number(a.amount), 0)
+          await tx.paymentAllocation.deleteMany({ where: { paymentId: id } })
           await tx.feeInvoice.update({
             where: { id: payment.invoiceId },
-            data: reversePayment(invoice, payment.amount),
+            data: reversePayment(invoice, allocated),
           })
         }
       }
