@@ -188,6 +188,7 @@ export async function POST(request: NextRequest) {
           items: {
             create: (items || []).map(
               (item: { description: string; quantity: number; unitPrice: number; totalPrice: number }) => ({
+                schoolId,
                 description: item.description,
                 quantity: item.quantity || 1,
                 unitPrice: item.unitPrice || 0,

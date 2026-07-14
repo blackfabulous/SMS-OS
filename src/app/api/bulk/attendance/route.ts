@@ -4,6 +4,7 @@ import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
 import { logAudit } from '@/lib/audit'
 import { notifyStudentGuardiansBatch } from '@/lib/notifications'
+import type { AttendanceStatus, AttendanceType } from '@prisma/client'
 
 export async function POST(request: NextRequest) {
   const authResult = await validateRole(['ADMIN', 'TEACHER'])
@@ -120,12 +121,13 @@ export async function POST(request: NextRequest) {
           // Create new record
           await db.attendance.create({
             data: {
+              schoolId,
               studentId: record.studentId,
               termId: term.id,
               date: dateOnly,
-              status: record.status,
+              status: record.status as AttendanceStatus,
               remarks: record.remarks || null,
-              attendanceType: 'DAILY',
+              attendanceType: 'DAILY' as AttendanceType,
             },
           })
           created++

@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
 
     const record = await db.disciplineRecord.create({
       data: {
+        schoolId: session.user.schoolId,
         studentId, incidentType, description,
         date: date ? new Date(date) : new Date(),
         action: action || null,

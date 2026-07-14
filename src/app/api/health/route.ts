@@ -120,6 +120,7 @@ export async function POST(request: NextRequest) {
 
     const record = await db.healthRecord.create({
       data: {
+        schoolId: session.user.schoolId,
         studentId,
         visitType,
         description,

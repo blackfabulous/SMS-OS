@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
         // Create new enrollment in the target grade/class
         await db.studentEnrollment.create({
           data: {
+            schoolId,
             studentId: enrollment.studentId,
             classId: targetClass.id,
             academicYearId: academicYearId,

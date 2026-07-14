@@ -242,6 +242,7 @@ export async function POST(request: NextRequest) {
           // Create new ZimsecCandidate
           await db.zimsecCandidate.create({
             data: {
+              schoolId,
               studentId: student.id,
               centreNumber: student.schoolId ? 'CN-001' : null,
               candidateNumber: `C-${studentNumber}`,
@@ -299,6 +300,7 @@ export async function POST(request: NextRequest) {
                       },
                     },
                     create: {
+                      schoolId,
                       assessmentId: existingAssessment.id,
                       studentId: student.id,
                       marksObtained: numericMarks,

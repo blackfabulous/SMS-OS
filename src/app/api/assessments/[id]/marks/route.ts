@@ -168,6 +168,7 @@ export async function POST(
           },
         },
         create: {
+          schoolId: session.user.schoolId,
           assessmentId: id,
           studentId: mark.studentId,
           marksObtained: mark.marksObtained,

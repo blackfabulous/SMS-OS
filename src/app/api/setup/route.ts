@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { validateRole } from '@/lib/api-auth'
 import { logAudit } from '@/lib/audit'
-import type { Currency } from '@prisma/client'
+import type { Currency, SchoolType, SchoolLevelType, OwnershipType, AcademicLevel } from '@prisma/client'
 
 // ─── Multi-School Setup Wizard API ──────────────────────────────────────────
 // POST: Complete school setup with all configuration data
@@ -84,14 +84,14 @@ export async function POST(request: NextRequest) {
       data: {
         name: data.school.name,
         code: data.school.code,
-        schoolType: data.school.type || 'GOVERNMENT',
+        schoolType: (data.school.type || 'GOVERNMENT') as SchoolType,
         mopseDistrict: data.school.district,
         province: data.school.province,
         zimsecCentreNumber: data.school.emisNumber,
         motto: data.school.motto,
         logo: data.school.logo,
-        levelType: data.school.levelType || 'SECONDARY',
-        ownershipType: data.school.ownershipType || 'GOVERNMENT',
+        levelType: (data.school.levelType || 'SECONDARY') as SchoolLevelType,
+        ownershipType: (data.school.ownershipType || 'GOVERNMENT') as OwnershipType,
         contactEmail: data.school.contactEmail,
         contactPhone: data.school.contactPhone,
         physicalAddress: data.school.physicalAddress,
@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
       for (const term of data.academic.terms) {
         await db.term.create({
           data: {
+            schoolId: school.id,
             academicYearId: academicYear.id,
             name: term.name,
             termNumber: term.termNumber,
@@ -139,7 +140,7 @@ export async function POST(request: NextRequest) {
         data: {
           schoolId: school.id,
           name: grade.name,
-          level: grade.level,
+          level: grade.level as AcademicLevel,
           sequence: grade.sequence,
         },
       })
@@ -280,6 +281,7 @@ export async function POST(request: NextRequest) {
       for (let d = 1; d <= dormCount; d++) {
         await db.dormitory.create({
           data: {
+            schoolId: school.id,
             hostelId: createdHostel.id,
             name: `${hostel.name} Dorm ${d}`,
             capacity: Math.min(20, hostel.capacity - (d - 1) * 20),

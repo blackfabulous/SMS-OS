@@ -233,6 +233,7 @@ export async function POST(request: NextRequest) {
           items: {
             create: items.map(
               (item: { itemId: string; quantity: number; unitPrice: number }) => ({
+                schoolId,
                 itemId: item.itemId,
                 quantity: item.quantity || 1,
                 unitPrice: item.unitPrice,

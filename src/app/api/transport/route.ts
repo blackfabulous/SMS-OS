@@ -166,6 +166,7 @@ export async function POST(request: NextRequest) {
 
       const assignment = await db.transportAssignment.create({
         data: {
+          schoolId,
           studentId,
           routeId,
           pickupPoint: pickupPoint || null,

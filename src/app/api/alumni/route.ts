@@ -130,6 +130,7 @@ export async function POST(request: NextRequest) {
 
       const contribution = await db.alumniContribution.create({
         data: {
+          schoolId,
           alumniId,
           amount,
           contributionType: contributionType || 'DONATION',

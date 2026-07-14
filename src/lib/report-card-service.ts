@@ -104,6 +104,7 @@ export async function generateClassReportCards(
       db.reportCard.upsert({
         where: { studentId_termId: { studentId: c.studentId, termId } },
         create: {
+          schoolId,
           studentId: c.studentId,
           termId,
           classId,

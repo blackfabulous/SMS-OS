@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
 import { logAudit } from '@/lib/audit'
-import type { AttendanceStatus } from '@prisma/client'
+import type { AttendanceStatus, AttendanceType } from '@prisma/client'
 import { notifyStudentGuardian, notifyStudentGuardiansBatch } from '@/lib/notifications'
 
 function absenceDate(d?: string): string {
@@ -130,10 +130,11 @@ export async function POST(request: Request) {
 
       const created = await db.attendance.createMany({
         data: records.map((record) => ({
+          schoolId,
           studentId: record.studentId,
           termId: record.termId,
           date: new Date(record.date),
-          attendanceType: record.attendanceType || 'DAILY',
+          attendanceType: (record.attendanceType || 'DAILY') as AttendanceType,
           status: (record.status as AttendanceStatus) || 'PRESENT',
           remarks: record.remarks,
         })),
@@ -166,11 +167,12 @@ export async function POST(request: Request) {
 
     const record = await db.attendance.create({
       data: {
+        schoolId: authResult.session.user.schoolId,
         studentId: body.studentId,
         termId: body.termId,
         date: body.date ? new Date(body.date) : new Date(),
-        attendanceType: body.attendanceType || 'DAILY',
-        status: body.status || 'PRESENT',
+        attendanceType: (body.attendanceType || 'DAILY') as AttendanceType,
+        status: (body.status || 'PRESENT') as AttendanceStatus,
         remarks: body.remarks,
       },
       include: {

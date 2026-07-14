@@ -130,7 +130,7 @@ export async function POST(request: Request) {
       if (academic.terms && Array.isArray(academic.terms)) {
         for (const term of academic.terms) {
           await db.term.create({
-            data: { academicYearId: academicYear.id, name: term.name, termNumber: term.termNumber, startDate: new Date(term.startDate), endDate: new Date(term.endDate), isCurrent: term.termNumber === 1 },
+            data: { schoolId: school.id, academicYearId: academicYear.id, name: term.name, termNumber: term.termNumber, startDate: new Date(term.startDate), endDate: new Date(term.endDate), isCurrent: term.termNumber === 1 },
           })
           termCount++
         }

@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { hashPassword } from '@/lib/auth'
-import type { EnrollmentStatus, BoardingStatus, PaymentMethod, InvoiceStatus, AttendanceStatus, AssetCondition, LeaveType } from '@prisma/client'
+import type { EnrollmentStatus, BoardingStatus, PaymentMethod, InvoiceStatus, AttendanceStatus, AttendanceType, AssetCondition, LeaveType } from '@prisma/client'
 
 /**
  * Seeds the database with a full demo dataset for one school.
@@ -76,6 +76,7 @@ export async function seedDatabase() {
 
   await db.term.create({
     data: {
+      schoolId: school.id,
       academicYearId: academicYear.id,
       name: 'First Term',
       termNumber: 1,
@@ -89,6 +90,7 @@ export async function seedDatabase() {
 
   await db.term.create({
     data: {
+      schoolId: school.id,
       academicYearId: academicYear.id,
       name: 'Second Term',
       termNumber: 2,
@@ -102,6 +104,7 @@ export async function seedDatabase() {
 
   const term3 = await db.term.create({
     data: {
+      schoolId: school.id,
       academicYearId: academicYear.id,
       name: 'Third Term',
       termNumber: 3,
@@ -218,6 +221,7 @@ export async function seedDatabase() {
     for (const subject of coreSubjects) {
       await db.gradeSubject.create({
         data: {
+          schoolId: school.id,
           gradeId: grade.id,
           subjectId: subject.id,
           isCompulsory: true,
@@ -371,6 +375,7 @@ export async function seedDatabase() {
     if (status === 'ACTIVE') {
       await db.studentEnrollment.create({
         data: {
+          schoolId: school.id,
           studentId: student.id,
           classId: assignedClass.id,
           academicYearId: academicYear.id,
@@ -386,6 +391,7 @@ export async function seedDatabase() {
       : (parentIdx % 2 === 0 ? 'Mother' : 'Father')
     await db.studentParent.create({
       data: {
+        schoolId: school.id,
         studentId: student.id,
         parentId: parents[parentIdx].id,
         relationship,
@@ -507,10 +513,11 @@ export async function seedDatabase() {
     date.setDate(weekStart.getDate() + dayOffset)
 
     const attendanceData = activeStudentIds.map((studentId) => ({
+      schoolId: school.id,
       studentId,
       termId: term3.id,
       date,
-      attendanceType: 'DAILY',
+      attendanceType: 'DAILY' as AttendanceType,
       status: attendanceStatuses[Math.floor(Math.random() * attendanceStatuses.length)] as AttendanceStatus,
     }))
 
@@ -525,6 +532,7 @@ export async function seedDatabase() {
     const studentIdx = Math.floor(Math.random() * activeStudents.length)
     await db.disciplineRecord.create({
       data: {
+        schoolId: school.id,
         studentId: activeStudents[studentIdx].student.id,
         incidentType: incidentTypes[i % incidentTypes.length],
         description: `Student was involved in ${incidentTypes[i % incidentTypes.length].toLowerCase()} incident`,
@@ -545,6 +553,7 @@ export async function seedDatabase() {
     const studentIdx = Math.floor(Math.random() * activeStudents.length)
     await db.healthRecord.create({
       data: {
+        schoolId: school.id,
         studentId: activeStudents[studentIdx].student.id,
         visitType: visitTypes[i % visitTypes.length],
         description: `Student reported ${['headache', 'stomach pain', 'fever', 'cough', 'injury'][i % 5]}`,
@@ -579,6 +588,7 @@ export async function seedDatabase() {
   for (let i = 1; i <= 5; i++) {
     await db.dormitory.create({
       data: {
+        schoolId: school.id,
         hostelId: hostelBoys.id,
         name: `Room ${i}`,
         capacity: 20,
@@ -587,6 +597,7 @@ export async function seedDatabase() {
     })
     await db.dormitory.create({
       data: {
+        schoolId: school.id,
         hostelId: hostelGirls.id,
         name: `Room ${i}`,
         capacity: 20,
@@ -630,6 +641,7 @@ export async function seedDatabase() {
   for (let i = 0; i < Math.min(boarderStudents.length, 10); i++) {
     await db.transportAssignment.create({
       data: {
+        schoolId: school.id,
         studentId: boarderStudents[i].student.id,
         routeId: i % 2 === 0 ? route1.id : route2.id,
         pickupPoint: 'Main Road',
@@ -769,6 +781,7 @@ export async function seedDatabase() {
     if (studentIdx < activeStudents.length) {
       await db.beamApplication.create({
         data: {
+          schoolId: school.id,
           studentId: activeStudents[studentIdx].student.id,
           applicationDate: new Date('2025-01-15'),
           status: i < 3 ? 'APPROVED' : 'PENDING',
@@ -795,6 +808,7 @@ export async function seedDatabase() {
 
     await db.payslip.create({
       data: {
+        schoolId: school.id,
         staffId: s.id,
         periodMonth: 2,
         periodYear: 2025,
@@ -818,6 +832,7 @@ export async function seedDatabase() {
   for (let i = 0; i < 5; i++) {
     await db.leaveRecord.create({
       data: {
+        schoolId: school.id,
         staffId: staffMembers[i].id,
         leaveType: leaveTypes[i % leaveTypes.length] as LeaveType,
         startDate: new Date(2025, 1 + i, 1),

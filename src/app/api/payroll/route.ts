@@ -104,6 +104,7 @@ export async function POST(request: Request) {
 
       await db.payslip.create({
         data: {
+          schoolId: session.user.schoolId,
           staffId: staff.id, periodMonth: month, periodYear: year,
           basicSalary: staff.basicSalary, housingAllowance: staff.housingAllowance,
           transportAllowance: staff.transportAllowance, responsibilityAllowance: staff.responsibilityAllowance,
@@ -111,7 +112,7 @@ export async function POST(request: Request) {
           nssaEmployee: Math.round(nssaEmp * 100) / 100, nssaEmployer: Math.round(nssaEmpr * 100) / 100,
           aidsLevy: Math.round(aidsLevy * 100) / 100, zimdef: Math.round(zimdef * 100) / 100,
           pension: 0, medicalAid: 0, funeralPolicy: 0, otherDeductions: 0,
-          netPay: Math.round(netPay * 100) / 100, status: 'APPROVED',
+          netPay: Math.round(netPay * 100) / 100, status: 'GENERATED',
         },
       })
       results.push({ staffId: staff.id, status: 'created', netPay: Math.round(netPay * 100) / 100 })

@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
 import { logAudit } from '@/lib/audit'
 import { validateRole } from '@/lib/api-auth'
-import type { EnrollmentStatus, BoardingStatus, StaffType } from '@prisma/client'
+import type { EnrollmentStatus, BoardingStatus, StaffType, AcademicLevel } from '@prisma/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface MigrationStudent {
@@ -223,7 +223,7 @@ export async function POST(request: Request) {
             data: {
               schoolId: school.id,
               name: grade.name,
-              level: grade.level || 'SECONDARY',
+              level: (grade.level || 'SECONDARY') as AcademicLevel,
               sequence: grade.sequence || 1,
             },
           })

@@ -84,7 +84,7 @@ export async function POST(request: Request) {
 
     const candidate = await db.zimsecCandidate.create({
       data: {
-        studentId: body.studentId, centreNumber, candidateNumber,
+        schoolId, studentId: body.studentId, centreNumber, candidateNumber,
         examLevel: body.examLevel || 'O_LEVEL', examYear: year, registrationStatus: 'PENDING',
         subjects: body.subjects || null, totalFees: body.totalFees || 0, feesPaid: 0,
       },

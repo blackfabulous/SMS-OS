@@ -182,6 +182,7 @@ export async function POST(request: NextRequest) {
 
       const beamApplication = await db.beamApplication.create({
         data: {
+          schoolId: session.user.schoolId,
           studentId,
           guardianSituation: guardianSituation || null,
           orphanStatus: orphanStatus || null,
@@ -211,6 +212,7 @@ export async function POST(request: NextRequest) {
 
     const welfareRecord = await db.welfareRecord.create({
       data: {
+        schoolId: session.user.schoolId,
         studentId,
         category,
         description: description || null,

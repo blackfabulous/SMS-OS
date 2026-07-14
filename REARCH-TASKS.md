@@ -13,13 +13,13 @@
 
 | Blueprint pillar | Current state (verified) | Gap |
 |---|---|---|
-| Money as `Decimal` | 50 `Decimal @db.Decimal(15,2)` fields; 11 `Float` fields remain (academic percentages, `exchangeRate`, `discountPercentage`, `rating`, etc.) | Partial |
-| Closed sets as `enum` | 23 Prisma enums defined; several models still use `String` for status/type fields (`Student.beamStatus`, `StudentEnrollment.status`, `Staff.contractType`, `Staff.payType`, etc.) | Partial |
+| Money as `Decimal` | All money/rate fields are `Decimal @db.Decimal(15,2)` (or 15,6 for exchange rate); remaining `Float` columns are academic/score percentages (`totalMarks`, `marksObtained`, `passMark`, `weight`, etc.) | Done |
+| Closed sets as `enum` | 38 Prisma enums defined; high-risk status/type columns converted (`BoardingAssignment`, `TransportAssignment`, `MaintenanceRequest`, `Payslip`, `AppraisalRecord`, `StaffDiscipline`, `Outbox`, `Communication`, `CanteenItem`, `CanteenTransaction`, `PurchaseOrder`, `Requisition`, `Document`, `AlumniContribution`). Remaining strings are free-form labels/colors/categories (CMS, themes, templates) | Done (core) |
 | Soft-delete `deletedAt` | Added `deletedAt` + `@@index([deletedAt])` on 77 tenant-owned models; Prisma extension auto-filters and converts `delete` → soft-delete | Done |
 | Per-school unique keys | 10 composite `@@unique([schoolId, ...])`; `FeeInvoice.invoiceNumber` and `FeePayment.receiptNumber` now per-school unique | Done (finance) |
-| `schoolId` on every tenant-owned row | 47 + `FeeInvoice`, `FeePayment`, `InvoiceItem`, `PaymentAllocation`, `Outbox`, `AuditLog` now carry `schoolId`; remaining relation-scoped tables still on `EXISTS` RLS | Partial |
-| DB migrations | `prisma/migrations/` still absent; manual migration SQL recommended for existing data before `prisma db push` | Partial |
-| Tenancy backstop (RLS) | Implemented: `src/server/tenant-context.ts` (`AsyncLocalStorage`), `src/lib/db.ts` Prisma extension, `prisma/rls/enable-rls.sql`, `docs/RLS.md` | Done / advanced |
+| `schoolId` on every tenant-owned row | Every tenant-owned model with `deletedAt` now carries a `schoolId` column (required on business tables, nullable on `AuditLog`/`Outbox` for system events); `CanteenTransactionItem` and `PurchaseOrderItem` added; `EXISTS` RLS block removed | Done |
+| DB migrations | `prisma/migrations/20250714120000_baseline/migration.sql` created and kept in sync with schema; `bun run db:deploy` replaces `prisma db push` | Done |
+| Tenancy backstop (RLS) | Implemented: `src/lib/db.ts` Prisma extension, `prisma/rls/enable-rls.sql` now uses direct `schoolId` policies and covers every tenant table (no `EXISTS` join policies); `docs/RLS.md` | Done / advanced |
 | RBAC | `src/lib/rbac.ts` matrix, `src/server/context.ts` `requireContext` wrapper | Done |
 | Service layer (`src/server`) | `src/lib/settings.ts`, `src/server/finance/scope.ts`, `src/lib/finance-calc.ts`, `src/lib/grading.ts`, etc. | Partial |
 | Real dashboard routes | `src/app/dashboard/page.tsx` is `'use client'` with Zustand `activeModule` module-swap; public `(public)` routes are real SSR | Partial |
@@ -64,17 +64,17 @@
 
 | ID | Task | Pri | Effort | Deps | Acceptance |
 |----|------|-----|--------|------|-----------|
-| RA-A1 | **Introduce Prisma migration history** (`prisma migrate`); stop relying on `db push` | P1 | M | — | `prisma/migrations/` exists; `migrate deploy` in CI |
-| RA-A2 | **Finish money → `Decimal @db.Decimal(15,2)`**; audit remaining 11 `Float` fields (`exchangeRate`, `discountPercentage`, etc.) | P2 | M | RA-A1 | No `Float` used for money; finance tests pass |
-| RA-A3 | **Finish Prisma enums** — migrate remaining `String` status/type columns (`Student.beamStatus`, `StudentEnrollment.status`, `Staff.contractType`, `Staff.payType`, etc.) | P2 | L | RA-A1 | Closed sets are enums; invalid states impossible |
-| RA-A4 | **Per-school unique keys** — complete `@@unique([schoolId, ...])` for all natural keys; replace global `@unique` on `FeeInvoice.invoiceNumber`, `FeePayment.receiptNumber`, etc. | P1 | M | RA-A1 | Two schools can hold the same number |
-| RA-A5 | **Backfill `schoolId` on remaining child/join tables** (the 32 models currently using `EXISTS` RLS) | P2 | XL | RA-A2, RA-A4 | All tenant-owned rows carry `schoolId`; column-based RLS replaces `EXISTS` policies |
+| RA-A1 | **Introduce Prisma migration history** (`prisma migrate`); stop relying on `db push` | P1 | M | — | Done — `prisma/migrations/20250714120000_baseline/` added and kept in sync; `bun run db:deploy` replaces `db push` |
+| RA-A2 | **Finish money → `Decimal @db.Decimal(15,2)`**; audit remaining `Float` fields (`exchangeRate`, `discountPercentage`, etc.) | P2 | M | RA-A1 | Done — all money/rate fields now `Decimal`; remaining `Float` columns are academic scores/percentages only |
+| RA-A3 | **Finish Prisma enums** — migrate remaining `String` status/type columns (`Student.beamStatus`, `StudentEnrollment.status`, `Staff.contractType`, `Staff.payType`, etc.) | P2 | L | RA-A1 | Done (core) — 38 enums defined; high-risk status/type fields converted; CMS/theme free-form labels remain as strings |
+| RA-A4 | **Per-school unique keys** — complete `@@unique([schoolId, ...])` for all natural keys; replace global `@unique` on `FeeInvoice.invoiceNumber`, `FeePayment.receiptNumber`, etc. | P1 | M | RA-A1 | Done — `FeeInvoice`/`FeePayment` numbers are per-school unique; natural keys carry `schoolId` composites |
+| RA-A5 | **Backfill `schoolId` on remaining child/join tables** (the 32 models previously using `EXISTS` RLS) | P2 | XL | RA-A2, RA-A4 | Done — `schoolId` added to all tenant models (incl. `CanteenTransactionItem`, `PurchaseOrderItem`); `prisma/rls/enable-rls.sql` now uses direct `schoolId` policies |
 | RA-A6 | **Soft-delete via `deletedAt`** + Prisma extension that auto-filters; migrate off `isActive` | P0 | L | RA-A1 | Deletes are recoverable + timestamped |
 | RA-A7 | **`AuditLog` gains `schoolId`, actor, immutable timestamp, typed `Json` before/after**; index | P0 | M | RA-A1 | Audits are tenant-scoped + queryable |
-| RA-A8 | **Tighten `onDelete`** — default `Restrict`; `Cascade` only for owned children; remove cascades through shared entities | P2 | M | RA-A1 | No unintended cascade chains |
-| RA-A9 | **Identity model fix** — formalize `User`↔Staff/Student/Parent links; consider polymorphic `personType`/`personId`; give Parents a real `User` link | P1 | L | RA-A1 | Every user has a valid backing entity |
+| RA-A8 | **Tighten `onDelete`** — default `Restrict`; `Cascade` only for owned children; remove cascades through shared entities | P2 | M | RA-A1 | Done — explicit `onDelete: Cascade` only on owned join/line-item children; all parent FKs default to `Restrict`/`SetNull` |
+| RA-A9 | **Identity model fix** — formalize `User`↔Staff/Student/Parent links; consider polymorphic `personType`/`personId`; give Parents a real `User` link | P1 | L | RA-A1 | Partial — kept nullable `staffId`/`studentId`/`parentId` and added DB-level `CHECK (numnonnulls(...) <= 1)`; polymorphic refactor moved to P2 follow-up |
 | RA-A10 | **Finance: `PaymentAllocation`** so payments allocate to invoices (balances derived, not hand-mutated) | P0 | L | RA-A2 | Balance is computed; multi-invoice/BEAM payments correct |
-| RA-A11 | **Timestamps → `Timestamptz` (UTC)**; format at edge per school timezone setting | P3 | M | RA-A1 | No naive datetimes |
+| RA-A11 | **Timestamps → `Timestamptz` (UTC)**; format at edge per school timezone setting | P3 | M | RA-A1 | Done — all `DateTime` columns use `@db.Timestamptz(3)`; timezone formatting remains client/app-layer |
 
 ---
 

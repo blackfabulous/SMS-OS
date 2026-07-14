@@ -84,7 +84,7 @@ export async function POST(request: Request) {
         data: { schoolId: school.id, firstName: body.guardianFirstName, lastName: body.guardianLastName, phone: body.guardianPhone || '', email: body.guardianEmail },
       })
       await db.studentParent.create({
-        data: { studentId: student.id, parentId: parent.id, relationship: body.guardianRelationship || 'PARENT', isPrimary: true, isFeeResponsible: true },
+        data: { schoolId: school.id, studentId: student.id, parentId: parent.id, relationship: body.guardianRelationship || 'PARENT', isPrimary: true, isFeeResponsible: true },
       })
     }
 
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
       if (academicYear) {
         const cls = await db.class.findFirst({ where: { gradeId: body.gradeId, schoolId: school.id } })
         if (cls) {
-          await db.studentEnrollment.create({ data: { studentId: student.id, classId: cls.id, academicYearId: academicYear.id, status: 'ACTIVE' } })
+          await db.studentEnrollment.create({ data: { schoolId: school.id, studentId: student.id, classId: cls.id, academicYearId: academicYear.id, status: 'ACTIVE' } })
         }
       }
     }
@@ -158,7 +158,7 @@ export async function PUT(request: Request) {
 
       await db.studentEnrollment.upsert({
         where: { studentId_academicYearId: { studentId: id, academicYearId: finalAcademicYearId } },
-        create: { studentId: id, classId, academicYearId: finalAcademicYearId, status: 'ACTIVE' },
+        create: { schoolId: school.id, studentId: id, classId, academicYearId: finalAcademicYearId, status: 'ACTIVE' },
         update: { classId, status: 'ACTIVE' },
       })
 

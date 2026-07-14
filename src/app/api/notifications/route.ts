@@ -7,7 +7,7 @@ import { validateAuth, validateRole } from '@/lib/api-auth'
 // GET  /api/notifications  -> { stats, history, dailyVolume, channelUsage, recentActivity }
 // POST /api/notifications  -> records a sent message (NotificationLog)
 
-const CHANNEL_FILL: Record<string, string> = { SMS: '#10b981', WhatsApp: '#25d366', Email: '#3b82f6' }
+const CHANNEL_FILL: Record<string, string> = { SMS: '#10b981', WHATSAPP: '#25d366', EMAIL: '#3b82f6' }
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function fmtDateTime(d: Date): string {
@@ -48,7 +48,7 @@ export async function GET() {
       sentToday: sum(todayLogs, (l) => l.recipients),
       deliveryRate: recent.length ? Math.round((sum(recent, (l) => l.deliveryRate) / recent.length) * 10) / 10 : 100,
       smsCreditsRemaining: Math.max(0, 10000 - sum(monthLogs.filter((l) => l.channel === 'SMS'), (l) => l.recipients)),
-      whatsappMessages: sum(monthLogs.filter((l) => l.channel === 'WhatsApp'), (l) => l.recipients),
+      whatsappMessages: sum(monthLogs.filter((l) => l.channel === 'WHATSAPP'), (l) => l.recipients),
     }
 
     const history = recent.map((l) => ({
@@ -68,8 +68,8 @@ export async function GET() {
       const e = dailyMap.get(k.toDateString())
       if (!e) return
       if (l.channel === 'SMS') e.sms += l.recipients
-      else if (l.channel === 'WhatsApp') e.whatsapp += l.recipients
-      else if (l.channel === 'Email') e.email += l.recipients
+      else if (l.channel === 'WHATSAPP') e.whatsapp += l.recipients
+      else if (l.channel === 'EMAIL') e.email += l.recipients
     })
     const dailyVolume = Array.from(dailyMap.values())
 
@@ -103,11 +103,11 @@ export async function POST(request: NextRequest) {
     const log = await db.notificationLog.create({
       data: {
         schoolId,
-        channel: channel || 'SMS',
+        channel: ((channel || 'SMS') as string).toUpperCase() as any,
         recipients: typeof recipients === 'number' ? recipients : 1,
         subject: subject || null,
         body: messageBody,
-        status: status || 'Delivered',
+        status: (status || 'DELIVERED').toUpperCase() as any,
         deliveryRate: 100,
         phone: phone || null,
         eventType: eventType || null,

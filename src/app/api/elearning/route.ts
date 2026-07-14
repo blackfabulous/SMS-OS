@@ -235,6 +235,7 @@ export async function POST(request: NextRequest) {
 
       const resource = await db.courseResource.create({
         data: {
+          schoolId,
           courseId,
           title,
           resourceType: resourceType || 'NOTES',
@@ -270,6 +271,7 @@ export async function POST(request: NextRequest) {
 
       const assignment = await db.courseAssignment.create({
         data: {
+          schoolId,
           courseId,
           title,
           description: description || null,

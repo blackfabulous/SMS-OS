@@ -47,6 +47,7 @@ async function main() {
   for (const r of resources) {
     await db.courseResource.create({
       data: {
+        schoolId,
         courseId: created[r.course],
         title: r.title,
         resourceType: r.resourceType as ResourceType,
@@ -67,6 +68,7 @@ async function main() {
   for (const a of assignments) {
     await db.courseAssignment.create({
       data: {
+        schoolId,
         courseId: created[a.course],
         title: a.title,
         maxMarks: a.maxMarks,

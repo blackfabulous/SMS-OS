@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { logAudit } from '@/lib/audit'
 import { getRequestTenant } from '@/lib/tenant'
 import { validateRole } from '@/lib/api-auth'
+import type { ActiveStatus } from '@prisma/client'
 
 // GET /api/boarding — List hostels with dormitory counts and boarding assignments
 // Query params: search, gender, status, page, limit
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
           dormitories: {
             include: {
               boardingAssignments: {
-                where: { status },
+                where: { status: status as ActiveStatus },
                 include: {
                   student: {
                     select: {
@@ -177,7 +178,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Hostel ID and name are required' }, { status: 400 })
       }
       const dormitory = await db.dormitory.create({
-        data: { hostelId, name, capacity: capacity || 20 },
+        data: { schoolId, hostelId, name, capacity: capacity || 20 },
       })
       logAudit({ action: 'CREATE', entity: 'boarding', entityId: (dormitory as any)?.id, afterValue: dormitory }).catch(() => {})
       return NextResponse.json(dormitory, { status: 201 })

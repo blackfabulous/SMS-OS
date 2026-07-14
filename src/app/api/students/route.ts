@@ -156,6 +156,7 @@ export async function POST(request: Request) {
     if (body.parentLinks && body.parentLinks.length > 0) {
       await db.studentParent.createMany({
         data: body.parentLinks.map((link: { parentId: string; relationship: string; isPrimary?: boolean; isFeeResponsible?: boolean }) => ({
+          schoolId: session.user.schoolId,
           studentId: student.id,
           parentId: link.parentId,
           relationship: link.relationship,
@@ -168,6 +169,7 @@ export async function POST(request: Request) {
     if (body.classId && body.academicYearId) {
       await db.studentEnrollment.create({
         data: {
+          schoolId: session.user.schoolId,
           studentId: student.id,
           classId: body.classId,
           academicYearId: body.academicYearId,

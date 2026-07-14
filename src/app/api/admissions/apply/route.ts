@@ -91,6 +91,7 @@ export async function POST(request: Request) {
     })
     await db.studentParent.create({
       data: {
+        schoolId: school.id,
         studentId: student.id,
         parentId: parent.id,
         relationship: d.guardianRelationship || 'Guardian',
