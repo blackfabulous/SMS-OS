@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { z } from 'zod'
 
 /**
@@ -22,25 +23,22 @@ export async function POST(request: Request) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid request body')
   }
 
   const parsed = ContactSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Please check the form and try again.', details: parsed.error.issues }, { status: 400 })
+    return fail('VALIDATION', 'Please check the form and try again.', { details: parsed.error.issues })
   }
   const d = parsed.data
 
   // Honeypot triggered → silently accept, do nothing.
   if (d.company) {
-    return NextResponse.json({ message: 'Thank you — your message has been received.' }, { status: 200 })
+    return ok({ message: 'Thank you — your message has been received.' })
   }
 
   // TODO: deliver via email (Resend) and/or persist to an inbox model.
-  console.info(`[contact] ${d.name} <${d.email}> — ${d.subject}`)
+  logger.info({ name: d.name, email: d.email, subject: d.subject }, 'Contact form submission')
 
-  return NextResponse.json(
-    { message: 'Thank you for reaching out. We will get back to you shortly.' },
-    { status: 200 },
-  )
+  return ok({ message: 'Thank you for reaching out. We will get back to you shortly.' })
 }

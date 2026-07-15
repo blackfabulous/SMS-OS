@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
 import { validateRole } from '@/lib/api-auth'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { processOutbox } from '@/server/outbox'
 
 /**
@@ -25,9 +26,9 @@ export async function POST(request: Request) {
 
   try {
     const stats = await processOutbox({ limit, topics })
-    return NextResponse.json(stats)
+    return ok(stats)
   } catch (err) {
-    console.error('outbox process failed', err)
-    return NextResponse.json({ error: 'Failed to process outbox' }, { status: 500 })
+    logger.error({ err }, 'outbox process failed')
+    return fail('INTERNAL', 'Failed to process outbox')
   }
 }

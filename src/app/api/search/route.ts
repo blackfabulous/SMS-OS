@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { requireContext } from '@/server/context'
 
 export async function GET(request: Request) {
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
     const query = searchParams.get('q') || ''
 
     if (!query || query.length < 2) {
-      return NextResponse.json({ results: [] })
+      return ok({ results: [] })
     }
 
     const limit = 5
@@ -87,14 +88,9 @@ export async function GET(request: Request) {
       module: 'staff',
     }))
 
-    return NextResponse.json({
-      results: [...studentResults, ...staffResults],
-    })
+    return ok({ results: [...studentResults, ...staffResults] })
   } catch (error) {
-    console.error('Error searching:', error)
-    return NextResponse.json(
-      { error: 'Failed to search' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Error searching')
+    return fail('INTERNAL', 'Failed to search')
   }
 }

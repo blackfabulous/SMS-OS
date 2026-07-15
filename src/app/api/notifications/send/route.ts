@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server'
 import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
 import { dispatchNotification, type NotificationRecipient } from '@/lib/notifications'
 import { NOTIFICATION_EVENT_TYPES, type NotificationEvent } from '@/lib/notification-events'
 import { withIdempotency, idempotencyKeyFromRequest } from '@/lib/idempotency'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 
 /**
  * POST /api/notifications/send
@@ -23,28 +24,27 @@ export async function POST(request: Request) {
   })
   if (!rateLimit.allowed) {
     const retryAfter = Math.max(1, Math.ceil((rateLimit.result.resetAt.getTime() - Date.now()) / 1000))
-    return NextResponse.json(
-      { error: 'Rate limit exceeded', limit: rateLimit.result.limit, remaining: rateLimit.result.remaining, resetAt: rateLimit.result.resetAt.toISOString() },
-      { status: 429, headers: { 'Retry-After': String(retryAfter) } },
-    )
+    return fail('RATE_LIMITED', 'Rate limit exceeded', {
+      limit: rateLimit.result.limit,
+      remaining: rateLimit.result.remaining,
+      resetAt: rateLimit.result.resetAt.toISOString(),
+      retryAfter,
+    })
   }
 
   let body: { event?: NotificationEvent; recipient?: NotificationRecipient }
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid JSON body')
   }
 
   const event = body.event
   if (!event || typeof event !== 'object' || !NOTIFICATION_EVENT_TYPES.includes(event.type)) {
-    return NextResponse.json(
-      { error: `event.type is required and must be one of: ${NOTIFICATION_EVENT_TYPES.join(', ')}` },
-      { status: 400 },
-    )
+    return fail('VALIDATION', `event.type is required and must be one of: ${NOTIFICATION_EVENT_TYPES.join(', ')}`)
   }
   if (event.type === 'general' && (!event.subject || !event.message)) {
-    return NextResponse.json({ error: 'general events require subject and message' }, { status: 400 })
+    return fail('VALIDATION', 'general events require subject and message')
   }
 
   try {
@@ -55,9 +55,9 @@ export async function POST(request: Request) {
       3600,
       () => dispatchNotification(tenant.schoolId, event, body.recipient ?? {}),
     )
-    return NextResponse.json(result)
+    return ok(result)
   } catch (err) {
-    console.error('notification dispatch failed', err)
-    return NextResponse.json({ error: 'Failed to dispatch notification' }, { status: 500 })
+    logger.error({ err }, 'notification dispatch failed')
+    return fail('INTERNAL', 'Failed to dispatch notification')
   }
 }
