@@ -9,7 +9,8 @@ import {
   SectionCard,
   TableShell,
 } from '@/components/module-ui';
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useMemo } from 'react'
+import { useApiQuery, useApiMutation, useApiPut, useApiDelete, useQueryClient } from '@/hooks/use-api-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Coffee,
@@ -127,6 +128,88 @@ interface CanteenStats {
   categoryBreakdown: Array<{ category: string; count: number }>
 }
 
+interface ApiCanteenItem {
+  id: string
+  name: string
+  category: string
+  price: number | string
+  costPrice?: number | string | null
+  stockQuantity: number
+  reorderLevel: number
+  isActive: boolean
+  image?: string | null
+}
+
+interface ApiCanteenTransaction {
+  id: string
+  transactionNumber: string
+  buyerType: string
+  buyerName: string
+  totalAmount: number | string
+  paymentMethod: string
+  status: string
+  createdAt: string
+  items: Array<{
+    id: string
+    itemId: string
+    quantity: number
+    unitPrice: number | string
+    totalPrice: number | string
+    item: { id: string; name: string; category: string }
+  }>
+}
+
+interface CanteenMenuResponse {
+  data: ApiCanteenItem[]
+  total: number
+  page: number
+  totalPages: number
+  stats: CanteenStats
+}
+
+interface CanteenSalesResponse {
+  data: ApiCanteenTransaction[]
+  total: number
+  page: number
+  totalPages: number
+  totalRevenue: number | string
+}
+
+function apiToItem(item: ApiCanteenItem): CanteenItem {
+  return {
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    price: Number(item.price) || 0,
+    costPrice: item.costPrice ? Number(item.costPrice) || 0 : undefined,
+    stockQuantity: item.stockQuantity ?? 0,
+    reorderLevel: item.reorderLevel ?? 5,
+    isActive: item.isActive,
+    image: item.image ?? undefined,
+  }
+}
+
+function apiToTransaction(tx: ApiCanteenTransaction): CanteenTransaction {
+  return {
+    id: tx.id,
+    transactionNumber: tx.transactionNumber,
+    buyerType: tx.buyerType,
+    buyerName: tx.buyerName,
+    totalAmount: Number(tx.totalAmount) || 0,
+    paymentMethod: tx.paymentMethod,
+    status: tx.status,
+    createdAt: tx.createdAt,
+    items: tx.items.map((i) => ({
+      id: i.id,
+      itemId: i.itemId,
+      quantity: i.quantity,
+      unitPrice: Number(i.unitPrice) || 0,
+      totalPrice: Number(i.totalPrice) || 0,
+      item: i.item,
+    })),
+  }
+}
+
 // ─── Chart Config ─────────────────────────────────────────────────────────
 
 const salesChartConfig = {
@@ -141,16 +224,11 @@ const categoryChartConfig = {
 // ─── Component ────────────────────────────────────────────────────────────
 
 export default function CanteenModule() {
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
-  const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-
 
   // Data from API
-  const [menuItems, setMenuItems] = useState<CanteenItem[]>([])
-  const [transactions, setTransactions] = useState<CanteenTransaction[]>([])
-  const [stats, setStats] = useState<CanteenStats | null>(null)
   const [selectedItem, setSelectedItem] = useState<CanteenItem | null>(null)
 
   // Search & filters
@@ -192,40 +270,70 @@ export default function CanteenModule() {
     showCostPrice: false,
   })
 
-  // ─── Data Fetching ─────────────────────────────────────────────────────
+  // ─── Data & Mutations ──────────────────────────────────────────────────
 
-  const fetchMenuItems = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await fetch('/api/canteen')
-      if (res.ok) {
-        const d = await res.json()
-        setMenuItems(d.data || [])
-        setStats(d.stats || null)
-      }
-    } catch (err) {
-      console.error('Failed to fetch canteen items:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const {
+    data: menuData,
+    isPending: loadingMenu,
+  } = useApiQuery<CanteenMenuResponse>(['canteen', 'menu'], '/api/canteen')
 
-  const fetchTransactions = useCallback(async () => {
-    try {
-      const res = await fetch('/api/canteen?type=sales&limit=50')
-      if (res.ok) {
-        const d = await res.json()
-        setTransactions(d.data || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch transactions:', err)
-    }
-  }, [])
+  const {
+    data: salesData,
+    isPending: loadingSales,
+  } = useApiQuery<CanteenSalesResponse>(['canteen', 'sales'], '/api/canteen?type=sales&limit=50')
 
-  useEffect(() => {
-    fetchMenuItems()
-    fetchTransactions()
-  }, [fetchMenuItems, fetchTransactions])
+  const menuItems = useMemo(() => (menuData?.data || []).map(apiToItem), [menuData])
+  const transactions = useMemo(() => (salesData?.data || []).map(apiToTransaction), [salesData])
+  const stats = menuData?.stats ?? null
+  const loading = loadingMenu || loadingSales
+
+  const { mutate: addItem, isPending: isAddingItem } = useApiMutation<
+    { action: 'addItem'; name: string; category: string; price: number; costPrice: number; stockQuantity: number; reorderLevel: number },
+    ApiCanteenItem
+  >('/api/canteen', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['canteen'] })
+      toast.success('Item added successfully')
+      setItemForm({ name: '', category: settings.defaultCategory, price: '', costPrice: '', stockQuantity: '', reorderLevel: settings.lowStockThreshold, description: '' })
+      setViewMode('list')
+    },
+    onError: (err) => toast.error(err.message || 'Failed to add item'),
+  })
+
+  const { mutate: recordTransaction, isPending: isProcessingPayment } = useApiMutation<
+    { action: 'transaction'; buyerType: string; buyerName: string; paymentMethod: string; items: Array<{ itemId: string; quantity: number; unitPrice: number }> },
+    ApiCanteenTransaction
+  >('/api/canteen', {
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['canteen'] })
+      setLastReceipt(apiToTransaction(data))
+      setShowReceipt(true)
+      toast.success('Payment processed successfully')
+      setCart([])
+      setCustomerName('')
+    },
+    onError: (err) => toast.error(err.message || 'Failed to process payment'),
+  })
+
+  const { mutate: updateItem, isPending: isUpdatingItem } = useApiPut<
+    { id: string; name: string; category: string; price: number; costPrice: number; stockQuantity: number; reorderLevel: number; isActive?: boolean },
+    ApiCanteenItem
+  >('/api/canteen', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['canteen'] })
+      toast.success('Item updated successfully')
+      setViewMode('list')
+    },
+    onError: (err) => toast.error(err.message || 'Failed to update item'),
+  })
+
+  const { mutate: deleteItem, isPending: isDeletingItem } = useApiDelete<{ message: string }>('/api/canteen', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['canteen'] })
+      toast.success('Item deleted')
+    },
+    onError: (err) => toast.error(err.message || 'Failed to delete item'),
+  })
 
   // ─── Computed values ───────────────────────────────────────────────────
 
@@ -282,86 +390,48 @@ export default function CanteenModule() {
     }))
   }
 
-  const processPayment = async () => {
+  const processPayment = () => {
     if (cart.length === 0) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/canteen', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'transaction',
-          buyerType: customerType === 'Student' ? 'STUDENT' : 'STAFF',
-          buyerName: customerName || 'Walk-in',
-          paymentMethod: paymentMethod === 'Cash' ? 'CASH' : paymentMethod === 'ziG' ? 'ZIG' : 'CARD',
-          items: cart.map(c => ({ itemId: c.id, quantity: c.quantity, unitPrice: c.price })),
-        }),
-      })
-      if (res.ok) {
-        const tx = await res.json()
-        setLastReceipt(tx)
-        setShowReceipt(true)
-        toast.success('Payment processed successfully')
-        setCart([])
-        setCustomerName('')
-        fetchMenuItems()
-        fetchTransactions()
-      } else {
-        const err = await res.json()
-        toast.error(err.error || 'Failed to process payment')
-      }
-    } catch {
-      toast.error('Failed to process payment')
-    } finally {
-      setSubmitting(false)
-    }
+    recordTransaction({
+      action: 'transaction',
+      buyerType: customerType === 'Student' ? 'STUDENT' : 'STAFF',
+      buyerName: customerName || 'Walk-in',
+      paymentMethod: paymentMethod === 'Cash' ? 'CASH' : paymentMethod === 'ziG' ? 'ZIG' : 'CARD',
+      items: cart.map(c => ({ itemId: c.id, quantity: c.quantity, unitPrice: c.price })),
+    })
   }
 
   // ─── Item CRUD ─────────────────────────────────────────────────────────
 
-  const handleAddItem = async () => {
+  const handleAddItem = () => {
     if (!itemForm.name || !itemForm.price) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/canteen', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'addItem',
-          name: itemForm.name,
-          category: itemForm.category.toUpperCase().replace(/\s+/g, '_'),
-          price: parseFloat(itemForm.price),
-          costPrice: parseFloat(itemForm.costPrice) || 0,
-          stockQuantity: parseInt(itemForm.stockQuantity) || 0,
-          reorderLevel: parseInt(itemForm.reorderLevel) || 5,
-        }),
-      })
-      if (res.ok) {
-        toast.success('Item added successfully')
-        setItemForm({ name: '', category: 'Hot Meals', price: '', costPrice: '', stockQuantity: '', reorderLevel: '5', description: '' })
-        setViewMode('list')
-        fetchMenuItems()
-      } else {
-        const err = await res.json()
-        toast.error(err.error || 'Failed to add item')
-      }
-    } catch {
-      toast.error('Failed to add item')
-    } finally {
-      setSubmitting(false)
-    }
+    addItem({
+      action: 'addItem',
+      name: itemForm.name,
+      category: itemForm.category.toUpperCase().replace(/\s+/g, '_'),
+      price: parseFloat(itemForm.price),
+      costPrice: parseFloat(itemForm.costPrice) || 0,
+      stockQuantity: parseInt(itemForm.stockQuantity) || 0,
+      reorderLevel: parseInt(itemForm.reorderLevel) || 5,
+    })
   }
 
-  const handleDeleteItem = async (id: string) => {
-    try {
-      const res = await fetch(`/api/canteen?id=${id}`, { method: 'DELETE' })
-      if (res.ok) {
-        toast.success('Item deleted')
-        fetchMenuItems()
-      }
-    } catch {
-      toast.error('Failed to delete item')
-    }
+  const handleDeleteItem = (id: string) => {
+    deleteItem(id)
+  }
+
+  const handleUpdateItem = () => {
+    if (!selectedItem || !itemForm.name || !itemForm.price) return
+    updateItem({
+      id: selectedItem.id,
+      name: itemForm.name,
+      category: itemForm.category.toUpperCase().replace(/\s+/g, '_'),
+      price: parseFloat(itemForm.price),
+      costPrice: parseFloat(itemForm.costPrice) || 0,
+      stockQuantity: parseInt(itemForm.stockQuantity) || 0,
+      reorderLevel: parseInt(itemForm.reorderLevel) || 5,
+      isActive: true,
+    })
   }
 
   const handleSaveSettings = () => {
@@ -388,7 +458,7 @@ export default function CanteenModule() {
 
   // ─── Inline Views ──────────────────────────────────────────────────────
 
-  const AddItemInlineForm = () => (
+  const addItemView = (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1">
@@ -442,8 +512,8 @@ export default function CanteenModule() {
               <Textarea placeholder="Brief description..." rows={3} value={itemForm.description} onChange={e => setItemForm(p => ({ ...p, description: e.target.value }))} />
             </div>
             <div className="flex items-center gap-3 pt-2">
-              <Button onClick={handleAddItem} disabled={submitting || !itemForm.name || !itemForm.price} className="bg-emerald-600 hover:bg-emerald-700">
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button onClick={handleAddItem} disabled={isAddingItem || !itemForm.name || !itemForm.price} className="bg-emerald-600 hover:bg-emerald-700">
+                {isAddingItem && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Add Item
               </Button>
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
@@ -454,10 +524,8 @@ export default function CanteenModule() {
     </motion.div>
   )
 
-  const ItemDetailView = () => {
-    if (!selectedItem) return null
-    const isLow = selectedItem.stockQuantity <= selectedItem.reorderLevel
-    return (
+  const isLow = selectedItem ? selectedItem.stockQuantity <= selectedItem.reorderLevel : false
+  const itemDetailView = selectedItem ? (
       <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => { setViewMode('list'); setSelectedItem(null) }} className="gap-1">
@@ -537,10 +605,9 @@ export default function CanteenModule() {
           </div>
         </div>
       </motion.div>
-    )
-  }
+    ) : null
 
-  const CanteenSettingsView = () => (
+  const settingsView = (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1">
@@ -652,7 +719,7 @@ export default function CanteenModule() {
   return (
     <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <AnimatePresence mode="wait">
-        {viewMode === 'add-item' && <AddItemInlineForm key="add-item" />}
+        {viewMode === 'add-item' && addItemView}
         {viewMode === 'edit-item' && (
           <motion.div key="edit-item" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
             <div className="flex items-center gap-3">
@@ -697,32 +764,8 @@ export default function CanteenModule() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 pt-2">
-                    <Button onClick={async () => {
-                      if (!selectedItem || !itemForm.name || !itemForm.price) return
-                      setSubmitting(true)
-                      try {
-                        const res = await fetch('/api/canteen', {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            id: selectedItem.id,
-                            name: itemForm.name,
-                            category: itemForm.category.toUpperCase().replace(/\s+/g, '_'),
-                            price: parseFloat(itemForm.price),
-                            costPrice: parseFloat(itemForm.costPrice) || 0,
-                            stockQuantity: parseInt(itemForm.stockQuantity) || 0,
-                            reorderLevel: parseInt(itemForm.reorderLevel) || 5,
-                          }),
-                        })
-                        if (res.ok) {
-                          toast.success('Item updated successfully')
-                          setViewMode('list')
-                          fetchMenuItems()
-                        }
-                      } catch { toast.error('Failed to update item') }
-                      finally { setSubmitting(false) }
-                    }} disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700">
-                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Button onClick={handleUpdateItem} disabled={isUpdatingItem || !selectedItem || !itemForm.name || !itemForm.price} className="bg-emerald-600 hover:bg-emerald-700">
+                      {isUpdatingItem && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       Save Changes
                     </Button>
                     <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
@@ -732,8 +775,8 @@ export default function CanteenModule() {
             </Card>
           </motion.div>
         )}
-        {viewMode === 'item-detail' && <ItemDetailView key="item-detail" />}
-        {viewMode === 'settings' && <CanteenSettingsView key="settings" />}
+        {viewMode === 'item-detail' && itemDetailView}
+        {viewMode === 'settings' && settingsView}
       </AnimatePresence>
 
       {viewMode === 'list' && (
@@ -1043,8 +1086,8 @@ export default function CanteenModule() {
                           )}
                         </div>
                       </div>
-                      <Button className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={cart.length === 0 || submitting} onClick={processPayment}>
-                        {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                      <Button className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={cart.length === 0 || isProcessingPayment} onClick={processPayment}>
+                        {isProcessingPayment ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                         Process Payment
                       </Button>
                   </SectionCard>

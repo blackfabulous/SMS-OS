@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
@@ -52,7 +54,7 @@ export async function GET(request: NextRequest) {
         _sum: { totalAmount: true },
       })
 
-      return NextResponse.json({
+      return ok({
         data: transactions,
         total,
         page,
@@ -93,7 +95,7 @@ export async function GET(request: NextRequest) {
         where: { schoolId, isActive: true, stockQuantity: { lte: 5 } },
       })
 
-      return NextResponse.json({
+      return ok({
         data: items,
         total,
         page,
@@ -141,7 +143,7 @@ export async function GET(request: NextRequest) {
       _count: { id: true },
     })
 
-    return NextResponse.json({
+    return ok({
       data: items,
       total,
       page,
@@ -158,11 +160,8 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Failed to fetch canteen data:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch canteen data' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to fetch canteen data')
+    return fail('INTERNAL', 'Failed to fetch canteen data')
   }
 }
 
@@ -180,7 +179,7 @@ export async function POST(request: NextRequest) {
     if (action === 'addItem') {
       const { name, category, price, costPrice, stockQuantity, reorderLevel } = body
       if (!name) {
-        return NextResponse.json({ error: 'Item name is required' }, { status: 400 })
+        return fail('VALIDATION', 'Item name is required')
       }
 
       const item = await db.canteenItem.create({
@@ -195,14 +194,14 @@ export async function POST(request: NextRequest) {
         },
       })
       logAudit({ action: 'CREATE', entity: 'canteen', entityId: (item as any)?.id, afterValue: item }).catch(() => {})
-      return NextResponse.json(item, { status: 201 })
+      return ok(item, 201)
     }
 
     // Record sale / transaction
     if (action === 'transaction') {
       const { buyerType, buyerId, buyerName, paymentMethod, items } = body
       if (!items || !Array.isArray(items) || items.length === 0) {
-        return NextResponse.json({ error: 'Items are required' }, { status: 400 })
+        return fail('VALIDATION', 'Items are required')
       }
 
       // Generate transaction number
@@ -254,16 +253,13 @@ export async function POST(request: NextRequest) {
       }
 
       logAudit({ action: 'CREATE', entity: 'canteen', entityId: (transaction as any)?.id, afterValue: transaction }).catch(() => {})
-      return NextResponse.json(transaction, { status: 201 })
+      return ok(transaction, 201)
     }
 
-    return NextResponse.json({ error: 'Invalid action. Use addItem or transaction' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid action. Use addItem or transaction')
   } catch (error) {
-    console.error('Failed to process canteen request:', error)
-    return NextResponse.json(
-      { error: 'Failed to process canteen request' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to process canteen request')
+    return fail('INTERNAL', 'Failed to process canteen request')
   }
 }
 
@@ -276,12 +272,12 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { id, ...updates } = body
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     const schoolId = authResult.session.user.schoolId
     const owned = await db.canteenItem.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!owned) return NextResponse.json({ error: 'Canteen item not found' }, { status: 404 })
+    if (!owned) return fail('NOT_FOUND', 'Canteen item not found')
     const item = await db.canteenItem.update({
       where: { id },
       data: {
@@ -295,13 +291,10 @@ export async function PUT(request: NextRequest) {
       },
     })
     logAudit({ action: 'UPDATE', entity: 'canteen', entityId: (item as any)?.id, afterValue: item }).catch(() => {})
-    return NextResponse.json(item)
+    return ok(item)
   } catch (error) {
-    console.error('Failed to update canteen item:', error)
-    return NextResponse.json(
-      { error: 'Failed to update canteen item' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to update canteen item')
+    return fail('INTERNAL', 'Failed to update canteen item')
   }
 }
 
@@ -314,20 +307,17 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     const schoolId = authResult.session.user.schoolId
     const owned = await db.canteenItem.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!owned) return NextResponse.json({ error: 'Canteen item not found' }, { status: 404 })
+    if (!owned) return fail('NOT_FOUND', 'Canteen item not found')
     await db.canteenItem.update({ where: { id }, data: { isActive: false } })
     logAudit({ action: 'DELETE', entity: 'canteen', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ message: 'Canteen item deleted successfully' })
+    return ok({ message: 'Canteen item deleted successfully' })
   } catch (error) {
-    console.error('Failed to delete canteen item:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete canteen item' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to delete canteen item')
+    return fail('INTERNAL', 'Failed to delete canteen item')
   }
 }
