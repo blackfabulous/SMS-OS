@@ -8,7 +8,7 @@ import {
   ModuleStatCard,
   SectionCard,
 } from '@/components/module-ui';
-import React, { useState, useMemo, useEffect, useCallback } from 'react'
+import React, { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
   UsersRound,
@@ -67,6 +67,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useApiQuery } from '@/hooks/use-api-query'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -133,6 +134,7 @@ function initialsOf(first: string, last: string): string {
 interface ApiContribution { id: string; amount: number | string; contributionType: string; description: string | null; campaign: string | null; date: string }
 interface ApiAlumni { id: string; firstName: string; lastName: string; graduationYear: number; email: string | null; phone: string | null; occupation: string | null; company: string | null; location: string | null; isNotable: boolean; totalContributions: number | string; contributions?: ApiContribution[] }
 interface AlumniApiStats { totalAlumni: number; totalContributions: number; notableAlumni: number; byGraduationYear: { year: number; count: number }[]; byLocation: { location: string; count: number }[] }
+interface AlumniResponse { data: ApiAlumni[]; total: number; page: number; totalPages: number; stats: AlumniApiStats }
 function apiToAlumni(a: ApiAlumni): AlumniProfile {
   return { id: a.id, name: `${a.firstName} ${a.lastName}`.trim(), graduationYear: a.graduationYear, occupation: a.occupation ?? '', company: a.company ?? '', location: a.location ?? '', email: a.email ?? '', phone: a.phone ?? '', photo: initialsOf(a.firstName, a.lastName), notable: a.isNotable, contributionTotal: Number(a.totalContributions) || 0, tags: [] }
 }
@@ -205,34 +207,31 @@ export default function AlumniModule() {
     emailDigest: 'weekly',
   })
 
-  const [alumni, setAlumni] = useState<AlumniProfile[]>([])
-  const [contributions, setContributions] = useState<Contribution[]>([])
-  const [alumniStats, setAlumniStats] = useState<AlumniApiStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const {
+    data,
+    isPending: loading,
+    error: queryError,
+    refetch,
+  } = useApiQuery<AlumniResponse>(['alumni', { limit: 500 }], '/api/alumni?limit=500')
 
-  const fetchAlumni = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/alumni?limit=500')
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Failed to load alumni')
-      const list: ApiAlumni[] = json.data || []
-      setAlumni(list.map(apiToAlumni))
-      setAlumniStats(json.stats || null)
-      const flat: Contribution[] = []
-      list.forEach((a) => (a.contributions || []).forEach((c) => flat.push({ id: c.id, alumniName: `${a.firstName} ${a.lastName}`.trim(), amount: Number(c.amount) || 0, date: (c.date ?? '').slice(0, 10), campaign: c.campaign ?? '—', method: c.contributionType ?? '—' })))
-      flat.sort((x, y) => (y.date || '').localeCompare(x.date || ''))
-      setContributions(flat)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load alumni')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const list = data?.data ?? []
+  const alumni = useMemo(() => list.map(apiToAlumni), [list])
+  const alumniStats = data?.stats ?? null
+  const error = queryError?.message || null
 
-  useEffect(() => { fetchAlumni() }, [fetchAlumni])
+  const contributions = useMemo(() => {
+    const flat: Contribution[] = []
+    list.forEach((a) => (a.contributions || []).forEach((c) => flat.push({
+      id: c.id,
+      alumniName: `${a.firstName} ${a.lastName}`.trim(),
+      amount: Number(c.amount) || 0,
+      date: (c.date ?? '').slice(0, 10),
+      campaign: c.campaign ?? '—',
+      method: c.contributionType ?? '—',
+    })))
+    flat.sort((x, y) => (y.date || '').localeCompare(x.date || ''))
+    return flat
+  }, [list])
 
   // Derived data
   const totalAlumni = alumniStats?.totalAlumni ?? alumni.length
@@ -450,7 +449,7 @@ export default function AlumniModule() {
     <ModuleContainer>
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
-          {error} · <button onClick={() => fetchAlumni()} className="underline underline-offset-2">retry</button>
+          {error} · <button onClick={() => refetch()} className="underline underline-offset-2">retry</button>
         </div>
       )}
       <ModulePageLayout
