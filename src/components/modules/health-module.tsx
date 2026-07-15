@@ -10,7 +10,7 @@ import {
   TableShell,
   KitEmptyState,
 } from '@/components/module-ui';
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState } from 'react'
 import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 import { motion } from 'framer-motion'
 import {
@@ -117,6 +117,13 @@ interface HealthRecord {
   student: Student
 }
 
+interface StudentsResponse {
+  data: Student[]
+  total: number
+  page: number
+  totalPages: number
+}
+
 interface HealthResponse {
   data: HealthRecord[]
   total: number
@@ -187,7 +194,6 @@ const visitDonutConfig = {
 
 export default function HealthModule() {
   const queryClient = useQueryClient()
-  const [students, setStudents] = useState<Student[]>([])
   const [activeTab, setActiveTab] = useState('overview')
   const [searchQuery, setSearchQuery] = useState('')
   const [showConfidential, setShowConfidential] = useState(false)
@@ -200,6 +206,11 @@ export default function HealthModule() {
     isPending: loading,
   } = useApiQuery<HealthResponse>(['health'], '/api/health')
 
+  const {
+    data: studentsData,
+  } = useApiQuery<StudentsResponse>(['students', 'health'], '/api/students?limit=500')
+
+  const students = studentsData?.data ?? []
   const records = healthData?.data ?? []
 
   // Form state
@@ -238,30 +249,6 @@ export default function HealthModule() {
   })
 
   const { toast } = useToast()
-
-  // ─── Data Fetching ─────────────────────────────────────────────────────
-
-  const fetchStudents = useCallback(async () => {
-    try {
-      const res = await fetch('/api/students?limit=500')
-      if (res.ok) {
-        const data = await res.json()
-        setStudents(data.data || data || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch students:', err)
-    }
-  }, [])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchStudents()
-  }, [fetchStudents])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (viewMode === 'add' || viewMode === 'quick-sickbay') fetchStudents()
-  }, [viewMode, fetchStudents])
 
   // ─── Mutations ──────────────────────────────────────────────────────────
 
