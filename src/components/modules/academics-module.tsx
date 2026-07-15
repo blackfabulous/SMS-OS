@@ -11,7 +11,10 @@ import {
   KitEmptyState,
   ModuleToolbar,
 } from '@/components/module-ui'
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useMemo } from 'react'
+import { useQueryClient, useMutation } from '@tanstack/react-query'
+import { useApiQuery, useApiMutation } from '@/hooks/use-api-query'
+import { apiPost } from '@/lib/api-client'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   BookOpen,
@@ -156,6 +159,11 @@ interface AcademicsOverview {
   classes: Array<ClassData & { studentCount: number }>
 }
 
+interface MarksResponse {
+  assessment: AssessmentData
+  classStudents: ClassStudent[]
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const formatDate = (dateStr: string | null) => {
@@ -213,27 +221,20 @@ const subjectCoverageConfig = {
 // ─── Academics Module ──────────────────────────────────────────────────────
 
 export default function AcademicsModule() {
-  const [overview, setOverview] = useState<AcademicsOverview | null>(null)
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
 
   // Assessments tab state
-  const [assessments, setAssessments] = useState<AssessmentData[]>([])
-  const [assessmentsLoading, setAssessmentsLoading] = useState(false)
   const [assessmentTypeFilter, setAssessmentTypeFilter] = useState('ALL')
 
   // Marks entry sub-view
-  const [selectedAssessment, setSelectedAssessment] = useState<AssessmentData | null>(null)
-  const [classStudents, setClassStudents] = useState<ClassStudent[]>([])
-  const [marksLoading, setMarksLoading] = useState(false)
-  const [marksSaving, setMarksSaving] = useState(false)
+  const [selectedAssessmentId, setSelectedAssessmentId] = useState<string | null>(null)
   const [editedMarks, setEditedMarks] = useState<Record<string, number>>({})
 
   // ViewMode state pattern
   type ViewMode = 'list' | 'add' | 'edit' | 'detail' | 'settings'
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [creating, setCreating] = useState(false)
   const [createForm, setCreateForm] = useState({
     name: '',
     subjectId: '',
@@ -263,136 +264,101 @@ export default function AcademicsModule() {
     showClassRank: true,
   })
 
-  // ─── Data Fetching ─────────────────────────────────────────────────────
+  // ─── API Queries & Mutations ───────────────────────────────────────────
 
-  const fetchOverview = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await fetch('/api/academics')
-      if (res.ok) {
-        const data = await res.json()
-        setOverview(data)
-      }
-    } catch (err) {
-      console.error('Failed to fetch academics overview:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const {
+    data: overview,
+    isPending: loading,
+  } = useApiQuery<AcademicsOverview>(['academics'], '/api/academics')
 
-  const fetchAssessments = useCallback(async () => {
-    try {
-      setAssessmentsLoading(true)
-      const params = new URLSearchParams()
-      if (assessmentTypeFilter !== 'ALL') params.set('assessmentType', assessmentTypeFilter)
-      const res = await fetch(`/api/assessments?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        setAssessments(data.data || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch assessments:', err)
-    } finally {
-      setAssessmentsLoading(false)
-    }
+  const assessmentsUrl = useMemo(() => {
+    const params = new URLSearchParams()
+    if (assessmentTypeFilter !== 'ALL') params.set('assessmentType', assessmentTypeFilter)
+    return `/api/assessments?${params.toString()}`
   }, [assessmentTypeFilter])
 
-  const fetchMarks = useCallback(async (assessmentId: string) => {
-    try {
-      setMarksLoading(true)
-      const res = await fetch(`/api/assessments/${assessmentId}/marks`)
-      if (res.ok) {
-        const data = await res.json()
-        setSelectedAssessment(data.assessment)
-        setClassStudents(data.classStudents || [])
-        // Initialize edited marks from existing data
-        const marksMap: Record<string, number> = {}
-        for (const s of data.classStudents || []) {
-          if (s.marksObtained !== null) {
-            marksMap[s.id] = s.marksObtained
-          }
-        }
-        setEditedMarks(marksMap)
-      }
-    } catch (err) {
-      console.error('Failed to fetch marks:', err)
-    } finally {
-      setMarksLoading(false)
-    }
-  }, [])
+  const {
+    data: assessmentsData,
+    isPending: assessmentsLoading,
+  } = useApiQuery<{ data: AssessmentData[] }>(['assessments', assessmentTypeFilter], assessmentsUrl, { enabled: activeTab === 'assessments' })
 
-  useEffect(() => {
-    fetchOverview()
-  }, [fetchOverview])
+  const assessments = assessmentsData?.data ?? []
 
-  useEffect(() => {
-    if (activeTab === 'assessments') fetchAssessments()
-  }, [activeTab, fetchAssessments])
+  const {
+    data: marksData,
+    isPending: marksLoading,
+  } = useApiQuery<MarksResponse>(
+    ['assessments', 'marks', selectedAssessmentId],
+    selectedAssessmentId ? `/api/assessments/${selectedAssessmentId}/marks` : '',
+    { enabled: !!selectedAssessmentId }
+  )
+
+  const selectedAssessment = marksData?.assessment ?? null
+  const classStudents = marksData?.classStudents ?? []
+
+  type AssessmentBody = {
+    name: string
+    subjectId: string
+    classId: string | null
+    assessmentType: string
+    totalMarks: number
+    weight: number
+    date: string | null
+  }
+
+  const { mutate: createAssessment, isPending: isCreating } = useApiMutation<AssessmentBody, AssessmentData>('/api/assessments', {
+    onSuccess: () => {
+      setViewMode('list')
+      setCreateForm({ name: '', subjectId: '', classId: '', assessmentType: 'TEST', totalMarks: '100', weight: '1', date: '' })
+      toast.success('Assessment created successfully')
+      queryClient.invalidateQueries({ queryKey: ['academics'] })
+      queryClient.invalidateQueries({ queryKey: ['assessments'] })
+    },
+    onError: (err) => toast.error(err.message || 'Failed to create assessment'),
+  })
+
+  interface SaveMarksResponse {
+    saved: number
+    marks: AssessmentMarkData[]
+  }
+
+  const { mutate: saveMarks, isPending: marksSaving } = useMutation<
+    SaveMarksResponse,
+    Error,
+    { id: string; marks: { studentId: string; marksObtained: number }[] }
+  >({
+    mutationFn: ({ id, marks }) =>
+      apiPost<SaveMarksResponse, { marks: { studentId: string; marksObtained: number }[] }>(`/api/assessments/${id}/marks`, { marks }),
+    onSuccess: () => {
+      toast.success('Marks saved successfully')
+      queryClient.invalidateQueries({ queryKey: ['assessments', 'marks', selectedAssessmentId] })
+    },
+    onError: (err) => toast.error(err.message || 'Failed to save marks'),
+  })
 
   // ─── Handlers ─────────────────────────────────────────────────────────
 
-  const handleCreateAssessment = async () => {
+  const handleCreateAssessment = () => {
     if (!createForm.name || !createForm.subjectId) return
-    try {
-      setCreating(true)
-      const res = await fetch('/api/assessments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: createForm.name,
-          subjectId: createForm.subjectId,
-          classId: createForm.classId || null,
-          assessmentType: createForm.assessmentType,
-          totalMarks: parseFloat(createForm.totalMarks) || 100,
-          weight: parseFloat(createForm.weight) || 1,
-          date: createForm.date || null,
-        }),
-      })
-      if (res.ok) {
-        setViewMode('list')
-        setCreateForm({ name: '', subjectId: '', classId: '', assessmentType: 'TEST', totalMarks: '100', weight: '1', date: '' })
-        toast.success('Assessment created successfully')
-        fetchOverview()
-        if (activeTab === 'assessments') fetchAssessments()
-      } else {
-        const error = await res.json()
-        console.error('Create assessment error:', error)
-      }
-    } catch (err) {
-      console.error('Failed to create assessment:', err)
-    } finally {
-      setCreating(false)
-    }
+    createAssessment({
+      name: createForm.name,
+      subjectId: createForm.subjectId,
+      classId: createForm.classId || null,
+      assessmentType: createForm.assessmentType,
+      totalMarks: parseFloat(createForm.totalMarks) || 100,
+      weight: parseFloat(createForm.weight) || 1,
+      date: createForm.date || null,
+    })
   }
 
-  const handleSaveMarks = async () => {
+  const handleSaveMarks = () => {
     if (!selectedAssessment) return
-    try {
-      setMarksSaving(true)
-      const marksToSave = Object.entries(editedMarks)
-        .filter(([, marks]) => marks !== undefined && marks !== null)
-        .map(([studentId, marks]) => ({
-          studentId,
-          marksObtained: marks,
-        }))
+    const marksToSave = Object.entries(editedMarks)
+      .filter(([, marks]) => marks !== undefined && marks !== null)
+      .map(([studentId, marks]) => ({ studentId, marksObtained: marks }))
 
-      if (marksToSave.length === 0) return
-
-      const res = await fetch(`/api/assessments/${selectedAssessment.id}/marks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ marks: marksToSave }),
-      })
-
-      if (res.ok) {
-        toast.success('Marks saved successfully')
-        fetchMarks(selectedAssessment.id)
-      }
-    } catch (err) {
-      console.error('Failed to save marks:', err)
-    } finally {
-      setMarksSaving(false)
-    }
+    if (marksToSave.length === 0) return
+    saveMarks({ id: selectedAssessment.id, marks: marksToSave })
   }
 
   const toggleGradeExpand = (gradeId: string) => {
@@ -581,10 +547,10 @@ export default function AcademicsModule() {
               </Button>
               <Button
                 onClick={handleCreateAssessment}
-                disabled={creating || !createForm.name || !createForm.subjectId}
+                disabled={isCreating || !createForm.name || !createForm.subjectId}
                 className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
               >
-                {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create Assessment
               </Button>
             </div>
@@ -811,7 +777,7 @@ export default function AcademicsModule() {
               <div className="flex items-center gap-3 mt-6">
                 <Button
                   className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
-                  onClick={() => fetchMarks(assessment.id)}
+                  onClick={() => setSelectedAssessmentId(assessment.id)}
                 >
                   Enter Marks
                 </Button>
@@ -835,8 +801,7 @@ export default function AcademicsModule() {
             size="sm"
             className="gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
             onClick={() => {
-              setSelectedAssessment(null)
-              setClassStudents([])
+              setSelectedAssessmentId(null)
               setEditedMarks({})
             }}
           >
@@ -1437,7 +1402,7 @@ export default function AcademicsModule() {
                     <TableRow
                       key={assessment.id}
                       className="hover:bg-muted/20 cursor-pointer"
-                      onClick={() => fetchMarks(assessment.id)}
+                      onClick={() => setSelectedAssessmentId(assessment.id)}
                     >
                       <TableCell className="text-sm font-medium">{assessment.name}</TableCell>
                       <TableCell className="text-sm">{assessment.subject.name}</TableCell>

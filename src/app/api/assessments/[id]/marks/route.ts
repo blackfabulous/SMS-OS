@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 import { SaveMarksSchema } from '@/lib/validations'
@@ -40,7 +41,7 @@ export async function GET(
     })
 
     if (!assessment) {
-      return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Assessment not found')
     }
 
     // If classId is set, also get all students in that class for marks entry
@@ -91,16 +92,13 @@ export async function GET(
       })
     }
 
-    return NextResponse.json({
+    return ok({
       assessment,
       classStudents,
     })
   } catch (error) {
-    console.error('Error fetching assessment marks:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch assessment marks' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Error fetching assessment marks')
+    return fail('INTERNAL', 'Failed to fetch assessment marks')
   }
 }
 
@@ -118,7 +116,7 @@ export async function POST(
 
     const parsed = SaveMarksSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+      return fail('VALIDATION', 'Validation failed', { details: parsed.error.issues })
     }
     const marks = parsed.data.marks
 
@@ -128,18 +126,18 @@ export async function POST(
     })
 
     if (!assessment) {
-      return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Assessment not found')
     }
 
     if (assessment.isLocked) {
-      return NextResponse.json({ error: 'Assessment is locked and cannot be modified' }, { status: 409 })
+      return fail('CONFLICT', 'Assessment is locked and cannot be modified')
     }
 
     // Reject marks above the assessment's maximum
     for (const m of marks) {
       const v = validateMark(m.marksObtained, assessment.totalMarks)
       if (!v.ok) {
-        return NextResponse.json({ error: `Student ${m.studentId}: ${v.error}` }, { status: 400 })
+        return fail('VALIDATION', `Student ${m.studentId}: ${v.error}`)
       }
     }
 
@@ -150,7 +148,7 @@ export async function POST(
       where: { id: { in: studentIds }, schoolId: session.user.schoolId },
     })
     if (validStudents !== studentIds.length) {
-      return NextResponse.json({ error: 'One or more students do not belong to your school' }, { status: 403 })
+      return fail('FORBIDDEN', 'One or more students do not belong to your school')
     }
 
     // Grade symbols come from the school's ZIMSEC grading scale (settings).
@@ -185,15 +183,12 @@ export async function POST(
     }
 
     logAudit({ action: 'CREATE', entity: 'marks' }).catch(() => {})
-    return NextResponse.json({
+    return ok({
       saved: results.length,
       marks: results,
     })
   } catch (error) {
-    console.error('Error saving marks:', error)
-    return NextResponse.json(
-      { error: 'Failed to save marks' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Error saving marks')
+    return fail('INTERNAL', 'Failed to save marks')
   }
 }

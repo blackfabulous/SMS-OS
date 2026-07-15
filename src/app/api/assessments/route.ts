@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
 import { logAudit } from '@/lib/audit'
@@ -39,10 +40,10 @@ export async function GET(request: Request) {
       db.assessment.count({ where }),
     ])
 
-    return NextResponse.json({ data: assessments, total, page, totalPages: Math.ceil(total / limit) })
+    return ok({ data: assessments, total, page, totalPages: Math.ceil(total / limit) })
   } catch (error) {
-    console.error('Error fetching assessments:', error)
-    return NextResponse.json({ error: 'Failed to fetch assessments' }, { status: 500 })
+    logger.error({ err: error }, 'Error fetching assessments')
+    return fail('INTERNAL', 'Failed to fetch assessments')
   }
 }
 
@@ -90,10 +91,10 @@ export async function POST(request: Request) {
     }
 
     logAudit({ action: 'CREATE', entity: 'assessments', entityId: assessment.id, afterValue: assessment }).catch(() => {})
-    return NextResponse.json(assessment, { status: 201 })
+    return ok(assessment, 201)
   } catch (error) {
-    console.error('Error creating assessment:', error)
-    return NextResponse.json({ error: 'Failed to create assessment' }, { status: 500 })
+    logger.error({ err: error }, 'Error creating assessment')
+    return fail('INTERNAL', 'Failed to create assessment')
   }
 }
 
@@ -106,14 +107,14 @@ export async function PUT(request: Request) {
     const body = await request.json()
     const { id, ...updates } = body
 
-    if (!id) return NextResponse.json({ error: 'Assessment ID is required' }, { status: 400 })
+    if (!id) return fail('VALIDATION', 'Assessment ID is required')
 
     // Verify assessment belongs to caller's school
     const existing = await db.assessment.findUnique({
       where: { id, schoolId: session.user.schoolId },
       select: { id: true },
     })
-    if (!existing) return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
+    if (!existing) return fail('NOT_FOUND', 'Assessment not found')
 
     const assessment = await db.assessment.update({
       where: { id },
@@ -129,10 +130,10 @@ export async function PUT(request: Request) {
     })
 
     logAudit({ action: 'UPDATE', entity: 'assessments', entityId: assessment.id, afterValue: assessment }).catch(() => {})
-    return NextResponse.json(assessment)
+    return ok(assessment)
   } catch (error) {
-    console.error('Error updating assessment:', error)
-    return NextResponse.json({ error: 'Failed to update assessment' }, { status: 500 })
+    logger.error({ err: error }, 'Error updating assessment')
+    return fail('INTERNAL', 'Failed to update assessment')
   }
 }
 
@@ -145,22 +146,22 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
-    if (!id) return NextResponse.json({ error: 'Assessment ID is required' }, { status: 400 })
+    if (!id) return fail('VALIDATION', 'Assessment ID is required')
 
     // Verify assessment belongs to caller's school
     const existing = await db.assessment.findUnique({
       where: { id, schoolId: session.user.schoolId },
       select: { id: true },
     })
-    if (!existing) return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
+    if (!existing) return fail('NOT_FOUND', 'Assessment not found')
 
     await db.assessmentMark.deleteMany({ where: { assessmentId: id } })
     await db.assessment.delete({ where: { id } })
 
     logAudit({ action: 'DELETE', entity: 'assessments', entityId: id }).catch(() => {})
-    return NextResponse.json({ message: 'Assessment deleted successfully' })
+    return ok({ message: 'Assessment deleted successfully' })
   } catch (error) {
-    console.error('Error deleting assessment:', error)
-    return NextResponse.json({ error: 'Failed to delete assessment' }, { status: 500 })
+    logger.error({ err: error }, 'Error deleting assessment')
+    return fail('INTERNAL', 'Failed to delete assessment')
   }
 }
