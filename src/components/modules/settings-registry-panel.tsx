@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useApiQuery, useApiPut, useQueryClient } from '@/hooks/use-api-query'
 import type { SettingUi } from '@/lib/settings-schema'
 
 interface SettingMeta {
@@ -19,6 +20,16 @@ interface SettingMeta {
   value: unknown
   default: unknown
   ui: SettingUi
+}
+
+interface SettingsData {
+  categories: string[]
+  settings: SettingMeta[]
+}
+
+interface SetSettingsResult {
+  updated: string[]
+  errors: { key: string; error: string }[]
 }
 
 interface GradeBand {
@@ -43,84 +54,82 @@ const CATEGORY_LABELS: Record<string, string> = {
  * No per-setting code lives here — the registry's `ui` metadata drives the form.
  */
 export function SettingsRegistryPanel() {
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [metas, setMetas] = useState<SettingMeta[]>([])
-  const [values, setValues] = useState<Record<string, unknown>>({})
-  const [original, setOriginal] = useState<Record<string, unknown>>({})
+  const [overrides, setOverrides] = useState<Record<string, unknown>>({})
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const queryClient = useQueryClient()
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/settings')
-      if (!res.ok) throw new Error('Failed to load settings')
-      const data = (await res.json()) as { settings: SettingMeta[] }
-      const v: Record<string, unknown> = {}
-      data.settings.forEach((s) => { v[s.key] = s.value })
-      setMetas(data.settings)
-      setValues(v)
-      setOriginal(structuredClone(v))
-      setFieldErrors({})
-    } catch {
-      toast.error('Could not load settings')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const { data, isPending: loading, error: queryError } = useApiQuery<SettingsData>(
+    ['settings'],
+    '/api/settings',
+  )
 
-  useEffect(() => { load() }, [load])
+  const metas = useMemo(() => data?.settings ?? [], [data])
+
+  const defaults = useMemo(() => {
+    const v: Record<string, unknown> = {}
+    metas.forEach((s) => { v[s.key] = s.value })
+    return v
+  }, [metas])
+
+  const values = useMemo(
+    () => ({ ...defaults, ...overrides }),
+    [defaults, overrides],
+  )
 
   const dirtyKeys = useMemo(
-    () => metas.map((m) => m.key).filter((k) => JSON.stringify(values[k]) !== JSON.stringify(original[k])),
-    [metas, values, original],
+    () => metas.map((m) => m.key).filter((k) => JSON.stringify(values[k]) !== JSON.stringify(defaults[k])),
+    [metas, values, defaults],
+  )
+
+  const { mutate: save, isPending: saving } = useApiPut<{ settings: Record<string, unknown> }, SetSettingsResult>(
+    '/api/settings',
+    {
+      onSuccess: (result) => {
+        const errs: Record<string, string> = {}
+        if (result.errors && result.errors.length > 0) {
+          result.errors.forEach((e) => { errs[e.key] = e.error })
+        }
+        setFieldErrors(errs)
+        setOverrides((prev) => {
+          const next = { ...prev }
+          if (result.updated) {
+            result.updated.forEach((k) => { delete next[k] })
+          }
+          return next
+        })
+        queryClient.invalidateQueries({ queryKey: ['settings'] })
+        if (result.updated && result.updated.length > 0) {
+          toast.success(`Saved ${result.updated.length} setting${result.updated.length === 1 ? '' : 's'}`)
+        }
+        if (result.errors && result.errors.length > 0) {
+          toast.error(`${result.errors.length} setting${result.errors.length === 1 ? '' : 's'} could not be saved`)
+        }
+      },
+      onError: (error) => {
+        toast.error(error.message || 'Failed to save settings')
+      },
+    },
   )
 
   const setValue = useCallback((key: string, value: unknown) => {
-    setValues((prev) => ({ ...prev, [key]: value }))
+    setOverrides((prev) => ({ ...prev, [key]: value }))
   }, [])
 
-  const save = useCallback(async () => {
+  const handleSave = useCallback(() => {
     if (dirtyKeys.length === 0) return
-    setSaving(true)
     setFieldErrors({})
-    try {
-      const payload = Object.fromEntries(dirtyKeys.map((k) => [k, values[k]]))
-      const res = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ settings: payload }),
-      })
-      const result = (await res.json()) as { updated?: string[]; errors?: { key: string; error: string }[] }
-
-      if (result.errors && result.errors.length > 0) {
-        const errs: Record<string, string> = {}
-        result.errors.forEach((e) => { errs[e.key] = e.error })
-        setFieldErrors(errs)
-      }
-      if (result.updated && result.updated.length > 0) {
-        // commit saved keys into the baseline
-        setOriginal((prev) => {
-          const next = { ...prev }
-          result.updated!.forEach((k) => { next[k] = structuredClone(values[k]) })
-          return next
-        })
-        toast.success(`Saved ${result.updated.length} setting${result.updated.length === 1 ? '' : 's'}`)
-      }
-      if (result.errors && result.errors.length > 0) {
-        toast.error(`${result.errors.length} setting${result.errors.length === 1 ? '' : 's'} could not be saved`)
-      }
-    } catch {
-      toast.error('Failed to save settings')
-    } finally {
-      setSaving(false)
-    }
-  }, [dirtyKeys, values])
+    const payload = Object.fromEntries(dirtyKeys.map((k) => [k, values[k]]))
+    save({ settings: payload })
+  }, [dirtyKeys, values, save])
 
   const reset = useCallback(() => {
-    setValues(structuredClone(original))
+    setOverrides({})
     setFieldErrors({})
-  }, [original])
+  }, [])
+
+  useEffect(() => {
+    if (queryError) toast.error(queryError.message || 'Could not load settings')
+  }, [queryError])
 
   const grouped = useMemo(() => {
     const map = new Map<string, SettingMeta[]>()
@@ -150,7 +159,7 @@ export function SettingsRegistryPanel() {
           <Button variant="outline" size="sm" onClick={reset} disabled={dirtyKeys.length === 0 || saving}>
             <RotateCcw className="mr-1.5 h-4 w-4" /> Reset
           </Button>
-          <Button size="sm" onClick={save} disabled={dirtyKeys.length === 0 || saving} className="bg-emerald-600 hover:bg-emerald-700">
+          <Button size="sm" onClick={handleSave} disabled={dirtyKeys.length === 0 || saving} className="bg-emerald-600 hover:bg-emerald-700">
             {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
             Save changes
           </Button>
