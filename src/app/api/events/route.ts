@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
@@ -101,7 +103,7 @@ export async function GET(request: NextRequest) {
       }),
     }
 
-    return NextResponse.json({
+    return ok({
       data: events,
       total,
       page,
@@ -111,11 +113,8 @@ export async function GET(request: NextRequest) {
       stats,
     })
   } catch (error) {
-    console.error('Failed to fetch events data:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch events data' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to fetch events data')
+    return fail('INTERNAL', 'Failed to fetch events data')
   }
 }
 
@@ -133,10 +132,7 @@ export async function POST(request: NextRequest) {
     if (action === 'addSport') {
       const { name, season } = body
       if (!name) {
-        return NextResponse.json(
-          { error: 'Sport name is required' },
-          { status: 400 }
-        )
+        return fail('VALIDATION', 'Sport name is required')
       }
 
       // Check if sport already exists
@@ -144,10 +140,7 @@ export async function POST(request: NextRequest) {
         where: { schoolId, name },
       })
       if (existing) {
-        return NextResponse.json(
-          { error: 'A sport with this name already exists' },
-          { status: 409 }
-        )
+        return fail('CONFLICT', 'A sport with this name already exists')
       }
 
       const sport = await db.sportsCode.create({
@@ -158,16 +151,13 @@ export async function POST(request: NextRequest) {
         },
       })
       logAudit({ action: 'CREATE', entity: 'events', entityId: (sport as any)?.id, afterValue: sport }).catch(() => {})
-      return NextResponse.json(sport, { status: 201 })
+      return ok(sport, 201)
     }
 
     // Default: create event / fixture
     const { title, description, eventType, startDate, endDate, venue } = body
     if (!title || !eventType || !startDate) {
-      return NextResponse.json(
-        { error: 'Title, event type, and start date are required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'Title, event type, and start date are required')
     }
 
     const event = await db.schoolEvent.create({
@@ -183,13 +173,10 @@ export async function POST(request: NextRequest) {
     })
 
     logAudit({ action: 'CREATE', entity: 'events', entityId: (event as any)?.id, afterValue: event }).catch(() => {})
-    return NextResponse.json(event, { status: 201 })
+    return ok(event, 201)
   } catch (error) {
-    console.error('Failed to create event:', error)
-    return NextResponse.json(
-      { error: 'Failed to create event' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to create event')
+    return fail('INTERNAL', 'Failed to create event')
   }
 }
 
@@ -203,13 +190,13 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { id, type, ...updates } = body
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     if (type === 'sport') {
       // Verify the sports code belongs to the caller's school before mutating.
       const ownedSport = await db.sportsCode.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!ownedSport) return NextResponse.json({ error: 'Sports code not found' }, { status: 404 })
+      if (!ownedSport) return fail('NOT_FOUND', 'Sports code not found')
 
       const sport = await db.sportsCode.update({
         where: { id },
@@ -220,12 +207,12 @@ export async function PUT(request: NextRequest) {
         },
       })
       logAudit({ action: 'UPDATE', entity: 'events', entityId: (sport as any)?.id, afterValue: sport }).catch(() => {})
-      return NextResponse.json(sport)
+      return ok(sport)
     }
 
     // Update event — verify it belongs to the caller's school first.
     const ownedEvent = await db.schoolEvent.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!ownedEvent) return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+    if (!ownedEvent) return fail('NOT_FOUND', 'Event not found')
 
     const event = await db.schoolEvent.update({
       where: { id },
@@ -240,13 +227,10 @@ export async function PUT(request: NextRequest) {
     })
 
     logAudit({ action: 'UPDATE', entity: 'events', entityId: (event as any)?.id, afterValue: event }).catch(() => {})
-    return NextResponse.json(event)
+    return ok(event)
   } catch (error) {
-    console.error('Failed to update event:', error)
-    return NextResponse.json(
-      { error: 'Failed to update event' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to update event')
+    return fail('INTERNAL', 'Failed to update event')
   }
 }
 
@@ -260,7 +244,7 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id')
     const type = searchParams.get('type')
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     if (type === 'sport') {
@@ -270,12 +254,9 @@ export async function DELETE(request: NextRequest) {
     }
 
     logAudit({ action: 'DELETE', entity: 'events', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ message: 'Deleted successfully' })
+    return ok({ message: 'Deleted successfully' })
   } catch (error) {
-    console.error('Failed to delete event:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete event' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to delete event')
+    return fail('INTERNAL', 'Failed to delete event')
   }
 }

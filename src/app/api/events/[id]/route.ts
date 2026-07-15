@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 
@@ -19,7 +21,7 @@ export async function GET(
     })
 
     if (!event) {
-      return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Event not found')
     }
 
     // Get related upcoming events (same type, future dates, different id)
@@ -34,13 +36,10 @@ export async function GET(
       take: 5,
     })
 
-    return NextResponse.json({ ...event, relatedEvents })
+    return ok({ ...event, relatedEvents })
   } catch (error) {
-    console.error('Failed to fetch event:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch event' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to fetch event')
+    return fail('INTERNAL', 'Failed to fetch event')
   }
 }
 
@@ -64,7 +63,7 @@ export async function PUT(
       select: { id: true },
     })
     if (!existing) {
-      return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Event not found')
     }
 
     const event = await db.schoolEvent.update({
@@ -80,13 +79,10 @@ export async function PUT(
     })
 
     logAudit({ action: 'UPDATE', entity: 'events', entityId: (event as any)?.id, afterValue: event }).catch(() => {})
-    return NextResponse.json(event)
+    return ok(event)
   } catch (error) {
-    console.error('Failed to update event:', error)
-    return NextResponse.json(
-      { error: 'Failed to update event' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to update event')
+    return fail('INTERNAL', 'Failed to update event')
   }
 }
 
@@ -108,7 +104,7 @@ export async function DELETE(
       select: { id: true },
     })
     if (!existing) {
-      return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Event not found')
     }
 
     await db.schoolEvent.delete({
@@ -116,12 +112,9 @@ export async function DELETE(
     })
 
     logAudit({ action: 'DELETE', entity: 'events', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ message: 'Event deleted successfully' })
+    return ok({ message: 'Event deleted successfully' })
   } catch (error) {
-    console.error('Failed to delete event:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete event' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to delete event')
+    return fail('INTERNAL', 'Failed to delete event')
   }
 }
