@@ -85,7 +85,7 @@
 | RA-B1 | `requireContext` already wraps auth + RBAC — replace any remaining scattered `validateRole([...])` | P1 | M | — | All routes use `requireContext` |
 | RA-B2 | Policy-based RBAC (`src/lib/rbac.ts`) is in place; add field-level visibility rules (parent sees own children only, etc.) | P1 | M | RA-B1 | Central, testable permission matrix |
 | RA-B3 | Postgres RLS is implemented; verify non-superuser app role and enable `RLS_ENABLED=true` in staging | P1 | M | RA-A5 | Cross-tenant query blocked at DB even if app check missing |
-| RA-B4 | **Repository layer always injects `schoolId`** (no raw `db.*` in routes) | P1 | L | RA-C1 | RA-02 suite passes for all resources |
+| RA-B4 | **Repository layer always injects `schoolId`** — `src/server/repositories/tenant-scope.ts` helpers + `src/server/repositories/payment.ts` reference; payments route now uses repo functions | P1 | L | RA-C1 | RA-02 suite passes for all resources |
 | RA-B5 | 2FA for admin roles; "log out all devices"; PII-at-rest encryption (national ID/medical) | P2 | L | — | Admin 2FA; sensitive fields encrypted |
 | RA-B6 | **Distributed rate-limit** — `src/lib/rate-limit.ts` with a Postgres-backed `RateLimitWindow` store (survives multi-instance; Redis/Upstash implementation can be swapped in) | P2 | M | — | Limits survive multi-instance |
 
@@ -95,9 +95,9 @@
 
 | ID | Task | Pri | Effort | Deps | Acceptance |
 |----|------|-----|--------|------|-----------|
-| RA-C1 | **Create `src/server/{services,db}/` structure** + a tenant-scoped Prisma repository helper | P1 | M | — | Layering enforced by lint (no `@/lib/db` in routes) |
+| RA-C1 | **Create `src/server/repositories/` structure** + tenant-scoped helper (`tenant-scope.ts`) and a payments reference repository | P1 | M | — | Payments repository injects `schoolId` and is used by `/api/finance/payments`; remaining contexts to follow |
 | RA-C2 | Migrate domain logic into services context-by-context (finance, examinations, attendance, students, settings already partial) | P1 | XL | RA-C1 | Each service unit-tested; routes thin |
-| RA-C3 | **Response envelope** `{data}` / `{error:{code,message,details}}` + `ok()`/`fail()` helpers in `src/server/http.ts` | P2 | S | — | Helpers created; adopted in payment + notification send routes; route-wide rollout pending |
+| RA-C3 | **Response envelope** `{data}` / `{error:{code,message,details}}` + `ok()`/`fail()` helpers in `src/server/http.ts` | P2 | S | — | Helpers created; `/api/finance/payments` and `/api/notifications/send` converted; route-wide rollout pending |
 | RA-C4 | **Outbox table + worker** for notifications/SMS/email/reports — replace fire-and-forget | P0 | L | RA-A7 | Done — `src/server/outbox.ts` with registry, `processOutboxJob`, `processOutbox`; handlers for `notification.dispatch`, `notification.batch`, `report.generate`; `/api/outbox/process` endpoint |
 | RA-C5 | **Idempotency keys** for money/comms operations — `src/lib/idempotency.ts` with Postgres-backed `IdempotencyKey` store | P2 | M | RA-C2 | Done — applied to `/api/finance/payments` (POST) and `/api/notifications/send`; safe retries with stored responses |
 | RA-C6 | Adopt **Server Actions** for form mutations (admissions, settings, marks) | P2 | M | RA-C1 | Forms use actions + shared Zod |
