@@ -9,7 +9,7 @@ import {
   SectionCard,
   TableShell,
 } from '@/components/module-ui';
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   BedDouble,
@@ -149,6 +149,13 @@ interface Student {
   studentNumber: string
 }
 
+interface StudentsResponse {
+  data: Student[]
+  total: number
+  page: number
+  totalPages: number
+}
+
 // ─── Chart Config ────────────────────────────────────────────────────────────
 
 const occupancyChartConfig = {
@@ -186,12 +193,17 @@ export default function BoardingModule() {
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [selectedHostel, setSelectedHostel] = useState<Hostel | null>(null)
-  const [students, setStudents] = useState<Student[]>([])
 
   const {
     data: boardingData,
     isPending: loading,
   } = useApiQuery<BoardingData>(['boarding'], '/api/boarding')
+
+  const {
+    data: studentsData,
+  } = useApiQuery<StudentsResponse>(['students', 'boarding'], '/api/students?limit=200')
+
+  const students = studentsData?.data ?? []
 
   // Form
   const [assignForm, setAssignForm] = useState({
@@ -213,25 +225,6 @@ export default function BoardingModule() {
     notifyOnOverstay: true,
     showBedNumbers: true,
   })
-
-  // ─── Data Fetching ─────────────────────────────────────────────────────
-
-  const fetchStudents = useCallback(async () => {
-    try {
-      const res = await fetch('/api/students?limit=200')
-      if (res.ok) {
-        const d = await res.json()
-        setStudents(d.data || d || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch students:', err)
-    }
-  }, [])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (viewMode === 'assign-boarder') fetchStudents()
-  }, [viewMode, fetchStudents])
 
   const {
     mutate: assignBoarder,
