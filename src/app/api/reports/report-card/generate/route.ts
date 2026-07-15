@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
 import { logAudit } from '@/lib/audit'
@@ -21,9 +22,9 @@ export async function POST(request: Request) {
   if ('error' in tenant) return tenant.error
 
   let body: unknown
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
+  try { body = await request.json() } catch { return fail('VALIDATION', 'Invalid JSON body') }
   const parsed = Schema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: 'classId and termId are required' }, { status: 400 })
+  if (!parsed.success) return fail('VALIDATION', 'classId and termId are required')
 
   try {
     const result = await generateClassReportCardsViaOutbox(tenant.schoolId, parsed.data.classId, parsed.data.termId)
@@ -33,11 +34,13 @@ export async function POST(request: Request) {
       entityId: parsed.data.classId,
       afterValue: { termId: parsed.data.termId, generated: result.generated },
     }).catch(() => {})
-    return NextResponse.json({ generated: result.generated })
+    return ok({ generated: result.generated })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to generate report cards'
-    const status = message === 'Class not found' || message === 'Term not found' ? 404 : 500
-    if (status === 500) console.error('report-card generate failed', err)
-    return NextResponse.json({ error: message }, { status })
+    if (message === 'Class not found' || message === 'Term not found') {
+      return fail('NOT_FOUND', message)
+    }
+    logger.error({ err }, 'report-card generate failed')
+    return fail('INTERNAL', message)
   }
 }
