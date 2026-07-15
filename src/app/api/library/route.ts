@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 
@@ -8,6 +10,7 @@ import { validateAuth, validateRole } from '@/lib/api-auth'
 export async function GET(request: NextRequest) {
   const authResult = await validateAuth()
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const { searchParams } = new URL(request.url)
@@ -18,7 +21,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
 
     // Build book filter
-    const bookFilter: Record<string, unknown> = { isActive: true }
+    const bookFilter: Record<string, unknown> = { schoolId, isActive: true }
     if (search) {
       bookFilter.OR = [
         { title: { contains: search, mode: 'insensitive' } },
@@ -60,8 +63,10 @@ export async function GET(request: NextRequest) {
     ])
 
     // Transactions list with pagination
+    const txWhere: Record<string, unknown> = { schoolId }
     const [transactions, transactionTotal] = await Promise.all([
       db.libraryTransaction.findMany({
+        where: txWhere,
         include: {
           book: { select: { id: true, title: true, author: true, isbn: true } },
           student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } },
@@ -70,13 +75,13 @@ export async function GET(request: NextRequest) {
         skip: (page - 1) * limit,
         take: limit,
       }),
-      db.libraryTransaction.count(),
+      db.libraryTransaction.count({ where: txWhere }),
     ])
 
     // Stats
-    const totalBooks = await db.libraryBook.count({ where: { isActive: true } })
+    const totalBooks = await db.libraryBook.count({ where: { schoolId, isActive: true } })
     const totalCopies = await db.libraryBook.aggregate({
-      where: { isActive: true },
+      where: { schoolId, isActive: true },
       _sum: { totalCopies: true, availableCopies: true },
     })
     const availableCopies = totalCopies._sum.availableCopies || 0
@@ -85,7 +90,7 @@ export async function GET(request: NextRequest) {
     // Overdue transactions
     const now = new Date()
     const overdueTransactions = await db.libraryTransaction.findMany({
-      where: { transactionType: 'ISSUE', returnDate: null, dueDate: { lt: now } },
+      where: { schoolId, transactionType: 'ISSUE', returnDate: null, dueDate: { lt: now } },
       include: {
         book: { select: { id: true, title: true, author: true } },
         student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } },
@@ -103,7 +108,7 @@ export async function GET(request: NextRequest) {
 
     // Filter overdue if status=overdue
     if (statusFilter === 'overdue') {
-      return NextResponse.json({
+      return ok({
         books: [],
         bookTotal: 0,
         transactions: overdueWithFines,
@@ -123,11 +128,11 @@ export async function GET(request: NextRequest) {
     // Categories breakdown
     const categories = await db.libraryBook.groupBy({
       by: ['category'],
-      where: { isActive: true, category: { not: null } },
+      where: { schoolId, isActive: true, category: { not: null } },
       _count: { id: true },
     })
 
-    return NextResponse.json({
+    return ok({
       books,
       bookTotal,
       transactions,
@@ -149,8 +154,8 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Failed to fetch library data:', error)
-    return NextResponse.json({ error: 'Failed to fetch library data' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to fetch library data')
+    return fail('INTERNAL', 'Failed to fetch library data')
   }
 }
 
@@ -167,20 +172,21 @@ export async function POST(request: NextRequest) {
     if (action === 'issue') {
       const { bookId, studentId, dueDate } = body
       if (!bookId || !studentId) {
-        return NextResponse.json({ error: 'bookId and studentId are required' }, { status: 400 })
+        return fail('VALIDATION', 'bookId and studentId are required')
       }
 
-      const book = await db.libraryBook.findUnique({ where: { id: bookId } })
+      const book = await db.libraryBook.findUnique({ where: { id: bookId, schoolId } })
       if (!book) {
-        return NextResponse.json({ error: 'Book not found' }, { status: 404 })
+        return fail('NOT_FOUND', 'Book not found')
       }
       if (book.availableCopies <= 0) {
-        return NextResponse.json({ error: 'No copies available' }, { status: 400 })
+        return fail('CONFLICT', 'No copies available')
       }
 
       const transaction = await db.$transaction(async (tx) => {
         const newTransaction = await tx.libraryTransaction.create({
           data: {
+            schoolId,
             bookId,
             studentId,
             transactionType: 'ISSUE',
@@ -199,17 +205,17 @@ export async function POST(request: NextRequest) {
         return newTransaction
       })
       logAudit({ action: 'CREATE', entity: 'library', entityId: (transaction as any)?.id, afterValue: transaction }).catch(() => {})
-      return NextResponse.json(transaction, { status: 201 })
+      return ok(transaction, 201)
     }
 
     if (action === 'return') {
       const { transactionId, conditionOnReturn, fine } = body
       if (!transactionId) {
-        return NextResponse.json({ error: 'transactionId is required' }, { status: 400 })
+        return fail('VALIDATION', 'transactionId is required')
       }
 
       const transaction = await db.$transaction(async (tx) => {
-        const existing = await tx.libraryTransaction.findUnique({ where: { id: transactionId } })
+        const existing = await tx.libraryTransaction.findUnique({ where: { id: transactionId, schoolId } })
         if (!existing || existing.returnDate) {
           throw new Error('Transaction not found or already returned')
         }
@@ -233,20 +239,18 @@ export async function POST(request: NextRequest) {
         return updated
       })
       logAudit({ action: 'CREATE', entity: 'library', entityId: (transaction as any)?.id, afterValue: transaction }).catch(() => {})
-      return NextResponse.json(transaction)
+      return ok(transaction)
     }
 
     if (action === 'addBook') {
-      const { isbn, title, author, publisher, category, shelfLocation, totalCopies, schoolId } = body
+      const { isbn, title, author, publisher, category, shelfLocation, totalCopies } = body
       if (!title) {
-        return NextResponse.json({ error: 'Title is required' }, { status: 400 })
+        return fail('VALIDATION', 'Title is required')
       }
-
-      let sid = schoolId
 
       const book = await db.libraryBook.create({
         data: {
-          schoolId: sid || 'default',
+          schoolId,
           isbn: isbn || null,
           title,
           author: author || null,
@@ -258,13 +262,13 @@ export async function POST(request: NextRequest) {
         },
       })
       logAudit({ action: 'CREATE', entity: 'library', entityId: (book as any)?.id, afterValue: book }).catch(() => {})
-      return NextResponse.json(book, { status: 201 })
+      return ok(book, 201)
     }
 
-    return NextResponse.json({ error: 'Invalid action. Use: issue, return, or addBook' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid action. Use: issue, return, or addBook')
   } catch (error) {
-    console.error('Failed to process library request:', error)
-    return NextResponse.json({ error: 'Failed to process library request' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to process library request')
+    return fail('INTERNAL', 'Failed to process library request')
   }
 }
 
@@ -278,13 +282,13 @@ export async function PUT(request: NextRequest) {
     const { id, type, ...updates } = body
 
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
     const schoolId = authResult.session.user.schoolId
 
     if (type === 'book' || updates.title || updates.author || updates.category !== undefined) {
       const owned = await db.libraryBook.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       const book = await db.libraryBook.update({
         where: { id },
         data: {
@@ -300,12 +304,12 @@ export async function PUT(request: NextRequest) {
         },
       })
       logAudit({ action: 'UPDATE', entity: 'library', entityId: (book as any)?.id, afterValue: book }).catch(() => {})
-      return NextResponse.json(book)
+      return ok(book)
     }
 
     // Update transaction — verify the book belongs to the caller's school.
     const ownedT = await db.libraryTransaction.findFirst({ where: { id, book: { schoolId } }, select: { id: true } })
-    if (!ownedT) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!ownedT) return fail('NOT_FOUND', 'Not found')
     const transaction = await db.libraryTransaction.update({
       where: { id },
       data: {
@@ -314,10 +318,10 @@ export async function PUT(request: NextRequest) {
       },
     })
     logAudit({ action: 'UPDATE', entity: 'library', entityId: (transaction as any)?.id, afterValue: transaction }).catch(() => {})
-    return NextResponse.json(transaction)
+    return ok(transaction)
   } catch (error) {
-    console.error('Failed to update library record:', error)
-    return NextResponse.json({ error: 'Failed to update library record' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to update library record')
+    return fail('INTERNAL', 'Failed to update library record')
   }
 }
 
@@ -332,24 +336,24 @@ export async function DELETE(request: NextRequest) {
     const type = searchParams.get('type')
 
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     const schoolId = authResult.session.user.schoolId
     if (type === 'book') {
       const owned = await db.libraryBook.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       await db.libraryBook.update({ where: { id }, data: { isActive: false } })
     } else {
       const owned = await db.libraryTransaction.findFirst({ where: { id, book: { schoolId } }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       await db.libraryTransaction.delete({ where: { id } })
     }
 
     logAudit({ action: 'DELETE', entity: 'library', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ message: 'Deleted successfully' })
+    return ok({ message: 'Deleted successfully' })
   } catch (error) {
-    console.error('Failed to delete library record:', error)
-    return NextResponse.json({ error: 'Failed to delete library record' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to delete library record')
+    return fail('INTERNAL', 'Failed to delete library record')
   }
 }
