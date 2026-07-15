@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
@@ -12,19 +14,17 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const channel = searchParams.get('channel') // sms/email/whatsapp filter
+    const channel = searchParams.get('channel')
     const status = searchParams.get('status')
-    const search = searchParams.get('search') || '' // search by recipient
+    const search = searchParams.get('search') || ''
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
     const skip = (page - 1) * limit
 
-    // Build where clause
     const where: Record<string, unknown> = { schoolId }
     if (channel) where.channel = channel.toUpperCase()
     if (status) where.status = status.toUpperCase()
 
-    // Search by recipient (parent name via relation)
     if (search) {
       const matchingParents = await db.parent.findMany({
         where: {
@@ -60,7 +60,6 @@ export async function GET(request: NextRequest) {
       db.communication.count({ where }),
     ])
 
-    // Channel statistics
     const channelStats = await db.communication.groupBy({
       by: ['channel'],
       where: { schoolId },
@@ -84,19 +83,12 @@ export async function GET(request: NextRequest) {
       sent: statusStats.find((s) => s.status === 'SENT')?._count.id || 0,
     }
 
-    return NextResponse.json({
-      data: communications,
-      stats,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
-    })
+    const channelDistribution = channelStats.map((c) => ({ channel: c.channel, count: c._count.id }))
+
+    return ok({ data: communications, stats, channelDistribution, total, page, totalPages: Math.ceil(total / limit) })
   } catch (error) {
-    console.error('Error fetching communications:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch communications' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Error fetching communications')
+    return fail('INTERNAL', 'Failed to fetch communications')
   }
 }
 
@@ -105,18 +97,15 @@ export async function POST(request: NextRequest) {
   const authResult = await validateRole(['ADMIN', 'TEACHER'])
   if ('error' in authResult) return authResult.error
   const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
-  if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 })
+  if (!school) return fail('NOT_FOUND', 'School not found')
 
   try {
     const body = await request.json()
-
     const { parentId, channel, subject, message, recipientGroup, gradeId } = body
 
-    // Single recipient
+    if (!message) return fail('VALIDATION', 'Message is required')
+
     if (parentId) {
-      if (!message) {
-        return NextResponse.json({ error: 'Message is required' }, { status: 400 })
-      }
       const comm = await db.communication.create({
         data: {
           schoolId: school.id,
@@ -134,26 +123,15 @@ export async function POST(request: NextRequest) {
         },
       })
       logAudit({ action: 'CREATE', entity: 'communication', entityId: (comm as any)?.id, afterValue: comm }).catch(() => {})
-      return NextResponse.json(comm, { status: 201 })
-    }
-
-    // Bulk send to group
-    if (!message) {
-      return NextResponse.json({ error: 'Message is required' }, { status: 400 })
+      return ok(comm, 201)
     }
 
     let parents: Array<{ id: string }> = []
 
     if (recipientGroup === 'ALL_PARENTS') {
-      parents = await db.parent.findMany({
-        where: { schoolId: school.id },
-        select: { id: true },
-      })
+      parents = await db.parent.findMany({ where: { schoolId: school.id }, select: { id: true } })
     } else if (recipientGroup === 'FEE_RESPONSIBLE') {
-      parents = await db.parent.findMany({
-        where: { schoolId: school.id, isFeeResponsible: true },
-        select: { id: true },
-      })
+      parents = await db.parent.findMany({ where: { schoolId: school.id, isFeeResponsible: true }, select: { id: true } })
     } else if (recipientGroup === 'BY_GRADE' && gradeId) {
       const students = await db.student.findMany({
         where: {
@@ -183,23 +161,15 @@ export async function POST(request: NextRequest) {
             status: 'SENT',
             sentAt: new Date(),
           },
-        })
-      )
+        }),
+      ),
     )
 
-    return NextResponse.json(
-      {
-        message: `Message sent to ${communications.length} parent(s)`,
-        count: communications.length,
-      },
-      { status: 201 }
-    )
+    logAudit({ action: 'CREATE', entity: 'communication', entityId: 'bulk', afterValue: { count: communications.length } }).catch(() => {})
+    return ok({ message: `Message sent to ${communications.length} parent(s)`, count: communications.length }, 201)
   } catch (error) {
-    console.error('Error sending communication:', error)
-    return NextResponse.json(
-      { error: 'Failed to send communication' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Error sending communication')
+    return fail('INTERNAL', 'Failed to send communication')
   }
 }
 
@@ -208,21 +178,16 @@ export async function PUT(request: NextRequest) {
   const authResult = await validateRole(['ADMIN', 'TEACHER'])
   if ('error' in authResult) return authResult.error
   const schoolId = authResult.session.user.schoolId
+  if (!schoolId) return fail('VALIDATION', 'School not configured')
 
   try {
     const body = await request.json()
     const { id, ...updates } = body
 
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Communication ID is required' },
-        { status: 400 }
-      )
-    }
+    if (!id) return fail('VALIDATION', 'Communication ID is required')
 
-    // Verify the communication belongs to the caller's school before mutating.
     const owned = await db.communication.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!owned) return NextResponse.json({ error: 'Communication not found' }, { status: 404 })
+    if (!owned) return fail('NOT_FOUND', 'Communication not found')
 
     const comm = await db.communication.update({
       where: { id },
@@ -240,13 +205,10 @@ export async function PUT(request: NextRequest) {
     })
 
     logAudit({ action: 'UPDATE', entity: 'communication', entityId: (comm as any)?.id, afterValue: comm }).catch(() => {})
-    return NextResponse.json(comm)
+    return ok(comm)
   } catch (error) {
-    console.error('Error updating communication:', error)
-    return NextResponse.json(
-      { error: 'Failed to update communication' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Error updating communication')
+    return fail('INTERNAL', 'Failed to update communication')
   }
 }
 
@@ -255,30 +217,22 @@ export async function DELETE(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
   const schoolId = authResult.session.user.schoolId
+  if (!schoolId) return fail('VALIDATION', 'School not configured')
 
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Communication ID is required' },
-        { status: 400 }
-      )
-    }
+    if (!id) return fail('VALIDATION', 'Communication ID is required')
 
-    // Verify the communication belongs to the caller's school before deleting.
     const owned = await db.communication.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!owned) return NextResponse.json({ error: 'Communication not found' }, { status: 404 })
+    if (!owned) return fail('NOT_FOUND', 'Communication not found')
 
     await db.communication.delete({ where: { id } })
-    logAudit({ action: 'DELETE', entity: 'communication', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ message: 'Communication deleted successfully' })
+    logAudit({ action: 'DELETE', entity: 'communication', entityId: id }).catch(() => {})
+    return ok({ message: 'Communication deleted successfully' })
   } catch (error) {
-    console.error('Error deleting communication:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete communication' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Error deleting communication')
+    return fail('INTERNAL', 'Failed to delete communication')
   }
 }
