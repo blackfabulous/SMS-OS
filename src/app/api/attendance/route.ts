@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
 import { logAudit } from '@/lib/audit'
@@ -96,10 +98,10 @@ export async function GET(request: Request) {
       else if (record.status === 'LATE') byClass[className].late++
     }
 
-    return NextResponse.json({ data: records, total, page, totalPages: Math.ceil(total / limit), summary, byClass })
+    return ok({ data: records, total, page, totalPages: Math.ceil(total / limit), summary, byClass })
   } catch (error) {
-    console.error('Error fetching attendance:', error)
-    return NextResponse.json({ error: 'Failed to fetch attendance' }, { status: 500 })
+    logger.error({ err: error }, 'Error fetching attendance')
+    return fail('INTERNAL', 'Failed to fetch attendance')
   }
 }
 

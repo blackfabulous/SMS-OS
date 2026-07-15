@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
 import { logAudit } from '@/lib/audit'
-import { generateClassReportCardsViaOutbox } from '@/lib/report-card-service'
+import { generateClassReportCardsViaOutbox } from '@/server/services/report-cards'
 
 /**
  * POST /api/reports/report-card/generate
