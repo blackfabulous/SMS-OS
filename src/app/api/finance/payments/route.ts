@@ -1,22 +1,18 @@
 import { db } from '@/lib/db'
-import type { Currency, PaymentMethod } from '@prisma/client'
 import { logAudit } from '@/lib/audit'
+import { AppError, isAppError } from '@/lib/errors'
 import { requireContext } from '@/server/context'
 import { financeStudentScope } from '@/server/finance/scope'
 import { CreatePaymentSchema } from '@/lib/validations'
-import { toBaseAmount } from '@/lib/finance-calc'
-import { getSetting } from '@/lib/settings'
-import { notifyStudentGuardian } from '@/lib/notifications'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { withIdempotency, idempotencyKeyFromRequest } from '@/lib/idempotency'
 import { ok, fail } from '@/server/http'
 import {
-  createPayment,
+  createPaymentWithDefaults,
   findPayment,
   listPayments,
   reversePaymentById,
-  type PaymentWithRelations,
-} from '@/server/repositories/payment'
+} from '@/server/services/payment-service'
 
 function generateReceiptNumber(year: number): string {
   const ts = Date.now().toString(36).toUpperCase()
@@ -89,39 +85,6 @@ export async function POST(request: Request) {
       return fail('VALIDATION', 'Validation failed', parsed.error.issues)
     }
     const data = parsed.data
-    const amount = data.amount
-    const baseAmount = toBaseAmount(amount, data.exchangeRate)
-
-    if (data.paymentMethod) {
-      const allowed = await getSetting(ctx.schoolId, 'finance.paymentMethods')
-      if (!allowed.includes(data.paymentMethod.toUpperCase() as (typeof allowed)[number])) {
-        return fail('VALIDATION', `Payment method "${data.paymentMethod}" is not enabled`, { allowed })
-      }
-    }
-
-    const student = await db.student.findUnique({
-      where: { id: data.studentId, schoolId: ctx.schoolId },
-      select: { id: true },
-    })
-    if (!student) {
-      return fail('NOT_FOUND', 'Student not found')
-    }
-
-    if (data.invoiceId) {
-      const invoice = await db.feeInvoice.findUnique({
-        where: { id: data.invoiceId, schoolId: ctx.schoolId },
-      })
-      if (!invoice) {
-        return fail('NOT_FOUND', 'Invoice not found')
-      }
-      if (baseAmount > invoice.balance + 0.01) {
-        return fail(
-          'VALIDATION',
-          `Payment of $${baseAmount.toFixed(2)} (base) exceeds outstanding balance of $${invoice.balance.toFixed(2)}`,
-        )
-      }
-    }
-
     const year = new Date().getFullYear()
     const idempotencyKey = idempotencyKeyFromRequest(request)
 
@@ -130,25 +93,12 @@ export async function POST(request: Request) {
       idempotencyKey,
       86400,
       async () => {
-        let payment: PaymentWithRelations | null = null
+        let id: string | null = null
         const MAX_ATTEMPTS = 5
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
           try {
-            payment = await createPayment(
-              ctx.schoolId,
-              {
-                receiptNumber: generateReceiptNumber(year),
-                studentId: data.studentId,
-                invoiceId: data.invoiceId || null,
-                parentId: data.parentId || null,
-                amount,
-                paymentMethod: (data.paymentMethod || 'CASH') as PaymentMethod,
-                currency: (data.currency || 'USD') as Currency,
-                exchangeRate: data.exchangeRate || 1,
-                reference: data.reference || null,
-              },
-              data.invoiceId ? baseAmount : undefined,
-            )
+            const payment = await createPaymentWithDefaults(ctx.schoolId, data, generateReceiptNumber(year))
+            id = payment.id
             break
           } catch (err: unknown) {
             const code = (err as { code?: string })?.code
@@ -156,21 +106,10 @@ export async function POST(request: Request) {
             throw err
           }
         }
-        if (!payment) {
-          throw new Error('Failed to generate a unique receipt number')
+        if (!id) {
+          throw new AppError('INTERNAL', 'Failed to generate a unique receipt number')
         }
-
-        logAudit({ action: 'CREATE', entity: 'payments', entityId: payment.id, afterValue: payment }).catch(() => {})
-
-        void notifyStudentGuardian(ctx.schoolId, data.studentId, (studentName) => ({
-          type: 'payment.received',
-          studentName,
-          amount,
-          currency: data.currency || 'USD',
-          receiptNumber: payment!.receiptNumber,
-        })).catch(() => {})
-
-        return payment.id
+        return id
       },
     )
 
@@ -182,6 +121,9 @@ export async function POST(request: Request) {
     return ok(payment, 201)
   } catch (error) {
     console.error('Error recording payment:', error)
+    if (isAppError(error)) {
+      return fail(error.code, error.message, error.details)
+    }
     return fail('INTERNAL', 'Failed to record payment')
   }
 }
