@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users,
@@ -81,6 +81,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 import { ModulePageLayout, ModuleSettingsButton, ModuleStatCard } from '@/components/module-ui'
 
 // ─── View Mode Type ──────────────────────────────────────────────────────────
@@ -293,6 +294,13 @@ function PayslipStatusBadge({ status }: { status: string }) {
   )
 }
 
+function SortIcon({ field, sortField, sortDir }: { field: string; sortField: string; sortDir: 'asc' | 'desc' }) {
+  if (sortField !== field) return <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground/50" />
+  return sortDir === 'asc'
+    ? <ArrowUp className="ml-1 h-3 w-3 text-teal-600" />
+    : <ArrowDown className="ml-1 h-3 w-3 text-teal-600" />
+}
+
 
 
 // ─── Staff List View ──────────────────────────────────────────────────────────
@@ -306,66 +314,58 @@ function StaffListView({
   onOpenSettings: () => void
 }) {
   const [activeTab, setActiveTab] = useState('directory')
-  const [staff, setStaff] = useState<StaffMember[]>([])
-  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [staffTypeFilter, setStaffTypeFilter] = useState('ALL')
   const [positionFilter, setPositionFilter] = useState('ALL')
   const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [total, setTotal] = useState(0)
   const [sortField, setSortField] = useState<string>('staffNumber')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
-  const [stats, setStats] = useState({
-    total: 0, teaching: 0, nonTeaching: 0, onLeave: 0,
-  })
 
-  const fetchStaff = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams()
-      params.set('page', page.toString())
-      params.set('limit', '20')
-      if (search) params.set('search', search)
-      if (staffTypeFilter !== 'ALL') params.set('staffType', staffTypeFilter)
-      if (positionFilter && positionFilter !== 'ALL') params.set('position', positionFilter)
-
-      const res = await fetch(`/api/staff?${params.toString()}`)
-      if (res.ok) {
-        const json: StaffResponse = await res.json()
-        setStaff(json.data)
-        setTotalPages(json.totalPages)
-        setTotal(json.total)
-      }
-    } catch (err) {
-      console.error('Error fetching staff:', err)
-    } finally {
-      setLoading(false)
-    }
+  const listParams = useMemo(() => {
+    const params = new URLSearchParams()
+    params.set('page', page.toString())
+    params.set('limit', '20')
+    if (search) params.set('search', search)
+    if (staffTypeFilter !== 'ALL') params.set('staffType', staffTypeFilter)
+    if (positionFilter && positionFilter !== 'ALL') params.set('position', positionFilter)
+    return params.toString()
   }, [page, search, staffTypeFilter, positionFilter])
 
-  const fetchStats = useCallback(async () => {
-    try {
-      const res = await fetch('/api/staff?limit=1000')
-      if (res.ok) {
-        const json: StaffResponse = await res.json()
-        const allStaff = json.data
-        setStats({
-          total: json.total,
-          teaching: allStaff.filter(s => s.staffType === 'TEACHING').length,
-          nonTeaching: allStaff.filter(s => s.staffType !== 'TEACHING').length,
-          onLeave: 0,
-        })
-      }
-    } catch {
-      // silently ignore
+  const {
+    data: listData,
+    isPending: loading,
+  } = useApiQuery<StaffResponse>(['staff', 'list', listParams], `/api/staff?${listParams}`)
+
+  const staff = listData?.data ?? []
+  const totalPages = listData?.totalPages ?? 1
+  const total = listData?.total ?? 0
+
+  const { data: statsData } = useApiQuery<StaffResponse>(['staff', 'stats'], '/api/staff?limit=1000')
+
+  const stats = useMemo(() => {
+    const allStaff = statsData?.data ?? []
+    return {
+      total: statsData?.total ?? 0,
+      teaching: allStaff.filter(s => s.staffType === 'TEACHING').length,
+      nonTeaching: allStaff.filter(s => s.staffType !== 'TEACHING').length,
+      onLeave: 0,
     }
-  }, [])
+  }, [statsData])
 
-  useEffect(() => { fetchStaff() }, [fetchStaff])
-  useEffect(() => { fetchStats() }, [fetchStats])
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setPage(1)
+  }
 
-  useEffect(() => { setPage(1) }, [search, staffTypeFilter, positionFilter])
+  const handleStaffTypeFilter = (value: string) => {
+    setStaffTypeFilter(value)
+    setPage(1)
+  }
+
+  const handlePositionFilter = (value: string) => {
+    setPositionFilter(value)
+    setPage(1)
+  }
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -391,13 +391,6 @@ function StaffListView({
     const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0
     return sortDir === 'asc' ? cmp : -cmp
   })
-
-  const SortIcon = ({ field }: { field: string }) => {
-    if (sortField !== field) return <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground/50" />
-    return sortDir === 'asc'
-      ? <ArrowUp className="ml-1 h-3 w-3 text-teal-600" />
-      : <ArrowDown className="ml-1 h-3 w-3 text-teal-600" />
-  }
 
   return (
     <div className="space-y-5">
@@ -438,7 +431,7 @@ function StaffListView({
                   placeholder="Search by name or staff number..."
                   className="pl-9 h-9 bg-muted/40 border-0 focus-visible:ring-1 focus-visible:ring-teal-500/30"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                 />
               </div>
               <div className="flex flex-wrap gap-2">
@@ -454,13 +447,13 @@ function StaffListView({
                           ? 'bg-teal-600 hover:bg-teal-700 text-white'
                           : 'hover:bg-muted/60'
                       )}
-                      onClick={() => setStaffTypeFilter(s)}
+                      onClick={() => handleStaffTypeFilter(s)}
                     >
                       {s === 'ALL' ? 'All' : s === 'NON_TEACHING' ? 'Non-Teaching' : s.charAt(0) + s.slice(1).toLowerCase()}
                     </Button>
                   ))}
                 </div>
-                <Select value={positionFilter} onValueChange={setPositionFilter}>
+                <Select value={positionFilter} onValueChange={handlePositionFilter}>
                   <SelectTrigger className="h-7 w-[150px] text-xs">
                     <SelectValue placeholder="Position" />
                   </SelectTrigger>
@@ -486,25 +479,25 @@ function StaffListView({
                 <TableHeader>
                   <TableRow className="bg-muted/30 hover:bg-muted/30">
                     <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('staffNumber')}>
-                      <span className="flex items-center text-xs">Staff # <SortIcon field="staffNumber" /></span>
+                      <span className="flex items-center text-xs">Staff # <SortIcon field="staffNumber" sortField={sortField} sortDir={sortDir} /></span>
                     </TableHead>
                     <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('name')}>
-                      <span className="flex items-center text-xs">Name <SortIcon field="name" /></span>
+                      <span className="flex items-center text-xs">Name <SortIcon field="name" sortField={sortField} sortDir={sortDir} /></span>
                     </TableHead>
                     <TableHead className="cursor-pointer select-none h-10 hidden md:table-cell" onClick={() => handleSort('position')}>
-                      <span className="flex items-center text-xs">Position <SortIcon field="position" /></span>
+                      <span className="flex items-center text-xs">Position <SortIcon field="position" sortField={sortField} sortDir={sortDir} /></span>
                     </TableHead>
                     <TableHead className="cursor-pointer select-none h-10 hidden lg:table-cell" onClick={() => handleSort('department')}>
-                      <span className="flex items-center text-xs">Department <SortIcon field="department" /></span>
+                      <span className="flex items-center text-xs">Department <SortIcon field="department" sortField={sortField} sortDir={sortDir} /></span>
                     </TableHead>
                     <TableHead className="cursor-pointer select-none h-10 hidden sm:table-cell" onClick={() => handleSort('staffType')}>
-                      <span className="flex items-center text-xs">Type <SortIcon field="staffType" /></span>
+                      <span className="flex items-center text-xs">Type <SortIcon field="staffType" sortField={sortField} sortDir={sortDir} /></span>
                     </TableHead>
                     <TableHead className="cursor-pointer select-none h-10 hidden lg:table-cell" onClick={() => handleSort('payType')}>
-                      <span className="flex items-center text-xs">Pay Type <SortIcon field="payType" /></span>
+                      <span className="flex items-center text-xs">Pay Type <SortIcon field="payType" sortField={sortField} sortDir={sortDir} /></span>
                     </TableHead>
                     <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('status')}>
-                      <span className="flex items-center text-xs">Status <SortIcon field="status" /></span>
+                      <span className="flex items-center text-xs">Status <SortIcon field="status" sortField={sortField} sortDir={sortDir} /></span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -618,7 +611,7 @@ function AddStaffInlineForm({
   onBack: () => void
   onSuccess: () => void
 }) {
-  const [submitting, setSubmitting] = useState(false)
+  const queryClient = useQueryClient()
   const [error, setError] = useState('')
   const [form, setForm] = useState({
     title: '',
@@ -657,56 +650,51 @@ function AddStaffInlineForm({
     setError('')
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const { mutate: createStaff, isPending: submitting } = useApiMutation<
+    Record<string, unknown>,
+    any
+  >('/api/staff', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff'] })
+      resetForm()
+      toast.success('Staff member created successfully')
+      onSuccess()
+    },
+    onError: (err) => setError(err.message || 'An error occurred'),
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.firstName.trim() || !form.lastName.trim() || !form.position) {
       setError('First name, last name, and position are required.')
       return
     }
-    setSubmitting(true)
     setError('')
-    try {
-      const res = await fetch('/api/staff', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firstName: form.firstName.trim(),
-          lastName: form.lastName.trim(),
-          middleName: form.middleName.trim() || undefined,
-          title: form.title || undefined,
-          position: form.position,
-          department: form.department || undefined,
-          staffType: form.staffType,
-          payType: form.payType,
-          phone: form.phone.trim() || undefined,
-          email: form.email.trim() || undefined,
-          basicSalary: form.basicSalary ? parseFloat(form.basicSalary) : 0,
-          contractType: form.contractType,
-          gender: form.gender || undefined,
-          dateOfBirth: form.dateOfBirth || undefined,
-          employmentDate: form.employmentDate || undefined,
-          qualifications: form.qualifications.trim() || undefined,
-          subjectSpecialisation: form.subjectSpecialisation.trim() || undefined,
-          nationalId: form.nationalId.trim() || undefined,
-          address: form.address.trim() || undefined,
-          nextOfKin: form.nextOfKin.trim() || undefined,
-          nextOfKinPhone: form.nextOfKinPhone.trim() || undefined,
-          bankName: form.bankName.trim() || undefined,
-          bankAccountNumber: form.bankAccountNumber.trim() || undefined,
-        }),
-      })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Failed to create staff member')
-      }
-      resetForm()
-      toast.success('Staff member created successfully')
-      onSuccess()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
-    } finally {
-      setSubmitting(false)
-    }
+    createStaff({
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
+      middleName: form.middleName.trim() || undefined,
+      title: form.title || undefined,
+      position: form.position,
+      department: form.department || undefined,
+      staffType: form.staffType,
+      payType: form.payType,
+      phone: form.phone.trim() || undefined,
+      email: form.email.trim() || undefined,
+      basicSalary: form.basicSalary ? parseFloat(form.basicSalary) : 0,
+      contractType: form.contractType,
+      gender: form.gender || undefined,
+      dateOfBirth: form.dateOfBirth || undefined,
+      employmentDate: form.employmentDate || undefined,
+      qualifications: form.qualifications.trim() || undefined,
+      subjectSpecialisation: form.subjectSpecialisation.trim() || undefined,
+      nationalId: form.nationalId.trim() || undefined,
+      address: form.address.trim() || undefined,
+      nextOfKin: form.nextOfKin.trim() || undefined,
+      nextOfKinPhone: form.nextOfKinPhone.trim() || undefined,
+      bankName: form.bankName.trim() || undefined,
+      bankAccountNumber: form.bankAccountNumber.trim() || undefined,
+    })
   }
 
   return (
@@ -1245,27 +1233,13 @@ function StaffDetailView({
   onBack: () => void
   onEdit: () => void
 }) {
-  const [staff, setStaff] = useState<StaffDetail | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const {
+    data: staff,
+    isPending: loading,
+    error: queryError,
+  } = useApiQuery<StaffDetail>(['staff', staffId], `/api/staff/${staffId}`)
 
-  useEffect(() => {
-    const fetchDetail = async () => {
-      setLoading(true)
-      setError('')
-      try {
-        const res = await fetch(`/api/staff/${staffId}`)
-        if (!res.ok) throw new Error('Failed to fetch staff details')
-        const json = await res.json()
-        setStaff(json)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchDetail()
-  }, [staffId])
+  const error = queryError ? (queryError.message || 'An error occurred') : ''
 
   if (loading) {
     return (

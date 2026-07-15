@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
 import { logAudit } from '@/lib/audit'
@@ -48,10 +49,10 @@ export async function GET(request: Request) {
       db.staff.count({ where }),
     ])
 
-    return NextResponse.json({ data, total, page, totalPages: Math.ceil(total / limit) })
+    return ok({ data, total, page, totalPages: Math.ceil(total / limit) })
   } catch (error) {
-    console.error('Error fetching staff:', error)
-    return NextResponse.json({ error: 'Failed to fetch staff' }, { status: 500 })
+    logger.error({ err: error }, 'Error fetching staff')
+    return fail('INTERNAL', 'Failed to fetch staff')
   }
 }
 
@@ -118,9 +119,9 @@ export async function POST(request: Request) {
     })
 
     logAudit({ action: 'CREATE', entity: 'staff', entityId: staff.id, afterValue: staff }).catch(() => {})
-    return NextResponse.json(staff, { status: 201 })
+    return ok(staff, 201)
   } catch (error) {
-    console.error('Error creating staff:', error)
-    return NextResponse.json({ error: 'Failed to create staff' }, { status: 500 })
+    logger.error({ err: error }, 'Error creating staff')
+    return fail('INTERNAL', 'Failed to create staff')
   }
 }

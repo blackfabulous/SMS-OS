@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 import { logAudit } from '@/lib/audit'
 
@@ -32,13 +33,13 @@ export async function GET(
     })
 
     if (!staff) {
-      return NextResponse.json({ error: 'Staff not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Staff not found')
     }
 
-    return NextResponse.json(staff)
+    return ok(staff)
   } catch (error) {
-    console.error('Error fetching staff:', error)
-    return NextResponse.json({ error: 'Failed to fetch staff' }, { status: 500 })
+    logger.error({ err: error }, 'Error fetching staff')
+    return fail('INTERNAL', 'Failed to fetch staff')
   }
 }
 
@@ -57,7 +58,7 @@ export async function PUT(
     // Verify staff belongs to the caller's school
     const existing = await db.staff.findUnique({ where: { id, schoolId: session.user.schoolId }, select: { id: true } })
     if (!existing) {
-      return NextResponse.json({ error: 'Staff not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Staff not found')
     }
 
     const staff = await db.staff.update({
@@ -98,10 +99,10 @@ export async function PUT(
     })
 
     logAudit({ action: 'UPDATE', entity: 'staff', entityId: staff.id, afterValue: staff }).catch(() => {})
-    return NextResponse.json(staff)
+    return ok(staff)
   } catch (error) {
-    console.error('Error updating staff:', error)
-    return NextResponse.json({ error: 'Failed to update staff' }, { status: 500 })
+    logger.error({ err: error }, 'Error updating staff')
+    return fail('INTERNAL', 'Failed to update staff')
   }
 }
 
@@ -119,7 +120,7 @@ export async function DELETE(
     // Verify staff belongs to the caller's school
     const existing = await db.staff.findUnique({ where: { id, schoolId: session.user.schoolId }, select: { id: true } })
     if (!existing) {
-      return NextResponse.json({ error: 'Staff not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Staff not found')
     }
 
     const staff = await db.staff.update({
@@ -128,9 +129,9 @@ export async function DELETE(
     })
 
     logAudit({ action: 'DELETE', entity: 'staff', entityId: id }).catch(() => {})
-    return NextResponse.json({ message: 'Staff soft deleted successfully', staff })
+    return ok({ message: 'Staff soft deleted successfully', staff })
   } catch (error) {
-    console.error('Error deleting staff:', error)
-    return NextResponse.json({ error: 'Failed to delete staff' }, { status: 500 })
+    logger.error({ err: error }, 'Error deleting staff')
+    return fail('INTERNAL', 'Failed to delete staff')
   }
 }
