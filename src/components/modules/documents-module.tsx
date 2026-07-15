@@ -69,6 +69,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Switch } from '@/components/ui/switch'
+import { useApiQuery, useApiMutation, useApiDelete, useQueryClient } from '@/hooks/use-api-query'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -140,6 +141,23 @@ function parseTags(s: string | null | undefined): string[] {
 }
 interface ApiDocument { id: string; title: string; fileName: string | null; category: string; description: string | null; fileType: string; fileSize: number; uploadedBy: string | null; tags: string | null; createdAt: string }
 interface DocStats { totalDocuments: number; templates: number; categories: number; totalSize: number }
+interface DocumentsResponse {
+  data: ApiDocument[]
+  templates: ApiDocument[]
+  total: number
+  page: number
+  totalPages: number
+  stats: DocStats
+}
+interface CreateDocPayload {
+  title: string
+  fileName: string
+  category: string
+  description: string
+  tags: string
+  fileType: string
+  fileSize: number
+}
 function apiToDocument(d: ApiDocument): Document {
   return { id: d.id, name: d.fileName || d.title, category: d.category, description: d.description ?? '', fileType: normalizeFileType(d.fileType), size: formatBytes(d.fileSize), uploadedBy: d.uploadedBy ?? '—', uploadedAt: (d.createdAt ?? '').slice(0, 10), tags: parseTags(d.tags), shared: false }
 }
@@ -185,16 +203,23 @@ const uploadTrendData = [
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function DocumentsModule() {
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [viewMode, setViewMode] = useState<DisplayViewMode>('grid')
   const [pageViewMode, setPageViewMode] = useState<PageViewMode>('list')
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
-  const [documents, setDocuments] = useState<Document[]>([])
-  const [docStats, setDocStats] = useState<DocStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+
+  const {
+    data: docResult,
+    isPending: loading,
+    error: queryError,
+  } = useApiQuery<DocumentsResponse>(['documents'], '/api/documents?limit=200')
+
+  const documents = useMemo(() => (docResult?.data ?? []).map(apiToDocument), [docResult])
+  const docStats = docResult?.stats ?? null
+  const error = queryError?.message || null
 
   // Upload form state
   const [uploadForm, setUploadForm] = useState({
@@ -215,55 +240,43 @@ export default function DocumentsModule() {
     retentionPeriod: '365',
   })
 
-  const fetchDocuments = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/documents?limit=200')
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Failed to load documents')
-      setDocuments((json.data || []).map(apiToDocument))
-      setDocStats(json.stats || null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load documents')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { fetchDocuments() }, [fetchDocuments])
-
-  const handleUpload = async () => {
-    if (!uploadForm.filename) { toast.error('Filename is required'); return }
-    try {
-      const res = await fetch('/api/documents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: uploadForm.filename, fileName: uploadForm.filename, category: uploadForm.category || 'GENERAL', description: uploadForm.description, tags: uploadForm.tags, fileType: fileTypeFromName(uploadForm.filename), fileSize: 0 }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Failed to add document')
-      await fetchDocuments()
+  const { mutate: createDoc, isPending: creating } = useApiMutation<CreateDocPayload, ApiDocument>('/api/documents', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
       setUploadForm({ filename: '', category: '', description: '', tags: '' })
       setPageViewMode('list')
       toast.success('Document added successfully')
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to add document')
-    }
-  }
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to add document')
+    },
+  })
 
-  const handleDeleteDoc = async (id: string) => {
-    try {
-      const res = await fetch(`/api/documents?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Failed to delete document')
-      await fetchDocuments()
+  const { mutate: deleteDoc, isPending: deleting } = useApiDelete('/api/documents', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
       setPageViewMode('list')
       toast.success('Document deleted')
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to delete document')
-    }
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to delete document')
+    },
+  })
+
+  const handleUpload = () => {
+    if (!uploadForm.filename) { toast.error('Filename is required'); return }
+    createDoc({
+      title: uploadForm.filename,
+      fileName: uploadForm.filename,
+      category: uploadForm.category || 'GENERAL',
+      description: uploadForm.description,
+      tags: uploadForm.tags,
+      fileType: fileTypeFromName(uploadForm.filename),
+      fileSize: 0,
+    })
   }
+
+  const handleDeleteDoc = (id: string) => deleteDoc(id)
 
   // Filter documents
   const filteredDocuments = useMemo(() => {
@@ -379,7 +392,7 @@ export default function DocumentsModule() {
     <ModuleContainer>
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
-          {error} · <button onClick={() => fetchDocuments()} className="underline underline-offset-2">retry</button>
+          {error} · <button onClick={() => queryClient.invalidateQueries({ queryKey: ['documents'] })} className="underline underline-offset-2">retry</button>
         </div>
       )}
 <ModulePageLayout

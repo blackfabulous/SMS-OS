@@ -1,6 +1,8 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { logAudit } from '@/lib/audit'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 
 // GET /api/documents - List documents with category/search filter
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest) {
     const schoolId = authResult.session.user.schoolId
 
     if (!schoolId) {
-      return NextResponse.json({ error: 'School not configured' }, { status: 400 })
+      return fail('VALIDATION', 'School not configured')
     }
 
     // Build where clause
@@ -81,20 +83,10 @@ export async function GET(request: NextRequest) {
       })),
     }
 
-    return NextResponse.json({
-      data: documents,
-      templates,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
-      stats,
-    })
+    return ok({ data: documents, templates, total, page, totalPages: Math.ceil(total / limit), stats })
   } catch (error) {
-    console.error('Failed to fetch documents:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch documents' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to fetch documents')
+    return fail('INTERNAL', 'Failed to fetch documents')
   }
 }
 
@@ -108,7 +100,7 @@ export async function POST(request: NextRequest) {
     const schoolId = authResult.session.user.schoolId
 
     if (!schoolId) {
-      return NextResponse.json({ error: 'School not configured' }, { status: 400 })
+      return fail('VALIDATION', 'School not configured')
     }
 
     const {
@@ -124,7 +116,7 @@ export async function POST(request: NextRequest) {
     } = body
 
     if (!title) {
-      return NextResponse.json({ error: 'Title is required' }, { status: 400 })
+      return fail('VALIDATION', 'Title is required')
     }
 
     const doc = await db.document.create({
@@ -143,13 +135,10 @@ export async function POST(request: NextRequest) {
     })
 
     logAudit({ action: 'CREATE', entity: 'documents', entityId: (doc as any)?.id, afterValue: doc }).catch(() => {})
-    return NextResponse.json(doc, { status: 201 })
+    return ok(doc, 201)
   } catch (error) {
-    console.error('Failed to create document:', error)
-    return NextResponse.json(
-      { error: 'Failed to create document' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to create document')
+    return fail('INTERNAL', 'Failed to create document')
   }
 }
 
@@ -163,12 +152,12 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { id, ...updates } = body
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     // Verify the document belongs to the caller's school before mutating.
     const owned = await db.document.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!owned) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
+    if (!owned) return fail('NOT_FOUND', 'Document not found')
 
     const doc = await db.document.update({
       where: { id },
@@ -185,13 +174,10 @@ export async function PUT(request: NextRequest) {
     })
 
     logAudit({ action: 'UPDATE', entity: 'documents', entityId: (doc as any)?.id, afterValue: doc }).catch(() => {})
-    return NextResponse.json(doc)
+    return ok(doc)
   } catch (error) {
-    console.error('Failed to update document:', error)
-    return NextResponse.json(
-      { error: 'Failed to update document' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to update document')
+    return fail('INTERNAL', 'Failed to update document')
   }
 }
 
@@ -205,21 +191,18 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     // Verify the document belongs to the caller's school before deleting.
     const owned = await db.document.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!owned) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
+    if (!owned) return fail('NOT_FOUND', 'Document not found')
 
     await db.document.delete({ where: { id } })
     logAudit({ action: 'DELETE', entity: 'documents', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ message: 'Document deleted successfully' })
+    return ok({ message: 'Document deleted successfully' })
   } catch (error) {
-    console.error('Failed to delete document:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete document' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to delete document')
+    return fail('INTERNAL', 'Failed to delete document')
   }
 }
