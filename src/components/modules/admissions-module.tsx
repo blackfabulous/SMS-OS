@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
   UserPlus,
@@ -31,6 +31,7 @@ import {
 } from 'recharts'
 
 import { cn } from '@/lib/utils'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { ModuleContainer, StatGrid, ModuleStatCard, SectionCard, TableShell, ModulePageLayout, ModuleSettingsButton, KitEmptyState, ModuleToolbar } from '@/components/module-ui'
 import { Button } from '@/components/ui/button'
@@ -100,6 +101,14 @@ interface AdmissionStats {
   transferred: number
 }
 
+interface AdmissionsResponse {
+  data: Application[]
+  total: number
+  page: number
+  totalPages: number
+  stats: AdmissionStats
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const formatDate = (dateStr: string) => {
@@ -144,13 +153,25 @@ const defaultForm = {
 // ─── Admissions Module ───────────────────────────────────────────────────────
 
 export default function AdmissionsModule() {
-  const [applications, setApplications] = useState<Application[]>([])
-  const [stats, setStats] = useState<AdmissionStats | null>(null)
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
-  const [submitting, setSubmitting] = useState(false)
+
+  const admissionsUrl = useMemo(() => {
+    const params = new URLSearchParams()
+    if (statusFilter !== 'ALL') params.set('status', statusFilter)
+    if (searchQuery) params.set('search', searchQuery)
+    return `/api/admissions?${params.toString()}`
+  }, [statusFilter, searchQuery])
+
+  const {
+    data: admissionsResult,
+    isPending: loading,
+  } = useApiQuery<AdmissionsResponse>(['admissions', statusFilter, searchQuery], admissionsUrl)
+
+  const applications = admissionsResult?.data ?? []
+  const stats = admissionsResult?.stats ?? null
 
   // ViewMode state
   const [viewMode, setViewMode] = useState<ViewMode>('list')
@@ -172,52 +193,21 @@ export default function AdmissionsModule() {
 
   const selectedApp = applications.find(a => a.id === selectedId)
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true)
-      const params = new URLSearchParams()
-      if (statusFilter !== 'ALL') params.set('status', statusFilter)
-      if (searchQuery) params.set('search', searchQuery)
-      const res = await fetch(`/api/admissions?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        setApplications(data.data || [])
-        setStats(data.stats || null)
-      }
-    } catch (err) {
-      console.error('Failed to fetch admissions:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [statusFilter, searchQuery])
+  const { mutate: createApp, isPending: submitting } = useApiMutation<typeof defaultForm, Application>('/api/admissions', {
+    onSuccess: () => {
+      toast.success('Application submitted successfully')
+      setForm({ ...defaultForm })
+      setViewMode('list')
+      queryClient.invalidateQueries({ queryKey: ['admissions'] })
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to submit application')
+    },
+  })
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
-
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!form.firstName || !form.lastName) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/admissions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      if (res.ok) {
-        toast.success('Application submitted successfully')
-        setForm({ ...defaultForm })
-        setViewMode('list')
-        fetchData()
-      } else {
-        toast.error('Failed to submit application')
-      }
-    } catch (err) {
-      console.error('Failed to submit application:', err)
-      toast.error('Failed to submit application')
-    } finally {
-      setSubmitting(false)
-    }
+    createApp({ ...form })
   }
 
   // Filtered data for tabs

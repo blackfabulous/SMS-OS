@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
 import { logAudit } from '@/lib/audit'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
 
@@ -45,13 +46,10 @@ export async function GET(request: Request) {
     const statusCounts: Record<string, number> = {}
     stats.forEach((s) => { statusCounts[s.enrollmentStatus] = s._count.id })
 
-    return NextResponse.json({
-      data: students, total, page, totalPages: Math.ceil(total / limit),
-      stats: { total, active: statusCounts['ACTIVE'] || 0, pending: statusCounts['PENDING'] || 0, droppedOut: statusCounts['DROPPED_OUT'] || 0, transferred: statusCounts['TRANSFERRED'] || 0 },
-    })
+    return ok({ data: students, total, page, totalPages: Math.ceil(total / limit), stats: { total, active: statusCounts['ACTIVE'] || 0, pending: statusCounts['PENDING'] || 0, droppedOut: statusCounts['DROPPED_OUT'] || 0, transferred: statusCounts['TRANSFERRED'] || 0 } })
   } catch (error) {
-    console.error('Error fetching admissions:', error)
-    return NextResponse.json({ error: 'Failed to fetch admissions' }, { status: 500 })
+    logger.error({ err: error }, 'Error fetching admissions')
+    return fail('INTERNAL', 'Failed to fetch admissions')
   }
 }
 
@@ -59,7 +57,7 @@ export async function POST(request: Request) {
   const authResult = await validateRole(['ADMIN', 'TEACHER'])
   if ('error' in authResult) return authResult.error
   const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
-  if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 })
+  if (!school) return fail('NOT_FOUND', 'School not found')
 
   try {
     const body = await request.json()
@@ -100,10 +98,10 @@ export async function POST(request: Request) {
     }
 
     logAudit({ action: 'CREATE', entity: 'admissions', entityId: (student as any)?.id, afterValue: student }).catch(() => {})
-    return NextResponse.json(student, { status: 201 })
+    return ok(student, 201)
   } catch (error) {
-    console.error('Error creating admission:', error)
-    return NextResponse.json({ error: 'Failed to create admission' }, { status: 500 })
+    logger.error({ err: error }, 'Error creating admission')
+    return fail('INTERNAL', 'Failed to create admission')
   }
 }
 
@@ -111,20 +109,20 @@ export async function PUT(request: Request) {
   const authResult = await validateRole(['ADMIN', 'TEACHER'])
   if ('error' in authResult) return authResult.error
   const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
-  if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 })
+  if (!school) return fail('NOT_FOUND', 'School not found')
 
   try {
     const body = await request.json()
     const { id, action, ...updates } = body
 
-    if (!id) return NextResponse.json({ error: 'Student ID is required' }, { status: 400 })
+    if (!id) return fail('VALIDATION', 'Student ID is required')
 
     const existingStudent = await db.student.findUnique({ where: { id, schoolId: school.id } })
-    if (!existingStudent) return NextResponse.json({ error: 'Student application not found' }, { status: 404 })
+    if (!existingStudent) return fail('NOT_FOUND', 'Student application not found')
 
     if (action === 'enroll') {
       const { classId, academicYearId } = updates
-      if (!classId) return NextResponse.json({ error: 'Class ID is required for enrollment' }, { status: 400 })
+      if (!classId) return fail('VALIDATION', 'Class ID is required for enrollment')
 
       let finalAcademicYearId = academicYearId
       if (!finalAcademicYearId) {
@@ -132,7 +130,7 @@ export async function PUT(request: Request) {
         const academicYear = await db.academicYear.findFirst({
           where: { schoolId: school.id, name: { contains: currentYearString, mode: 'insensitive' } },
         })
-        if (!academicYear) return NextResponse.json({ error: 'No current academic year found for enrollment' }, { status: 400 })
+        if (!academicYear) return fail('VALIDATION', 'No current academic year found for enrollment')
         finalAcademicYearId = academicYear.id
       }
 
@@ -163,7 +161,7 @@ export async function PUT(request: Request) {
       })
 
       logAudit({ action: 'UPDATE', entity: 'admissions', entityId: student.id, afterValue: student }).catch(() => {})
-      return NextResponse.json(student)
+      return ok(student)
     }
 
     const exitReason = updates.enrollmentStatus === 'DROPPED_OUT' || updates.enrollmentStatus === 'TRANSFERRED' || updates.enrollmentStatus === 'REJECTED'
@@ -185,10 +183,10 @@ export async function PUT(request: Request) {
     })
 
     logAudit({ action: 'UPDATE', entity: 'admissions', entityId: student.id, afterValue: student }).catch(() => {})
-    return NextResponse.json(student)
+    return ok(student)
   } catch (error) {
-    console.error('Error updating admission:', error)
-    return NextResponse.json({ error: 'Failed to update admission' }, { status: 500 })
+    logger.error({ err: error }, 'Error updating admission')
+    return fail('INTERNAL', 'Failed to update admission')
   }
 }
 
@@ -201,11 +199,11 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
-    if (!id) return NextResponse.json({ error: 'Student ID is required' }, { status: 400 })
+    if (!id) return fail('VALIDATION', 'Student ID is required')
 
     // Verify the student belongs to the caller's school before mutating (tenant guard).
     const existing = await db.student.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!existing) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+    if (!existing) return fail('NOT_FOUND', 'Student not found')
 
     const student = await db.student.update({
       where: { id },
@@ -213,9 +211,9 @@ export async function DELETE(request: Request) {
     })
 
     logAudit({ action: 'DELETE', entity: 'admissions', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ message: 'Admission record updated (student dropped out)', student })
+    return ok({ message: 'Admission record updated (student dropped out)', student })
   } catch (error) {
-    console.error('Error deleting admission:', error)
-    return NextResponse.json({ error: 'Failed to delete admission' }, { status: 500 })
+    logger.error({ err: error }, 'Error deleting admission')
+    return fail('INTERNAL', 'Failed to delete admission')
   }
 }
