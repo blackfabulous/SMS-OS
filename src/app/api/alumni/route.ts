@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
@@ -87,7 +89,7 @@ export async function GET(request: NextRequest) {
       })),
     }
 
-    return NextResponse.json({
+    return ok({
       data: alumni,
       total,
       page,
@@ -95,11 +97,8 @@ export async function GET(request: NextRequest) {
       stats,
     })
   } catch (error) {
-    console.error('Failed to fetch alumni data:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch alumni data' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to fetch alumni data')
+    return fail('INTERNAL', 'Failed to fetch alumni data')
   }
 }
 
@@ -118,15 +117,12 @@ export async function POST(request: NextRequest) {
     if (action === 'addContribution') {
       const { alumniId, amount, contributionType, description, campaign, date } = body
       if (!alumniId || !amount) {
-        return NextResponse.json(
-          { error: 'Alumni ID and amount are required' },
-          { status: 400 }
-        )
+        return fail('VALIDATION', 'Alumni ID and amount are required')
       }
 
       // Verify the alumnus belongs to the caller's school before writing.
       const ownedAlumni = await db.alumni.findFirst({ where: { id: alumniId, schoolId }, select: { id: true } })
-      if (!ownedAlumni) return NextResponse.json({ error: 'Alumni not found' }, { status: 404 })
+      if (!ownedAlumni) return fail('NOT_FOUND', 'Alumni not found')
 
       const contribution = await db.alumniContribution.create({
         data: {
@@ -147,7 +143,7 @@ export async function POST(request: NextRequest) {
       })
 
       logAudit({ action: 'CREATE', entity: 'alumni', entityId: (contribution as any)?.id, afterValue: contribution }).catch(() => {})
-      return NextResponse.json(contribution, { status: 201 })
+      return ok(contribution, 201)
     }
 
     // Default: create alumni record
@@ -164,10 +160,7 @@ export async function POST(request: NextRequest) {
     } = body
 
     if (!firstName || !lastName || !graduationYear) {
-      return NextResponse.json(
-        { error: 'First name, last name, and graduation year are required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'First name, last name, and graduation year are required')
     }
 
     const alumniRecord = await db.alumni.create({
@@ -187,13 +180,10 @@ export async function POST(request: NextRequest) {
     })
 
     logAudit({ action: 'CREATE', entity: 'alumni', entityId: (alumniRecord as any)?.id, afterValue: alumniRecord }).catch(() => {})
-    return NextResponse.json(alumniRecord, { status: 201 })
+    return ok(alumniRecord, 201)
   } catch (error) {
-    console.error('Failed to create alumni record:', error)
-    return NextResponse.json(
-      { error: 'Failed to create alumni record' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to create alumni record')
+    return fail('INTERNAL', 'Failed to create alumni record')
   }
 }
 
@@ -207,12 +197,12 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { id, ...updates } = body
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     // Verify the alumnus belongs to the caller's school before mutating.
     const owned = await db.alumni.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!owned) return NextResponse.json({ error: 'Alumni not found' }, { status: 404 })
+    if (!owned) return fail('NOT_FOUND', 'Alumni not found')
 
     const alumniRecord = await db.alumni.update({
       where: { id },
@@ -234,13 +224,10 @@ export async function PUT(request: NextRequest) {
     })
 
     logAudit({ action: 'UPDATE', entity: 'alumni', entityId: (alumniRecord as any)?.id, afterValue: alumniRecord }).catch(() => {})
-    return NextResponse.json(alumniRecord)
+    return ok(alumniRecord)
   } catch (error) {
-    console.error('Failed to update alumni record:', error)
-    return NextResponse.json(
-      { error: 'Failed to update alumni record' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to update alumni record')
+    return fail('INTERNAL', 'Failed to update alumni record')
   }
 }
 
@@ -254,21 +241,18 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     // Verify the alumnus belongs to the caller's school before mutating.
     const owned = await db.alumni.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!owned) return NextResponse.json({ error: 'Alumni not found' }, { status: 404 })
+    if (!owned) return fail('NOT_FOUND', 'Alumni not found')
 
     await db.alumni.update({ where: { id }, data: { isActive: false } })
     logAudit({ action: 'DELETE', entity: 'alumni', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ message: 'Alumni record deleted successfully' })
+    return ok({ message: 'Alumni record deleted successfully' })
   } catch (error) {
-    console.error('Failed to delete alumni record:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete alumni record' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to delete alumni record')
+    return fail('INTERNAL', 'Failed to delete alumni record')
   }
 }
