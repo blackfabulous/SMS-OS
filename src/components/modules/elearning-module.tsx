@@ -11,7 +11,7 @@ import {
   KitEmptyState,
   ModuleToolbar,
 } from '@/components/module-ui'
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
   Monitor,
@@ -72,6 +72,7 @@ import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useAppStore } from '@/lib/store'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ViewMode = 'list' | 'add' | 'edit' | 'detail' | 'settings'
@@ -111,6 +112,28 @@ interface Assignment {
   avgScore: number | null
   status: 'Open' | 'Closed' | 'Grading'
   maxMarks: number
+}
+
+interface CourseResponse {
+  data: any[]
+  total: number
+  page: number
+  totalPages: number
+  stats: any
+}
+
+interface ResourcesResponse {
+  data: any[]
+  total: number
+  page: number
+  totalPages: number
+}
+
+interface AssignmentsResponse {
+  data: any[]
+  total: number
+  page: number
+  totalPages: number
 }
 
 // ─── Mappings ─────────────────────────────────────────────────────────────────
@@ -190,14 +213,9 @@ const completionChartConfig = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ElearningModule() {
+  const queryClient = useQueryClient()
   const { schoolName } = useAppStore()
   const [activeTab, setActiveTab] = useState('overview')
-  const [courses, setCourses] = useState<Course[]>([])
-  const [resources, setResources] = useState<Resource[]>([])
-  const [assignments, setAssignments] = useState<Assignment[]>([])
-  const [stats, setStats] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
 
   const [searchCourse, setSearchCourse] = useState('')
   const [searchResource, setSearchResource] = useState('')
@@ -239,41 +257,82 @@ export default function ElearningModule() {
   const [defaultAssignmentDueDays, setDefaultAssignmentDueDays] = useState('7')
   const [platformName, setPlatformName] = useState(`${schoolName} LMS`)
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true)
-      const coursesRes = await fetch('/api/elearning')
-      if (!coursesRes.ok) throw new Error('Failed to fetch courses')
-      const coursesData = await coursesRes.json()
-      const mappedCourses = (coursesData.data || []).map(mapDbCourse)
-      setCourses(mappedCourses)
-      if (coursesData.stats) setStats(coursesData.stats)
+  // ─── Data & Mutations ──────────────────────────────────────────────────────
+  const {
+    data: coursesData,
+    isPending: coursesLoading,
+  } = useApiQuery<CourseResponse>(['elearning', 'courses'], '/api/elearning')
 
-      if (coursesData.data?.length > 0) {
-        setNewResCourseId(prev => prev || coursesData.data[0].id)
-        setNewAsgCourseId(prev => prev || coursesData.data[0].id)
-      }
+  const courses = useMemo(() => (coursesData?.data || []).map(mapDbCourse), [coursesData])
+  const stats = coursesData?.stats ?? null
 
-      const resourcesRes = await fetch('/api/elearning?type=resources')
-      if (!resourcesRes.ok) throw new Error('Failed to fetch resources')
-      const resourcesData = await resourcesRes.json()
-      setResources((resourcesData.data || []).map(mapDbResource))
+  const {
+    data: resourcesData,
+    isPending: resourcesLoading,
+  } = useApiQuery<ResourcesResponse>(['elearning', 'resources'], '/api/elearning?type=resources')
 
-      const assignmentsRes = await fetch('/api/elearning?type=assignments')
-      if (!assignmentsRes.ok) throw new Error('Failed to fetch assignments')
-      const assignmentsData = await assignmentsRes.json()
-      setAssignments((assignmentsData.data || []).map(mapDbAssignment))
-    } catch (err: any) {
-      console.error(err)
-      toast.error(err.message || 'Failed to load e-learning data')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const resources = useMemo(() => (resourcesData?.data || []).map(mapDbResource), [resourcesData])
 
-  useEffect(() => {
-    loadData()
-  }, [loadData])
+  const {
+    data: assignmentsData,
+    isPending: assignmentsLoading,
+  } = useApiQuery<AssignmentsResponse>(['elearning', 'assignments'], '/api/elearning?type=assignments')
+
+  const assignments = useMemo(() => (assignmentsData?.data || []).map(mapDbAssignment), [assignmentsData])
+
+  const defaultCourseId = useMemo(() => coursesData?.data?.[0]?.id ?? '', [coursesData])
+
+  const selectedResCourseId = newResCourseId || defaultCourseId
+  const selectedAsgCourseId = newAsgCourseId || defaultCourseId
+
+  const { mutate: addCourse, isPending: isAddingCourse } = useApiMutation<
+    { action: 'addCourse'; name: string; instructor: string; description: string; enrollmentCount: number; syllabusCompletion: number },
+    any
+  >('/api/elearning', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['elearning'] })
+      toast.success(`Course "${newCourseSubject}" created successfully`)
+      setNewCourseSubject('')
+      setNewCourseTeacher('')
+      setNewCourseMaxEnroll('')
+      setNewCourseDesc('')
+      setViewMode('list')
+    },
+    onError: (err) => toast.error(err.message || 'Failed to create course'),
+  })
+
+  const { mutate: addResource, isPending: isAddingResource } = useApiMutation<
+    { action: 'addResource'; courseId: string; title: string; resourceType: string; url: string; fileSize: number; uploadedBy: string },
+    any
+  >('/api/elearning', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['elearning'] })
+      toast.success(`Resource "${newResTitle}" uploaded successfully`)
+      setNewResTitle('')
+      setNewResDesc('')
+      setViewMode('list')
+    },
+    onError: (err) => toast.error(err.message || 'Failed to upload resource'),
+  })
+
+  const { mutate: addAssignment, isPending: isAddingAssignment } = useApiMutation<
+    { action: 'addAssignment'; courseId: string; title: string; description: string; maxMarks: number; dueDate: string },
+    any
+  >('/api/elearning', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['elearning'] })
+      toast.success(`Assignment "${newAsgTitle}" created successfully`)
+      setNewAsgTitle('')
+      setNewAsgDesc('')
+      setNewAsgMaxMarks('100')
+      setNewAsgDueDate('')
+      setViewMode('list')
+    },
+    onError: (err) => toast.error(err.message || 'Failed to create assignment'),
+  })
+
+  const submitting = isAddingCourse || isAddingResource || isAddingAssignment
+  const loading = coursesLoading || resourcesLoading || assignmentsLoading
 
   // Computed values
   const activeCourses = stats?.activeCourses || courses.filter(c => c.status === 'Active').length
@@ -310,123 +369,50 @@ export default function ElearningModule() {
   const uniqueSubjects = ['All', ...Array.from(new Set(resources.map(r => r.subject)))]
   const resourceTypes = ['All', 'Notes', 'Video', 'Past Exam Paper', 'Worksheet']
 
-  const handleAddCourse = async () => {
+  const handleAddCourse = () => {
     if (!newCourseSubject || !newCourseTeacher || !newCourseMaxEnroll) {
       toast.error('Subject, Teacher, and Max Enrollment are required')
       return
     }
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/elearning', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'addCourse',
-          name: newCourseSubject,
-          instructor: newCourseTeacher,
-          description: newCourseDesc,
-          enrollmentCount: 0,
-          syllabusCompletion: 0,
-        }),
-      })
-
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to create course')
-      }
-
-      toast.success(`Course "${newCourseSubject}" created successfully`)
-      setNewCourseSubject('')
-      setNewCourseTeacher('')
-      setNewCourseMaxEnroll('')
-      setNewCourseDesc('')
-      setViewMode('list')
-      loadData()
-    } catch (err: any) {
-      console.error(err)
-      toast.error(err.message || 'Failed to create course')
-    } finally {
-      setSubmitting(false)
-    }
+    addCourse({
+      action: 'addCourse',
+      name: newCourseSubject,
+      instructor: newCourseTeacher,
+      description: newCourseDesc,
+      enrollmentCount: 0,
+      syllabusCompletion: 0,
+    })
   }
 
-  const handleAddResource = async () => {
-    if (!newResTitle || !newResCourseId || !newResDesc) {
+  const handleAddResource = () => {
+    if (!newResTitle || !selectedResCourseId || !newResDesc) {
       toast.error('Title, Course and Description are required')
       return
     }
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/elearning', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'addResource',
-          courseId: newResCourseId,
-          title: newResTitle,
-          resourceType: newResType.toUpperCase().replace(/ /g, '_'),
-          url: '',
-          fileSize: 1024 * 1024 * 1.5,
-          uploadedBy: 'Admin',
-        }),
-      })
-
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to upload resource')
-      }
-
-      toast.success(`Resource "${newResTitle}" uploaded successfully`)
-      setNewResTitle('')
-      setNewResDesc('')
-      setViewMode('list')
-      loadData()
-    } catch (err: any) {
-      console.error(err)
-      toast.error(err.message || 'Failed to upload resource')
-    } finally {
-      setSubmitting(false)
-    }
+    addResource({
+      action: 'addResource',
+      courseId: selectedResCourseId,
+      title: newResTitle,
+      resourceType: newResType.toUpperCase().replace(/ /g, '_'),
+      url: '',
+      fileSize: 1024 * 1024 * 1.5,
+      uploadedBy: 'Admin',
+    })
   }
 
-  const handleAddAssignment = async () => {
-    if (!newAsgTitle || !newAsgCourseId || !newAsgDueDate) {
+  const handleAddAssignment = () => {
+    if (!newAsgTitle || !selectedAsgCourseId || !newAsgDueDate) {
       toast.error('Title, Course, and Due Date are required')
       return
     }
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/elearning', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'addAssignment',
-          courseId: newAsgCourseId,
-          title: newAsgTitle,
-          description: newAsgDesc,
-          maxMarks: parseInt(newAsgMaxMarks) || 100,
-          dueDate: newAsgDueDate,
-        }),
-      })
-
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to create assignment')
-      }
-
-      toast.success(`Assignment "${newAsgTitle}" created successfully`)
-      setNewAsgTitle('')
-      setNewAsgDesc('')
-      setNewAsgMaxMarks('100')
-      setNewAsgDueDate('')
-      setViewMode('list')
-      loadData()
-    } catch (err: any) {
-      console.error(err)
-      toast.error(err.message || 'Failed to create assignment')
-    } finally {
-      setSubmitting(false)
-    }
+    addAssignment({
+      action: 'addAssignment',
+      courseId: selectedAsgCourseId,
+      title: newAsgTitle,
+      description: newAsgDesc,
+      maxMarks: parseInt(newAsgMaxMarks) || 100,
+      dueDate: newAsgDueDate,
+    })
   }
 
   const resourceTypeIcon = (type: string) => {
@@ -648,7 +634,7 @@ export default function ElearningModule() {
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                <div className="space-y-2">
                  <Label>Course *</Label>
-                 <Select value={newResCourseId} onValueChange={setNewResCourseId}>
+                 <Select value={selectedResCourseId} onValueChange={setNewResCourseId}>
                    <SelectTrigger className="h-9"><SelectValue placeholder="Select course" /></SelectTrigger>
                    <SelectContent>
                      {courses.map(c => (
@@ -705,7 +691,7 @@ export default function ElearningModule() {
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                <div className="space-y-2">
                  <Label>Course *</Label>
-                 <Select value={newAsgCourseId} onValueChange={setNewAsgCourseId}>
+                 <Select value={selectedAsgCourseId} onValueChange={setNewAsgCourseId}>
                    <SelectTrigger className="h-9"><SelectValue placeholder="Select course" /></SelectTrigger>
                    <SelectContent>
                      {courses.map(c => (
