@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest) {
     const schoolId = authResult.session.user.schoolId
 
     if (!schoolId) {
-      return NextResponse.json({ error: 'School not configured' }, { status: 400 })
+      return fail('VALIDATION', 'School not configured')
     }
 
     // Resources list
@@ -57,7 +59,7 @@ export async function GET(request: NextRequest) {
         db.courseResource.count({ where: resWhere }),
       ])
 
-      return NextResponse.json({
+      return ok({
         data: resources,
         total: resTotal,
         page,
@@ -96,7 +98,7 @@ export async function GET(request: NextRequest) {
         db.courseAssignment.count({ where: asgWhere }),
       ])
 
-      return NextResponse.json({
+      return ok({
         data: assignments,
         total: asgTotal,
         page,
@@ -149,7 +151,7 @@ export async function GET(request: NextRequest) {
         )._sum.enrollmentCount || 0,
     }
 
-    return NextResponse.json({
+    return ok({
       data: courses,
       total,
       page,
@@ -157,11 +159,8 @@ export async function GET(request: NextRequest) {
       stats,
     })
   } catch (error) {
-    console.error('Failed to fetch e-learning data:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch e-learning data' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to fetch e-learning data')
+    return fail('INTERNAL', 'Failed to fetch e-learning data')
   }
 }
 
@@ -176,7 +175,7 @@ export async function POST(request: NextRequest) {
     const schoolId = authResult.session.user.schoolId
 
     if (!schoolId) {
-      return NextResponse.json({ error: 'School not configured' }, { status: 400 })
+      return fail('VALIDATION', 'School not configured')
     }
 
     // Create Course
@@ -190,10 +189,7 @@ export async function POST(request: NextRequest) {
         syllabusCompletion,
       } = body
       if (!name) {
-        return NextResponse.json(
-          { error: 'Course name is required' },
-          { status: 400 }
-        )
+        return fail('VALIDATION', 'Course name is required')
       }
 
       const course = await db.course.create({
@@ -209,17 +205,14 @@ export async function POST(request: NextRequest) {
         include: { resources: true, assignments: true },
       })
       logAudit({ action: 'CREATE', entity: 'elearning', entityId: (course as any)?.id, afterValue: course }).catch(() => {})
-      return NextResponse.json(course, { status: 201 })
+      return ok(course, 201)
     }
 
     // Add Resource
     if (action === 'addResource') {
       const { courseId, title, resourceType, url, fileSize, uploadedBy } = body
       if (!courseId || !title) {
-        return NextResponse.json(
-          { error: 'Course ID and title are required' },
-          { status: 400 }
-        )
+        return fail('VALIDATION', 'Course ID and title are required')
       }
 
       // Verify course belongs to school
@@ -227,10 +220,7 @@ export async function POST(request: NextRequest) {
         where: { id: courseId, schoolId },
       })
       if (!course) {
-        return NextResponse.json(
-          { error: 'Course not found' },
-          { status: 404 }
-        )
+        return fail('NOT_FOUND', 'Course not found')
       }
 
       const resource = await db.courseResource.create({
@@ -245,17 +235,14 @@ export async function POST(request: NextRequest) {
         },
       })
       logAudit({ action: 'CREATE', entity: 'elearning', entityId: (resource as any)?.id, afterValue: resource }).catch(() => {})
-      return NextResponse.json(resource, { status: 201 })
+      return ok(resource, 201)
     }
 
     // Add Assignment
     if (action === 'addAssignment') {
       const { courseId, title, description, maxMarks, dueDate } = body
       if (!courseId || !title) {
-        return NextResponse.json(
-          { error: 'Course ID and title are required' },
-          { status: 400 }
-        )
+        return fail('VALIDATION', 'Course ID and title are required')
       }
 
       // Verify course belongs to school
@@ -263,10 +250,7 @@ export async function POST(request: NextRequest) {
         where: { id: courseId, schoolId },
       })
       if (!course) {
-        return NextResponse.json(
-          { error: 'Course not found' },
-          { status: 404 }
-        )
+        return fail('NOT_FOUND', 'Course not found')
       }
 
       const assignment = await db.courseAssignment.create({
@@ -281,19 +265,13 @@ export async function POST(request: NextRequest) {
         },
       })
       logAudit({ action: 'CREATE', entity: 'elearning', entityId: (assignment as any)?.id, afterValue: assignment }).catch(() => {})
-      return NextResponse.json(assignment, { status: 201 })
+      return ok(assignment, 201)
     }
 
-    return NextResponse.json(
-      { error: 'Invalid action. Use addCourse, addResource, or addAssignment' },
-      { status: 400 }
-    )
+    return fail('VALIDATION', 'Invalid action. Use addCourse, addResource, or addAssignment')
   } catch (error) {
-    console.error('Failed to process e-learning request:', error)
-    return NextResponse.json(
-      { error: 'Failed to process e-learning request' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to process e-learning request')
+    return fail('INTERNAL', 'Failed to process e-learning request')
   }
 }
 
@@ -306,13 +284,13 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { id, type, ...updates } = body
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
     const schoolId = authResult.session.user.schoolId
 
     if (type === 'course') {
       const ownedCourse = await db.course.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!ownedCourse) return NextResponse.json({ error: 'Course not found' }, { status: 404 })
+      if (!ownedCourse) return fail('NOT_FOUND', 'Course not found')
       const course = await db.course.update({
         where: { id },
         data: {
@@ -325,12 +303,12 @@ export async function PUT(request: NextRequest) {
         },
       })
       logAudit({ action: 'UPDATE', entity: 'elearning', entityId: (course as any)?.id, afterValue: course }).catch(() => {})
-      return NextResponse.json(course)
+      return ok(course)
     }
 
     if (type === 'resource') {
       const ownedResource = await db.courseResource.findFirst({ where: { id, course: { schoolId } }, select: { id: true } })
-      if (!ownedResource) return NextResponse.json({ error: 'Resource not found' }, { status: 404 })
+      if (!ownedResource) return fail('NOT_FOUND', 'Resource not found')
       const resource = await db.courseResource.update({
         where: { id },
         data: {
@@ -341,12 +319,12 @@ export async function PUT(request: NextRequest) {
         },
       })
       logAudit({ action: 'UPDATE', entity: 'elearning', entityId: (resource as any)?.id, afterValue: resource }).catch(() => {})
-      return NextResponse.json(resource)
+      return ok(resource)
     }
 
     if (type === 'assignment') {
       const ownedAssignment = await db.courseAssignment.findFirst({ where: { id, course: { schoolId } }, select: { id: true } })
-      if (!ownedAssignment) return NextResponse.json({ error: 'Assignment not found' }, { status: 404 })
+      if (!ownedAssignment) return fail('NOT_FOUND', 'Assignment not found')
       const assignment = await db.courseAssignment.update({
         where: { id },
         data: {
@@ -360,16 +338,13 @@ export async function PUT(request: NextRequest) {
         },
       })
       logAudit({ action: 'UPDATE', entity: 'elearning', entityId: (assignment as any)?.id, afterValue: assignment }).catch(() => {})
-      return NextResponse.json(assignment)
+      return ok(assignment)
     }
 
-    return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid type')
   } catch (error) {
-    console.error('Failed to update e-learning record:', error)
-    return NextResponse.json(
-      { error: 'Failed to update e-learning record' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to update e-learning record')
+    return fail('INTERNAL', 'Failed to update e-learning record')
   }
 }
 
@@ -383,7 +358,7 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id')
     const type = searchParams.get('type')
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     if (type === 'course') {
@@ -393,16 +368,13 @@ export async function DELETE(request: NextRequest) {
     } else if (type === 'assignment') {
       await db.courseAssignment.delete({ where: { id } })
     } else {
-      return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
+      return fail('VALIDATION', 'Invalid type')
     }
 
     logAudit({ action: 'DELETE', entity: 'elearning', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ message: 'Deleted successfully' })
+    return ok({ message: 'Deleted successfully' })
   } catch (error) {
-    console.error('Failed to delete e-learning record:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete e-learning record' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to delete e-learning record')
+    return fail('INTERNAL', 'Failed to delete e-learning record')
   }
 }

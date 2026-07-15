@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import { useApiQuery } from '@/hooks/use-api-query'
 import { ModulePageLayout, ModuleSettingsButton, ModuleContainer, StatGrid, ModuleStatCard, SectionCard, TableShell } from '@/components/module-ui'
 import { useSession } from 'next-auth/react'
 import { useRBAC } from '@/hooks/use-rbac'
@@ -291,6 +292,40 @@ const todaySchedule = [
 ]
 
 // ─── Assignments Data ──────────────────────────────────────────────────────────
+interface ApiStudent {
+  id: string
+  firstName: string
+  lastName: string
+  studentNumber: string
+  enrollments: Array<{ class: { name: string } }>
+}
+
+interface StudentsResponse {
+  data: ApiStudent[]
+  total: number
+  page: number
+  totalPages: number
+}
+
+interface ApiElearningAssignment {
+  id: string
+  title: string
+  course: { name: string }
+  dueDate: string | null
+  maxMarks: number
+  description: string | null
+  status: string
+  submissionsCount: number
+  avgScore: number | null
+}
+
+interface ElearningAssignmentsResponse {
+  data: ApiElearningAssignment[]
+  total: number
+  page: number
+  totalPages: number
+}
+
 interface Assignment {
   id: string
   title: string
@@ -404,88 +439,70 @@ export default function TeacherPortalModule() {
   const [activeTab, setActiveTab] = useState('overview')
   const [expandedClass, setExpandedClass] = useState<string | null>(null)
 
-  // ─── API Data State ───────────────────────────────────────────────────────────
-  const [classes, setClasses] = useState<TeacherClass[]>(mockClasses)
-  const [teacherAssignments, setTeacherAssignments] = useState<Assignment[]>(mockAssignments)
-  const [loading, setLoading] = useState({ classes: true, assignments: true })
+  // ─── API Data ────────────────────────────────────────────────────────────────
+  const {
+    data: studentsData,
+    isPending: classesLoading,
+  } = useApiQuery<StudentsResponse>(['students', 'teacher-portal'], '/api/students?limit=100&enrollmentStatus=ACTIVE')
 
-  // ─── Fetch from APIs ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    async function fetchClasses() {
-      try {
-        const res = await fetch('/api/students?limit=100&enrollmentStatus=ACTIVE')
-        if (res.ok) {
-          const json = await res.json()
-          if (json.data && json.data.length > 0) {
-            // Group students by class to build teacher classes
-            const classMap = new Map<string, { name: string; students: StudentInClass[] }>()
-            for (const s of json.data as Record<string, unknown>[]) {
-              const enrollment = (s as Record<string, unknown[]>).enrollments?.[0] as Record<string, Record<string, string>> | undefined
-              const className = enrollment?.class?.name || 'Unassigned'
-              if (!classMap.has(className)) {
-                classMap.set(className, { name: className, students: [] })
-              }
-              classMap.get(className)!.students.push({
-                id: s.id as string,
-                name: `${s.firstName} ${s.lastName}`,
-                initials: `${(s.firstName as string)[0]}${(s.lastName as string)[0]}`,
-                studentNumber: s.studentNumber as string,
-                avgMark: 0,
-                grade: '—',
-                attendance: 0,
-              })
-            }
-            if (classMap.size > 0) {
-              const apiClasses: TeacherClass[] = Array.from(classMap.entries()).map(([id, data], idx) => ({
-                id: `c${idx}`,
-                name: data.name,
-                subject: idx % 2 === 0 ? 'Mathematics' : 'Physics',
-                studentCount: data.students.length,
-                avgPerformance: 0,
-                attendanceRate: 0,
-                upcomingAssessments: [],
-                gradeDistribution: [],
-                students: data.students,
-              }))
-              setClasses(apiClasses.length > 0 ? apiClasses : mockClasses)
-            }
-          }
-        }
-      } catch { /* fallback to mock */ }
-      setLoading(prev => ({ ...prev, classes: false }))
+  const classes = useMemo<TeacherClass[]>(() => {
+    const data = studentsData?.data ?? []
+    if (data.length === 0) return mockClasses
+    const classMap = new Map<string, { name: string; students: StudentInClass[] }>()
+    for (const s of data) {
+      const className = s.enrollments?.[0]?.class?.name || 'Unassigned'
+      if (!classMap.has(className)) {
+        classMap.set(className, { name: className, students: [] })
+      }
+      classMap.get(className)!.students.push({
+        id: s.id,
+        name: `${s.firstName} ${s.lastName}`,
+        initials: `${s.firstName[0]}${s.lastName[0]}`,
+        studentNumber: s.studentNumber,
+        avgMark: 0,
+        grade: '—',
+        attendance: 0,
+      })
     }
-    fetchClasses()
-  }, [])
+    const apiClasses = Array.from(classMap.entries()).map(([_, data], idx) => ({
+      id: `c${idx}`,
+      name: data.name,
+      subject: idx % 2 === 0 ? 'Mathematics' : 'Physics',
+      studentCount: data.students.length,
+      avgPerformance: 0,
+      attendanceRate: 0,
+      upcomingAssessments: [],
+      gradeDistribution: [],
+      students: data.students,
+    }))
+    return apiClasses.length > 0 ? apiClasses : mockClasses
+  }, [studentsData])
 
-  useEffect(() => {
-    async function fetchAssignments() {
-      try {
-        const res = await fetch('/api/elearning?type=assignments')
-        if (res.ok) {
-          const json = await res.json()
-          if (json.data && json.data.length > 0) {
-            const apiAssignments: Assignment[] = json.data.map((a: Record<string, unknown>) => ({
-              id: a.id as string,
-              title: a.title as string,
-              subject: (a.course as Record<string, string>)?.name || 'General',
-              className: (a.course as Record<string, string>)?.name || 'General',
-              dueDate: a.dueDate ? new Date(a.dueDate as string).toISOString().split('T')[0] : '',
-              maxMarks: a.maxMarks as number || 100,
-              description: a.description as string || '',
-              status: ((a.status as string) || 'OPEN').toLowerCase() === 'closed' ? 'Closed' : ((a.status as string) || 'OPEN').toLowerCase() === 'grading' ? 'Grading' : 'Active',
-              submitted: a.submissionsCount as number || 0,
-              total: a.submissionsCount as number || 0,
-              avgScore: a.avgScore as number || null,
-              graded: 0,
-            }))
-            setTeacherAssignments(apiAssignments.length > 0 ? apiAssignments : mockAssignments)
-          }
-        }
-      } catch { /* fallback to mock */ }
-      setLoading(prev => ({ ...prev, assignments: false }))
-    }
-    fetchAssignments()
-  }, [])
+  const {
+    data: assignmentsData,
+    isPending: assignmentsLoading,
+  } = useApiQuery<ElearningAssignmentsResponse>(['elearning', 'assignments', 'teacher-portal'], '/api/elearning?type=assignments')
+
+  const teacherAssignments = useMemo<Assignment[]>(() => {
+    const data = assignmentsData?.data ?? []
+    if (data.length === 0) return mockAssignments
+    return data.map((a) => ({
+      id: a.id,
+      title: a.title,
+      subject: a.course?.name || 'General',
+      className: a.course?.name || 'General',
+      dueDate: a.dueDate ? new Date(a.dueDate).toISOString().split('T')[0] : '',
+      maxMarks: a.maxMarks || 100,
+      description: a.description || '',
+      status: (a.status || 'OPEN').toLowerCase() === 'closed' ? 'Closed' : (a.status || 'OPEN').toLowerCase() === 'grading' ? 'Grading' : 'Active',
+      submitted: a.submissionsCount || 0,
+      total: a.submissionsCount || 0,
+      avgScore: a.avgScore ?? null,
+      graded: 0,
+    }))
+  }, [assignmentsData])
+
+  const loading = useMemo(() => ({ classes: classesLoading, assignments: assignmentsLoading }), [classesLoading, assignmentsLoading])
 
   // Marks Entry State
   const [selectedGrade, setSelectedGrade] = useState('Form 4A')
