@@ -1,7 +1,8 @@
 'use client'
 
 import { ModulePageLayout, ModuleSettingsButton, StatGrid, ModuleStatCard, SectionCard } from '@/components/module-ui';
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState } from 'react'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Bus,
@@ -152,6 +153,13 @@ interface Student {
   studentNumber: string
 }
 
+interface StudentsResponse {
+  data: Student[]
+  total: number
+  page: number
+  totalPages: number
+}
+
 // ─── Chart Config ────────────────────────────────────────────────────────────
 
 const routeChartConfig = {
@@ -175,13 +183,10 @@ const getCapacityColor = (current: number, capacity: number) => {
 // ─── Transport Module ────────────────────────────────────────────────────────
 
 export default function TransportModule() {
-  const [data, setData] = useState<TransportData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
-  const [students, setStudents] = useState<Student[]>([])
-  const [submitting, setSubmitting] = useState(false)
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null)
 
@@ -205,132 +210,93 @@ export default function TransportModule() {
 
   const { toast } = useToast()
 
-  // ─── Data Fetching ─────────────────────────────────────────────────────
+  // ─── Data & Mutations ──────────────────────────────────────────────────
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await fetch('/api/transport')
-      if (res.ok) {
-        const d = await res.json()
-        setData(d)
-      }
-    } catch (err) {
-      console.error('Failed to fetch transport data:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const {
+    data,
+    isPending: loading,
+  } = useApiQuery<TransportData>(['transport'], '/api/transport')
 
-  const fetchStudents = useCallback(async () => {
-    try {
-      const res = await fetch('/api/students?limit=200')
-      if (res.ok) {
-        const d = await res.json()
-        setStudents(d.data || d || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch students:', err)
-    }
-  }, [])
+  const {
+    data: studentsData,
+  } = useApiQuery<StudentsResponse>(['students', 'transport'], '/api/students?limit=200', { enabled: viewMode === 'add-assignment' })
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  const students = studentsData?.data ?? []
 
-  useEffect(() => {
-    if (viewMode === 'add-assignment') fetchStudents()
-  }, [viewMode, fetchStudents])
+  const { mutate: assignStudent, isPending: isAssigning } = useApiMutation<
+    { action: 'assign'; studentId: string; routeId: string; pickupPoint?: string; dropoffPoint?: string },
+    TransportAssignment
+  >('/api/transport', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transport'] })
+      setAssignForm({ studentId: '', routeId: '', pickupPoint: '', dropoffPoint: '' })
+      setViewMode('list')
+      toast({ title: 'Route assigned', description: 'Student has been assigned to the transport route.' })
+    },
+    onError: (err) => toast({ title: 'Error', description: err.message || 'Failed to assign route', variant: 'destructive' }),
+  })
+
+  const { mutate: addRoute, isPending: isAddingRoute } = useApiMutation<
+    { action: 'addRoute'; name: string; description?: string; fee: number; capacity: number },
+    TransportRouteType
+  >('/api/transport', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transport'] })
+      setRouteForm({ name: '', description: '', fee: '0', capacity: '50' })
+      setViewMode('list')
+      toast({ title: 'Route added', description: 'New transport route has been created.' })
+    },
+    onError: (err) => toast({ title: 'Error', description: err.message || 'Failed to add route', variant: 'destructive' }),
+  })
+
+  const { mutate: addVehicle, isPending: isAddingVehicle } = useApiMutation<
+    { action: 'addVehicle'; registrationNumber: string; make?: string; model?: string; year?: number; capacity?: number; driverName?: string },
+    Vehicle
+  >('/api/transport', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transport'] })
+      setVehicleForm({ registrationNumber: '', make: '', model: '', year: '', capacity: '', driverName: '' })
+      setViewMode('list')
+      toast({ title: 'Vehicle added', description: 'New vehicle has been registered.' })
+    },
+    onError: (err) => toast({ title: 'Error', description: err.message || 'Failed to add vehicle', variant: 'destructive' }),
+  })
 
   // ─── Handlers ──────────────────────────────────────────────────────────
 
-  const handleAssign = async () => {
+  const handleAssign = () => {
     if (!assignForm.studentId || !assignForm.routeId) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/transport', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'assign',
-          studentId: assignForm.studentId,
-          routeId: assignForm.routeId,
-          pickupPoint: assignForm.pickupPoint || undefined,
-          dropoffPoint: assignForm.dropoffPoint || undefined,
-        }),
-      })
-      if (res.ok) {
-        setAssignForm({ studentId: '', routeId: '', pickupPoint: '', dropoffPoint: '' })
-        setViewMode('list')
-        fetchData()
-        toast({ title: 'Route assigned', description: 'Student has been assigned to the transport route.' })
-      } else {
-        const err = await res.json()
-        toast({ title: 'Error', description: err.error || 'Failed to assign route', variant: 'destructive' })
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to assign route', variant: 'destructive' })
-    } finally {
-      setSubmitting(false)
-    }
+    assignStudent({
+      action: 'assign',
+      studentId: assignForm.studentId,
+      routeId: assignForm.routeId,
+      pickupPoint: assignForm.pickupPoint || undefined,
+      dropoffPoint: assignForm.dropoffPoint || undefined,
+    })
   }
 
-  const handleAddRoute = async () => {
+  const handleAddRoute = () => {
     if (!routeForm.name) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/transport', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'addRoute',
-          name: routeForm.name,
-          description: routeForm.description || undefined,
-          fee: parseFloat(routeForm.fee) || 0,
-          capacity: parseInt(routeForm.capacity) || 50,
-        }),
-      })
-      if (res.ok) {
-        setRouteForm({ name: '', description: '', fee: '0', capacity: '50' })
-        setViewMode('list')
-        fetchData()
-        toast({ title: 'Route added', description: 'New transport route has been created.' })
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to add route', variant: 'destructive' })
-    } finally {
-      setSubmitting(false)
-    }
+    addRoute({
+      action: 'addRoute',
+      name: routeForm.name,
+      description: routeForm.description || undefined,
+      fee: parseFloat(routeForm.fee) || 0,
+      capacity: parseInt(routeForm.capacity) || 50,
+    })
   }
 
-  const handleAddVehicle = async () => {
+  const handleAddVehicle = () => {
     if (!vehicleForm.registrationNumber) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/transport', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'addVehicle',
-          registrationNumber: vehicleForm.registrationNumber,
-          make: vehicleForm.make || undefined,
-          model: vehicleForm.model || undefined,
-          year: vehicleForm.year ? parseInt(vehicleForm.year) : undefined,
-          capacity: vehicleForm.capacity ? parseInt(vehicleForm.capacity) : undefined,
-          driverName: vehicleForm.driverName || undefined,
-        }),
-      })
-      if (res.ok) {
-        setVehicleForm({ registrationNumber: '', make: '', model: '', year: '', capacity: '', driverName: '' })
-        setViewMode('list')
-        fetchData()
-        toast({ title: 'Vehicle added', description: 'New vehicle has been registered.' })
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to add vehicle', variant: 'destructive' })
-    } finally {
-      setSubmitting(false)
-    }
+    addVehicle({
+      action: 'addVehicle',
+      registrationNumber: vehicleForm.registrationNumber,
+      make: vehicleForm.make || undefined,
+      model: vehicleForm.model || undefined,
+      year: vehicleForm.year ? parseInt(vehicleForm.year) : undefined,
+      capacity: vehicleForm.capacity ? parseInt(vehicleForm.capacity) : undefined,
+      driverName: vehicleForm.driverName || undefined,
+    })
   }
 
   const handleSaveSettings = () => {
@@ -414,8 +380,8 @@ export default function TransportModule() {
               </div>
             </div>
             <div className="flex items-center gap-3 pt-4">
-              <Button onClick={handleAddRoute} disabled={submitting || !routeForm.name} className="bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white">
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add Route
+              <Button onClick={handleAddRoute} disabled={isAddingRoute || !routeForm.name} className="bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white">
+                {isAddingRoute && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add Route
               </Button>
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
             </div>
@@ -469,8 +435,8 @@ export default function TransportModule() {
               </div>
             </div>
             <div className="flex items-center gap-3 pt-4">
-              <Button onClick={handleAddVehicle} disabled={submitting || !vehicleForm.registrationNumber} className="bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white">
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Register Vehicle
+              <Button onClick={handleAddVehicle} disabled={isAddingVehicle || !vehicleForm.registrationNumber} className="bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white">
+                {isAddingVehicle && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Register Vehicle
               </Button>
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
             </div>
@@ -530,8 +496,8 @@ export default function TransportModule() {
               </div>
             </div>
             <div className="flex items-center gap-3 pt-4">
-              <Button onClick={handleAssign} disabled={submitting || !assignForm.studentId || !assignForm.routeId} className="bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white">
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Assign Route
+              <Button onClick={handleAssign} disabled={isAssigning || !assignForm.studentId || !assignForm.routeId} className="bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white">
+                {isAssigning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Assign Route
               </Button>
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
             </div>

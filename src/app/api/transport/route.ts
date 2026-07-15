@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { getRequestTenant } from '@/lib/tenant'
 import { validateRole } from '@/lib/api-auth'
@@ -107,7 +109,7 @@ export async function GET(request: NextRequest) {
     // Aggregate stats - calculate total fee revenue from assignments
     const totalFeeRevenue = assignments.reduce((sum, a) => sum + (a.route?.fee || 0), 0)
 
-    return NextResponse.json({
+    return ok({
       routes,
       vehicles,
       assignments,
@@ -127,8 +129,8 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Failed to fetch transport data:', error)
-    return NextResponse.json({ error: 'Failed to fetch transport data' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to fetch transport data')
+    return fail('INTERNAL', 'Failed to fetch transport data')
   }
 }
 
@@ -145,12 +147,12 @@ export async function POST(request: NextRequest) {
     if (action === 'assign') {
       const { studentId, routeId, pickupPoint, dropoffPoint } = body
       if (!studentId || !routeId) {
-        return NextResponse.json({ error: 'studentId and routeId are required' }, { status: 400 })
+        return fail('VALIDATION', 'studentId and routeId are required')
       }
 
       const existing = await db.transportAssignment.findUnique({ where: { studentId } })
       if (existing && existing.status === 'ACTIVE') {
-        return NextResponse.json({ error: 'Student already has an active transport assignment' }, { status: 400 })
+        return fail('CONFLICT', 'Student already has an active transport assignment')
       }
 
       const route = await db.transportRoute.findUnique({
@@ -158,10 +160,10 @@ export async function POST(request: NextRequest) {
         include: { _count: { select: { assignments: { where: { status: 'ACTIVE' } } } } },
       })
       if (!route) {
-        return NextResponse.json({ error: 'Route not found' }, { status: 404 })
+        return fail('NOT_FOUND', 'Route not found')
       }
       if (route._count.assignments >= route.capacity) {
-        return NextResponse.json({ error: 'Route is at full capacity' }, { status: 400 })
+        return fail('CONFLICT', 'Route is at full capacity')
       }
 
       const assignment = await db.transportAssignment.create({
@@ -180,17 +182,17 @@ export async function POST(request: NextRequest) {
         },
       })
       logAudit({ action: 'CREATE', entity: 'transport', entityId: (assignment as any)?.id, afterValue: assignment }).catch(() => {})
-      return NextResponse.json(assignment, { status: 201 })
+      return ok(assignment, 201)
     }
 
     if (action === 'addRoute') {
       const { schoolId, name, description, fee, capacity } = body
       if (!name) {
-        return NextResponse.json({ error: 'Route name is required' }, { status: 400 })
+        return fail('VALIDATION', 'Route name is required')
       }
       let sid = schoolId
 
-      const route = await db.transportRoute.create({
+      const newRoute = await db.transportRoute.create({
         data: {
           schoolId: sid || 'default',
           name,
@@ -199,14 +201,14 @@ export async function POST(request: NextRequest) {
           capacity: capacity || 50,
         },
       })
-      logAudit({ action: 'CREATE', entity: 'transport', entityId: (route as any)?.id, afterValue: route }).catch(() => {})
-      return NextResponse.json(route, { status: 201 })
+      logAudit({ action: 'CREATE', entity: 'transport', entityId: (newRoute as any)?.id, afterValue: newRoute }).catch(() => {})
+      return ok(newRoute, 201)
     }
 
     if (action === 'addVehicle') {
       const { schoolId, registrationNumber, make, model, year, capacity, driverName } = body
       if (!registrationNumber) {
-        return NextResponse.json({ error: 'Registration number is required' }, { status: 400 })
+        return fail('VALIDATION', 'Registration number is required')
       }
       let sid = schoolId
 
@@ -222,13 +224,13 @@ export async function POST(request: NextRequest) {
         },
       })
       logAudit({ action: 'CREATE', entity: 'transport', entityId: (vehicle as any)?.id, afterValue: vehicle }).catch(() => {})
-      return NextResponse.json(vehicle, { status: 201 })
+      return ok(vehicle, 201)
     }
 
-    return NextResponse.json({ error: 'Invalid action. Use: assign, addRoute, or addVehicle' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid action. Use: assign, addRoute, or addVehicle')
   } catch (error) {
-    console.error('Failed to process transport request:', error)
-    return NextResponse.json({ error: 'Failed to process transport request' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to process transport request')
+    return fail('INTERNAL', 'Failed to process transport request')
   }
 }
 
@@ -242,14 +244,14 @@ export async function PUT(request: NextRequest) {
     const { id, type, ...updates } = body
 
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
     const schoolId = authResult.session.user.schoolId
 
     if (type === 'route') {
       const owned = await db.transportRoute.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-      const route = await db.transportRoute.update({
+      if (!owned) return fail('NOT_FOUND', 'Not found')
+      const updatedRoute = await db.transportRoute.update({
         where: { id },
         data: {
           name: updates.name,
@@ -259,13 +261,13 @@ export async function PUT(request: NextRequest) {
           isActive: updates.isActive,
         },
       })
-      logAudit({ action: 'UPDATE', entity: 'transport', entityId: (route as any)?.id, afterValue: route }).catch(() => {})
-      return NextResponse.json(route)
+      logAudit({ action: 'UPDATE', entity: 'transport', entityId: (updatedRoute as any)?.id, afterValue: updatedRoute }).catch(() => {})
+      return ok(updatedRoute)
     }
 
     if (type === 'vehicle') {
       const owned = await db.vehicle.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       const vehicle = await db.vehicle.update({
         where: { id },
         data: {
@@ -277,12 +279,12 @@ export async function PUT(request: NextRequest) {
         },
       })
       logAudit({ action: 'UPDATE', entity: 'transport', entityId: (vehicle as any)?.id, afterValue: vehicle }).catch(() => {})
-      return NextResponse.json(vehicle)
+      return ok(vehicle)
     }
 
     // Default: update assignment
     const ownedA = await db.transportAssignment.findFirst({ where: { id, student: { schoolId } }, select: { id: true } })
-    if (!ownedA) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!ownedA) return fail('NOT_FOUND', 'Not found')
     const assignment = await db.transportAssignment.update({
       where: { id },
       data: {
@@ -293,10 +295,10 @@ export async function PUT(request: NextRequest) {
       },
     })
     logAudit({ action: 'UPDATE', entity: 'transport', entityId: (assignment as any)?.id, afterValue: assignment }).catch(() => {})
-    return NextResponse.json(assignment)
+    return ok(assignment)
   } catch (error) {
-    console.error('Failed to update transport record:', error)
-    return NextResponse.json({ error: 'Failed to update transport record' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to update transport record')
+    return fail('INTERNAL', 'Failed to update transport record')
   }
 }
 
@@ -311,28 +313,28 @@ export async function DELETE(request: NextRequest) {
     const type = searchParams.get('type')
 
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     const schoolId = authResult.session.user.schoolId
     if (type === 'route') {
       const owned = await db.transportRoute.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       await db.transportRoute.update({ where: { id }, data: { isActive: false } })
     } else if (type === 'vehicle') {
       const owned = await db.vehicle.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       await db.vehicle.update({ where: { id }, data: { isActive: false } })
     } else {
       const owned = await db.transportAssignment.findFirst({ where: { id, student: { schoolId } }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       await db.transportAssignment.delete({ where: { id } })
     }
 
     logAudit({ action: 'DELETE', entity: 'transport', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ message: 'Deleted successfully' })
+    return ok({ message: 'Deleted successfully' })
   } catch (error) {
-    console.error('Failed to delete transport record:', error)
-    return NextResponse.json({ error: 'Failed to delete transport record' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to delete transport record')
+    return fail('INTERNAL', 'Failed to delete transport record')
   }
 }
