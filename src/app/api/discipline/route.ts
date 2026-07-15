@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { getRequestTenant } from '@/lib/tenant'
 import { validateRole } from '@/lib/api-auth'
 
@@ -78,13 +80,13 @@ export async function GET(request: NextRequest) {
       _count: { id: true },
     })
 
-    return NextResponse.json({
+    return ok({
       data: records, total, page, totalPages: Math.ceil(total / limit), stats,
       incidentTypeBreakdown: incidentTypeBreakdown.map((i) => ({ type: i.incidentType, count: i._count.id })),
     })
   } catch (error) {
-    console.error('Failed to fetch discipline records:', error)
-    return NextResponse.json({ error: 'Failed to fetch discipline records' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to fetch discipline records')
+    return fail('INTERNAL', 'Failed to fetch discipline records')
   }
 }
 
@@ -98,12 +100,12 @@ export async function POST(request: NextRequest) {
     const { studentId, incidentType, description, date, action, meritPoints, demeritPoints, parentNotified } = body
 
     if (!studentId || !incidentType || !description) {
-      return NextResponse.json({ error: 'Student ID, incident type, and description are required' }, { status: 400 })
+      return fail('VALIDATION', 'Student ID, incident type, and description are required')
     }
 
     // Verify student belongs to caller's school
     const student = await db.student.findUnique({ where: { id: studentId, schoolId: session.user.schoolId }, select: { id: true } })
-    if (!student) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+    if (!student) return fail('NOT_FOUND', 'Student not found')
 
     const record = await db.disciplineRecord.create({
       data: {
@@ -119,10 +121,10 @@ export async function POST(request: NextRequest) {
       include: { student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } } },
     })
 
-    return NextResponse.json(record, { status: 201 })
+    return ok(record, 201)
   } catch (error) {
-    console.error('Failed to create discipline record:', error)
-    return NextResponse.json({ error: 'Failed to create discipline record' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to create discipline record')
+    return fail('INTERNAL', 'Failed to create discipline record')
   }
 }
 
@@ -135,7 +137,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { id, ...updates } = body
 
-    if (!id) return NextResponse.json({ error: 'Record ID is required' }, { status: 400 })
+    if (!id) return fail('VALIDATION', 'Record ID is required')
 
     // Verify record belongs to a student in caller's school
     const existing = await db.disciplineRecord.findUnique({
@@ -143,7 +145,7 @@ export async function PUT(request: NextRequest) {
       select: { student: { select: { schoolId: true } } },
     })
     if (!existing || existing.student.schoolId !== session.user.schoolId) {
-      return NextResponse.json({ error: 'Record not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Record not found')
     }
 
     const record = await db.disciplineRecord.update({
@@ -160,10 +162,10 @@ export async function PUT(request: NextRequest) {
       include: { student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } } },
     })
 
-    return NextResponse.json(record)
+    return ok(record)
   } catch (error) {
-    console.error('Failed to update discipline record:', error)
-    return NextResponse.json({ error: 'Failed to update discipline record' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to update discipline record')
+    return fail('INTERNAL', 'Failed to update discipline record')
   }
 }
 
@@ -176,7 +178,7 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
-    if (!id) return NextResponse.json({ error: 'Record ID is required' }, { status: 400 })
+    if (!id) return fail('VALIDATION', 'Record ID is required')
 
     // Verify record belongs to a student in caller's school
     const existing = await db.disciplineRecord.findUnique({
@@ -184,13 +186,13 @@ export async function DELETE(request: NextRequest) {
       select: { student: { select: { schoolId: true } } },
     })
     if (!existing || existing.student.schoolId !== session.user.schoolId) {
-      return NextResponse.json({ error: 'Record not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Record not found')
     }
 
     await db.disciplineRecord.delete({ where: { id } })
-    return NextResponse.json({ message: 'Discipline record deleted successfully' })
+    return ok({ message: 'Discipline record deleted successfully' })
   } catch (error) {
-    console.error('Failed to delete discipline record:', error)
-    return NextResponse.json({ error: 'Failed to delete discipline record' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to delete discipline record')
+    return fail('INTERNAL', 'Failed to delete discipline record')
   }
 }

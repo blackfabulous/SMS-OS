@@ -12,6 +12,7 @@ import {
   KitEmptyState,
 } from '@/components/module-ui';
 import React, { useState, useEffect, useCallback } from 'react'
+import { useApiQuery, useApiMutation, useApiPut, useQueryClient } from '@/hooks/use-api-query'
 import { motion } from 'framer-motion'
 import {
   Scale,
@@ -110,6 +111,23 @@ interface DisciplineRecord {
   student: Student
 }
 
+interface DisciplineResponse {
+  data: DisciplineRecord[]
+  total: number
+  page: number
+  totalPages: number
+  stats: {
+    total: number
+    open: number
+    resolved: number
+    closed: number
+    totalMerit: number
+    totalDemerit: number
+    parentNotifiedCount: number
+  }
+  incidentTypeBreakdown: { type: string; count: number }[]
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const formatDate = (dateStr: string) => {
@@ -164,15 +182,20 @@ const severityDonutConfig = {
 // ─── Discipline Module ──────────────────────────────────────────────────────
 
 export default function DisciplineModule() {
-  const [records, setRecords] = useState<DisciplineRecord[]>([])
+  const queryClient = useQueryClient()
   const [students, setStudents] = useState<Student[]>([])
-  const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterSeverity, setFilterSeverity] = useState('ALL')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
-  const [submitting, setSubmitting] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState<DisciplineRecord | null>(null)
+
+  const {
+    data: disciplineData,
+    isPending: loading,
+  } = useApiQuery<DisciplineResponse>(['discipline'], '/api/discipline')
+
+  const records = disciplineData?.data ?? []
 
   // Form state
   const [form, setForm] = useState({
@@ -205,21 +228,6 @@ export default function DisciplineModule() {
 
   // ─── Data Fetching ─────────────────────────────────────────────────────
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await fetch('/api/discipline')
-      if (res.ok) {
-        const data = await res.json()
-        setRecords(data.data || data.records || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch discipline data:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
   const fetchStudents = useCallback(async () => {
     try {
       const res = await fetch('/api/students?limit=500')
@@ -233,61 +241,62 @@ export default function DisciplineModule() {
   }, [])
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
-
-  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (viewMode === 'add' || viewMode === 'edit') fetchStudents()
   }, [viewMode, fetchStudents])
 
+  // ─── Mutations ───────────────────────────────────────────────────────
+
+  const { mutate: createIncident, isPending: isCreating } = useApiMutation<
+    { studentId: string; incidentType: string; description: string; date: string; action?: string; meritPoints: number; demeritPoints: number; parentNotified: boolean },
+    DisciplineRecord
+  >('/api/discipline', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discipline'] })
+      setForm({ studentId: '', incidentType: 'LATE_COMING', description: '', date: new Date().toISOString().split('T')[0], action: '', meritPoints: '0', demeritPoints: '0', parentNotified: false })
+      setViewMode('list')
+      toast({ title: 'Incident recorded', description: 'Disciplinary incident has been recorded successfully.' })
+    },
+    onError: (err) => {
+      toast({ title: 'Error', description: err.message || 'Failed to record incident', variant: 'destructive' })
+    },
+  })
+
+  const { mutate: updateIncidentStatus, isPending: isUpdating } = useApiPut<
+    { id: string; status: string },
+    DisciplineRecord
+  >('/api/discipline', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discipline'] })
+    },
+  })
+
   // ─── Form Handler ──────────────────────────────────────────────────────
 
-  const handleAddIncident = async () => {
+  const handleAddIncident = () => {
     if (!form.studentId || !form.incidentType || !form.description) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/discipline', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: form.studentId,
-          incidentType: form.incidentType,
-          description: form.description,
-          date: form.date,
-          action: form.action || undefined,
-          meritPoints: parseInt(form.meritPoints) || 0,
-          demeritPoints: parseInt(form.demeritPoints) || 0,
-          parentNotified: form.parentNotified,
-        }),
-      })
-      if (res.ok) {
-        setForm({ studentId: '', incidentType: 'LATE_COMING', description: '', date: new Date().toISOString().split('T')[0], action: '', meritPoints: '0', demeritPoints: '0', parentNotified: false })
-        setViewMode('list')
-        fetchData()
-        toast({ title: 'Incident recorded', description: 'Disciplinary incident has been recorded successfully.' })
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to record incident', variant: 'destructive' })
-    } finally {
-      setSubmitting(false)
-    }
+    createIncident({
+      studentId: form.studentId,
+      incidentType: form.incidentType,
+      description: form.description,
+      date: form.date,
+      action: form.action || undefined,
+      meritPoints: parseInt(form.meritPoints) || 0,
+      demeritPoints: parseInt(form.demeritPoints) || 0,
+      parentNotified: form.parentNotified,
+    })
   }
 
-  const handleUpdateStatus = async (recordId: string, newStatus: string) => {
-    try {
-      const res = await fetch('/api/discipline', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: recordId, status: newStatus }),
-      })
-      if (res.ok) {
-        fetchData()
+  const handleUpdateStatus = (recordId: string, newStatus: string) => {
+    updateIncidentStatus({ id: recordId, status: newStatus }, {
+      onSuccess: () => {
         if (selectedRecord) setSelectedRecord({ ...selectedRecord, status: newStatus })
         toast({ title: 'Status updated', description: `Case status changed to ${newStatus}` })
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to update status', variant: 'destructive' })
-    }
+      },
+      onError: (err) => {
+        toast({ title: 'Error', description: err.message || 'Failed to update status', variant: 'destructive' })
+      },
+    })
   }
 
   const handleSaveSettings = () => {
@@ -433,8 +442,8 @@ export default function DisciplineModule() {
               </div>
             </div>
             <div className="flex items-center gap-3 pt-4">
-              <Button onClick={handleAddIncident} disabled={submitting || !form.studentId || !form.description} className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white">
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Record Incident
+              <Button onClick={handleAddIncident} disabled={isCreating || !form.studentId || !form.description} className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white">
+                {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Record Incident
               </Button>
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
             </div>
@@ -502,13 +511,13 @@ export default function DisciplineModule() {
         </Card>
         <div className="flex items-center gap-3">
           {selectedRecord.status === 'OPEN' && (
-            <Button onClick={() => handleUpdateStatus(selectedRecord.id, 'INVESTIGATING')} className="bg-gradient-to-r from-teal-500 to-cyan-600 text-white">Start Investigation</Button>
+            <Button onClick={() => handleUpdateStatus(selectedRecord.id, 'INVESTIGATING')} disabled={isUpdating} className="bg-gradient-to-r from-teal-500 to-cyan-600 text-white">Start Investigation</Button>
           )}
           {(selectedRecord.status === 'OPEN' || selectedRecord.status === 'INVESTIGATING') && (
-            <Button onClick={() => handleUpdateStatus(selectedRecord.id, 'RESOLVED')} className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white">Mark Resolved</Button>
+            <Button onClick={() => handleUpdateStatus(selectedRecord.id, 'RESOLVED')} disabled={isUpdating} className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white">Mark Resolved</Button>
           )}
           {selectedRecord.status === 'RESOLVED' && (
-            <Button onClick={() => handleUpdateStatus(selectedRecord.id, 'CLOSED')} variant="outline">Close Case</Button>
+            <Button onClick={() => handleUpdateStatus(selectedRecord.id, 'CLOSED')} disabled={isUpdating} variant="outline">Close Case</Button>
           )}
         </div>
       </motion.div>
