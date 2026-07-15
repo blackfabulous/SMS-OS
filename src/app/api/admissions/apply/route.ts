@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { z } from 'zod'
 import { dispatchNotification } from '@/lib/notifications'
 
@@ -34,23 +35,23 @@ export async function POST(request: Request) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid request body')
   }
 
   const parsed = ApplySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Please check the form and try again.', details: parsed.error.issues }, { status: 400 })
+    return fail('VALIDATION', 'Please check the form and try again.', { details: parsed.error.issues })
   }
   const d = parsed.data
 
   // Honeypot triggered → pretend success, persist nothing.
   if (d.company) {
-    return NextResponse.json({ message: 'Application received', reference: 'APP-OK' }, { status: 201 })
+    return ok({ message: 'Application received', reference: 'APP-OK' }, 201)
   }
 
   const school = await db.school.findFirst()
   if (!school) {
-    return NextResponse.json({ error: 'Admissions are not currently configured. Please contact the school directly.' }, { status: 503 })
+    return fail('INTERNAL', 'Admissions are not currently configured. Please contact the school directly.')
   }
 
   try {
@@ -108,16 +109,16 @@ export async function POST(request: Request) {
       { parentId: parent.id, phone: d.guardianPhone, email: d.guardianEmail || null, name: `${d.guardianFirstName} ${d.guardianLastName}` },
     ).catch(() => {})
 
-    return NextResponse.json(
+    return ok(
       {
         message: 'Application received',
         reference: studentNumber,
         appliedFor: d.gradeApplyingFor,
       },
-      { status: 201 },
+      201,
     )
   } catch (error) {
-    console.error('Public admission application failed:', error)
-    return NextResponse.json({ error: 'Something went wrong submitting your application. Please try again later.' }, { status: 500 })
+    logger.error({ err: error }, 'Public admission application failed')
+    return fail('INTERNAL', 'Something went wrong submitting your application. Please try again later.')
   }
 }

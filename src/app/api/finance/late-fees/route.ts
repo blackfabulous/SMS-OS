@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { requireContext } from '@/server/context'
 import { logAudit } from '@/lib/audit'
 import { getSetting } from '@/lib/settings'
@@ -25,7 +26,12 @@ export async function GET() {
       lateFeeApplied: false,
     },
   })
-  return NextResponse.json({ penaltyPct, eligible })
+  try {
+    return ok({ penaltyPct, eligible })
+  } catch (error) {
+    logger.error({ err: error }, 'Error fetching late-fees preview')
+    return fail('INTERNAL', 'Failed to fetch late-fees preview')
+  }
 }
 
 /**
@@ -40,7 +46,7 @@ export async function POST() {
 
   const penaltyPct = await getSetting(ctx.schoolId, 'finance.lateFeePenaltyPct')
   if (penaltyPct <= 0) {
-    return NextResponse.json({ applied: 0, totalPenalty: 0, message: 'No late-fee penalty is configured.' })
+    return ok({ applied: 0, totalPenalty: 0, message: 'No late-fee penalty is configured.' })
   }
 
   const overdue = await db.feeInvoice.findMany({
@@ -55,7 +61,7 @@ export async function POST() {
   })
 
   if (overdue.length === 0) {
-    return NextResponse.json({ applied: 0, totalPenalty: 0, message: 'No eligible overdue invoices.' })
+    return ok({ applied: 0, totalPenalty: 0, message: 'No eligible overdue invoices.' })
   }
 
   let totalPenalty = 0
@@ -95,5 +101,10 @@ export async function POST() {
     afterValue: { applied: overdue.length, totalPenalty, penaltyPct },
   }).catch(() => {})
 
-  return NextResponse.json({ applied: overdue.length, totalPenalty, penaltyPct })
+  try {
+    return ok({ applied: overdue.length, totalPenalty, penaltyPct })
+  } catch (error) {
+    logger.error({ err: error }, 'Error applying late fees')
+    return fail('INTERNAL', 'Failed to apply late fees')
+  }
 }

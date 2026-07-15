@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { fail } from '@/server/http'
 import { validateAuth } from '@/lib/api-auth'
 
 function escapeXml(str: string): string {
@@ -65,11 +66,11 @@ ${urls.map((u) => `  <url>
   </url>`).join('\n')}
 </urlset>`
 
-    return new NextResponse(xml, {
+    return new Response(xml, {
       headers: { 'Content-Type': 'application/xml', 'Cache-Control': 'public, max-age=3600' },
     })
   } catch (error) {
-    console.error('Sitemap generation error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to generate sitemap' }, { status: 500 })
+    logger.error({ err: error }, 'Sitemap generation error')
+    return fail('INTERNAL', 'Failed to generate sitemap')
   }
 }

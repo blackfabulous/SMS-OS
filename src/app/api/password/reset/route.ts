@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createHash } from 'crypto'
 import { db } from '@/lib/db'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { hashPassword } from '@/lib/auth'
 
 /**
@@ -14,11 +15,11 @@ const Schema = z.object({
 
 export async function POST(request: Request) {
   let body: unknown
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request' }, { status: 400 }) }
+  try { body = await request.json() } catch { return fail('VALIDATION', 'Invalid request') }
 
   const parsed = Schema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' }, { status: 400 })
+    return fail('VALIDATION', parsed.error.issues[0]?.message ?? 'Invalid request.')
   }
 
   const tokenHash = createHash('sha256').update(parsed.data.token).digest('hex')
@@ -26,12 +27,12 @@ export async function POST(request: Request) {
   try {
     const record = await db.passwordResetToken.findUnique({ where: { tokenHash } })
     if (!record || record.usedAt || record.expiresAt < new Date()) {
-      return NextResponse.json({ error: 'This reset link is invalid or has expired. Please request a new one.' }, { status: 400 })
+      return fail('VALIDATION', 'This reset link is invalid or has expired. Please request a new one.')
     }
 
     const user = await db.user.findUnique({ where: { email: record.email }, select: { id: true } })
     if (!user) {
-      return NextResponse.json({ error: 'This reset link is no longer valid.' }, { status: 400 })
+      return fail('VALIDATION', 'This reset link is no longer valid.')
     }
 
     const hashed = await hashPassword(parsed.data.password)
@@ -42,9 +43,9 @@ export async function POST(request: Request) {
       db.passwordResetToken.deleteMany({ where: { email: record.email, usedAt: null } }),
     ])
 
-    return NextResponse.json({ message: 'Your password has been reset. You can now sign in.' }, { status: 200 })
+    return ok({ message: 'Your password has been reset. You can now sign in.' })
   } catch (err) {
-    console.error('reset-password error', err)
-    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 })
+    logger.error({ err }, 'reset-password error')
+    return fail('INTERNAL', 'Something went wrong. Please try again.')
   }
 }

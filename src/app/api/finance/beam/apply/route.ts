@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { requireContext } from '@/server/context'
 import { logAudit } from '@/lib/audit'
 import { allocateBeamCoverage } from '@/lib/beam'
@@ -17,21 +18,21 @@ export async function POST(request: Request) {
   const { ctx } = result
 
   let body: { studentId?: string }
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
-  if (!body.studentId) return NextResponse.json({ error: 'studentId is required' }, { status: 400 })
+  try { body = await request.json() } catch { return fail('VALIDATION', 'Invalid JSON body') }
+  if (!body.studentId) return fail('VALIDATION', 'studentId is required')
 
   // Tenant guard + load the BEAM application.
   const student = await db.student.findFirst({
     where: { id: body.studentId, schoolId: ctx.schoolId },
     select: { id: true, beamApplication: true },
   })
-  if (!student) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+  if (!student) return fail('NOT_FOUND', 'Student not found')
 
   const beam = student.beamApplication
-  if (!beam) return NextResponse.json({ error: 'No BEAM application for this student' }, { status: 404 })
-  if (beam.status !== 'APPROVED') return NextResponse.json({ error: `BEAM application is ${beam.status}, not APPROVED` }, { status: 409 })
-  if (beam.coverageAppliedAt) return NextResponse.json({ error: 'BEAM coverage has already been applied' }, { status: 409 })
-  if (beam.coveredAmount <= 0) return NextResponse.json({ error: 'BEAM coverage amount is zero' }, { status: 400 })
+  if (!beam) return fail('NOT_FOUND', 'No BEAM application for this student')
+  if (beam.status !== 'APPROVED') return fail('CONFLICT', `BEAM application is ${beam.status}, not APPROVED`)
+  if (beam.coverageAppliedAt) return fail('CONFLICT', 'BEAM coverage has already been applied')
+  if (beam.coveredAmount <= 0) return fail('VALIDATION', 'BEAM coverage amount is zero')
 
   const invoices = await db.feeInvoice.findMany({
     where: { studentId: student.id, balance: { gt: 0 }, status: { in: ['PENDING', 'PARTIAL'] } },
@@ -81,5 +82,10 @@ export async function POST(request: Request) {
 
   logAudit({ action: 'CREATE', entity: 'finance.beam-apply', entityId: student.id, afterValue: { totalApplied, invoices: allocations.length } }).catch(() => {})
 
-  return NextResponse.json({ applied: allocations.length, totalApplied, leftover })
+  try {
+    return ok({ applied: allocations.length, totalApplied, leftover })
+  } catch (error) {
+    logger.error({ err: error }, 'Error applying BEAM coverage')
+    return fail('INTERNAL', 'Failed to apply BEAM coverage')
+  }
 }

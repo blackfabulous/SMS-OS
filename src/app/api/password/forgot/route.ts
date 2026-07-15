@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { randomBytes, createHash } from 'crypto'
 import { db } from '@/lib/db'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { sendEmail, resetPasswordEmail } from '@/lib/email'
 
 /**
@@ -18,10 +19,10 @@ function siteUrl() {
 
 export async function POST(request: Request) {
   let body: unknown
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request' }, { status: 400 }) }
+  try { body = await request.json() } catch { return fail('VALIDATION', 'Invalid request') }
 
   const parsed = Schema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 })
+  if (!parsed.success) return fail('VALIDATION', 'Please enter a valid email address.')
   const email = parsed.data.email.toLowerCase().trim()
 
   try {
@@ -42,8 +43,8 @@ export async function POST(request: Request) {
     }
   } catch (err) {
     // Never reveal internal errors to the caller; log and still return generic.
-    console.error('forgot-password error', err)
+    logger.error({ err }, 'forgot-password error')
   }
 
-  return NextResponse.json(GENERIC, { status: 200 })
+  return ok(GENERIC)
 }

@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 
@@ -15,7 +17,7 @@ export async function GET(request: NextRequest) {
     const schoolId = school?.id
 
     if (!schoolId) {
-      return NextResponse.json({ success: false, error: 'School not configured' }, { status: 400 })
+      return fail('FORBIDDEN', 'School not configured')
     }
 
     // Return specific page SEO if pageSlug provided
@@ -23,7 +25,7 @@ export async function GET(request: NextRequest) {
       const seoSetting = await db.sEOSetting.findUnique({
         where: { schoolId_pageSlug: { schoolId, pageSlug } },
       })
-      return NextResponse.json({ success: true, data: seoSetting })
+      return ok(seoSetting)
     }
 
     // Return all SEO settings + sitemap data
@@ -39,10 +41,10 @@ export async function GET(request: NextRequest) {
       news: newsArticles.map((n) => ({ id: n.id, slug: n.slug, publishedAt: n.publishedAt, updatedAt: n.updatedAt })),
     }
 
-    return NextResponse.json({ success: true, data: { seoSettings, sitemapData } })
+    return ok({ seoSettings, sitemapData })
   } catch (error) {
-    console.error('SEO GET error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to fetch SEO data' }, { status: 500 })
+    logger.error({ err: error }, 'SEO GET error')
+    return fail('INTERNAL', 'Failed to fetch SEO data')
   }
 }
 
@@ -58,10 +60,10 @@ export async function POST(request: NextRequest) {
     const schoolId = school?.id
 
     if (!schoolId) {
-      return NextResponse.json({ success: false, error: 'School not configured' }, { status: 400 })
+      return fail('FORBIDDEN', 'School not configured')
     }
     if (!pageSlug) {
-      return NextResponse.json({ success: false, error: 'pageSlug is required' }, { status: 400 })
+      return fail('VALIDATION', 'pageSlug is required')
     }
 
     // Check if SEO setting already exists for this slug
@@ -69,17 +71,17 @@ export async function POST(request: NextRequest) {
       where: { schoolId_pageSlug: { schoolId, pageSlug } },
     })
     if (existing) {
-      return NextResponse.json({ success: false, error: 'SEO setting already exists for this page slug. Use PUT to update.' }, { status: 409 })
+      return fail('CONFLICT', 'SEO setting already exists for this page slug. Use PUT to update.')
     }
 
     const seoSetting = await db.sEOSetting.create({
       data: { schoolId, pageSlug, metaTitle, metaDescription, metaKeywords, ogTitle, ogDescription, ogImage, schemaMarkup, canonicalUrl, robotsDirective: robotsDirective || 'index, follow' },
     })
     logAudit({ action: 'CREATE', entity: 'seo' }).catch(() => {})
-    return NextResponse.json({ success: true, data: seoSetting }, { status: 201 })
+    return ok(seoSetting, 201)
   } catch (error) {
-    console.error('SEO POST error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to create SEO setting' }, { status: 500 })
+    logger.error({ err: error }, 'SEO POST error')
+    return fail('INTERNAL', 'Failed to create SEO setting')
   }
 }
 
@@ -93,7 +95,7 @@ export async function PUT(request: NextRequest) {
     const { id, ...fieldsToUpdate } = body
 
     if (!id) {
-      return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     const seoSetting = await db.sEOSetting.update({
@@ -101,10 +103,10 @@ export async function PUT(request: NextRequest) {
       data: { ...fieldsToUpdate, updatedAt: new Date() },
     })
     logAudit({ action: 'UPDATE', entity: 'seo', entityId: (body?.id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ success: true, data: seoSetting })
+    return ok(seoSetting)
   } catch (error) {
-    console.error('SEO PUT error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to update SEO setting' }, { status: 500 })
+    logger.error({ err: error }, 'SEO PUT error')
+    return fail('INTERNAL', 'Failed to update SEO setting')
   }
 }
 
@@ -118,14 +120,14 @@ export async function DELETE(request: NextRequest) {
     const { id } = body
 
     if (!id) {
-      return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     await db.sEOSetting.delete({ where: { id } })
     logAudit({ action: 'DELETE', entity: 'seo', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ success: true, data: { deleted: true } })
+    return ok({ deleted: true })
   } catch (error) {
-    console.error('SEO DELETE error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to delete SEO setting' }, { status: 500 })
+    logger.error({ err: error }, 'SEO DELETE error')
+    return fail('INTERNAL', 'Failed to delete SEO setting')
   }
 }

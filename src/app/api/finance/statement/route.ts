@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { requireContext } from '@/server/context'
 import { buildStatement } from '@/lib/statement'
 
@@ -14,13 +15,13 @@ export async function GET(request: Request) {
   const { ctx } = result
 
   const studentId = new URL(request.url).searchParams.get('studentId')
-  if (!studentId) return NextResponse.json({ error: 'studentId is required' }, { status: 400 })
+  if (!studentId) return fail('VALIDATION', 'studentId is required')
 
   const student = await db.student.findFirst({
     where: { id: studentId, schoolId: ctx.schoolId },
     select: { id: true, firstName: true, lastName: true, studentNumber: true },
   })
-  if (!student) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+  if (!student) return fail('NOT_FOUND', 'Student not found')
 
   const [invoices, payments] = await Promise.all([
     db.feeInvoice.findMany({
@@ -35,8 +36,13 @@ export async function GET(request: Request) {
 
   const statement = buildStatement(invoices, payments)
 
-  return NextResponse.json({
-    student: { id: student.id, name: `${student.firstName} ${student.lastName}`, studentNumber: student.studentNumber },
-    statement,
-  })
+  try {
+    return ok({
+      student: { id: student.id, name: `${student.firstName} ${student.lastName}`, studentNumber: student.studentNumber },
+      statement,
+    })
+  } catch (error) {
+    logger.error({ err: error }, 'Error generating finance statement')
+    return fail('INTERNAL', 'Failed to generate statement')
+  }
 }
