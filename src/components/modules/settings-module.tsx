@@ -1,7 +1,7 @@
 'use client'
 
 import { ModulePageLayout } from '@/components/module-ui';
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Settings,
@@ -49,6 +49,8 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+import { useApiQuery, useApiPut, useQueryClient } from '@/hooks/use-api-query'
 import { exportToCSV, printReport, buildHTMLTable } from '@/lib/export-utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -123,6 +125,16 @@ interface AuditLog {
   ipAddress: string
 }
 
+interface AuditResponse {
+  data: AuditLog[]
+  total: number
+  page: number
+  totalPages: number
+  users: string[]
+  modules: string[]
+  actions: string[]
+}
+
 // ─── Action Color Config ──────────────────────────────────────────────────────
 
 const actionColors: Record<string, string> = {
@@ -135,11 +147,9 @@ const actionColors: Record<string, string> = {
 // ─── Settings Module ─────────────────────────────────────────────────────────
 
 export default function SettingsModule() {
-  const [school, setSchool] = useState<SchoolProfile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [activeTab, setActiveTab] = useState('profile')
+  const [saved, setSaved] = useState(false)
+  const queryClient = useQueryClient()
 
   // Setup Wizard state
   const [wizardStep, setWizardStep] = useState(1)
@@ -170,15 +180,35 @@ export default function SettingsModule() {
     bursarName: '',
   })
 
-  // Form state
-  const [form, setForm] = useState<Partial<SchoolProfile>>({})
+  // School profile
+  const { data: school, isPending: loading, error: schoolError } = useApiQuery<SchoolProfile>(['school'], '/api/school')
+
+  const [overrides, setOverrides] = useState<Partial<SchoolProfile>>({})
+  const form = useMemo(() => ({ ...school, ...overrides } as Partial<SchoolProfile>), [school, overrides])
+
+  const { mutate: save, isPending: saving } = useApiPut<Partial<SchoolProfile>, SchoolProfile>('/api/school', {
+    onSuccess: () => {
+      setOverrides({})
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+      queryClient.invalidateQueries({ queryKey: ['school'] })
+      toast.success('School settings saved')
+    },
+    onError: (error) => {
+      toast.error('Failed to save settings', { description: error.message })
+    },
+  })
+
+  const handleSave = () => {
+    if (!school) return
+    save({ ...form, id: school.id })
+  }
+
+  const updateForm = (field: string, value: string | number) => {
+    setOverrides((prev) => ({ ...prev, [field]: value }))
+  }
 
   // Audit Trail state
-  const [auditData, setAuditData] = useState<AuditLog[]>([])
-  const [auditLoading, setAuditLoading] = useState(false)
-  const [auditUsers, setAuditUsers] = useState<string[]>([])
-  const [auditModules, setAuditModules] = useState<string[]>([])
-  const [auditActions, setAuditActions] = useState<string[]>([])
   const [auditFilterUser, setAuditFilterUser] = useState('ALL')
   const [auditFilterModule, setAuditFilterModule] = useState('ALL')
   const [auditFilterAction, setAuditFilterAction] = useState('ALL')
@@ -186,83 +216,39 @@ export default function SettingsModule() {
   const [auditFilterEndDate, setAuditFilterEndDate] = useState('')
   const [auditSearch, setAuditSearch] = useState('')
 
-  const fetchSchool = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await fetch('/api/school')
-      if (res.ok) {
-        const data = await res.json()
-        setSchool(data)
-        setForm(data)
-      }
-    } catch (err) {
-      console.error('Failed to fetch school:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const auditFilters = useMemo(() => ({
+    user: auditFilterUser,
+    module: auditFilterModule,
+    action: auditFilterAction,
+    startDate: auditFilterStartDate,
+    endDate: auditFilterEndDate,
+  }), [auditFilterUser, auditFilterModule, auditFilterAction, auditFilterStartDate, auditFilterEndDate])
 
-  const fetchAuditData = useCallback(async () => {
-    try {
-      setAuditLoading(true)
-      const params = new URLSearchParams()
-      if (auditFilterUser !== 'ALL') params.set('user', auditFilterUser)
-      if (auditFilterModule !== 'ALL') params.set('module', auditFilterModule)
-      if (auditFilterAction !== 'ALL') params.set('action', auditFilterAction)
-      if (auditFilterStartDate) params.set('startDate', auditFilterStartDate)
-      if (auditFilterEndDate) params.set('endDate', auditFilterEndDate)
-
-      const res = await fetch(`/api/audit?${params.toString()}`)
-      if (res.ok) {
-        const data = await res.json()
-        setAuditData(data.data || [])
-        setAuditUsers(data.users || [])
-        setAuditModules(data.modules || [])
-        setAuditActions(data.actions || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch audit data:', err)
-    } finally {
-      setAuditLoading(false)
-    }
+  const auditUrl = useMemo(() => {
+    const params = new URLSearchParams()
+    if (auditFilterUser !== 'ALL') params.set('user', auditFilterUser)
+    if (auditFilterModule !== 'ALL') params.set('module', auditFilterModule)
+    if (auditFilterAction !== 'ALL') params.set('action', auditFilterAction)
+    if (auditFilterStartDate) params.set('startDate', auditFilterStartDate)
+    if (auditFilterEndDate) params.set('endDate', auditFilterEndDate)
+    return `/api/audit?${params.toString()}`
   }, [auditFilterUser, auditFilterModule, auditFilterAction, auditFilterStartDate, auditFilterEndDate])
 
-  useEffect(() => {
-    fetchSchool()
-  }, [fetchSchool])
+  const {
+    data: auditResult,
+    isPending: auditLoading,
+    error: auditError,
+  } = useApiQuery<AuditResponse>(['audit', auditFilters], auditUrl, { enabled: activeTab === 'audit' })
+
+  const auditData = auditResult?.data ?? []
+  const auditUsers = auditResult?.users ?? []
+  const auditModules = auditResult?.modules ?? []
+  const auditActions = auditResult?.actions ?? []
 
   useEffect(() => {
-    if (activeTab === 'audit') {
-      fetchAuditData()
-    }
-  }, [activeTab, fetchAuditData])
-
-  const handleSave = async () => {
-    try {
-      setSaving(true)
-      setSaved(false)
-      const res = await fetch('/api/school', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setSchool(data)
-        setForm(data)
-        setSaved(true)
-        setTimeout(() => setSaved(false), 3000)
-      }
-    } catch (err) {
-      console.error('Failed to save settings:', err)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const updateForm = (field: string, value: string | number) => {
-    setForm((prev) => ({ ...prev, [field]: value }))
-  }
+    if (schoolError) toast.error(schoolError.message || 'Failed to load school')
+    if (auditError) toast.error(auditError.message || 'Failed to load audit logs')
+  }, [schoolError, auditError])
 
   // Academic setup data (simulated)
   const academicYears = [

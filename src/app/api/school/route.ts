@@ -1,7 +1,8 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
 import { hash } from 'bcrypt'
 import { logAudit } from '@/lib/audit'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 
 export async function GET() {
@@ -13,13 +14,13 @@ export async function GET() {
     let school = await db.school.findUnique({ where: { id: session.user.schoolId } })
 
     if (!school) {
-      return NextResponse.json({ error: 'School not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'School not found')
     }
 
-    return NextResponse.json(school)
+    return ok(school)
   } catch (error) {
-    console.error('Error fetching school:', error)
-    return NextResponse.json({ error: 'Failed to fetch school info' }, { status: 500 })
+    logger.error({ err: error }, 'Error fetching school')
+    return fail('INTERNAL', 'Failed to fetch school info')
   }
 }
 
@@ -68,10 +69,10 @@ export async function PUT(request: Request) {
     })
 
     logAudit({ action: 'UPDATE', entity: 'school', entityId: school.id, afterValue: school }).catch(() => {})
-    return NextResponse.json(school)
+    return ok(school)
   } catch (error) {
-    console.error('Error updating school:', error)
-    return NextResponse.json({ error: 'Failed to update school info' }, { status: 500 })
+    logger.error({ err: error }, 'Error updating school')
+    return fail('INTERNAL', 'Failed to update school info')
   }
 }
 
@@ -85,12 +86,12 @@ export async function POST(request: Request) {
     const { school: schoolData, academic, fees, admin } = body
 
     if (!schoolData?.name || !schoolData?.code) {
-      return NextResponse.json({ error: 'School name and code (EMIS) are required' }, { status: 400 })
+      return fail('VALIDATION', 'School name and code (EMIS) are required')
     }
 
     const existingSchool = await db.school.findFirst()
     if (existingSchool) {
-      return NextResponse.json({ error: 'A school is already configured. Use PUT to update.' }, { status: 409 })
+      return fail('CONFLICT', 'A school is already configured. Use PUT to update.')
     }
 
     const school = await db.school.create({
@@ -181,9 +182,9 @@ export async function POST(request: Request) {
     }
 
     logAudit({ action: 'CREATE', entity: 'school', entityId: school.id }).catch(() => {})
-    return NextResponse.json({ success: true, schoolName: school.name, summary: { grades: gradeCount, classes: classCount, terms: termCount, feeItems: feeCount } })
+    return ok({ success: true, schoolName: school.name, summary: { grades: gradeCount, classes: classCount, terms: termCount, feeItems: feeCount } }, 201)
   } catch (error) {
-    console.error('Error creating school:', error)
-    return NextResponse.json({ error: 'Failed to create school. ' + (error instanceof Error ? error.message : 'Unknown error') }, { status: 500 })
+    logger.error({ err: error }, 'Error creating school')
+    return fail('INTERNAL', 'Failed to create school')
   }
 }

@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateRole } from '@/lib/api-auth'
 
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
     const modules = [...new Set(allLogs.map((l) => l.entity))]
     const actions = [...new Set(allLogs.map((l) => l.action))]
 
-    return NextResponse.json({
+    return ok({
       data: logs,
       total,
       page,
@@ -54,8 +55,8 @@ export async function GET(request: Request) {
       actions,
     })
   } catch (error) {
-    console.error('Error fetching audit logs:', error)
-    return NextResponse.json({ error: 'Failed to fetch audit logs' }, { status: 500 })
+    logger.error({ err: error }, 'Error fetching audit logs')
+    return fail('INTERNAL', 'Failed to fetch audit logs')
   }
 }
 
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
     const { action, entity, entityId, performedBy, details, beforeValue, afterValue } = body
 
     if (!action || !entity) {
-      return NextResponse.json({ error: 'Action and entity are required' }, { status: 400 })
+      return fail('VALIDATION', 'Action and entity are required')
     }
 
     await logAudit({
@@ -81,9 +82,9 @@ export async function POST(request: Request) {
       afterValue,
     })
 
-    return NextResponse.json({ success: true }, { status: 201 })
+    return ok({ success: true }, 201)
   } catch (error) {
-    console.error('Error creating audit log:', error)
-    return NextResponse.json({ error: 'Failed to create audit log' }, { status: 500 })
+    logger.error({ err: error }, 'Error creating audit log')
+    return fail('INTERNAL', 'Failed to create audit log')
   }
 }
