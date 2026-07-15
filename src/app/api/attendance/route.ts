@@ -1,5 +1,4 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
 import { logger } from '@/lib/logger'
 import { ok, fail } from '@/server/http'
 import { AppError, isAppError } from '@/lib/errors'
@@ -119,11 +118,11 @@ export async function POST(request: Request) {
 
     if (body.records && Array.isArray(body.records)) {
       const { count, message } = await bulkCreateAttendance(tenant.schoolId, auth.session.user.id, body.records)
-      return NextResponse.json({ message, count }, { status: 201 })
+      return ok({ message, count }, 201)
     }
 
     const record = await createAttendance(tenant.schoolId, auth.session.user.id, body)
-    return NextResponse.json(record, { status: 201 })
+    return ok(record, 201)
   } catch (error) {
     if (isAppError(error)) return fail(error.code, error.message)
     logger.error({ err: error }, 'Error recording attendance')
@@ -143,7 +142,7 @@ export async function PUT(request: Request) {
     const { id, ...updates } = body
 
     const record = await updateAttendance(tenant.schoolId, auth.session.user.id, id, updates)
-    return NextResponse.json(record)
+    return ok(record)
   } catch (error) {
     if (isAppError(error)) return fail(error.code, error.message)
     logger.error({ err: error }, 'Error updating attendance')
@@ -163,7 +162,7 @@ export async function DELETE(request: Request) {
     const id = searchParams.get('id') || ''
 
     const message = await deleteAttendance(tenant.schoolId, auth.session.user.id, id)
-    return NextResponse.json({ message })
+    return ok({ message })
   } catch (error) {
     if (isAppError(error)) return fail(error.code, error.message)
     logger.error({ err: error }, 'Error deleting attendance')

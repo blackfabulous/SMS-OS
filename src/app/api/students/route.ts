@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
 import { logAudit } from '@/lib/audit'
@@ -74,10 +75,10 @@ export async function GET(request: Request) {
       db.student.count({ where }),
     ])
 
-    return NextResponse.json({ data, total, page, totalPages: Math.ceil(total / limit) })
+    return ok({ data, total, page, totalPages: Math.ceil(total / limit) })
   } catch (error) {
-    console.error('Error fetching students:', error)
-    return NextResponse.json({ error: 'Failed to fetch students' }, { status: 500 })
+    logger.error({ err: error }, 'Error fetching students')
+    return fail('INTERNAL', 'Failed to fetch students')
   }
 }
 
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
     // from the body below.
     const parsed = CreateStudentSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+      return fail('VALIDATION', 'Validation failed', { details: parsed.error.issues })
     }
 
     const currentYear = new Date().getFullYear()
@@ -179,9 +180,9 @@ export async function POST(request: Request) {
     }
 
     logAudit({ action: 'CREATE', entity: 'students', entityId: student.id, afterValue: student }).catch(() => {})
-    return NextResponse.json(student, { status: 201 })
+    return ok(student, 201)
   } catch (error) {
-    console.error('Error creating student:', error)
-    return NextResponse.json({ error: 'Failed to create student' }, { status: 500 })
+    logger.error({ err: error }, 'Error creating student')
+    return fail('INTERNAL', 'Failed to create student')
   }
 }

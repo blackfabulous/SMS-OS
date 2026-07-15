@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import {
   CalendarCheck,
@@ -131,6 +131,17 @@ interface AttendanceData {
   records: AttendanceRecord[]
 }
 
+interface StudentsResponse {
+  data: StudentInfo[]
+  total: number
+  page: number
+  totalPages: number
+}
+
+interface AcademicsResponse {
+  classes: Array<{ id: string; name: string; stream?: string | null; grade?: { name: string } }>
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const formatDate = (dateStr: string) => {
@@ -165,6 +176,7 @@ const classChartConfig = {
 
 export default function AttendanceModule() {
   const queryClient = useQueryClient()
+  const initializedForClass = useRef<string | null>(null)
   const [activeTab, setActiveTab] = useState('overview')
   const [viewMode, setViewMode] = useState<'list' | 'settings'>('list')
 
@@ -178,11 +190,7 @@ export default function AttendanceModule() {
   // Take Attendance
   const [selectedDate, setSelectedDate] = useState(todayStr())
   const [selectedClassId, setSelectedClassId] = useState('')
-  const [classList, setClassList] = useState<ClassInfo[]>([])
-  const [studentsInClass, setStudentsInClass] = useState<StudentInfo[]>([])
   const [attendanceEntries, setAttendanceEntries] = useState<Record<string, { status: string; remarks: string }>>({})
-  const [submitting, setSubmitting] = useState(false)
-  const [studentsLoading, setStudentsLoading] = useState(false)
 
   // Records
   const [recordsDateFilter, setRecordsDateFilter] = useState(todayStr())
@@ -201,6 +209,58 @@ export default function AttendanceModule() {
     isPending: recordsLoading,
     error: recordsError,
   } = useApiQuery<AttendanceData>(['attendance', 'records', recordsDateFilter, recordsClassFilter], recordsUrl, { enabled: activeTab === 'records' })
+
+  // Classes + students for take-attendance
+  const {
+    data: academicsData,
+    error: academicsError,
+  } = useApiQuery<AcademicsResponse>(['academics'], '/api/academics')
+
+  const classList = academicsData?.classes ?? []
+
+  const {
+    data: studentsData,
+    isPending: studentsLoading,
+    error: studentsError,
+  } = useApiQuery<StudentsResponse>(
+    ['students', 'attendance', selectedClassId],
+    `/api/students?limit=1000`,
+    { enabled: activeTab === 'take' && !!selectedClassId }
+  )
+
+  const studentsInClass = useMemo(() => {
+    if (!selectedClassId) return []
+    return (studentsData?.data ?? []).filter((s) =>
+      s.enrollments?.some((e) => e.class?.id === selectedClassId)
+    )
+  }, [studentsData, selectedClassId])
+
+  useEffect(() => {
+    if (initializedForClass.current === selectedClassId || !studentsInClass.length) return
+    const entries: Record<string, { status: string; remarks: string }> = {}
+    studentsInClass.forEach((s) => {
+      entries[s.id] = { status: 'PRESENT', remarks: '' }
+    })
+    setAttendanceEntries(entries)
+    initializedForClass.current = selectedClassId
+  }, [studentsInClass, selectedClassId])
+
+  // Submit attendance mutation
+  const { mutate: submitAttendance, isPending: isSubmitting } = useApiMutation<
+    { records: Array<{ studentId: string; date: string; status: string; remarks?: string }> },
+    { message: string; count: number }
+  >('/api/attendance', {
+    onSuccess: (data) => {
+      setAttendanceEntries({})
+      queryClient.invalidateQueries({ queryKey: ['attendance'] })
+      toast.success('Attendance submitted successfully', {
+        description: `${data.count} attendance records saved`,
+      })
+    },
+    onError: (err) => toast.error(err.message || 'Failed to submit attendance', {
+      description: 'An error occurred while saving attendance records',
+    }),
+  })
 
   // Chronic Absenteeism (derived from overview records)
   const chronicLoading = loading
@@ -247,52 +307,7 @@ export default function AttendanceModule() {
     notifyParents: true,
   })
 
-  // ─── Data Fetching ─────────────────────────────────────────────────────
-
-  const fetchClasses = useCallback(async () => {
-    try {
-      const res = await fetch('/api/academics')
-      if (res.ok) {
-        const data = await res.json()
-        const classes: ClassInfo[] = (data.classes || []).map((c: { id: string; name: string; stream?: string | null; grade?: { name: string } }) => ({
-          id: c.id,
-          name: c.name,
-          stream: c.stream,
-          grade: c.grade,
-        }))
-        setClassList(classes)
-      }
-    } catch (err) {
-      console.error('Failed to fetch classes:', err)
-    }
-  }, [])
-
-  const fetchStudentsForClass = useCallback(async (classId: string) => {
-    if (!classId) return
-    try {
-      setStudentsLoading(true)
-      const res = await fetch(`/api/students?limit=100`)
-      if (res.ok) {
-        const data = await res.json()
-        const allStudents: StudentInfo[] = data.data || data || []
-        // Filter students by class
-        const filtered = allStudents.filter((s: StudentInfo) =>
-          s.enrollments?.some((e) => e.class?.id === classId)
-        )
-        setStudentsInClass(filtered)
-        // Initialize attendance entries
-        const entries: Record<string, { status: string; remarks: string }> = {}
-        filtered.forEach((s: StudentInfo) => {
-          entries[s.id] = { status: 'PRESENT', remarks: '' }
-        })
-        setAttendanceEntries(entries)
-      }
-    } catch (err) {
-      console.error('Failed to fetch students:', err)
-    } finally {
-      setStudentsLoading(false)
-    }
-  }, [])
+  // ─── Side effects ──────────────────────────────────────────────────────
 
   useEffect(() => {
     if (overviewError) toast.error(overviewError.message || 'Failed to load attendance overview')
@@ -303,12 +318,12 @@ export default function AttendanceModule() {
   }, [recordsError])
 
   useEffect(() => {
-    fetchClasses()
-  }, [fetchClasses])
+    if (academicsError) toast.error(academicsError.message || 'Failed to load classes')
+  }, [academicsError])
 
   useEffect(() => {
-    if (selectedClassId) fetchStudentsForClass(selectedClassId)
-  }, [selectedClassId, fetchStudentsForClass])
+    if (studentsError) toast.error(studentsError.message || 'Failed to load students')
+  }, [studentsError])
 
   // ─── Handlers ──────────────────────────────────────────────────────────
 
@@ -326,36 +341,15 @@ export default function AttendanceModule() {
     }))
   }
 
-  const handleSubmitAttendance = async () => {
+  const handleSubmitAttendance = () => {
     if (!selectedClassId || Object.keys(attendanceEntries).length === 0) return
-    try {
-      setSubmitting(true)
-      const records = Object.entries(attendanceEntries).map(([studentId, entry]) => ({
-        studentId,
-        date: selectedDate,
-        status: entry.status,
-        remarks: entry.remarks || undefined,
-      }))
-      const res = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ records }),
-      })
-      if (res.ok) {
-        setAttendanceEntries({})
-        queryClient.invalidateQueries({ queryKey: ['attendance'] })
-        toast.success('Attendance submitted successfully', {
-          description: `${records.length} attendance records saved`,
-        })
-      }
-    } catch (err) {
-      console.error('Failed to submit attendance:', err)
-      toast.error('Failed to submit attendance', {
-        description: 'An error occurred while saving attendance records',
-      })
-    } finally {
-      setSubmitting(false)
-    }
+    const records = Object.entries(attendanceEntries).map(([studentId, entry]) => ({
+      studentId,
+      date: selectedDate,
+      status: entry.status,
+      remarks: entry.remarks || undefined,
+    }))
+    submitAttendance({ records })
   }
 
   // ─── Chart Data ────────────────────────────────────────────────────────
@@ -720,7 +714,7 @@ export default function AttendanceModule() {
                   </div>
                   <div className="grid gap-1 w-full sm:w-auto">
                     <Label className="text-xs">Class</Label>
-                    <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+                    <Select value={selectedClassId} onValueChange={(v) => { setSelectedClassId(v); setAttendanceEntries({}); initializedForClass.current = null }}>
                       <SelectTrigger className="h-9 w-full sm:w-48">
                         <SelectValue placeholder="Select class..." />
                       </SelectTrigger>
@@ -838,10 +832,10 @@ export default function AttendanceModule() {
                     </div>
                     <Button
                       onClick={handleSubmitAttendance}
-                      disabled={submitting || Object.keys(attendanceEntries).length === 0}
+                      disabled={isSubmitting || Object.keys(attendanceEntries).length === 0}
                       className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md"
                     >
-                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       Submit Attendance
                     </Button>
                   </div>
