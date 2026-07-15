@@ -22,7 +22,7 @@
 | Tenancy backstop (RLS) | Implemented: `src/lib/db.ts` Prisma extension, `prisma/rls/enable-rls.sql` now uses direct `schoolId` policies and covers every tenant table (no `EXISTS` join policies); `docs/RLS.md` | Done / advanced |
 | RBAC | `src/lib/rbac.ts` matrix, `src/server/context.ts` `requireContext` wrapper | Done |
 | Service layer (`src/server`) | `src/lib/settings.ts`, `src/server/finance/scope.ts`, `src/server/services/payment-service.ts`, `src/lib/finance-calc.ts`, `src/lib/grading.ts`, etc. | Partial — payments service + repository created; other contexts pending |
-| Real dashboard routes | `src/app/dashboard/page.tsx` is `'use client'` with Zustand `activeModule` module-swap; public `(public)` routes are real SSR | Partial |
+| Real dashboard routes | `src/app/dashboard/[module]/page.tsx` introduced; `DashboardShell` drives module from URL; `AppSidebar` and `MobileBottomNav` navigate via `router.push`; legacy Zustand `activeModule` still used by internal module buttons (migration pending) | Partial |
 | TanStack Query | Installed (`@tanstack/react-query ^5.82`); `src/lib/use-api.ts` exists; dashboard/modules use ad-hoc `fetch` | Partial |
 | Design system | Emerald tokens + `components/ui` exist; module files are 800–1,500-line monoliths with inconsistent loading/error/empty states | Partial |
 | Tests | 13 Vitest files, including `tests/tenant-safety.test.ts`, `tests/tenant-context.test.ts`, `tests/finance-scope.test.ts`, `tests/student-access.test.ts` | Partial |
