@@ -11,7 +11,7 @@ import {
   TableShell,
   KitEmptyState,
 } from '@/components/module-ui';
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState } from 'react'
 import { useApiQuery, useApiMutation, useApiPut, useQueryClient } from '@/hooks/use-api-query'
 import { motion } from 'framer-motion'
 import {
@@ -93,6 +93,13 @@ interface Student {
   firstName: string
   lastName: string
   studentNumber: string
+}
+
+interface StudentsResponse {
+  data: Student[]
+  total: number
+  page: number
+  totalPages: number
 }
 
 interface DisciplineRecord {
@@ -183,7 +190,6 @@ const severityDonutConfig = {
 
 export default function DisciplineModule() {
   const queryClient = useQueryClient()
-  const [students, setStudents] = useState<Student[]>([])
   const [activeTab, setActiveTab] = useState('overview')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterSeverity, setFilterSeverity] = useState('ALL')
@@ -195,6 +201,11 @@ export default function DisciplineModule() {
     isPending: loading,
   } = useApiQuery<DisciplineResponse>(['discipline'], '/api/discipline')
 
+  const {
+    data: studentsData,
+  } = useApiQuery<StudentsResponse>(['students', 'discipline'], '/api/students?limit=500')
+
+  const students = studentsData?.data ?? []
   const records = disciplineData?.data ?? []
 
   // Form state
@@ -225,25 +236,6 @@ export default function DisciplineModule() {
   })
 
   const { toast } = useToast()
-
-  // ─── Data Fetching ─────────────────────────────────────────────────────
-
-  const fetchStudents = useCallback(async () => {
-    try {
-      const res = await fetch('/api/students?limit=500')
-      if (res.ok) {
-        const data = await res.json()
-        setStudents(data.data || data || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch students:', err)
-    }
-  }, [])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (viewMode === 'add' || viewMode === 'edit') fetchStudents()
-  }, [viewMode, fetchStudents])
 
   // ─── Mutations ───────────────────────────────────────────────────────
 
