@@ -1,6 +1,8 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { logAudit } from '@/lib/audit'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { getRequestTenant } from '@/lib/tenant'
 import { validateRole } from '@/lib/api-auth'
 import type { ActiveStatus } from '@prisma/client'
@@ -95,7 +97,7 @@ export async function GET(request: NextRequest) {
     const totalOccupancy = dormStats._sum.currentOccupancy || 0
     const occupancyRate = totalCapacity > 0 ? ((totalOccupancy / totalCapacity) * 100).toFixed(1) : '0'
 
-    return NextResponse.json({
+    return ok({
       hostels,
       assignments,
       stats: { totalBoarders, totalHostels, totalDormitories, totalCapacity, totalOccupancy, occupancyRate },
@@ -108,8 +110,8 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Failed to fetch boarding data:', error)
-    return NextResponse.json({ error: 'Failed to fetch boarding data' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to fetch boarding data')
+    return fail('INTERNAL', 'Failed to fetch boarding data')
   }
 }
 
@@ -126,20 +128,20 @@ export async function POST(request: NextRequest) {
     if (action === 'assign') {
       const { studentId, dormitoryId, bedNumber } = body
       if (!studentId || !dormitoryId) {
-        return NextResponse.json({ error: 'studentId and dormitoryId are required' }, { status: 400 })
+        return fail('VALIDATION', 'studentId and dormitoryId are required')
       }
 
       const existing = await db.boardingAssignment.findUnique({ where: { studentId } })
       if (existing && existing.status === 'ACTIVE') {
-        return NextResponse.json({ error: 'Student already has an active boarding assignment' }, { status: 400 })
+        return fail('CONFLICT', 'Student already has an active boarding assignment')
       }
 
       const dormitory = await db.dormitory.findUnique({ where: { id: dormitoryId } })
       if (!dormitory) {
-        return NextResponse.json({ error: 'Dormitory not found' }, { status: 404 })
+        return fail('NOT_FOUND', 'Dormitory not found')
       }
       if (dormitory.currentOccupancy >= dormitory.capacity) {
-        return NextResponse.json({ error: 'Dormitory is at full capacity' }, { status: 400 })
+        return fail('CONFLICT', 'Dormitory is at full capacity')
       }
 
       const assignment = await db.$transaction(async (tx) => {
@@ -156,38 +158,38 @@ export async function POST(request: NextRequest) {
       })
 
       logAudit({ action: 'CREATE', entity: 'boarding', entityId: (assignment as any)?.id, afterValue: assignment }).catch(() => {})
-      return NextResponse.json(assignment, { status: 201 })
+      return ok(assignment, 201)
     }
 
     if (action === 'createHostel') {
       const { schoolId, name, gender, capacity } = body
       if (!name) {
-        return NextResponse.json({ error: 'Hostel name is required' }, { status: 400 })
+        return fail('VALIDATION', 'Hostel name is required')
       }
       let sid = schoolId
       const hostel = await db.hostel.create({
         data: { schoolId: sid || 'default', name, gender: gender || null, capacity: capacity || 50 },
       })
       logAudit({ action: 'CREATE', entity: 'boarding', entityId: (hostel as any)?.id, afterValue: hostel }).catch(() => {})
-      return NextResponse.json(hostel, { status: 201 })
+      return ok(hostel, 201)
     }
 
     if (action === 'createDormitory') {
       const { hostelId, name, capacity } = body
       if (!hostelId || !name) {
-        return NextResponse.json({ error: 'Hostel ID and name are required' }, { status: 400 })
+        return fail('VALIDATION', 'Hostel ID and name are required')
       }
       const dormitory = await db.dormitory.create({
         data: { schoolId, hostelId, name, capacity: capacity || 20 },
       })
       logAudit({ action: 'CREATE', entity: 'boarding', entityId: (dormitory as any)?.id, afterValue: dormitory }).catch(() => {})
-      return NextResponse.json(dormitory, { status: 201 })
+      return ok(dormitory, 201)
     }
 
-    return NextResponse.json({ error: 'Invalid action. Use: assign, createHostel, or createDormitory' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid action. Use: assign, createHostel, or createDormitory')
   } catch (error) {
-    console.error('Failed to process boarding request:', error)
-    return NextResponse.json({ error: 'Failed to process boarding request' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to process boarding request')
+    return fail('INTERNAL', 'Failed to process boarding request')
   }
 }
 
@@ -201,13 +203,13 @@ export async function PUT(request: NextRequest) {
     const { id, action, ...updates } = body
 
     if (!id) {
-      return NextResponse.json({ error: 'Assignment ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'Assignment ID is required')
     }
 
     // Verify the assignment belongs to the caller's school before mutating.
     const schoolId = authResult.session.user.schoolId
     const owned = await db.boardingAssignment.findFirst({ where: { id, student: { schoolId } }, select: { id: true } })
-    if (!owned) return NextResponse.json({ error: 'Assignment not found' }, { status: 404 })
+    if (!owned) return fail('NOT_FOUND', 'Assignment not found')
 
     if (action === 'checkout') {
       const assignment = await db.boardingAssignment.update({
@@ -224,7 +226,7 @@ export async function PUT(request: NextRequest) {
         data: { boardingStatus: 'DAY_SCHOLAR' },
       })
       logAudit({ action: 'UPDATE', entity: 'boarding', entityId: (assignment as any)?.id, afterValue: assignment }).catch(() => {})
-      return NextResponse.json(assignment)
+      return ok(assignment)
     }
 
     const assignment = await db.boardingAssignment.update({
@@ -237,10 +239,10 @@ export async function PUT(request: NextRequest) {
     })
 
     logAudit({ action: 'UPDATE', entity: 'boarding', entityId: (assignment as any)?.id, afterValue: assignment }).catch(() => {})
-    return NextResponse.json(assignment)
+    return ok(assignment)
   } catch (error) {
-    console.error('Failed to update boarding assignment:', error)
-    return NextResponse.json({ error: 'Failed to update boarding assignment' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to update boarding assignment')
+    return fail('INTERNAL', 'Failed to update boarding assignment')
   }
 }
 
@@ -255,21 +257,21 @@ export async function DELETE(request: NextRequest) {
     const type = searchParams.get('type')
 
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     const schoolId = authResult.session.user.schoolId
     if (type === 'hostel') {
       const owned = await db.hostel.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       await db.hostel.delete({ where: { id } })
     } else if (type === 'dormitory') {
       const owned = await db.dormitory.findFirst({ where: { id, hostel: { schoolId } }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       await db.dormitory.delete({ where: { id } })
     } else {
       const ownedA = await db.boardingAssignment.findFirst({ where: { id, student: { schoolId } }, select: { id: true } })
-      if (!ownedA) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!ownedA) return fail('NOT_FOUND', 'Not found')
       const assignment = await db.boardingAssignment.delete({ where: { id } })
       await db.dormitory.update({
         where: { id: assignment.dormitoryId },
@@ -278,9 +280,9 @@ export async function DELETE(request: NextRequest) {
     }
 
     logAudit({ action: 'DELETE', entity: 'boarding', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ message: 'Deleted successfully' })
+    return ok({ message: 'Deleted successfully' })
   } catch (error) {
-    console.error('Failed to delete boarding record:', error)
-    return NextResponse.json({ error: 'Failed to delete boarding record' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to delete boarding record')
+    return fail('INTERNAL', 'Failed to delete boarding record')
   }
 }
