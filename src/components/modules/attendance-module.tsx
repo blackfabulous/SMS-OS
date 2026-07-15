@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
   CalendarCheck,
@@ -35,6 +35,7 @@ import {
 
 import { cn } from '@/lib/utils'
 import { exportToCSV, printReport, buildHTMLTable } from '@/lib/export-utils'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/empty-state'
 import {
@@ -163,12 +164,16 @@ const classChartConfig = {
 // ─── Attendance Module ──────────────────────────────────────────────────────
 
 export default function AttendanceModule() {
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [viewMode, setViewMode] = useState<'list' | 'settings'>('list')
-  const [loading, setLoading] = useState(true)
 
   // Overview data
-  const [attendanceData, setAttendanceData] = useState<AttendanceData | null>(null)
+  const {
+    data: attendanceData,
+    isPending: loading,
+    error: overviewError,
+  } = useApiQuery<AttendanceData>(['attendance', 'overview'], '/api/attendance')
 
   // Take Attendance
   const [selectedDate, setSelectedDate] = useState(todayStr())
@@ -180,21 +185,58 @@ export default function AttendanceModule() {
   const [studentsLoading, setStudentsLoading] = useState(false)
 
   // Records
-  const [recordsData, setRecordsData] = useState<AttendanceData | null>(null)
-  const [recordsLoading, setRecordsLoading] = useState(false)
   const [recordsDateFilter, setRecordsDateFilter] = useState(todayStr())
   const [recordsClassFilter, setRecordsClassFilter] = useState('ALL')
   const [recordsStatusFilter, setRecordsStatusFilter] = useState('ALL')
 
-  // Chronic Absenteeism
-  const [chronicAbsentees, setChronicAbsentees] = useState<Array<{
-    student: StudentInfo
-    totalAbsences: number
-    totalRecords: number
-    absenceRate: number
-    lastAttended: string | null
-  }>>([])
-  const [chronicLoading, setChronicLoading] = useState(false)
+  const recordsUrl = useMemo(() => {
+    const params = new URLSearchParams()
+    if (recordsDateFilter) params.set('date', recordsDateFilter)
+    if (recordsClassFilter !== 'ALL') params.set('classId', recordsClassFilter)
+    return `/api/attendance?${params.toString()}`
+  }, [recordsDateFilter, recordsClassFilter])
+
+  const {
+    data: recordsData,
+    isPending: recordsLoading,
+    error: recordsError,
+  } = useApiQuery<AttendanceData>(['attendance', 'records', recordsDateFilter, recordsClassFilter], recordsUrl, { enabled: activeTab === 'records' })
+
+  // Chronic Absenteeism (derived from overview records)
+  const chronicLoading = loading
+  const chronicAbsentees = useMemo(() => {
+    const records = attendanceData?.records || []
+    const studentMap: Record<string, { student: StudentInfo; absences: number; total: number; lastPresent: string | null }> = {}
+    for (const record of records) {
+      if (!studentMap[record.studentId]) {
+        studentMap[record.studentId] = {
+          student: record.student,
+          absences: 0,
+          total: 0,
+          lastPresent: null,
+        }
+      }
+      studentMap[record.studentId].total++
+      if (record.status === 'ABSENT') {
+        studentMap[record.studentId].absences++
+      } else if (record.status === 'PRESENT' || record.status === 'LATE') {
+        const recordDate = new Date(record.date).toISOString()
+        if (!studentMap[record.studentId].lastPresent || recordDate > studentMap[record.studentId].lastPresent!) {
+          studentMap[record.studentId].lastPresent = recordDate
+        }
+      }
+    }
+    return Object.values(studentMap)
+      .filter((s) => s.total > 0 && (s.absences / s.total) > 0.2)
+      .map((s) => ({
+        student: s.student,
+        totalAbsences: s.absences,
+        totalRecords: s.total,
+        absenceRate: Math.round((s.absences / s.total) * 100),
+        lastAttended: s.lastPresent,
+      }))
+      .sort((a, b) => b.absenceRate - a.absenceRate)
+  }, [attendanceData])
 
   // Settings state
   const [attendanceSettings, setAttendanceSettings] = useState({
@@ -206,21 +248,6 @@ export default function AttendanceModule() {
   })
 
   // ─── Data Fetching ─────────────────────────────────────────────────────
-
-  const fetchOverview = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await fetch('/api/attendance')
-      if (res.ok) {
-        const data = await res.json()
-        setAttendanceData(data)
-      }
-    } catch (err) {
-      console.error('Failed to fetch attendance overview:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
 
   const fetchClasses = useCallback(async () => {
     try {
@@ -267,84 +294,17 @@ export default function AttendanceModule() {
     }
   }, [])
 
-  const fetchRecords = useCallback(async () => {
-    try {
-      setRecordsLoading(true)
-      const params = new URLSearchParams()
-      if (recordsDateFilter) params.set('date', recordsDateFilter)
-      if (recordsClassFilter !== 'ALL') params.set('classId', recordsClassFilter)
-      const res = await fetch(`/api/attendance?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        setRecordsData(data)
-      }
-    } catch (err) {
-      console.error('Failed to fetch attendance records:', err)
-    } finally {
-      setRecordsLoading(false)
-    }
-  }, [recordsDateFilter, recordsClassFilter])
-
-  const fetchChronicAbsentees = useCallback(async () => {
-    try {
-      setChronicLoading(true)
-      // Fetch all attendance data to compute chronic absenteeism
-      const res = await fetch('/api/attendance')
-      if (res.ok) {
-        const data: AttendanceData = await res.json()
-        // Group records by student
-        const studentMap: Record<string, { student: StudentInfo; absences: number; total: number; lastPresent: string | null }> = {}
-        for (const record of data.records) {
-          if (!studentMap[record.studentId]) {
-            studentMap[record.studentId] = {
-              student: record.student,
-              absences: 0,
-              total: 0,
-              lastPresent: null,
-            }
-          }
-          studentMap[record.studentId].total++
-          if (record.status === 'ABSENT') {
-            studentMap[record.studentId].absences++
-          } else if (record.status === 'PRESENT' || record.status === 'LATE') {
-            const recordDate = new Date(record.date).toISOString()
-            if (!studentMap[record.studentId].lastPresent || recordDate > studentMap[record.studentId].lastPresent!) {
-              studentMap[record.studentId].lastPresent = recordDate
-            }
-          }
-        }
-        // Filter > 20% absence rate
-        const absentees = Object.values(studentMap)
-          .filter((s) => s.total > 0 && (s.absences / s.total) > 0.2)
-          .map((s) => ({
-            student: s.student,
-            totalAbsences: s.absences,
-            totalRecords: s.total,
-            absenceRate: Math.round((s.absences / s.total) * 100),
-            lastAttended: s.lastPresent,
-          }))
-          .sort((a, b) => b.absenceRate - a.absenceRate)
-        setChronicAbsentees(absentees)
-      }
-    } catch (err) {
-      console.error('Failed to fetch chronic absentee data:', err)
-    } finally {
-      setChronicLoading(false)
-    }
-  }, [])
+  useEffect(() => {
+    if (overviewError) toast.error(overviewError.message || 'Failed to load attendance overview')
+  }, [overviewError])
 
   useEffect(() => {
-    fetchOverview()
+    if (recordsError) toast.error(recordsError.message || 'Failed to load attendance records')
+  }, [recordsError])
+
+  useEffect(() => {
     fetchClasses()
-  }, [fetchOverview, fetchClasses])
-
-  useEffect(() => {
-    if (activeTab === 'records') fetchRecords()
-  }, [activeTab, fetchRecords])
-
-  useEffect(() => {
-    if (activeTab === 'chronic') fetchChronicAbsentees()
-  }, [activeTab, fetchChronicAbsentees])
+  }, [fetchClasses])
 
   useEffect(() => {
     if (selectedClassId) fetchStudentsForClass(selectedClassId)
@@ -383,7 +343,7 @@ export default function AttendanceModule() {
       })
       if (res.ok) {
         setAttendanceEntries({})
-        fetchOverview()
+        queryClient.invalidateQueries({ queryKey: ['attendance'] })
         toast.success('Attendance submitted successfully', {
           description: `${records.length} attendance records saved`,
         })

@@ -100,7 +100,7 @@ export async function GET(request: Request) {
       else if (record.status === 'LATE') byClass[className].late++
     }
 
-    return ok({ data: records, total, page, totalPages: Math.ceil(total / limit), summary, byClass })
+    return ok({ records, total, page, totalPages: Math.ceil(total / limit), summary, byClass })
   } catch (error) {
     logger.error({ err: error }, 'Error fetching attendance')
     return fail('INTERNAL', 'Failed to fetch attendance')

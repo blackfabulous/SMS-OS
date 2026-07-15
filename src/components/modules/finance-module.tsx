@@ -11,7 +11,7 @@ import {
   KitEmptyState,
   ModuleToolbar,
 } from '@/components/module-ui'
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   DollarSign,
@@ -60,6 +60,7 @@ import { exportToCSV, printReport, buildHTMLTable, formatCurrency as fmtCurrency
 import { EmptyState } from '@/components/empty-state'
 import { ModuleSkeleton } from '@/components/module-skeleton'
 import { formatDualCurrency, formatUSD, formatZiG, getCurrentRate, fetchExchangeRate, type CurrencyCode } from '@/lib/currency'
+import { useApiQuery, useQueryClient } from '@/hooks/use-api-query'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -121,6 +122,13 @@ interface FinanceDashboard {
   invoiceStatusBreakdown: { pending: number; partial: number; paid: number; overdue: number }
   paymentsByMethod: Array<{ paymentMethod: string; _sum: { amount: number }; _count: number }>
   monthlyCollectionTrend: Record<string, number>
+}
+
+interface FinancePaymentsResponse {
+  data: Payment[]
+  total: number
+  page: number
+  totalPages: number
 }
 
 interface InvoiceItem {
@@ -212,12 +220,18 @@ const trendChartConfig = {
 // ─── Finance Module ─────────────────────────────────────────────────────────
 
 export default function FinanceModule() {
-  const [dashboard, setDashboard] = useState<FinanceDashboard | null>(null)
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [exchangeRate, setExchangeRate] = useState(getCurrentRate().rate)
   const [primaryCurrency, setPrimaryCurrency] = useState<CurrencyCode>('USD')
+
+  // Dashboard data
+  const {
+    data: dashboard,
+    isPending: loading,
+    error: dashboardError,
+  } = useApiQuery<FinanceDashboard>(['finance', 'dashboard'], '/api/finance')
 
   // Invoices state
   const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -228,10 +242,24 @@ export default function FinanceModule() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
 
   // Payments state
-  const [payments, setPayments] = useState<Payment[]>([])
-  const [paymentsLoading, setPaymentsLoading] = useState(false)
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('ALL')
   const [paymentSearch, setPaymentSearch] = useState('')
+
+  const paymentsUrl = useMemo(() => {
+    const params = new URLSearchParams()
+    if (paymentMethodFilter !== 'ALL') params.set('paymentMethod', paymentMethodFilter)
+    params.set('page', '1')
+    params.set('limit', '50')
+    return `/api/finance/payments?${params.toString()}`
+  }, [paymentMethodFilter])
+
+  const {
+    data: paymentsResult,
+    isPending: paymentsLoading,
+    error: paymentsError,
+  } = useApiQuery<FinancePaymentsResponse>(['finance', 'payments', paymentMethodFilter], paymentsUrl, { enabled: activeTab === 'payments' })
+
+  const payments = paymentsResult?.data ?? []
 
   // Settings state
   const [financeSettings, setFinanceSettings] = useState({
@@ -271,21 +299,6 @@ export default function FinanceModule() {
 
   // ─── Data Fetching ─────────────────────────────────────────────────────
 
-  const fetchDashboard = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await fetch('/api/finance')
-      if (res.ok) {
-        const data = await res.json()
-        setDashboard(data)
-      }
-    } catch (err) {
-      console.error('Failed to fetch finance dashboard:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
   const fetchInvoices = useCallback(async () => {
     try {
       setInvoicesLoading(true)
@@ -305,25 +318,6 @@ export default function FinanceModule() {
     }
   }, [invoiceFilter])
 
-  const fetchPayments = useCallback(async () => {
-    try {
-      setPaymentsLoading(true)
-      const params = new URLSearchParams()
-      if (paymentMethodFilter !== 'ALL') params.set('paymentMethod', paymentMethodFilter)
-      params.set('page', '1')
-      params.set('limit', '50')
-      const res = await fetch(`/api/finance/payments?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        setPayments(data.data || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch payments:', err)
-    } finally {
-      setPaymentsLoading(false)
-    }
-  }, [paymentMethodFilter])
-
   const fetchStudents = useCallback(async () => {
     try {
       const res = await fetch('/api/students?limit=200')
@@ -337,17 +331,20 @@ export default function FinanceModule() {
   }, [])
 
   useEffect(() => {
-    fetchDashboard()
+    if (dashboardError) toast.error(dashboardError.message || 'Failed to load finance dashboard')
+  }, [dashboardError])
+
+  useEffect(() => {
+    if (paymentsError) toast.error(paymentsError.message || 'Failed to load payments')
+  }, [paymentsError])
+
+  useEffect(() => {
     fetchExchangeRate().then(r => setExchangeRate(r.rate))
-  }, [fetchDashboard])
+  }, [])
 
   useEffect(() => {
     if (activeTab === 'invoices') fetchInvoices()
   }, [activeTab, fetchInvoices])
-
-  useEffect(() => {
-    if (activeTab === 'payments') fetchPayments()
-  }, [activeTab, fetchPayments])
 
   useEffect(() => {
     if (viewMode === 'add-payment' || viewMode === 'add-invoice') fetchStudents()
@@ -373,8 +370,7 @@ export default function FinanceModule() {
       if (res.ok) {
         setPaymentForm({ studentId: '', amount: '', paymentMethod: 'CASH', currency: 'USD', reference: '' })
         setViewMode('list')
-        fetchDashboard()
-        if (activeTab === 'payments') fetchPayments()
+        queryClient.invalidateQueries({ queryKey: ['finance'] })
         if (activeTab === 'invoices') fetchInvoices()
         toast.success('Payment recorded successfully', {
           description: `$${parseFloat(paymentForm.amount).toLocaleString()} ${paymentForm.currency} payment recorded`,
@@ -413,7 +409,7 @@ export default function FinanceModule() {
       if (res.ok) {
         setInvoiceForm({ studentId: '', termId: '', dueDate: '', items: [{ description: '', amount: '', feeType: 'TUITION' }] })
         setViewMode('list')
-        fetchDashboard()
+        queryClient.invalidateQueries({ queryKey: ['finance'] })
         if (activeTab === 'invoices') fetchInvoices()
         toast.success('Invoice created successfully')
       }
