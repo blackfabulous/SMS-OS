@@ -1,7 +1,8 @@
 'use client'
 
 import { ModuleContainer, StatGrid, ModuleStatCard, SectionCard, TableShell, ModulePageLayout, ModuleSettingsButton, KitEmptyState, ModuleToolbar } from '@/components/module-ui';
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState } from 'react'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Package,
@@ -174,14 +175,17 @@ const categoryColors = ['#10b981', '#14b8a6', '#06b6d4', '#f59e0b', '#ef4444', '
 // ─── Inventory Module ────────────────────────────────────────────────────────
 
 export default function InventoryModule() {
-  const [data, setData] = useState<InventoryData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [search, setSearch] = useState('')
   const [conditionFilter, setConditionFilter] = useState('ALL')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+
+  const {
+    data,
+    isPending: loading,
+  } = useApiQuery<InventoryData>(['inventory'], '/api/inventory')
 
   // Add Asset form
   const [addAssetForm, setAddAssetForm] = useState({
@@ -213,90 +217,55 @@ export default function InventoryModule() {
     notifyLowCondition: true,
   })
 
-  // ─── Data Fetching ─────────────────────────────────────────────────────
+  // ─── Mutations ─────────────────────────────────────────────────────────
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await fetch('/api/inventory')
-      if (res.ok) {
-        const d = await res.json()
-        setData(d)
-      }
-    } catch (err) {
-      console.error('Failed to fetch inventory data:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  type AddAssetBody = { action: 'addAsset'; name: string; category: string; location?: string; purchaseCost?: number; condition?: string }
+  type RequestMaintenanceBody = { action: 'requestMaintenance'; assetId?: string; description: string; priority?: string; category?: string }
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  const { mutate: inventoryAction, isPending: isSubmitting } = useApiMutation<AddAssetBody | RequestMaintenanceBody, Asset | MaintenanceRequest>('/api/inventory', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to process inventory request')
+    },
+  })
 
   // ─── Handlers ──────────────────────────────────────────────────────────
 
-  const handleAddAsset = async () => {
+  const handleAddAsset = () => {
     if (!addAssetForm.name || !addAssetForm.category) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/inventory', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'addAsset',
-          name: addAssetForm.name,
-          category: addAssetForm.category,
-          location: addAssetForm.location || undefined,
-          purchaseCost: addAssetForm.purchaseCost ? parseFloat(addAssetForm.purchaseCost) : undefined,
-          condition: addAssetForm.condition,
-        }),
-      })
-      if (res.ok) {
+    inventoryAction({
+      action: 'addAsset',
+      name: addAssetForm.name,
+      category: addAssetForm.category,
+      location: addAssetForm.location || undefined,
+      purchaseCost: addAssetForm.purchaseCost ? parseFloat(addAssetForm.purchaseCost) : undefined,
+      condition: addAssetForm.condition,
+    }, {
+      onSuccess: () => {
         toast.success('Asset added successfully')
         setAddAssetForm({ name: '', category: '', location: '', purchaseCost: '', condition: 'GOOD' })
         setViewMode('list')
-        fetchData()
-      } else {
-        const err = await res.json()
-        toast.error(err.error || 'Failed to add asset')
-      }
-    } catch {
-      toast.error('Failed to add asset')
-    } finally {
-      setSubmitting(false)
-    }
+      },
+    })
   }
 
-  const handleRequestMaintenance = async () => {
+  const handleRequestMaintenance = () => {
     if (!maintenanceForm.description) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/inventory', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'requestMaintenance',
-          assetId: maintenanceForm.assetId || undefined,
-          description: maintenanceForm.description,
-          priority: maintenanceForm.priority,
-          category: maintenanceForm.category,
-        }),
-      })
-      if (res.ok) {
+    inventoryAction({
+      action: 'requestMaintenance',
+      assetId: maintenanceForm.assetId || undefined,
+      description: maintenanceForm.description,
+      priority: maintenanceForm.priority,
+      category: maintenanceForm.category,
+    }, {
+      onSuccess: () => {
         toast.success('Maintenance request submitted')
         setMaintenanceForm({ assetId: '', description: '', priority: 'MEDIUM', category: 'GENERAL' })
         setViewMode('list')
-        fetchData()
-      } else {
-        const err = await res.json()
-        toast.error(err.error || 'Failed to request maintenance')
-      }
-    } catch {
-      toast.error('Failed to request maintenance')
-    } finally {
-      setSubmitting(false)
-    }
+      },
+    })
   }
 
   const handleSaveSettings = () => {
@@ -362,9 +331,11 @@ export default function InventoryModule() {
   const stats = data?.stats
 
   // ─── Inline Views ──────────────────────────────────────────────────────
+  // These are JSX fragments (not components) to satisfy the static-components
+  // rule while the larger monolith is decomposed into shared primitives.
 
-  const AddAssetInlineForm = () => (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+  const addAssetView = (
+    <motion.div key="add-asset" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1">
           <ArrowLeft className="h-4 w-4" /> Back
@@ -421,8 +392,8 @@ export default function InventoryModule() {
               </div>
             </div>
             <div className="flex items-center gap-3 pt-2">
-              <Button onClick={handleAddAsset} disabled={submitting || !addAssetForm.name || !addAssetForm.category} className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white">
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button onClick={handleAddAsset} disabled={isSubmitting || !addAssetForm.name || !addAssetForm.category} className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white">
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Add Asset
               </Button>
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
@@ -433,8 +404,8 @@ export default function InventoryModule() {
     </motion.div>
   )
 
-  const RequestMaintenanceInlineForm = () => (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+  const requestMaintenanceView = (
+    <motion.div key="request-maintenance" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1">
           <ArrowLeft className="h-4 w-4" /> Back
@@ -494,8 +465,8 @@ export default function InventoryModule() {
               <Textarea placeholder="Describe the maintenance needed..." value={maintenanceForm.description} onChange={(e) => setMaintenanceForm((p) => ({ ...p, description: e.target.value }))} rows={3} />
             </div>
             <div className="flex items-center gap-3 pt-2">
-              <Button onClick={handleRequestMaintenance} disabled={submitting || !maintenanceForm.description} className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white">
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button onClick={handleRequestMaintenance} disabled={isSubmitting || !maintenanceForm.description} className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white">
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Submit Request
               </Button>
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
@@ -506,111 +477,108 @@ export default function InventoryModule() {
     </motion.div>
   )
 
-  const AssetDetailView = () => {
-    if (!selectedAsset) return null
-    return (
-      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => { setViewMode('list'); setSelectedAsset(null) }} className="gap-1">
-            <ArrowLeft className="h-4 w-4" /> Back
-          </Button>
-          <Separator orientation="vertical" className="h-6" />
-          <h2 className="text-lg font-semibold">Asset Details</h2>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 space-y-4">
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-teal-50 shrink-0">
-                    <Package className="h-8 w-8 text-teal-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-xl font-bold">{selectedAsset.name}</h3>
-                    <p className="text-sm text-muted-foreground mt-1 font-mono">{selectedAsset.assetTag}</p>
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      <Badge variant="secondary">{selectedAsset.category}</Badge>
-                      <Badge className={cn('text-xs border', conditionColors[selectedAsset.condition] || conditionColors.GOOD)}>
-                        {selectedAsset.condition}
-                      </Badge>
-                      {selectedAsset.isDisposed && <Badge variant="destructive">Disposed</Badge>}
-                    </div>
+  const assetDetailView = selectedAsset ? (
+    <motion.div key="detail" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={() => { setViewMode('list'); setSelectedAsset(null) }} className="gap-1">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </Button>
+        <Separator orientation="vertical" className="h-6" />
+        <h2 className="text-lg font-semibold">Asset Details</h2>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-4">
+          <Card className="border-0 shadow-md">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-teal-50 shrink-0">
+                  <Package className="h-8 w-8 text-teal-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-xl font-bold">{selectedAsset.name}</h3>
+                  <p className="text-sm text-muted-foreground mt-1 font-mono">{selectedAsset.assetTag}</p>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <Badge variant="secondary">{selectedAsset.category}</Badge>
+                    <Badge className={cn('text-xs border', conditionColors[selectedAsset.condition] || conditionColors.GOOD)}>
+                      {selectedAsset.condition}
+                    </Badge>
+                    {selectedAsset.isDisposed && <Badge variant="destructive">Disposed</Badge>}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Asset Information</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div><p className="text-xs text-muted-foreground">Location</p><p className="text-sm font-medium">{selectedAsset.location || '—'}</p></div>
+                <div><p className="text-xs text-muted-foreground">Purchase Cost</p><p className="text-sm font-semibold">{formatCurrency(selectedAsset.purchaseCost)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Purchase Date</p><p className="text-sm font-medium">{selectedAsset.purchaseDate ? formatDate(selectedAsset.purchaseDate) : '—'}</p></div>
+                <div><p className="text-xs text-muted-foreground">Custodian</p><p className="text-sm font-medium">{selectedAsset.custodian || '—'}</p></div>
+              </div>
+            </CardContent>
+          </Card>
+          {selectedAsset.maintenanceRequests.length > 0 && (
             <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Asset Information</CardTitle></CardHeader>
+              <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Maintenance History</CardTitle></CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <div><p className="text-xs text-muted-foreground">Location</p><p className="text-sm font-medium">{selectedAsset.location || '—'}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Purchase Cost</p><p className="text-sm font-semibold">{formatCurrency(selectedAsset.purchaseCost)}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Purchase Date</p><p className="text-sm font-medium">{selectedAsset.purchaseDate ? formatDate(selectedAsset.purchaseDate) : '—'}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Custodian</p><p className="text-sm font-medium">{selectedAsset.custodian || '—'}</p></div>
-                </div>
-              </CardContent>
-            </Card>
-            {selectedAsset.maintenanceRequests.length > 0 && (
-              <Card className="border-0 shadow-md">
-                <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Maintenance History</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="space-y-3 max-h-64 overflow-y-auto">
-                    {selectedAsset.maintenanceRequests.map((mr) => (
-                      <div key={mr.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                        <div>
-                          <p className="text-sm font-medium">{mr.description}</p>
-                          <div className="flex gap-2 mt-1">
-                            <Badge className={cn('text-[10px] px-2 py-0.5 border', priorityColors[mr.priority] || priorityColors.MEDIUM)}>{mr.priority}</Badge>
-                            <Badge className={cn('text-[10px] px-2 py-0.5 border', maintenanceStatusColors[mr.status] || maintenanceStatusColors.PENDING)}>{mr.status.replace('_', ' ')}</Badge>
-                          </div>
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {selectedAsset.maintenanceRequests.map((mr) => (
+                    <div key={mr.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                      <div>
+                        <p className="text-sm font-medium">{mr.description}</p>
+                        <div className="flex gap-2 mt-1">
+                          <Badge className={cn('text-[10px] px-2 py-0.5 border', priorityColors[mr.priority] || priorityColors.MEDIUM)}>{mr.priority}</Badge>
+                          <Badge className={cn('text-[10px] px-2 py-0.5 border', maintenanceStatusColors[mr.status] || maintenanceStatusColors.PENDING)}>{mr.status.replace('_', ' ')}</Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground">{formatDate(mr.createdAt)}</p>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-          <div className="space-y-4">
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Actions</CardTitle></CardHeader>
-              <CardContent className="space-y-2">
-                <Button className="w-full justify-start gap-2" variant="outline" onClick={() => {
-                  setMaintenanceForm((p) => ({ ...p, assetId: selectedAsset.id }))
-                  setViewMode('request-maintenance')
-                }}>
-                  <Wrench className="h-4 w-4" /> Request Maintenance
-                </Button>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Quick Stats</CardTitle></CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Maintenance Requests</span>
-                    <span className="text-sm font-semibold">{selectedAsset.maintenanceRequests.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Pending</span>
-                    <span className="text-sm font-semibold">{selectedAsset.maintenanceRequests.filter(m => m.status === 'PENDING').length}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Total Repair Cost</span>
-                    <span className="text-sm font-semibold">{formatCurrency(selectedAsset.maintenanceRequests.reduce((s, m) => s + (m.actualCost || 0), 0))}</span>
-                  </div>
+                      <p className="text-xs text-muted-foreground">{formatDate(mr.createdAt)}</p>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
-          </div>
+          )}
         </div>
-      </motion.div>
-    )
-  }
+        <div className="space-y-4">
+          <Card className="border-0 shadow-md">
+            <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Actions</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              <Button className="w-full justify-start gap-2" variant="outline" onClick={() => {
+                setMaintenanceForm((p) => ({ ...p, assetId: selectedAsset.id }))
+                setViewMode('request-maintenance')
+              }}>
+                <Wrench className="h-4 w-4" /> Request Maintenance
+              </Button>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Quick Stats</CardTitle></CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Maintenance Requests</span>
+                  <span className="text-sm font-semibold">{selectedAsset.maintenanceRequests.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Pending</span>
+                  <span className="text-sm font-semibold">{selectedAsset.maintenanceRequests.filter(m => m.status === 'PENDING').length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Total Repair Cost</span>
+                  <span className="text-sm font-semibold">{formatCurrency(selectedAsset.maintenanceRequests.reduce((s, m) => s + (m.actualCost || 0), 0))}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </motion.div>
+  ) : null
 
-  const InventorySettingsView = () => (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+  const inventorySettingsView = (
+    <motion.div key="settings" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1">
           <ArrowLeft className="h-4 w-4" /> Back
@@ -726,10 +694,10 @@ export default function InventoryModule() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
       <AnimatePresence mode="wait">
-        {viewMode === 'add-asset' && <AddAssetInlineForm key="add-asset" />}
-        {viewMode === 'request-maintenance' && <RequestMaintenanceInlineForm key="request-maintenance" />}
-        {viewMode === 'detail' && <AssetDetailView key="detail" />}
-        {viewMode === 'settings' && <InventorySettingsView key="settings" />}
+        {viewMode === 'add-asset' && addAssetView}
+        {viewMode === 'request-maintenance' && requestMaintenanceView}
+        {viewMode === 'detail' && assetDetailView}
+        {viewMode === 'settings' && inventorySettingsView}
       </AnimatePresence>
 
       {viewMode === 'list' && (

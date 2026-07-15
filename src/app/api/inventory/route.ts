@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 
@@ -8,6 +10,7 @@ import { validateAuth, validateRole } from '@/lib/api-auth'
 export async function GET(request: NextRequest) {
   const authResult = await validateAuth()
   if ('error' in authResult) return authResult.error
+  const schoolId = authResult.session.user.schoolId
 
   try {
     const { searchParams } = new URL(request.url)
@@ -20,7 +23,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
 
     // Build asset filter
-    const assetFilter: Record<string, unknown> = {}
+    const assetFilter: Record<string, unknown> = { schoolId }
     if (search) {
       assetFilter.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -59,7 +62,7 @@ export async function GET(request: NextRequest) {
     ])
 
     // Maintenance requests with filter
-    const maintenanceFilter: Record<string, unknown> = {}
+    const maintenanceFilter: Record<string, unknown> = { schoolId }
     if (maintenanceStatus) {
       maintenanceFilter.status = maintenanceStatus
     }
@@ -85,7 +88,7 @@ export async function GET(request: NextRequest) {
 
     // Stats
     const allActiveAssets = await db.asset.findMany({
-      where: { isDisposed: false },
+      where: { schoolId, isDisposed: false },
       select: { condition: true, purchaseCost: true, category: true },
     })
 
@@ -95,14 +98,14 @@ export async function GET(request: NextRequest) {
     const poorCondition = allActiveAssets.filter((a) => a.condition === 'POOR').length
     const totalAssetValue = allActiveAssets.reduce((sum, a) => sum + a.purchaseCost, 0)
 
-    const pendingMaintenance = await db.maintenanceRequest.count({ where: { status: 'PENDING' } })
-    const inProgressMaintenance = await db.maintenanceRequest.count({ where: { status: 'IN_PROGRESS' } })
-    const completedMaintenance = await db.maintenanceRequest.count({ where: { status: 'COMPLETED' } })
+    const pendingMaintenance = await db.maintenanceRequest.count({ where: { schoolId, status: 'PENDING' } })
+    const inProgressMaintenance = await db.maintenanceRequest.count({ where: { schoolId, status: 'IN_PROGRESS' } })
+    const completedMaintenance = await db.maintenanceRequest.count({ where: { schoolId, status: 'COMPLETED' } })
 
     // Category breakdown
     const categoryBreakdown = await db.asset.groupBy({
       by: ['category'],
-      where: { isDisposed: false },
+      where: { schoolId, isDisposed: false },
       _count: { id: true },
       _sum: { purchaseCost: true },
     })
@@ -110,16 +113,18 @@ export async function GET(request: NextRequest) {
     // Maintenance by status
     const maintenanceByStatus = await db.maintenanceRequest.groupBy({
       by: ['status'],
+      where: { schoolId },
       _count: { id: true },
     })
 
     // Maintenance by priority
     const maintenanceByPriority = await db.maintenanceRequest.groupBy({
       by: ['priority'],
+      where: { schoolId },
       _count: { id: true },
     })
 
-    return NextResponse.json({
+    return ok({
       assets,
       maintenanceRequests,
       stats: {
@@ -148,8 +153,8 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Failed to fetch inventory data:', error)
-    return NextResponse.json({ error: 'Failed to fetch inventory data' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to fetch inventory data')
+    return fail('INTERNAL', 'Failed to fetch inventory data')
   }
 }
 
@@ -164,19 +169,17 @@ export async function POST(request: NextRequest) {
     const { action } = body
 
     if (action === 'addAsset') {
-      const { name, category, location, purchaseCost, condition, schoolId, donorSource, custodian, purchaseDate } = body
+      const { name, category, location, purchaseCost, condition, donorSource, custodian, purchaseDate } = body
       if (!name || !category) {
-        return NextResponse.json({ error: 'Name and category are required' }, { status: 400 })
+        return fail('VALIDATION', 'Name and category are required')
       }
 
-      let sid = schoolId
-
-      const assetCount = await db.asset.count()
+      const assetCount = await db.asset.count({ where: { schoolId } })
       const assetTag = `AST-${String(assetCount + 1).padStart(5, '0')}`
 
       const asset = await db.asset.create({
         data: {
-          schoolId: sid || 'default',
+          schoolId,
           assetTag,
           name,
           category,
@@ -189,21 +192,19 @@ export async function POST(request: NextRequest) {
         },
       })
       logAudit({ action: 'CREATE', entity: 'inventory', entityId: (asset as any)?.id, afterValue: asset }).catch(() => {})
-      return NextResponse.json(asset, { status: 201 })
+      return ok(asset, 201)
     }
 
     if (action === 'requestMaintenance') {
-      const { assetId, description, priority, category, schoolId, estimatedCost } = body
+      const { assetId, description, priority, category, estimatedCost } = body
       if (!description) {
-        return NextResponse.json({ error: 'Description is required' }, { status: 400 })
+        return fail('VALIDATION', 'Description is required')
       }
-
-      let sid = schoolId
 
       const maintenanceRequest = await db.maintenanceRequest.create({
         data: {
           assetId: assetId || null,
-          schoolId: sid || 'default',
+          schoolId,
           category: category || 'GENERAL',
           description,
           priority: priority || 'MEDIUM',
@@ -213,13 +214,13 @@ export async function POST(request: NextRequest) {
         include: { asset: { select: { name: true, assetTag: true, location: true } } },
       })
       logAudit({ action: 'CREATE', entity: 'inventory', entityId: (maintenanceRequest as any)?.id, afterValue: maintenanceRequest }).catch(() => {})
-      return NextResponse.json(maintenanceRequest, { status: 201 })
+      return ok(maintenanceRequest, 201)
     }
 
-    return NextResponse.json({ error: 'Invalid action. Use: addAsset or requestMaintenance' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid action. Use: addAsset or requestMaintenance')
   } catch (error) {
-    console.error('Failed to process inventory request:', error)
-    return NextResponse.json({ error: 'Failed to process inventory request' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to process inventory request')
+    return fail('INTERNAL', 'Failed to process inventory request')
   }
 }
 
@@ -233,13 +234,13 @@ export async function PUT(request: NextRequest) {
     const { id, type, ...updates } = body
 
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
     const schoolId = authResult.session.user.schoolId
 
     if (type === 'maintenance') {
       const owned = await db.maintenanceRequest.findFirst({ where: { id, asset: { schoolId } }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       const record = await db.maintenanceRequest.update({
         where: { id },
         data: {
@@ -251,11 +252,11 @@ export async function PUT(request: NextRequest) {
         include: { asset: { select: { name: true, assetTag: true } } },
       })
       logAudit({ action: 'UPDATE', entity: 'inventory', entityId: (record as any)?.id, afterValue: record }).catch(() => {})
-      return NextResponse.json(record)
+      return ok(record)
     }
 
     const ownedAsset = await db.asset.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!ownedAsset) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!ownedAsset) return fail('NOT_FOUND', 'Not found')
     const asset = await db.asset.update({
       where: { id },
       data: {
@@ -269,10 +270,10 @@ export async function PUT(request: NextRequest) {
       },
     })
     logAudit({ action: 'UPDATE', entity: 'inventory', entityId: (asset as any)?.id, afterValue: asset }).catch(() => {})
-    return NextResponse.json(asset)
+    return ok(asset)
   } catch (error) {
-    console.error('Failed to update inventory record:', error)
-    return NextResponse.json({ error: 'Failed to update inventory record' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to update inventory record')
+    return fail('INTERNAL', 'Failed to update inventory record')
   }
 }
 
@@ -287,24 +288,24 @@ export async function DELETE(request: NextRequest) {
     const type = searchParams.get('type')
 
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     const schoolId = authResult.session.user.schoolId
     if (type === 'maintenance') {
       const owned = await db.maintenanceRequest.findFirst({ where: { id, asset: { schoolId } }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       await db.maintenanceRequest.delete({ where: { id } })
     } else {
       const owned = await db.asset.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       await db.asset.update({ where: { id }, data: { isDisposed: true } })
     }
 
     logAudit({ action: 'DELETE', entity: 'inventory', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ message: 'Deleted successfully' })
+    return ok({ message: 'Deleted successfully' })
   } catch (error) {
-    console.error('Failed to delete inventory record:', error)
-    return NextResponse.json({ error: 'Failed to delete inventory record' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to delete inventory record')
+    return fail('INTERNAL', 'Failed to delete inventory record')
   }
 }
