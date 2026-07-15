@@ -1,7 +1,8 @@
 'use client'
 
 import { ModuleContainer, ModulePageLayout, ModuleSettingsButton, StatGrid, ModuleStatCard, SectionCard, TableShell } from '@/components/module-ui';
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState } from 'react'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 import { motion } from 'framer-motion'
 import {
   Heart,
@@ -111,6 +112,35 @@ interface BeamApplication {
   student: Student
 }
 
+interface WelfareStats {
+  totalWelfareCases: number
+  openCases: number
+  inProgressCases: number
+  closedCases: number
+  confidentialCases: number
+  beamApplied: number
+  beamApproved: number
+  beamRejected: number
+  totalBeamCovered: number
+}
+
+interface WelfareResponse {
+  data: WelfareRecord[]
+  total: number
+  page: number
+  totalPages: number
+  beamApplications: BeamApplication[]
+  stats: WelfareStats
+  categoryBreakdown: Array<{ category: string; count: number }>
+}
+
+interface StudentsResponse {
+  data: Student[]
+  total: number
+  page: number
+  totalPages: number
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const formatDate = (dateStr: string) => {
@@ -175,10 +205,7 @@ const statusDonutConfig = {
 // ─── Welfare Module ─────────────────────────────────────────────────────────
 
 export default function WelfareModule() {
-  const [welfareRecords, setWelfareRecords] = useState<WelfareRecord[]>([])
-  const [beamApplications, setBeamApplications] = useState<BeamApplication[]>([])
-  const [students, setStudents] = useState<Student[]>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [searchQuery, setSearchQuery] = useState('')
   const [beamSearch, setBeamSearch] = useState('')
@@ -188,7 +215,6 @@ export default function WelfareModule() {
   const [viewMode, setViewMode] = useState<'list' | 'add' | 'edit' | 'detail' | 'settings'>('list')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [addType, setAddType] = useState<'welfare' | 'beam'>('welfare')
-  const [submitting, setSubmitting] = useState(false)
 
   // Settings state
   const [settings, setSettings] = useState({
@@ -219,111 +245,77 @@ export default function WelfareModule() {
     outstandingBalance: '',
   })
 
-  // ─── Data Fetching ─────────────────────────────────────────────────────
+  // ─── Data & Mutations ─────────────────────────────────────────────────
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await fetch('/api/welfare')
-      if (res.ok) {
-        const data = await res.json()
-        setWelfareRecords(data.welfareRecords || [])
-        setBeamApplications(data.beamApplications || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch welfare data:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const {
+    data: welfareData,
+    isPending: loading,
+  } = useApiQuery<WelfareResponse>(['welfare'], '/api/welfare')
 
-  const fetchStudents = useCallback(async () => {
-    try {
-      const res = await fetch('/api/students?limit=500')
-      if (res.ok) {
-        const data = await res.json()
-        setStudents(data.data || data || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch students:', err)
-    }
-  }, [])
+  const {
+    data: studentsData,
+  } = useApiQuery<StudentsResponse>(['students', 'welfare'], '/api/students?limit=500', { enabled: viewMode === 'add' })
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  const welfareRecords = welfareData?.data ?? []
+  const beamApplications = welfareData?.beamApplications ?? []
+  const students = studentsData?.data ?? []
 
-  useEffect(() => {
-    if (viewMode === 'add') fetchStudents()
-  }, [viewMode, fetchStudents])
+  const { mutate: addWelfare, isPending: isAddingWelfare } = useApiMutation<
+    { type: 'welfare'; studentId: string; category: string; description?: string; actionTaken?: string; referredTo?: string; isConfidential: boolean },
+    WelfareRecord
+  >('/api/welfare', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['welfare'] })
+      setViewMode('list')
+      setWelfareForm({
+        studentId: '',
+        category: 'VULNERABLE',
+        description: '',
+        actionTaken: '',
+        referredTo: '',
+        isConfidential: true,
+      })
+    },
+    onError: (err) => toast.error(err.message || 'Failed to add welfare record'),
+  })
+
+  const { mutate: applyBeam, isPending: isApplyingBeam } = useApiMutation<
+    { type: 'beam'; studentId: string; guardianSituation?: string; orphanStatus?: string; notes?: string; coveredAmount: number; outstandingBalance: number },
+    BeamApplication
+  >('/api/welfare', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['welfare'] })
+      setViewMode('list')
+      setBeamForm({
+        studentId: '',
+        guardianSituation: '',
+        orphanStatus: '',
+        notes: '',
+        coveredAmount: '',
+        outstandingBalance: '',
+      })
+    },
+    onError: (err) => toast.error(err.message || 'Failed to apply for BEAM'),
+  })
 
   // ─── Form Handlers ─────────────────────────────────────────────────────
 
-  const handleAddWelfare = async () => {
+  const handleAddWelfare = () => {
     if (!welfareForm.studentId || !welfareForm.category) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/welfare', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'welfare',
-          ...welfareForm,
-        }),
-      })
-      if (res.ok) {
-        setViewMode('list')
-        setWelfareForm({
-          studentId: '',
-          category: 'VULNERABLE',
-          description: '',
-          actionTaken: '',
-          referredTo: '',
-          isConfidential: true,
-        })
-        fetchData()
-      }
-    } catch (err) {
-      console.error('Failed to add welfare record:', err)
-    } finally {
-      setSubmitting(false)
-    }
+    addWelfare({ type: 'welfare', ...welfareForm })
   }
 
-  const handleApplyBeam = async () => {
+  const handleApplyBeam = () => {
     if (!beamForm.studentId) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/welfare', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'beam',
-          studentId: beamForm.studentId,
-          guardianSituation: beamForm.guardianSituation || undefined,
-          orphanStatus: beamForm.orphanStatus || undefined,
-          notes: beamForm.notes || undefined,
-          coveredAmount: beamForm.coveredAmount ? parseFloat(beamForm.coveredAmount) : 0,
-          outstandingBalance: beamForm.outstandingBalance ? parseFloat(beamForm.outstandingBalance) : 0,
-        }),
-      })
-      if (res.ok) {
-        setViewMode('list')
-        setBeamForm({
-          studentId: '',
-          guardianSituation: '',
-          orphanStatus: '',
-          notes: '',
-          coveredAmount: '',
-          outstandingBalance: '',
-        })
-        fetchData()
-      }
-    } catch (err) {
-      console.error('Failed to apply for BEAM:', err)
-    } finally {
-      setSubmitting(false)
-    }
+    applyBeam({
+      type: 'beam',
+      studentId: beamForm.studentId,
+      guardianSituation: beamForm.guardianSituation || undefined,
+      orphanStatus: beamForm.orphanStatus || undefined,
+      notes: beamForm.notes || undefined,
+      coveredAmount: beamForm.coveredAmount ? parseFloat(beamForm.coveredAmount) : 0,
+      outstandingBalance: beamForm.outstandingBalance ? parseFloat(beamForm.outstandingBalance) : 0,
+    })
   }
 
   // ─── Computed Data ─────────────────────────────────────────────────────
@@ -522,8 +514,8 @@ export default function WelfareModule() {
         </SectionCard>
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
-          <Button className={addType === 'welfare' ? 'bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white' : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white'} disabled={submitting} onClick={addType === 'welfare' ? handleAddWelfare : handleApplyBeam}>
-            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button className={addType === 'welfare' ? 'bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white' : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white'} disabled={isAddingWelfare || isApplyingBeam} onClick={addType === 'welfare' ? handleAddWelfare : handleApplyBeam}>
+            {(isAddingWelfare || isApplyingBeam) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {addType === 'welfare' ? 'Add Record' : 'Submit Application'}
           </Button>
         </div>

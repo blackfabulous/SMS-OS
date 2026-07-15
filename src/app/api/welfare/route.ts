@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { getRequestTenant } from '@/lib/tenant'
 import { validateRole } from '@/lib/api-auth'
 
@@ -67,7 +69,7 @@ export async function GET(request: NextRequest) {
         totalOutstanding: Number(totalOutstandingAgg._sum.outstandingBalance ?? 0),
       }
 
-      return NextResponse.json({ data: beamApplications, total: beamTotal, page, totalPages: Math.ceil(beamTotal / limit), stats: beamStats })
+      return ok({ data: beamApplications, total: beamTotal, page, totalPages: Math.ceil(beamTotal / limit), stats: beamStats })
     }
 
     // Default: welfare records
@@ -141,7 +143,7 @@ export async function GET(request: NextRequest) {
       _count: { id: true },
     })
 
-    return NextResponse.json({
+    return ok({
       data: welfareRecords,
       total: welfareTotal,
       page,
@@ -151,8 +153,8 @@ export async function GET(request: NextRequest) {
       categoryBreakdown: categoryBreakdown.map((c) => ({ category: c.category, count: c._count.id })),
     })
   } catch (error) {
-    console.error('Failed to fetch welfare data:', error)
-    return NextResponse.json({ error: 'Failed to fetch welfare data' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to fetch welfare data')
+    return fail('INTERNAL', 'Failed to fetch welfare data')
   }
 }
 
@@ -168,16 +170,16 @@ export async function POST(request: NextRequest) {
     if (type === 'beam') {
       const { studentId, guardianSituation, orphanStatus, notes, coveredAmount, outstandingBalance, socialWelfareRef } = body
       if (!studentId) {
-        return NextResponse.json({ error: 'Student ID is required' }, { status: 400 })
+        return fail('VALIDATION', 'Student ID is required')
       }
 
       // Verify student belongs to caller's school
       const student = await db.student.findUnique({ where: { id: studentId, schoolId: session.user.schoolId }, select: { id: true } })
-      if (!student) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+      if (!student) return fail('NOT_FOUND', 'Student not found')
 
       const existing = await db.beamApplication.findUnique({ where: { studentId } })
       if (existing) {
-        return NextResponse.json({ error: 'Student already has a BEAM application' }, { status: 400 })
+        return fail('CONFLICT', 'Student already has a BEAM application')
       }
 
       const beamApplication = await db.beamApplication.create({
@@ -198,17 +200,17 @@ export async function POST(request: NextRequest) {
       })
 
       await db.student.update({ where: { id: studentId }, data: { beamStatus: 'APPLIED' } })
-      return NextResponse.json(beamApplication, { status: 201 })
+      return ok(beamApplication, 201)
     }
 
     const { studentId, category, description, actionTaken, referredTo, isConfidential } = body
     if (!studentId || !category) {
-      return NextResponse.json({ error: 'Student ID and category are required' }, { status: 400 })
+      return fail('VALIDATION', 'Student ID and category are required')
     }
 
     // Verify student belongs to caller's school
     const student = await db.student.findUnique({ where: { id: studentId, schoolId: session.user.schoolId }, select: { id: true } })
-    if (!student) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+    if (!student) return fail('NOT_FOUND', 'Student not found')
 
     const welfareRecord = await db.welfareRecord.create({
       data: {
@@ -226,10 +228,10 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json(welfareRecord, { status: 201 })
+    return ok(welfareRecord, 201)
   } catch (error) {
-    console.error('Failed to create welfare record:', error)
-    return NextResponse.json({ error: 'Failed to create welfare record' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to create welfare record')
+    return fail('INTERNAL', 'Failed to create welfare record')
   }
 }
 
@@ -243,7 +245,7 @@ export async function PUT(request: NextRequest) {
     const { type, id, ...updates } = body
 
     if (!id) {
-      return NextResponse.json({ error: 'Record ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'Record ID is required')
     }
 
     if (type === 'beam') {
@@ -253,7 +255,7 @@ export async function PUT(request: NextRequest) {
         select: { student: { select: { schoolId: true } } },
       })
       if (!existing || existing.student.schoolId !== session.user.schoolId) {
-        return NextResponse.json({ error: 'Record not found' }, { status: 404 })
+        return fail('NOT_FOUND', 'Record not found')
       }
 
       const record = await db.beamApplication.update({
@@ -274,7 +276,7 @@ export async function PUT(request: NextRequest) {
         await db.student.update({ where: { id: record.student.id }, data: { beamStatus: updates.status } })
       }
 
-      return NextResponse.json(record)
+      return ok(record)
     }
 
     // Verify welfare record ownership
@@ -283,7 +285,7 @@ export async function PUT(request: NextRequest) {
       select: { student: { select: { schoolId: true } } },
     })
     if (!existing || existing.student.schoolId !== session.user.schoolId) {
-      return NextResponse.json({ error: 'Record not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Record not found')
     }
 
     const record = await db.welfareRecord.update({
@@ -299,10 +301,10 @@ export async function PUT(request: NextRequest) {
       include: { student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } } },
     })
 
-    return NextResponse.json(record)
+    return ok(record)
   } catch (error) {
-    console.error('Failed to update welfare record:', error)
-    return NextResponse.json({ error: 'Failed to update welfare record' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to update welfare record')
+    return fail('INTERNAL', 'Failed to update welfare record')
   }
 }
 
@@ -317,7 +319,7 @@ export async function DELETE(request: NextRequest) {
     const type = searchParams.get('type')
 
     if (!id) {
-      return NextResponse.json({ error: 'Record ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'Record ID is required')
     }
 
     if (type === 'beam') {
@@ -326,7 +328,7 @@ export async function DELETE(request: NextRequest) {
         select: { student: { select: { schoolId: true } } },
       })
       if (!existing || existing.student.schoolId !== session.user.schoolId) {
-        return NextResponse.json({ error: 'Record not found' }, { status: 404 })
+        return fail('NOT_FOUND', 'Record not found')
       }
       await db.beamApplication.delete({ where: { id } })
     } else {
@@ -335,14 +337,14 @@ export async function DELETE(request: NextRequest) {
         select: { student: { select: { schoolId: true } } },
       })
       if (!existing || existing.student.schoolId !== session.user.schoolId) {
-        return NextResponse.json({ error: 'Record not found' }, { status: 404 })
+        return fail('NOT_FOUND', 'Record not found')
       }
       await db.welfareRecord.delete({ where: { id } })
     }
 
-    return NextResponse.json({ message: 'Record deleted successfully' })
+    return ok({ message: 'Record deleted successfully' })
   } catch (error) {
-    console.error('Failed to delete welfare record:', error)
-    return NextResponse.json({ error: 'Failed to delete welfare record' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to delete welfare record')
+    return fail('INTERNAL', 'Failed to delete welfare record')
   }
 }
