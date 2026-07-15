@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { getRequestTenant } from '@/lib/tenant'
 import { validateRole } from '@/lib/api-auth'
 
@@ -82,7 +84,7 @@ export async function GET(request: NextRequest) {
         db.student.count({ where: { schoolId, allergies: { not: null } } }),
       ])
 
-    return NextResponse.json({
+    return ok({
       data: records,
       total,
       page,
@@ -91,8 +93,8 @@ export async function GET(request: NextRequest) {
       visitTypeBreakdown: visitTypeStats.map((v) => ({ type: v.visitType, count: v._count.id })),
     })
   } catch (error) {
-    console.error('Failed to fetch health records:', error)
-    return NextResponse.json({ error: 'Failed to fetch health records' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to fetch health records')
+    return fail('INTERNAL', 'Failed to fetch health records')
   }
 }
 
@@ -106,7 +108,7 @@ export async function POST(request: NextRequest) {
     const { studentId, visitType, description, treatment, medicationGiven, referredTo, isConfidential, visitDate } = body
 
     if (!studentId || !visitType || !description) {
-      return NextResponse.json({ error: 'Student ID, visit type, and description are required' }, { status: 400 })
+      return fail('VALIDATION', 'Student ID, visit type, and description are required')
     }
 
     // Verify student belongs to caller's school
@@ -115,7 +117,7 @@ export async function POST(request: NextRequest) {
       select: { id: true },
     })
     if (!student) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Student not found')
     }
 
     const record = await db.healthRecord.create({
@@ -137,10 +139,10 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json(record, { status: 201 })
+    return ok(record, 201)
   } catch (error) {
-    console.error('Failed to create health record:', error)
-    return NextResponse.json({ error: 'Failed to create health record' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to create health record')
+    return fail('INTERNAL', 'Failed to create health record')
   }
 }
 
@@ -154,7 +156,7 @@ export async function PUT(request: NextRequest) {
     const { id, ...updates } = body
 
     if (!id) {
-      return NextResponse.json({ error: 'Record ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'Record ID is required')
     }
 
     // Verify the health record belongs to a student in the caller's school
@@ -163,7 +165,7 @@ export async function PUT(request: NextRequest) {
       select: { student: { select: { schoolId: true } } },
     })
     if (!existing || existing.student.schoolId !== session.user.schoolId) {
-      return NextResponse.json({ error: 'Record not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Record not found')
     }
 
     const record = await db.healthRecord.update({
@@ -181,10 +183,10 @@ export async function PUT(request: NextRequest) {
       },
     })
 
-    return NextResponse.json(record)
+    return ok(record)
   } catch (error) {
-    console.error('Failed to update health record:', error)
-    return NextResponse.json({ error: 'Failed to update health record' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to update health record')
+    return fail('INTERNAL', 'Failed to update health record')
   }
 }
 
@@ -198,7 +200,7 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id')
 
     if (!id) {
-      return NextResponse.json({ error: 'Record ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'Record ID is required')
     }
 
     // Verify the health record belongs to a student in the caller's school
@@ -207,13 +209,13 @@ export async function DELETE(request: NextRequest) {
       select: { student: { select: { schoolId: true } } },
     })
     if (!existing || existing.student.schoolId !== session.user.schoolId) {
-      return NextResponse.json({ error: 'Record not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Record not found')
     }
 
     await db.healthRecord.delete({ where: { id } })
-    return NextResponse.json({ message: 'Health record deleted successfully' })
+    return ok({ message: 'Health record deleted successfully' })
   } catch (error) {
-    console.error('Failed to delete health record:', error)
-    return NextResponse.json({ error: 'Failed to delete health record' }, { status: 500 })
+    logger.error({ err: error }, 'Failed to delete health record')
+    return fail('INTERNAL', 'Failed to delete health record')
   }
 }
