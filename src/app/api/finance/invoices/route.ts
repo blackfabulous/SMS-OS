@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { requireContext } from '@/server/context'
 import { financeStudentScope } from '@/server/finance/scope'
@@ -11,7 +12,7 @@ export async function GET(request: Request) {
     if ('error' in result) return result.error
     // Role-aware scope: staff see the whole school; parents/students only their own.
     const scope = await financeStudentScope(result.ctx)
-    if (!scope) return NextResponse.json({ data: [], total: 0, page: 1, totalPages: 0 })
+    if (!scope) return ok({ data: [], total: 0, page: 1, totalPages: 0 })
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status') || ''
@@ -45,10 +46,10 @@ export async function GET(request: Request) {
       db.feeInvoice.count({ where }),
     ])
 
-    return NextResponse.json({ data, total, page, totalPages: Math.ceil(total / limit) })
+    return ok({ data, total, page, totalPages: Math.ceil(total / limit) })
   } catch (error) {
-    console.error('Error fetching invoices:', error)
-    return NextResponse.json({ error: 'Failed to fetch invoices' }, { status: 500 })
+    logger.error({ err: error }, 'Error fetching invoices')
+    return fail('INTERNAL', 'Failed to fetch invoices')
   }
 }
 
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
 
     const parsed = CreateInvoiceSchema.safeParse(rawBody)
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+      return fail('VALIDATION', 'Validation failed', { details: parsed.error.issues })
     }
     const data = parsed.data
 
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
       select: { id: true },
     })
     if (!student) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Student not found')
     }
 
     const currentYear = new Date().getFullYear()
@@ -114,10 +115,10 @@ export async function POST(request: Request) {
     })
 
     logAudit({ action: 'CREATE', entity: 'invoices', entityId: invoice.id, afterValue: invoice }).catch(() => {})
-    return NextResponse.json(invoice, { status: 201 })
+    return ok(invoice, 201)
   } catch (error) {
-    console.error('Error creating invoice:', error)
-    return NextResponse.json({ error: 'Failed to create invoice' }, { status: 500 })
+    logger.error({ err: error }, 'Error creating invoice')
+    return fail('INTERNAL', 'Failed to create invoice')
   }
 }
 
@@ -129,7 +130,7 @@ export async function PUT(request: Request) {
   try {
     const body = await request.json()
     const { id, ...updates } = body
-    if (!id) return NextResponse.json({ error: 'Invoice ID is required' }, { status: 400 })
+    if (!id) return fail('VALIDATION', 'Invoice ID is required')
 
     // Verify invoice belongs to a student in the caller's school
     const existing = await db.feeInvoice.findUnique({
@@ -137,7 +138,7 @@ export async function PUT(request: Request) {
       select: { id: true },
     })
     if (!existing) {
-      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Invoice not found')
     }
 
     const invoice = await db.feeInvoice.update({
@@ -150,10 +151,10 @@ export async function PUT(request: Request) {
     })
 
     logAudit({ action: 'UPDATE', entity: 'invoices', entityId: invoice.id, afterValue: invoice }).catch(() => {})
-    return NextResponse.json(invoice)
+    return ok(invoice)
   } catch (error) {
-    console.error('Error updating invoice:', error)
-    return NextResponse.json({ error: 'Failed to update invoice' }, { status: 500 })
+    logger.error({ err: error }, 'Error updating invoice')
+    return fail('INTERNAL', 'Failed to update invoice')
   }
 }
 
@@ -165,21 +166,21 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
-    if (!id) return NextResponse.json({ error: 'Invoice ID is required' }, { status: 400 })
+    if (!id) return fail('VALIDATION', 'Invoice ID is required')
 
     const invoice = await db.feeInvoice.findUnique({
       where: { id, student: { schoolId: ctx.schoolId } },
     })
-    if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
-    if (invoice.amountPaid > 0) return NextResponse.json({ error: 'Cannot delete invoice with payments' }, { status: 400 })
+    if (!invoice) return fail('NOT_FOUND', 'Invoice not found')
+    if (Number(invoice.amountPaid) > 0) return fail('CONFLICT', 'Cannot delete invoice with payments')
 
     await db.invoiceItem.deleteMany({ where: { invoiceId: id } })
     await db.feeInvoice.delete({ where: { id } })
 
     logAudit({ action: 'DELETE', entity: 'invoices', entityId: id }).catch(() => {})
-    return NextResponse.json({ message: 'Invoice deleted successfully' })
+    return ok({ message: 'Invoice deleted successfully' })
   } catch (error) {
-    console.error('Error deleting invoice:', error)
-    return NextResponse.json({ error: 'Failed to delete invoice' }, { status: 500 })
+    logger.error({ err: error }, 'Error deleting invoice')
+    return fail('INTERNAL', 'Failed to delete invoice')
   }
 }

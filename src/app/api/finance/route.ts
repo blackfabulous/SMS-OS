@@ -106,12 +106,12 @@ export async function PUT(request: Request) {
       })
 
       logAudit({ action: 'UPDATE', entity: 'finance', entityId: (payment as any)?.id, afterValue: payment }).catch(() => {})
-      return NextResponse.json(payment)
+      return ok(payment)
     }
 
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid action')
   } catch (error) {
-    console.error('Error updating finance record:', error)
-    return NextResponse.json({ error: 'Failed to update finance record' }, { status: 500 })
+    logger.error({ err: error }, 'Error updating finance record')
+    return fail('INTERNAL', 'Failed to update finance record')
   }
 }
