@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
@@ -52,10 +53,10 @@ export async function GET(request: Request) {
         : 0,
     }
 
-    return NextResponse.json({ data: candidates, total, page, totalPages: Math.ceil(total / limit), stats })
+    return ok({ data: candidates, total, page, totalPages: Math.ceil(total / limit), stats })
   } catch (error) {
-    console.error('Error fetching examinations:', error)
-    return NextResponse.json({ error: 'Failed to fetch examinations' }, { status: 500 })
+    logger.error({ err: error }, 'Error fetching examinations')
+    return fail('INTERNAL', 'Failed to fetch examinations')
   }
 }
 
@@ -69,12 +70,12 @@ export async function POST(request: Request) {
 
     // The candidate's student must belong to the caller's school (tenant guard).
     const ownStudent = await db.student.findFirst({ where: { id: body.studentId, schoolId }, select: { id: true } })
-    if (!ownStudent) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+    if (!ownStudent) return fail('NOT_FOUND', 'Student not found')
 
     const existing = await db.zimsecCandidate.findFirst({
       where: { studentId: body.studentId, examYear: body.examYear || new Date().getFullYear(), student: { schoolId } },
     })
-    if (existing) return NextResponse.json({ error: 'Candidate already registered for this exam year', duplicate: true }, { status: 409 })
+    if (existing) return fail('CONFLICT', 'Candidate already registered for this exam year', { duplicate: true })
 
     const school = await db.school.findUnique({ where: { id: schoolId } })
     const centreNumber = school?.zimsecCentreNumber || ''
@@ -92,10 +93,10 @@ export async function POST(request: Request) {
     })
 
     logAudit({ action: 'CREATE', entity: 'examinations', entityId: (candidate as any)?.id, afterValue: candidate }).catch(() => {})
-    return NextResponse.json(candidate, { status: 201 })
+    return ok(candidate, 201)
   } catch (error) {
-    console.error('Error registering candidate:', error)
-    return NextResponse.json({ error: 'Failed to register candidate' }, { status: 500 })
+    logger.error({ err: error }, 'Error registering candidate')
+    return fail('INTERNAL', 'Failed to register candidate')
   }
 }
 
@@ -108,11 +109,11 @@ export async function PUT(request: Request) {
     const body = await request.json()
     const { id, ...updates } = body
 
-    if (!id) return NextResponse.json({ error: 'Candidate ID is required' }, { status: 400 })
+    if (!id) return fail('VALIDATION', 'Candidate ID is required')
 
     // Verify the candidate belongs to the caller's school before mutating.
     const owned = await db.zimsecCandidate.findFirst({ where: { id, student: { schoolId } }, select: { id: true } })
-    if (!owned) return NextResponse.json({ error: 'Candidate not found' }, { status: 404 })
+    if (!owned) return fail('NOT_FOUND', 'Candidate not found')
 
     const candidate = await db.zimsecCandidate.update({
       where: { id },
@@ -127,10 +128,10 @@ export async function PUT(request: Request) {
     })
 
     logAudit({ action: 'UPDATE', entity: 'examinations', entityId: (candidate as any)?.id, afterValue: candidate }).catch(() => {})
-    return NextResponse.json(candidate)
+    return ok(candidate)
   } catch (error) {
-    console.error('Error updating candidate:', error)
-    return NextResponse.json({ error: 'Failed to update candidate' }, { status: 500 })
+    logger.error({ err: error }, 'Error updating candidate')
+    return fail('INTERNAL', 'Failed to update candidate')
   }
 }
 
@@ -143,17 +144,17 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
-    if (!id) return NextResponse.json({ error: 'Candidate ID is required' }, { status: 400 })
+    if (!id) return fail('VALIDATION', 'Candidate ID is required')
 
     // Verify the candidate belongs to the caller's school before deleting.
     const owned = await db.zimsecCandidate.findFirst({ where: { id, student: { schoolId } }, select: { id: true } })
-    if (!owned) return NextResponse.json({ error: 'Candidate not found' }, { status: 404 })
+    if (!owned) return fail('NOT_FOUND', 'Candidate not found')
 
     await db.zimsecCandidate.delete({ where: { id } })
     logAudit({ action: 'DELETE', entity: 'examinations', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ message: 'Candidate registration deleted successfully' })
+    return ok({ message: 'Candidate registration deleted successfully' })
   } catch (error) {
-    console.error('Error deleting candidate:', error)
-    return NextResponse.json({ error: 'Failed to delete candidate' }, { status: 500 })
+    logger.error({ err: error }, 'Error deleting candidate')
+    return fail('INTERNAL', 'Failed to delete candidate')
   }
 }

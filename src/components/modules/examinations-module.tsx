@@ -11,7 +11,7 @@ import {
   KitEmptyState,
   ModuleToolbar,
 } from '@/components/module-ui'
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   FileCheck,
@@ -49,6 +49,9 @@ import {
 
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { useMutation } from '@tanstack/react-query'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
+import { apiFetch } from '@/lib/api-client'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -128,6 +131,29 @@ interface StudentOption {
   enrollments: Array<{
     class: { name: string; grade: { name: string } }
   }>
+}
+
+interface StudentsResponse {
+  data: StudentOption[]
+  total: number
+  page: number
+  totalPages: number
+}
+
+interface ExaminationsResponse {
+  data: ZimsecCandidate[]
+  total: number
+  page: number
+  totalPages: number
+  stats: ExaminationStats
+}
+
+interface BulkImportResponse {
+  success: boolean
+  imported: number
+  skipped: number
+  errors: Array<{ row: number; studentNumber: string; error: string }>
+  message: string
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -229,9 +255,7 @@ const levelDistConfig = {
 // ─── Examinations Module ───────────────────────────────────────────────────
 
 export default function ExaminationsModule() {
-  const [candidates, setCandidates] = useState<ZimsecCandidate[]>([])
-  const [stats, setStats] = useState<ExaminationStats | null>(null)
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [examLevelFilter, setExamLevelFilter] = useState('ALL')
 
@@ -239,92 +263,77 @@ export default function ExaminationsModule() {
   type ViewMode = 'list' | 'add' | 'edit' | 'detail' | 'settings'
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [registering, setRegistering] = useState(false)
   const [registerForm, setRegisterForm] = useState({
     studentId: '',
     examLevel: 'O_LEVEL',
     examYear: new Date().getFullYear().toString(),
     subjects: [] as string[],
   })
-  const [students, setStudents] = useState<StudentOption[]>([])
   const [duplicateWarning, setDuplicateWarning] = useState(false)
 
   // Results tab state
   const [resultsView, setResultsView] = useState<'import' | 'analysis' | 'table'>('analysis')
 
-  // ─── Data Fetching ─────────────────────────────────────────────────────
+  // ─── Data & Mutations ─────────────────────────────────────────────────
 
-  const fetchCandidates = useCallback(async () => {
-    try {
-      setLoading(true)
-      const params = new URLSearchParams()
-      if (examLevelFilter !== 'ALL') params.set('examLevel', examLevelFilter)
-      const res = await fetch(`/api/examinations?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        setCandidates(data.data || [])
-        setStats(data.stats || null)
-      }
-    } catch (err) {
-      console.error('Failed to fetch candidates:', err)
-    } finally {
-      setLoading(false)
-    }
+  const params = useMemo(() => {
+    const p = new URLSearchParams()
+    if (examLevelFilter !== 'ALL') p.set('examLevel', examLevelFilter)
+    return p.toString()
   }, [examLevelFilter])
 
-  const fetchStudents = useCallback(async () => {
-    try {
-      const res = await fetch('/api/students?limit=500&enrollmentStatus=ACTIVE')
-      if (res.ok) {
-        const data = await res.json()
-        setStudents(data.data || data || [])
+  const {
+    data: examsData,
+    isPending: loading,
+  } = useApiQuery<ExaminationsResponse>(['examinations', examLevelFilter], `/api/examinations?${params}`)
+
+  const candidates = examsData?.data ?? []
+  const stats = examsData?.stats ?? null
+
+  const {
+    data: studentsData,
+  } = useApiQuery<StudentsResponse>(['students', 'examinations'], '/api/students?limit=500&enrollmentStatus=ACTIVE', {
+    enabled: viewMode === 'add',
+  })
+
+  const students = studentsData?.data ?? []
+
+  const { mutate: registerCandidate, isPending: registering } = useApiMutation<
+    { studentId: string; examLevel: string; examYear: number; subjects: string | null },
+    ZimsecCandidate
+  >('/api/examinations', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['examinations'] })
+      setViewMode('list')
+      setRegisterForm({ studentId: '', examLevel: 'O_LEVEL', examYear: new Date().getFullYear().toString(), subjects: [] })
+      toast.success('Candidate registered successfully')
+    },
+    onError: (err) => {
+      if (err.code === 'CONFLICT') {
+        setDuplicateWarning(true)
       }
-    } catch (err) {
-      console.error('Failed to fetch students:', err)
-    }
-  }, [])
+    },
+  })
 
-  useEffect(() => {
-    fetchCandidates()
-  }, [fetchCandidates])
-
-  useEffect(() => {
-    if (viewMode === 'add') fetchStudents()
-  }, [viewMode, fetchStudents])
+  const bulkImportMutation = useMutation<BulkImportResponse, Error, FormData>({
+    mutationFn: (formData) => apiFetch('/api/examinations/bulk-import', {
+      method: 'POST',
+      body: formData,
+      headers: {},
+    }),
+  })
 
   // ─── Handlers ─────────────────────────────────────────────────────────
 
-  const handleRegister = async () => {
+  const handleRegister = () => {
     if (!registerForm.studentId || !registerForm.examLevel) return
-    try {
-      setRegistering(true)
-      setDuplicateWarning(false)
-      const res = await fetch('/api/examinations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: registerForm.studentId,
-          examLevel: registerForm.examLevel,
-          examYear: parseInt(registerForm.examYear),
-          subjects: registerForm.subjects.length > 0 ? JSON.stringify(registerForm.subjects) : null,
-        }),
-      })
-      if (res.ok) {
-        setViewMode('list')
-        setRegisterForm({ studentId: '', examLevel: 'O_LEVEL', examYear: new Date().getFullYear().toString(), subjects: [] })
-        toast.success('Candidate registered successfully')
-        fetchCandidates()
-      } else if (res.status === 409) {
-        setDuplicateWarning(true)
-      } else {
-        const error = await res.json()
-        console.error('Registration error:', error)
-      }
-    } catch (err) {
-      console.error('Failed to register candidate:', err)
-    } finally {
-      setRegistering(false)
-    }
+    setDuplicateWarning(false)
+    registerCandidate({
+      studentId: registerForm.studentId,
+      examLevel: registerForm.examLevel,
+      examYear: parseInt(registerForm.examYear),
+      subjects: registerForm.subjects.length > 0 ? JSON.stringify(registerForm.subjects) : null,
+    })
   }
 
   const toggleSubject = (subject: string) => {
@@ -1217,18 +1226,15 @@ export default function ExaminationsModule() {
                           const formData = new FormData()
                           formData.append('file', file)
                           try {
-                            const res = await fetch('/api/examinations/bulk-import', {
-                              method: 'POST',
-                              body: formData,
-                            })
-                            const data = await res.json()
-                            if (res.ok && data.success) {
-                              alert(data.message)
+                            const data = await bulkImportMutation.mutateAsync(formData)
+                            if (data.success) {
+                              toast.success(data.message)
+                              queryClient.invalidateQueries({ queryKey: ['examinations'] })
                             } else {
-                              alert(data.error || 'Import failed')
+                              toast.error('Import failed')
                             }
-                          } catch {
-                            alert('Failed to upload file')
+                          } catch (err) {
+                            toast.error(err instanceof Error ? err.message : 'Failed to upload file')
                           }
                           e.target.value = ''
                         }}
