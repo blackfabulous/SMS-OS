@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 import { logAudit } from '@/lib/audit'
 
@@ -19,19 +20,19 @@ export async function GET(
       // Resolve parentId from the User record (not stored in session)
       const userRecord = await db.user.findUnique({ where: { id: session.user.id }, select: { parentId: true } })
       if (!userRecord?.parentId) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return fail('FORBIDDEN', 'Forbidden')
       }
       const link = await db.studentParent.findFirst({
         where: { studentId: id, parentId: userRecord.parentId },
       })
       if (!link) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        return fail('FORBIDDEN', 'Forbidden')
       }
     }
 
     // Students can only view their own record
     if (session.user.role === 'STUDENT' && session.user.studentId !== id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return fail('FORBIDDEN', 'Forbidden')
     }
 
     // All roles: enforce school isolation
@@ -89,7 +90,7 @@ export async function GET(
     })
 
     if (!student) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Student not found')
     }
 
     const totalAttendance = student.attendanceRecords.length
@@ -105,10 +106,10 @@ export async function GET(
       attendanceRate: totalAttendance > 0 ? ((presentCount / totalAttendance) * 100).toFixed(1) : '0',
     }
 
-    return NextResponse.json({ student, attendanceSummary })
+    return ok({ student, attendanceSummary })
   } catch (error) {
-    console.error('Error fetching student:', error)
-    return NextResponse.json({ error: 'Failed to fetch student' }, { status: 500 })
+    logger.error({ err: error }, 'Error fetching student')
+    return fail('INTERNAL', 'Failed to fetch student')
   }
 }
 
@@ -130,7 +131,7 @@ export async function PUT(
       select: { id: true },
     })
     if (!existing) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Student not found')
     }
 
     const student = await db.student.update({
@@ -173,10 +174,10 @@ export async function PUT(
     })
 
     logAudit({ action: 'UPDATE', entity: 'students', entityId: student.id, afterValue: student }).catch(() => {})
-    return NextResponse.json(student)
+    return ok(student)
   } catch (error) {
-    console.error('Error updating student:', error)
-    return NextResponse.json({ error: 'Failed to update student' }, { status: 500 })
+    logger.error({ err: error }, 'Error updating student')
+    return fail('INTERNAL', 'Failed to update student')
   }
 }
 
@@ -197,7 +198,7 @@ export async function DELETE(
       select: { id: true },
     })
     if (!existing) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Student not found')
     }
 
     const student = await db.student.update({
@@ -210,9 +211,9 @@ export async function DELETE(
     })
 
     logAudit({ action: 'DELETE', entity: 'students', entityId: id }).catch(() => {})
-    return NextResponse.json({ message: 'Student soft deleted successfully', student })
+    return ok({ message: 'Student soft deleted successfully', student })
   } catch (error) {
-    console.error('Error deleting student:', error)
-    return NextResponse.json({ error: 'Failed to delete student' }, { status: 500 })
+    logger.error({ err: error }, 'Error deleting student')
+    return fail('INTERNAL', 'Failed to delete student')
   }
 }
