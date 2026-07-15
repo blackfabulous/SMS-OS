@@ -1,11 +1,9 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateAuth, validateRole } from '@/lib/api-auth'
-
-// Aggregated read + write log for the notification centre.
-// GET  /api/notifications  -> { stats, history, dailyVolume, channelUsage, recentActivity }
-// POST /api/notifications  -> records a sent message (NotificationLog)
 
 const CHANNEL_FILL: Record<string, string> = { SMS: '#10b981', WHATSAPP: '#25d366', EMAIL: '#3b82f6' }
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -27,7 +25,7 @@ export async function GET() {
   const auth = await validateAuth()
   if ('error' in auth) return auth.error
   const schoolId = auth.session.user.schoolId
-  if (!schoolId) return NextResponse.json({ error: 'School not configured' }, { status: 400 })
+  if (!schoolId) return fail('VALIDATION', 'School not configured')
 
   try {
     const now = new Date()
@@ -82,10 +80,10 @@ export async function GET() {
       time: relativeTime(l.createdAt), status: l.status.toLowerCase(),
     }))
 
-    return NextResponse.json({ stats, history, dailyVolume, channelUsage, recentActivity })
+    return ok({ stats, history, dailyVolume, channelUsage, recentActivity })
   } catch (error) {
-    console.error('notifications GET error', error)
-    return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 })
+    logger.error({ err: error }, 'notifications GET error')
+    return fail('INTERNAL', 'Failed to fetch notifications')
   }
 }
 
@@ -93,12 +91,12 @@ export async function POST(request: NextRequest) {
   const auth = await validateRole(['ADMIN', 'TEACHER'])
   if ('error' in auth) return auth.error
   const schoolId = auth.session.user.schoolId
-  if (!schoolId) return NextResponse.json({ error: 'School not configured' }, { status: 400 })
+  if (!schoolId) return fail('VALIDATION', 'School not configured')
 
   try {
     const body = await request.json()
     const { channel, recipients, subject, body: messageBody, status, phone, eventType } = body
-    if (!messageBody) return NextResponse.json({ error: 'body is required' }, { status: 400 })
+    if (!messageBody) return fail('VALIDATION', 'body is required')
 
     const log = await db.notificationLog.create({
       data: {
@@ -114,9 +112,9 @@ export async function POST(request: NextRequest) {
       },
     })
     logAudit({ action: 'CREATE', entity: 'notifications', entityId: log.id }).catch(() => {})
-    return NextResponse.json(log, { status: 201 })
+    return ok(log, 201)
   } catch (error) {
-    console.error('notifications POST error', error)
-    return NextResponse.json({ error: 'Failed to log notification' }, { status: 500 })
+    logger.error({ err: error }, 'notifications POST error')
+    return fail('INTERNAL', 'Failed to log notification')
   }
 }
