@@ -6,6 +6,7 @@ import { financeStudentScope } from '@/server/finance/scope'
 import { CreatePaymentSchema } from '@/lib/validations'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { withIdempotency, idempotencyKeyFromRequest } from '@/lib/idempotency'
+import { logger } from '@/lib/logger'
 import { ok, fail } from '@/server/http'
 import {
   createPaymentWithDefaults,
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
 
     return ok({ data, total, page, totalPages: Math.ceil(total / limit) })
   } catch (error) {
-    console.error('Error fetching payments:', error)
+    logger.error({ err: error }, 'Error fetching payments')
     return fail('INTERNAL', 'Failed to fetch payments')
   }
 }
@@ -120,7 +121,7 @@ export async function POST(request: Request) {
 
     return ok(payment, 201)
   } catch (error) {
-    console.error('Error recording payment:', error)
+    logger.error({ err: error }, 'Error recording payment')
     if (isAppError(error)) {
       return fail(error.code, error.message, error.details)
     }
@@ -154,7 +155,7 @@ export async function PUT(request: Request) {
     logAudit({ action: 'UPDATE', entity: 'payments', entityId: payment.id, afterValue: payment }).catch(() => {})
     return ok(payment)
   } catch (error) {
-    console.error('Error updating payment:', error)
+    logger.error({ err: error }, 'Error updating payment')
     return fail('INTERNAL', 'Failed to update payment')
   }
 }
@@ -184,7 +185,7 @@ export async function DELETE(request: Request) {
     logAudit({ action: 'DELETE', entity: 'payments', entityId: id }).catch(() => {})
     return ok({ message: 'Payment reversed successfully', payment })
   } catch (error) {
-    console.error('Error reversing payment:', error)
+    logger.error({ err: error }, 'Error reversing payment')
     return fail('INTERNAL', 'Failed to reverse payment')
   }
 }

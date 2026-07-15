@@ -26,9 +26,9 @@
 | TanStack Query | `QueryProvider` added to root layout; `src/lib/api-client.ts` typed envelope client; `src/hooks/use-api-query.ts` hooks; modules still use `useApi` / ad-hoc fetch, migration pending | Partial |
 | Design system | Emerald tokens + `components/ui` exist; module files are 800–1,500-line monoliths with inconsistent loading/error/empty states | Partial |
 | Tests | 13 Vitest files, including `tests/tenant-safety.test.ts`, `tests/tenant-context.test.ts`, `tests/finance-scope.test.ts`, `tests/student-access.test.ts` | Partial |
-| Observability | `console.*` only; no Pino/Sentry | Full |
+| Observability | `src/lib/logger.ts` (server Pino) and `src/lib/logger-client.ts` (browser) introduced; used in `/api/finance/payments`; Sentry/Playwright CI still pending | Partial |
 | Outbox / durable jobs | `Outbox` model + `src/server/outbox.ts` (`enqueueOutbox`, `processOutboxJob`, `processOutbox`) wired into notifications (`src/lib/notifications.ts`) and report-card generation (`src/lib/report-card-service.ts`); new `POST /api/outbox/process` endpoint | Done |
-| Ops | Root `Dockerfile`, `.dockerignore`, `scripts/github-ci.yml`, and `package.json` `typecheck` script added; `.github/workflows/ci.yml` needs GitHub `workflow` OAuth scope to push | Done |
+| Ops | Root `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `scripts/github-ci.yml`, Playwright E2E config + smoke spec, and Pino logging added; `.github/workflows/ci.yml` needs GitHub `workflow` OAuth scope to push; Sentry pending | Done (core) |
 | Public site | Real App Router routes, metadata, sitemap/robots/JSON-LD | Done |
 | Settings registry | `src/lib/settings-schema.ts` + `src/lib/settings.ts` with Zod, categories, defaults, UI hints | Done |
 | Finance allocation | `PaymentAllocation` model added; payment creation (`/api/finance/payments`, `/api/finance/beam/apply`) creates allocations; reverse deletes allocations; `FeeInvoice.balance` still cached during transition | Done (ledger + cached balance) |
