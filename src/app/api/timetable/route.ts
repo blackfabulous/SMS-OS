@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest) {
     const schoolId = authResult.session.user.schoolId
 
     if (!schoolId) {
-      return NextResponse.json({ error: 'School not configured' }, { status: 400 })
+      return fail('FORBIDDEN', 'School not configured')
     }
 
     // Build where clause
@@ -75,7 +77,7 @@ export async function GET(request: NextRequest) {
       })),
     }
 
-    return NextResponse.json({
+    return ok({
       data: entries,
       total,
       page,
@@ -83,11 +85,8 @@ export async function GET(request: NextRequest) {
       stats,
     })
   } catch (error) {
-    console.error('Failed to fetch timetable data:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch timetable data' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to fetch timetable data')
+    return fail('INTERNAL', 'Failed to fetch timetable data')
   }
 }
 
@@ -101,7 +100,7 @@ export async function POST(request: NextRequest) {
     const schoolId = authResult.session.user.schoolId
 
     if (!schoolId) {
-      return NextResponse.json({ error: 'School not configured' }, { status: 400 })
+      return fail('FORBIDDEN', 'School not configured')
     }
 
     const {
@@ -117,26 +116,17 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!classId || !subjectId || !dayOfWeek || !period) {
-      return NextResponse.json(
-        { error: 'Class, subject, day of week, and period are required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'Class, subject, day of week, and period are required')
     }
 
     // Validate dayOfWeek (1=Monday through 5=Friday, or 1-7)
     if (dayOfWeek < 1 || dayOfWeek > 7) {
-      return NextResponse.json(
-        { error: 'Day of week must be between 1 (Monday) and 7 (Sunday)' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'Day of week must be between 1 (Monday) and 7 (Sunday)')
     }
 
     // Validate period
     if (period < 1 || period > 12) {
-      return NextResponse.json(
-        { error: 'Period must be between 1 and 12' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'Period must be between 1 and 12')
     }
 
     // === CONFLICT DETECTION ===
@@ -157,16 +147,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (classConflict) {
-      return NextResponse.json(
-        {
-          error: `Class conflict: This class already has "${classConflict.subject?.name || 'a subject'}" scheduled for ${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][dayOfWeek - 1]} Period ${period}`,
-          conflict: {
-            type: 'CLASS',
-            existingEntry: classConflict,
-          },
-        },
-        { status: 409 }
-      )
+      return fail('CONFLICT', `Class conflict: This class already has "${classConflict.subject?.name || 'a subject'}" scheduled for ${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][dayOfWeek - 1]} Period ${period}`, { conflict: { type: 'CLASS', existingEntry: classConflict } })
     }
 
     // 2. Check if the teacher is already assigned at this day+period
@@ -186,16 +167,7 @@ export async function POST(request: NextRequest) {
       })
 
       if (teacherConflict) {
-        return NextResponse.json(
-          {
-            error: `Teacher conflict: This teacher is already assigned to "${teacherConflict.subject?.name || 'a subject'}" for ${teacherConflict.class?.name || 'a class'} on ${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][dayOfWeek - 1]} Period ${period}`,
-            conflict: {
-              type: 'TEACHER',
-              existingEntry: teacherConflict,
-            },
-          },
-          { status: 409 }
-        )
+        return fail('CONFLICT', `Teacher conflict: This teacher is already assigned to "${teacherConflict.subject?.name || 'a subject'}" for ${teacherConflict.class?.name || 'a class'} on ${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][dayOfWeek - 1]} Period ${period}`, { conflict: { type: 'TEACHER', existingEntry: teacherConflict } })
       }
     }
 
@@ -216,16 +188,7 @@ export async function POST(request: NextRequest) {
       })
 
       if (roomConflict) {
-        return NextResponse.json(
-          {
-            error: `Room conflict: Room "${room}" is already occupied by ${roomConflict.class?.name || 'a class'} for "${roomConflict.subject?.name || 'a subject'}" on ${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][dayOfWeek - 1]} Period ${period}`,
-            conflict: {
-              type: 'ROOM',
-              existingEntry: roomConflict,
-            },
-          },
-          { status: 409 }
-        )
+        return fail('CONFLICT', `Room conflict: Room "${room}" is already occupied by ${roomConflict.class?.name || 'a class'} for "${roomConflict.subject?.name || 'a subject'}" on ${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][dayOfWeek - 1]} Period ${period}`, { conflict: { type: 'ROOM', existingEntry: roomConflict } })
       }
     }
 
@@ -249,13 +212,10 @@ export async function POST(request: NextRequest) {
     })
 
     logAudit({ action: 'CREATE', entity: 'timetable', entityId: (entry as any)?.id, afterValue: entry }).catch(() => {})
-    return NextResponse.json(entry, { status: 201 })
+    return ok(entry, 201)
   } catch (error) {
-    console.error('Failed to create timetable entry:', error)
-    return NextResponse.json(
-      { error: 'Failed to create timetable entry' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to create timetable entry')
+    return fail('INTERNAL', 'Failed to create timetable entry')
   }
 }
 
@@ -268,20 +228,14 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { id, ...updates } = body
     if (!id) {
-      return NextResponse.json(
-        { error: 'Entry ID is required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'Entry ID is required')
     }
 
     // Verify the entry belongs to the caller's school before any read/mutation.
     const schoolId = authResult.session.user.schoolId
     const existing = await db.timetableEntry.findFirst({ where: { id, schoolId } })
     if (!existing) {
-      return NextResponse.json(
-        { error: 'Timetable entry not found' },
-        { status: 404 }
-      )
+      return fail('NOT_FOUND', 'Timetable entry not found')
     }
 
     // If changing day/period/class/teacher/room, check for conflicts
@@ -304,10 +258,7 @@ export async function PUT(request: NextRequest) {
         },
       })
       if (classConflict) {
-        return NextResponse.json(
-          { error: 'Class conflict detected for the new schedule' },
-          { status: 409 }
-        )
+        return fail('CONFLICT', 'Class conflict detected for the new schedule')
       }
 
       // Check teacher conflict
@@ -323,10 +274,7 @@ export async function PUT(request: NextRequest) {
           },
         })
         if (teacherConflict) {
-          return NextResponse.json(
-            { error: 'Teacher conflict detected for the new schedule' },
-            { status: 409 }
-          )
+          return fail('CONFLICT', 'Teacher conflict detected for the new schedule')
         }
       }
 
@@ -343,10 +291,7 @@ export async function PUT(request: NextRequest) {
           },
         })
         if (roomConflict) {
-          return NextResponse.json(
-            { error: 'Room conflict detected for the new schedule' },
-            { status: 409 }
-          )
+          return fail('CONFLICT', 'Room conflict detected for the new schedule')
         }
       }
     }
@@ -370,13 +315,10 @@ export async function PUT(request: NextRequest) {
     })
 
     logAudit({ action: 'UPDATE', entity: 'timetable', entityId: (entry as any)?.id, afterValue: entry }).catch(() => {})
-    return NextResponse.json(entry)
+    return ok(entry)
   } catch (error) {
-    console.error('Failed to update timetable entry:', error)
-    return NextResponse.json(
-      { error: 'Failed to update timetable entry' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to update timetable entry')
+    return fail('INTERNAL', 'Failed to update timetable entry')
   }
 }
 
@@ -389,24 +331,18 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     if (!id) {
-      return NextResponse.json(
-        { error: 'Entry ID is required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'Entry ID is required')
     }
 
     const schoolId = authResult.session.user.schoolId
     const owned = await db.timetableEntry.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!owned) return NextResponse.json({ error: 'Timetable entry not found' }, { status: 404 })
+    if (!owned) return fail('NOT_FOUND', 'Timetable entry not found')
 
     await db.timetableEntry.update({ where: { id }, data: { isActive: false } })
     logAudit({ action: 'DELETE', entity: 'timetable', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ message: 'Timetable entry deleted successfully' })
+    return ok({ message: 'Timetable entry deleted successfully' })
   } catch (error) {
-    console.error('Failed to delete timetable entry:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete timetable entry' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to delete timetable entry')
+    return fail('INTERNAL', 'Failed to delete timetable entry')
   }
 }

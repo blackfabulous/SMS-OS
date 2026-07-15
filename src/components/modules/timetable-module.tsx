@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Clock, Calendar, Users, MapPin, Plus, TrendingUp, Edit, Trash2, Loader2,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { useApiQuery, useApiMutation, useApiPut, useApiDelete, useQueryClient } from '@/hooks/use-api-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { StatGrid, ModuleStatCard, ModuleContainer, SectionCard, ModuleToolbar, TableShell, KitEmptyState, ModulePageLayout } from '@/components/module-ui'
 import { Button } from '@/components/ui/button'
@@ -52,52 +53,63 @@ interface ApiEntry {
   class?: { name: string } | null; subject?: { name: string } | null
 }
 
+interface TimetableResponse {
+  data: ApiEntry[]
+  total: number
+  page: number
+  totalPages: number
+  stats: any
+}
+
+interface AcademicsResponse {
+  classes: { id: string; name: string }[]
+  subjects: { id: string; name: string }[]
+}
+
+interface StaffResponse {
+  data: { id: string; title: string | null; firstName: string; lastName: string }[]
+  total: number
+  page: number
+  totalPages: number
+}
+
 // ─── Module ──────────────────────────────────────────────────────────────────
 export default function TimetableModule() {
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
-  const [entries, setEntries] = useState<UIEntry[]>([])
-  const [classes, setClasses] = useState<RefClass[]>([])
-  const [subjects, setSubjects] = useState<RefSubject[]>([])
-  const [teachers, setTeachers] = useState<RefTeacher[]>([])
-  const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState(false)
-
   const [selectedClass, setSelectedClass] = useState('')
   const [selectedTeacher, setSelectedTeacher] = useState('all')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editEntry, setEditEntry] = useState<UIEntry | null>(null)
   const [form, setForm] = useState({ classId: '', subjectId: '', teacherId: 'none', day: 'Monday', period: '0', room: '' })
 
+  const { data: academicsData, isPending: refsLoading } = useApiQuery<AcademicsResponse>(['academics', 'refs'], '/api/academics')
+  const classes: RefClass[] = useMemo(() => (academicsData?.classes || []).map((c) => ({ id: c.id, name: c.name })), [academicsData])
+  const subjects: RefSubject[] = useMemo(() => (academicsData?.subjects || []).map((s) => ({ id: s.id, name: s.name })), [academicsData])
+
+  const { data: staffData, isPending: staffLoading } = useApiQuery<StaffResponse>(['staff', 'timetable'], '/api/staff?limit=500')
+  const teachers: RefTeacher[] = useMemo(() => (staffData?.data || []).map((s) => ({ id: s.id, name: [s.title, s.firstName, s.lastName].filter(Boolean).join(' ') })), [staffData])
+
+  const { data: timetableData, isPending: ttLoading } = useApiQuery<TimetableResponse>(['timetable'], '/api/timetable?limit=500')
+
   const teacherMap = useMemo(() => new Map(teachers.map((t) => [t.id, t.name])), [teachers])
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [acaRes, staffRes, ttRes] = await Promise.all([
-        fetch('/api/academics').then((r) => r.json()),
-        fetch('/api/staff?limit=500').then((r) => r.json()),
-        fetch('/api/timetable?limit=500').then((r) => r.json()),
-      ])
-      const cls: RefClass[] = (acaRes.classes || []).map((c: { id: string; name: string }) => ({ id: c.id, name: c.name }))
-      const subs: RefSubject[] = (acaRes.subjects || []).map((s: { id: string; name: string }) => ({ id: s.id, name: s.name }))
-      const staff: RefTeacher[] = (staffRes.data || []).map((s: { id: string; title: string | null; firstName: string; lastName: string }) => ({ id: s.id, name: [s.title, s.firstName, s.lastName].filter(Boolean).join(' ') }))
-      const tMap = new Map(staff.map((t) => [t.id, t.name]))
-      const mapped: UIEntry[] = (ttRes.data as ApiEntry[] || []).map((e) => ({
-        id: e.id, classId: e.classId, subjectId: e.subjectId, teacherId: e.staffId || 'none',
-        day: DAYS[(e.dayOfWeek || 1) - 1] || 'Monday', period: (e.period || 1) - 1, room: e.room || '',
-        subjectName: e.subject?.name || '—', className: e.class?.name || '—', teacherName: e.staffId ? (tMap.get(e.staffId) || '—') : '—',
-      }))
-      setClasses(cls); setSubjects(subs); setTeachers(staff); setEntries(mapped)
-      setSelectedClass((prev) => prev || cls[0]?.id || '')
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load timetable')
-    } finally { setLoading(false) }
-  }, [])
-  useEffect(() => { load() }, [load])
+  const entries: UIEntry[] = useMemo(() => {
+    const tMap = teacherMap
+    return ((timetableData?.data as ApiEntry[]) || []).map((e) => ({
+      id: e.id, classId: e.classId, subjectId: e.subjectId, teacherId: e.staffId || 'none',
+      day: DAYS[(e.dayOfWeek || 1) - 1] || 'Monday', period: (e.period || 1) - 1, room: e.room || '',
+      subjectName: e.subject?.name || '—', className: e.class?.name || '—', teacherName: e.staffId ? (tMap.get(e.staffId) || '—') : '—',
+    }))
+  }, [timetableData, teacherMap])
+
+  const effectiveSelectedClass = selectedClass || classes[0]?.id || ''
+
+  const loading = refsLoading || staffLoading || ttLoading
 
   // Lookups
-  const subjectColor = useCallback((id: string) => SUBJECT_PALETTE[hashIdx(id || 'x', SUBJECT_PALETTE.length)], [])
-  const subjName = useCallback((id: string) => subjects.find((s) => s.id === id)?.name || '—', [subjects])
+  const subjectColor = (id: string) => SUBJECT_PALETTE[hashIdx(id || 'x', SUBJECT_PALETTE.length)]
+  const subjName = (id: string) => subjects.find((s) => s.id === id)?.name || '—'
 
   // Computed stats
   const totalPeriods = entries.length
@@ -106,8 +118,37 @@ export default function TimetableModule() {
   const totalSlots = DAYS.length * PERIODS.length * Math.max(classes.length, 1)
   const freeSlots = Math.max(totalSlots - totalPeriods, 0)
 
-  const entriesForClass = useMemo(() => entries.filter((e) => e.classId === selectedClass), [entries, selectedClass])
+  const entriesForClass = useMemo(() => entries.filter((e) => e.classId === effectiveSelectedClass), [entries, effectiveSelectedClass])
   const entriesForTeacher = useMemo(() => selectedTeacher === 'all' ? entries : entries.filter((e) => e.teacherId === selectedTeacher), [entries, selectedTeacher])
+
+  // Mutations
+  const { mutate: createEntry, isPending: isCreating } = useApiMutation<Record<string, unknown>, any>('/api/timetable', {
+    onSuccess: () => {
+      toast.success('Entry added')
+      setDialogOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['timetable'] })
+    },
+    onError: (err) => toast.error(err.message || 'Failed'),
+  })
+
+  const { mutate: updateEntry, isPending: isUpdating } = useApiPut<Record<string, unknown>, any>('/api/timetable', {
+    onSuccess: () => {
+      toast.success('Entry updated')
+      setDialogOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['timetable'] })
+    },
+    onError: (err) => toast.error(err.message || 'Failed'),
+  })
+
+  const { mutate: deleteEntry, isPending: isDeleting } = useApiDelete<any>('/api/timetable', {
+    onSuccess: () => {
+      toast.success('Entry deleted')
+      queryClient.invalidateQueries({ queryKey: ['timetable'] })
+    },
+    onError: (err) => toast.error(err.message || 'Failed'),
+  })
+
+  const busy = isCreating || isUpdating || isDeleting
 
   // Handlers
   const handleAdd = () => {
@@ -120,31 +161,22 @@ export default function TimetableModule() {
     setForm({ classId: entry.classId, subjectId: entry.subjectId, teacherId: entry.teacherId, day: entry.day, period: String(entry.period), room: entry.room })
     setDialogOpen(true)
   }
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!confirm('Delete this timetable entry?')) return
-    setBusy(true)
-    try { const r = await fetch(`/api/timetable?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); const j = await r.json(); if (!r.ok) throw new Error(j?.error || 'Failed'); toast.success('Entry deleted'); load() }
-    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(false) }
+    deleteEntry(id)
   }
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!form.classId || !form.subjectId) { toast.error('Class and subject are required'); return }
     const payload = {
       classId: form.classId, subjectId: form.subjectId,
       staffId: form.teacherId === 'none' ? null : form.teacherId,
       dayOfWeek: DAYS.indexOf(form.day) + 1, period: parseInt(form.period) + 1, room: form.room || null,
     }
-    setBusy(true)
-    try {
-      const res = await fetch('/api/timetable', {
-        method: editEntry ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editEntry ? { id: editEntry.id, ...payload } : payload),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json?.error || 'Failed to save entry')
-      toast.success(editEntry ? 'Entry updated' : 'Entry added')
-      setDialogOpen(false); load()
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') } finally { setBusy(false) }
+    if (editEntry) {
+      updateEntry({ id: editEntry.id, ...payload })
+    } else {
+      createEntry(payload)
+    }
   }
 
   if (loading) {
@@ -180,11 +212,11 @@ export default function TimetableModule() {
             <ModuleStatCard icon={Calendar} label="Free Slots" value={freeSlots} accentGradient="from-violet-400 to-purple-500" bgColor="bg-violet-50" iconColor="text-violet-600" footer={<span className="text-xs font-medium text-violet-600">Unscheduled</span>} />
           </StatGrid>
 
-          <SectionCard title="Today's Highlights" description={`${classes.find((c) => c.id === selectedClass)?.name || 'Selected class'} schedule today`}>
+          <SectionCard title="Today's Highlights" description={`${classes.find((c) => c.id === effectiveSelectedClass)?.name || 'Selected class'} schedule today`}>
             <div className="space-y-2">
               {(() => {
                 const today = DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1] || 'Monday'
-                const todayEntries = entries.filter((e) => e.day === today && e.classId === selectedClass)
+                const todayEntries = entries.filter((e) => e.day === today && e.classId === effectiveSelectedClass)
                 if (todayEntries.length === 0) return <p className="text-sm text-muted-foreground text-center py-4">No classes scheduled today (or pick a class in Weekly View).</p>
                 return todayEntries.sort((a, b) => a.period - b.period).map((entry) => {
                   const col = subjectColor(entry.subjectId)
@@ -207,7 +239,7 @@ export default function TimetableModule() {
             filters={
               <div className="flex items-center gap-2">
                 <Label className="text-xs font-medium text-muted-foreground">Class:</Label>
-                <Select value={selectedClass} onValueChange={setSelectedClass}>
+                <Select value={effectiveSelectedClass} onValueChange={setSelectedClass}>
                   <SelectTrigger className="h-8 w-40"><SelectValue placeholder="Select class" /></SelectTrigger>
                   <SelectContent>{classes.map((cls) => <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>)}</SelectContent>
                 </Select>
