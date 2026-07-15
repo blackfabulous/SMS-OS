@@ -27,7 +27,7 @@
 | Design system | Emerald tokens + `components/ui` exist; module files are 800–1,500-line monoliths with inconsistent loading/error/empty states | Partial |
 | Tests | 13 Vitest files, including `tests/tenant-safety.test.ts`, `tests/tenant-context.test.ts`, `tests/finance-scope.test.ts`, `tests/student-access.test.ts` | Partial |
 | Observability | `console.*` only; no Pino/Sentry | Full |
-| Outbox / durable jobs | `Outbox` model + `src/server/outbox.ts` (`enqueueOutbox`, `processOutbox`) added; not yet wired into notifications | Done (model + worker) |
+| Outbox / durable jobs | `Outbox` model + `src/server/outbox.ts` (`enqueueOutbox`, `processOutboxJob`, `processOutbox`) wired into notifications (`src/lib/notifications.ts`) and report-card generation (`src/lib/report-card-service.ts`); new `POST /api/outbox/process` endpoint | Done |
 | Ops | Root `Dockerfile`, `.dockerignore`, `scripts/github-ci.yml`, and `package.json` `typecheck` script added; `.github/workflows/ci.yml` needs GitHub `workflow` OAuth scope to push | Done |
 | Public site | Real App Router routes, metadata, sitemap/robots/JSON-LD | Done |
 | Settings registry | `src/lib/settings-schema.ts` + `src/lib/settings.ts` with Zod, categories, defaults, UI hints | Done |
@@ -87,7 +87,7 @@
 | RA-B3 | Postgres RLS is implemented; verify non-superuser app role and enable `RLS_ENABLED=true` in staging | P1 | M | RA-A5 | Cross-tenant query blocked at DB even if app check missing |
 | RA-B4 | **Repository layer always injects `schoolId`** (no raw `db.*` in routes) | P1 | L | RA-C1 | RA-02 suite passes for all resources |
 | RA-B5 | 2FA for admin roles; "log out all devices"; PII-at-rest encryption (national ID/medical) | P2 | L | — | Admin 2FA; sensitive fields encrypted |
-| RA-B6 | **Distributed rate-limit (Upstash)** replacing in-memory middleware | P2 | M | — | Limits survive multi-instance |
+| RA-B6 | **Distributed rate-limit** — `src/lib/rate-limit.ts` with a Postgres-backed `RateLimitWindow` store (survives multi-instance; Redis/Upstash implementation can be swapped in) | P2 | M | — | Limits survive multi-instance |
 
 ---
 
@@ -97,9 +97,9 @@
 |----|------|-----|--------|------|-----------|
 | RA-C1 | **Create `src/server/{services,db}/` structure** + a tenant-scoped Prisma repository helper | P1 | M | — | Layering enforced by lint (no `@/lib/db` in routes) |
 | RA-C2 | Migrate domain logic into services context-by-context (finance, examinations, attendance, students, settings already partial) | P1 | XL | RA-C1 | Each service unit-tested; routes thin |
-| RA-C3 | **Response envelope** `{data}` / `{error:{code,message,details}}` + `ok()`/`fail()` helpers | P2 | S | — | All endpoints consistent |
-| RA-C4 | **Outbox table + worker** (or QStash) for notifications/SMS/email/reports — replace fire-and-forget | P0 | L | RA-A7 | Guaranteed, retried, observable delivery |
-| RA-C5 | **Idempotency keys** for money/comms operations (generalize BEAM `coverageAppliedAt`) | P2 | M | RA-C2 | Safe retries; no double-charge/send |
+| RA-C3 | **Response envelope** `{data}` / `{error:{code,message,details}}` + `ok()`/`fail()` helpers in `src/server/http.ts` | P2 | S | — | Helpers created; adopted in payment + notification send routes; route-wide rollout pending |
+| RA-C4 | **Outbox table + worker** for notifications/SMS/email/reports — replace fire-and-forget | P0 | L | RA-A7 | Done — `src/server/outbox.ts` with registry, `processOutboxJob`, `processOutbox`; handlers for `notification.dispatch`, `notification.batch`, `report.generate`; `/api/outbox/process` endpoint |
+| RA-C5 | **Idempotency keys** for money/comms operations — `src/lib/idempotency.ts` with Postgres-backed `IdempotencyKey` store | P2 | M | RA-C2 | Done — applied to `/api/finance/payments` (POST) and `/api/notifications/send`; safe retries with stored responses |
 | RA-C6 | Adopt **Server Actions** for form mutations (admissions, settings, marks) | P2 | M | RA-C1 | Forms use actions + shared Zod |
 
 ---

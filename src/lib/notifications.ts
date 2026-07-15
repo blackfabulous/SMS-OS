@@ -10,6 +10,7 @@ import {
   renderNotification,
   preferredChannels,
 } from '@/lib/notification-events'
+import { enqueueOutbox, processOutboxJob, registerOutboxHandler } from '@/server/outbox'
 
 export interface NotificationRecipient {
   parentId?: string | null
@@ -35,6 +36,16 @@ export interface DispatchResult {
   channels: ChannelResult[]
 }
 
+export interface BatchNotifyItem {
+  studentId: string
+  eventFactory: (studentName: string) => NotificationEvent
+}
+
+interface ResolvedBatchItem {
+  event: NotificationEvent
+  recipient: NotificationRecipient
+}
+
 /** Load the per-school notification context (school name + enabled channels). */
 export async function loadNotificationContext(schoolId: string): Promise<NotificationContext> {
   const [school, enabledChannels] = await Promise.all([
@@ -45,15 +56,14 @@ export async function loadNotificationContext(schoolId: string): Promise<Notific
 }
 
 /**
- * Dispatch a notification event over the enabled channels. Channel set =
- * intersection of the event's preferred channels (if any) with the school's
- * `notifications.channels`. Channels are processed CONCURRENTLY; every attempt
- * is logged as a Communication row. Failures are captured, never thrown.
+ * Execute a notification event over the enabled channels immediately. Channel set =
+ * intersection of the event's preferred channels with the school's `notifications.channels`.
+ * Every attempt is logged as a Communication row. Failures are captured, never thrown.
  *
- * Pass `ctx` to reuse a pre-loaded context (bulk dispatch) and skip the per-call
- * school + settings lookups.
+ * This is the outbox handler body; public dispatch functions enqueue an outbox job
+ * and then process it so delivery is durable and retryable.
  */
-export async function dispatchNotification(
+async function executeNotification(
   schoolId: string,
   event: NotificationEvent,
   recipient: NotificationRecipient = {},
@@ -66,7 +76,6 @@ export async function dispatchNotification(
 
   const { subject, body } = renderNotification(event, schoolName)
 
-  // Process channels concurrently; each persists its own Communication row.
   const results = await Promise.all(
     channels.map(async (channel): Promise<ChannelResult> => {
       let ok = false
@@ -105,9 +114,90 @@ export async function dispatchNotification(
 }
 
 /**
- * Resolve a single student's guardian (school-scoped) and dispatch an event.
- * No-op (null) if the student has no resolvable guardian in this school.
+ * Resolve a single student's guardian (school-scoped) and execute an event.
  */
+async function executeNotifyStudentGuardian(
+  schoolId: string,
+  studentId: string,
+  eventFactory: (studentName: string) => NotificationEvent,
+  ctx?: NotificationContext,
+): Promise<DispatchResult | null> {
+  const guardian = await resolveStudentGuardian(studentId, schoolId)
+  if (!guardian) return null
+  return executeNotification(
+    schoolId,
+    eventFactory(guardian.studentName),
+    { parentId: guardian.parentId, phone: guardian.phone, email: guardian.email, name: guardian.name },
+    ctx,
+  )
+}
+
+async function executeNotifyStudentGuardiansBatch(
+  schoolId: string,
+  items: ResolvedBatchItem[],
+  skipped: number,
+  ctx?: NotificationContext,
+): Promise<{ sent: number; skipped: number; failed: number }> {
+  const context = ctx ?? (await loadNotificationContext(schoolId))
+  let sent = 0
+  let failed = 0
+
+  for (const item of items) {
+    const result = await executeNotification(schoolId, item.event, item.recipient, context)
+    if (result.channels.length === 0 || result.channels.every((c) => c.ok)) {
+      sent++
+    } else {
+      failed++
+    }
+  }
+
+  return { sent, skipped, failed }
+}
+
+// Register notification handlers with the outbox worker.
+registerOutboxHandler('notification.dispatch', async (payload) => {
+  const { schoolId, event, recipient, ctx } = payload as {
+    schoolId: string
+    event: NotificationEvent
+    recipient: NotificationRecipient
+    ctx?: NotificationContext
+  }
+  return executeNotification(schoolId, event, recipient, ctx)
+})
+
+registerOutboxHandler('notification.batch', async (payload) => {
+  const { schoolId, items, skipped, ctx } = payload as {
+    schoolId: string
+    items: ResolvedBatchItem[]
+    skipped: number
+    ctx?: NotificationContext
+  }
+  return executeNotifyStudentGuardiansBatch(schoolId, items, skipped, ctx)
+})
+
+/**
+ * Public dispatch: enqueue an outbox job and immediately process it. If it
+ * fails, the job remains in the outbox for a worker retry; the function returns
+ * a best-effort result describing the attempt.
+ */
+export async function dispatchNotification(
+  schoolId: string,
+  event: NotificationEvent,
+  recipient: NotificationRecipient = {},
+  ctx?: NotificationContext,
+): Promise<DispatchResult> {
+  const job = await enqueueOutbox({
+    topic: 'notification.dispatch',
+    schoolId,
+    payload: { schoolId, event, recipient, ctx },
+  })
+  try {
+    return (await processOutboxJob(job.id)) as DispatchResult
+  } catch {
+    return { event: event.type, channels: [] }
+  }
+}
+
 export async function notifyStudentGuardian(
   schoolId: string,
   studentId: string,
@@ -116,55 +206,56 @@ export async function notifyStudentGuardian(
 ): Promise<DispatchResult | null> {
   const guardian = await resolveStudentGuardian(studentId, schoolId)
   if (!guardian) return null
-  return dispatchNotification(
+
+  const event = eventFactory(guardian.studentName)
+  const recipient = { parentId: guardian.parentId, phone: guardian.phone, email: guardian.email, name: guardian.name }
+  const job = await enqueueOutbox({
+    topic: 'notification.dispatch',
     schoolId,
-    eventFactory(guardian.studentName),
-    { parentId: guardian.parentId, phone: guardian.phone, email: guardian.email, name: guardian.name },
-    ctx,
-  )
+    payload: { schoolId, event, recipient, ctx },
+  })
+  try {
+    return (await processOutboxJob(job.id)) as DispatchResult
+  } catch {
+    return { event: event.type, channels: [] }
+  }
 }
 
-export interface BatchNotifyItem {
-  studentId: string
-  eventFactory: (studentName: string) => NotificationEvent
-}
-
-/**
- * Dispatch to many students efficiently: loads the school context ONCE,
- * batch-resolves all guardians in a SINGLE query (no N+1), then dispatches
- * concurrently. Resilient — individual failures are counted, never thrown.
- * Returns how many were sent vs skipped (no guardian) vs failed.
- */
 export async function notifyStudentGuardiansBatch(
   schoolId: string,
   items: BatchNotifyItem[],
+  ctx?: NotificationContext,
 ): Promise<{ sent: number; skipped: number; failed: number }> {
   if (items.length === 0) return { sent: 0, skipped: 0, failed: 0 }
 
-  const [ctx, guardians] = await Promise.all([
-    loadNotificationContext(schoolId),
+  const [context, guardians] = await Promise.all([
+    ctx ?? loadNotificationContext(schoolId),
     resolveStudentGuardians(items.map((i) => i.studentId), schoolId),
   ])
 
-  let sent = 0
+  const resolved: ResolvedBatchItem[] = []
   let skipped = 0
-  let failed = 0
+  for (const item of items) {
+    const g = guardians.get(item.studentId)
+    if (!g) {
+      skipped++
+      continue
+    }
+    resolved.push({
+      event: item.eventFactory(g.studentName),
+      recipient: { parentId: g.parentId, phone: g.phone, email: g.email, name: g.name },
+    })
+  }
 
-  const settled = await Promise.allSettled(
-    items.map(async (item) => {
-      const g = guardians.get(item.studentId)
-      if (!g) { skipped++; return }
-      await dispatchNotification(
-        schoolId,
-        item.eventFactory(g.studentName),
-        { parentId: g.parentId, phone: g.phone, email: g.email, name: g.name },
-        ctx,
-      )
-      sent++
-    }),
-  )
-  failed = settled.filter((s) => s.status === 'rejected').length
-  if (failed > 0) console.warn(`[notifications] batch dispatch: ${failed} of ${items.length} failed`)
+  const job = await enqueueOutbox({
+    topic: 'notification.batch',
+    schoolId,
+    payload: { schoolId, items: resolved, skipped, ctx: context },
+  })
 
-  return { sent, skipped, failed }
+  try {
+    return (await processOutboxJob(job.id)) as { sent: number; skipped: number; failed: number }
+  } catch {
+    return { sent: 0, skipped: skipped + resolved.length, failed: resolved.length }
+  }
 }

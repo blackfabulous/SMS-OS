@@ -1206,6 +1206,30 @@ CREATE TABLE "Outbox" (
 );
 
 -- CreateTable
+CREATE TABLE "IdempotencyKey" (
+    "id" TEXT NOT NULL,
+    "scope" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "response" JSONB,
+    "expiresAt" TIMESTAMPTZ(3) NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "IdempotencyKey_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RateLimitWindow" (
+    "id" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "windowStart" TIMESTAMPTZ(3) NOT NULL,
+    "count" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "RateLimitWindow_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "CanteenItem" (
     "id" TEXT NOT NULL,
     "schoolId" TEXT NOT NULL,
@@ -2100,6 +2124,18 @@ CREATE INDEX "Outbox_schoolId_idx" ON "Outbox"("schoolId");
 
 -- CreateIndex
 CREATE INDEX "Outbox_deletedAt_idx" ON "Outbox"("deletedAt");
+
+-- CreateIndex
+CREATE INDEX "IdempotencyKey_expiresAt_idx" ON "IdempotencyKey"("expiresAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "IdempotencyKey_scope_key_key" ON "IdempotencyKey"("scope", "key");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "RateLimitWindow_key_key" ON "RateLimitWindow"("key");
+
+-- CreateIndex
+CREATE INDEX "RateLimitWindow_windowStart_idx" ON "RateLimitWindow"("windowStart");
 
 -- CreateIndex
 CREATE INDEX "CanteenItem_deletedAt_idx" ON "CanteenItem"("deletedAt");

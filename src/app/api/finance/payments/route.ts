@@ -7,6 +7,8 @@ import { CreatePaymentSchema, type CreatePaymentInput } from '@/lib/validations'
 import { applyPayment, reversePayment, toBaseAmount } from '@/lib/finance-calc'
 import { getSetting } from '@/lib/settings'
 import { notifyStudentGuardian } from '@/lib/notifications'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { withIdempotency, idempotencyKeyFromRequest } from '@/lib/idempotency'
 
 function generateReceiptNumber(year: number): string {
   // Timestamp in base36 + 4 random hex chars = collision-resistant without a DB counter
@@ -122,6 +124,18 @@ export async function POST(request: Request) {
   if ('error' in authResult) return authResult.error
   const { ctx } = authResult
 
+  const rateLimit = await checkRateLimit('payment:create', ctx.userId, {
+    windowSeconds: 60,
+    maxRequests: 20,
+  })
+  if (!rateLimit.allowed) {
+    const retryAfter = Math.max(1, Math.ceil((rateLimit.result.resetAt.getTime() - Date.now()) / 1000))
+    return NextResponse.json(
+      { error: 'Rate limit exceeded', limit: rateLimit.result.limit, remaining: rateLimit.result.remaining, resetAt: rateLimit.result.resetAt.toISOString() },
+      { status: 429, headers: { 'Retry-After': String(retryAfter) } },
+    )
+  }
+
   try {
     const rawBody = await request.json()
 
@@ -171,36 +185,53 @@ export async function POST(request: Request) {
     }
 
     const year = new Date().getFullYear()
+    const idempotencyKey = idempotencyKeyFromRequest(request)
 
-    // Create payment + update invoice atomically. Retry on the (extremely rare)
-    // receiptNumber unique-constraint collision with a freshly generated number.
-    let payment: Awaited<ReturnType<typeof createPaymentTxn>> | null = null
-    const MAX_ATTEMPTS = 5
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      try {
-        payment = await createPaymentTxn(generateReceiptNumber(year), data, amount, baseAmount, ctx.schoolId)
-        break
-      } catch (err: unknown) {
-        const code = (err as { code?: string })?.code
-        if (code === 'P2002' && attempt < MAX_ATTEMPTS) continue // duplicate receipt number — retry
-        throw err
-      }
-    }
-    if (!payment) {
-      return NextResponse.json({ error: 'Failed to generate a unique receipt number' }, { status: 500 })
-    }
+    // Create payment + update invoice atomically, guarded by an idempotency key.
+    // Retry on the (extremely rare) receiptNumber unique-constraint collision.
+    const { result: paymentId } = await withIdempotency(
+      'payment',
+      idempotencyKey,
+      86400,
+      async () => {
+        let payment: Awaited<ReturnType<typeof createPaymentTxn>> | null = null
+        const MAX_ATTEMPTS = 5
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+          try {
+            payment = await createPaymentTxn(generateReceiptNumber(year), data, amount, baseAmount, ctx.schoolId)
+            break
+          } catch (err: unknown) {
+            const code = (err as { code?: string })?.code
+            if (code === 'P2002' && attempt < MAX_ATTEMPTS) continue // duplicate receipt number — retry
+            throw err
+          }
+        }
+        if (!payment) {
+          throw new Error('Failed to generate a unique receipt number')
+        }
 
-    logAudit({ action: 'CREATE', entity: 'payments', entityId: payment.id, afterValue: payment }).catch(() => {})
+        logAudit({ action: 'CREATE', entity: 'payments', entityId: payment.id, afterValue: payment }).catch(() => {})
 
-    // Send a receipt acknowledgement to the guardian (fire-and-forget, original currency).
-    const receiptNumber = payment.receiptNumber
-    void notifyStudentGuardian(ctx.schoolId, data.studentId, (studentName) => ({
-      type: 'payment.received',
-      studentName,
-      amount,
-      currency: data.currency || 'USD',
-      receiptNumber,
-    })).catch(() => {})
+        // Send a receipt acknowledgement to the guardian (fire-and-forget, original currency).
+        void notifyStudentGuardian(ctx.schoolId, data.studentId, (studentName) => ({
+          type: 'payment.received',
+          studentName,
+          amount,
+          currency: data.currency || 'USD',
+          receiptNumber: payment!.receiptNumber,
+        })).catch(() => {})
+
+        return payment.id
+      },
+    )
+
+    const payment = await db.feePayment.findUnique({
+      where: { id: paymentId },
+      include: {
+        student: { select: { id: true, firstName: true, lastName: true, studentNumber: true } },
+        invoice: { select: { id: true, invoiceNumber: true } },
+      },
+    })
 
     return NextResponse.json(payment, { status: 201 })
   } catch (error) {

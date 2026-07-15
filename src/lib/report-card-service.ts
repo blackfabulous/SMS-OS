@@ -2,6 +2,7 @@ import 'server-only'
 import { db } from '@/lib/db'
 import { getSetting } from '@/lib/settings'
 import { computeFinalMark, symbolForMark, averageMark, markToPercent } from '@/lib/grading'
+import { enqueueOutbox, processOutboxJob, registerOutboxHandler } from '@/server/outbox'
 
 const EXAM_TYPES = new Set(['EXAM', 'FINAL'])
 
@@ -122,4 +123,27 @@ export async function generateClassReportCards(
   )
 
   return { generated: computations.length, results: computations }
+}
+
+registerOutboxHandler('report.generate', async (payload) => {
+  const { schoolId, classId, termId } = payload as { schoolId: string; classId: string; termId: string }
+  return generateClassReportCards(schoolId, classId, termId)
+})
+
+/**
+ * Enqueue a report-card generation job into the outbox and process it immediately.
+ * The outbox persists the job and retries on failure; this wrapper returns the
+ * result for synchronous callers such as the REST endpoint.
+ */
+export async function generateClassReportCardsViaOutbox(
+  schoolId: string,
+  classId: string,
+  termId: string,
+): Promise<{ generated: number; results: StudentReportComputation[] }> {
+  const job = await enqueueOutbox({
+    topic: 'report.generate',
+    schoolId,
+    payload: { schoolId, classId, termId },
+  })
+  return processOutboxJob(job.id) as Promise<{ generated: number; results: StudentReportComputation[] }>
 }

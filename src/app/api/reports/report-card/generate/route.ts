@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
 import { logAudit } from '@/lib/audit'
-import { generateClassReportCards } from '@/lib/report-card-service'
+import { generateClassReportCardsViaOutbox } from '@/lib/report-card-service'
 
 /**
  * POST /api/reports/report-card/generate
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: 'classId and termId are required' }, { status: 400 })
 
   try {
-    const result = await generateClassReportCards(tenant.schoolId, parsed.data.classId, parsed.data.termId)
+    const result = await generateClassReportCardsViaOutbox(tenant.schoolId, parsed.data.classId, parsed.data.termId)
     logAudit({
       action: 'CREATE',
       entity: 'report-card.generate',

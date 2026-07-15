@@ -1819,6 +1819,29 @@ model Outbox {
   @@index([deletedAt])
 }
 
+model IdempotencyKey {
+  id        String   @id @default(cuid())
+  scope     String
+  key       String
+  response  Json?
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([scope, key])
+  @@index([expiresAt])
+}
+
+model RateLimitWindow {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  windowStart DateTime @db.Timestamptz(3)
+  count       Int      @default(0)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([windowStart])
+}
+
 // ============================================
 // 20. CANTEEN / TUCKSHOP
 // ============================================
