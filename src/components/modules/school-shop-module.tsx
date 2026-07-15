@@ -1,6 +1,9 @@
 'use client'
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react'
+import React, { useState, useMemo } from 'react'
+import { useQueryClient, useMutation } from '@tanstack/react-query'
+import { useApiQuery, useApiMutation } from '@/hooks/use-api-query'
+import { apiPost, apiPut, apiFetch } from '@/lib/api-client'
 import { motion } from 'framer-motion'
 import {
   ShoppingCart, Package, ShoppingBag, FileText, Plus, Pencil, Trash2,
@@ -82,6 +85,7 @@ const STATUS_TO_API: Record<OrderStatus, string> = { Pending: 'PENDING', Process
 
 interface ApiProduct { id: string; name: string; description: string | null; category: string; price: number | string; currency: Currency; imageUrl: string | null; sizes: string | null; colors: string | null; stockQuantity: number; isActive: boolean }
 interface ApiOrder { id: string; orderNumber: string; parentName: string | null; parentPhone: string | null; items: string; totalAmount: number | string; status: string; createdAt: string }
+interface ApiShopAll { products: ApiProduct[]; orders: ApiOrder[]; stats?: { totalProducts: number; totalOrders: number; totalRevenue: number } }
 
 function apiToProduct(p: ApiProduct): Product {
   return { id: p.id, name: p.name, description: p.description ?? '', category: normalizeCategory(p.category), price: Number(p.price) || 0, currency: (p.currency as Currency) || 'USD', stock: p.stockQuantity ?? 0, sizes: parseList(p.sizes), colors: parseList(p.colors), active: p.isActive, image: p.imageUrl ?? undefined }
@@ -186,12 +190,9 @@ function getOrderStatusIcon(status: OrderStatus) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function SchoolShopModule() {
+  const queryClient = useQueryClient()
   const { schoolName } = useAppStore()
   const [activeTab, setActiveTab] = useState('overview')
-  const [products, setProducts] = useState<Product[]>([])
-  const [orders, setOrders] = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<Category | 'All'>('All')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -228,23 +229,74 @@ export default function SchoolShopModule() {
   const [newStock, setNewStock] = useState('')
   const [newActive, setNewActive] = useState(true)
 
-  const fetchShop = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/school-shop?section=all')
-      const json = await res.json()
-      if (!res.ok || !json.success) throw new Error(json.error || 'Failed to load shop data')
-      setProducts((json.data.products || []).map(apiToProduct))
-      setOrders((json.data.orders || []).map(apiToOrder))
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load shop data')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const {
+    data: shopData,
+    isPending: loading,
+    error: shopError,
+  } = useApiQuery<ApiShopAll>(['school-shop'], '/api/school-shop?section=all')
 
-  useEffect(() => { fetchShop() }, [fetchShop])
+  const products = useMemo(() => (shopData?.products || []).map(apiToProduct), [shopData])
+  const orders = useMemo(() => (shopData?.orders || []).map(apiToOrder), [shopData])
+  const error = shopError ? (shopError.message || 'Failed to load shop data') : null
+
+  // Mutations
+  type CreateProductBody = { action: 'createProduct'; data: Record<string, unknown> }
+  const { mutate: createProduct, isPending: isAdding } = useApiMutation<CreateProductBody, ApiProduct>('/api/school-shop', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['school-shop'] })
+      resetAddForm()
+      setAddProductOpen(false)
+      toast.success('Product added to shop')
+    },
+    onError: (err) => toast.error(err.message || 'Failed to add product'),
+  })
+
+  const { mutate: updateProduct, isPending: isUpdating } = useMutation<
+    ApiProduct,
+    Error,
+    { id: string; data: Record<string, unknown> }
+  >({
+    mutationFn: ({ id, data }) => apiPut<ApiProduct, { action: 'updateProduct'; id: string; data: Record<string, unknown> }>('/api/school-shop', { action: 'updateProduct', id, data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['school-shop'] })
+      setEditProductOpen(false)
+      setEditingProduct(null)
+      toast.success('Product updated')
+    },
+    onError: (err) => toast.error(err.message || 'Failed to update product'),
+  })
+
+  const { mutate: deleteProduct, isPending: isDeletingProduct } = useMutation<{ deleted: boolean }, Error, string>({
+    mutationFn: (id) => apiFetch<{ deleted: boolean }>('/api/school-shop', { method: 'DELETE', body: JSON.stringify({ action: 'deleteProduct', id }) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['school-shop'] })
+      setDeleteConfirmOpen(false)
+      setDeletingId(null)
+      toast.success('Product removed from shop')
+    },
+    onError: (err) => toast.error(err.message || 'Failed to delete product'),
+  })
+
+  const { mutate: updateOrderStatus, isPending: isUpdatingOrder } = useMutation<
+    ApiOrder,
+    Error,
+    { id: string; status: string }
+  >({
+    mutationFn: ({ id, status }) => apiPut<ApiOrder, { action: 'updateOrderStatus'; id: string; data: { status: string } }>('/api/school-shop', { action: 'updateOrderStatus', id, data: { status } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['school-shop'] })
+    },
+    onError: (err) => toast.error(err.message || 'Failed to update order status'),
+  })
+
+  const { mutate: deleteOrder, isPending: isDeletingOrder } = useMutation<{ deleted: boolean }, Error, string>({
+    mutationFn: (id) => apiFetch<{ deleted: boolean }>('/api/school-shop', { method: 'DELETE', body: JSON.stringify({ action: 'deleteOrder', id }) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['school-shop'] })
+      toast.success('Order deleted')
+    },
+    onError: (err) => toast.error(err.message || 'Failed to delete order'),
+  })
 
   // Computed
   const activeProducts = products.filter(p => p.active)
@@ -303,7 +355,7 @@ export default function SchoolShopModule() {
   }, [orders])
 
   // CRUD handlers
-  const handleAddProduct = async () => {
+  const handleAddProduct = () => {
     if (!newName || !newPrice || !newStock) {
       toast.error('Please fill in all required fields')
       return
@@ -311,93 +363,26 @@ export default function SchoolShopModule() {
     const sizes = newSizes ? newSizes.split(',').map(s => s.trim()).filter(Boolean) : []
     const colors = newColors ? newColors.split(',').map(s => s.trim()).filter(Boolean) : []
     const name = newName
-    try {
-      const res = await fetch('/api/school-shop', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'createProduct', data: { name: newName, description: newDescription, category: newCategory, price: parseFloat(newPrice), currency: newCurrency, sizes: sizes.join(','), colors: colors.join(','), stockQuantity: parseInt(newStock), isActive: newActive } }),
-      })
-      const json = await res.json()
-      if (!res.ok || !json.success) throw new Error(json.error || 'Failed to add product')
-      await fetchShop()
-      resetAddForm()
-      setAddProductOpen(false)
-      toast.success(`"${name}" added to shop`)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to add product')
-    }
+    createProduct({ action: 'createProduct', data: { name: newName, description: newDescription, category: newCategory, price: parseFloat(newPrice), currency: newCurrency, sizes: sizes.join(','), colors: colors.join(','), stockQuantity: parseInt(newStock), isActive: newActive } })
   }
 
-  const handleEditProduct = async () => {
+  const handleEditProduct = () => {
     if (!editingProduct || !editingProduct.name) return
     const p = editingProduct
-    try {
-      const res = await fetch('/api/school-shop', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'updateProduct', id: p.id, data: { name: p.name, description: p.description, category: p.category, price: p.price, currency: p.currency, sizes: p.sizes.join(','), colors: p.colors.join(','), stockQuantity: p.stock, isActive: p.active } }),
-      })
-      const json = await res.json()
-      if (!res.ok || !json.success) throw new Error(json.error || 'Failed to update product')
-      await fetchShop()
-      setEditProductOpen(false)
-      setEditingProduct(null)
-      toast.success(`"${p.name}" updated`)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to update product')
-    }
+    updateProduct({ id: p.id, data: { name: p.name, description: p.description, category: p.category, price: p.price, currency: p.currency, sizes: p.sizes.join(','), colors: p.colors.join(','), stockQuantity: p.stock, isActive: p.active } })
   }
 
-  const handleDeleteProduct = async () => {
+  const handleDeleteProduct = () => {
     if (!deletingId) return
-    const product = products.find(p => p.id === deletingId)
-    try {
-      const res = await fetch('/api/school-shop', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'deleteProduct', id: deletingId }),
-      })
-      const json = await res.json()
-      if (!res.ok || !json.success) throw new Error(json.error || 'Failed to delete product')
-      await fetchShop()
-      setDeleteConfirmOpen(false)
-      setDeletingId(null)
-      toast.success(`"${product?.name}" removed from shop`)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to delete product')
-    }
+    deleteProduct(deletingId)
   }
 
-  const handleUpdateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
-    try {
-      const res = await fetch('/api/school-shop', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'updateOrderStatus', id: orderId, data: { status: STATUS_TO_API[newStatus] } }),
-      })
-      const json = await res.json()
-      if (!res.ok || !json.success) throw new Error(json.error || 'Failed to update order status')
-      await fetchShop()
-      toast.success(`Order status updated to ${newStatus}`)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to update order status')
-    }
+  const handleUpdateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
+    updateOrderStatus({ id: orderId, status: STATUS_TO_API[newStatus] })
   }
 
-  const handleDeleteOrder = async (orderId: string) => {
-    try {
-      const res = await fetch('/api/school-shop', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'deleteOrder', id: orderId }),
-      })
-      const json = await res.json()
-      if (!res.ok || !json.success) throw new Error(json.error || 'Failed to delete order')
-      await fetchShop()
-      toast.success('Order deleted')
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to delete order')
-    }
+  const handleDeleteOrder = (orderId: string) => {
+    deleteOrder(orderId)
   }
 
   const resetAddForm = () => {
@@ -453,7 +438,7 @@ export default function SchoolShopModule() {
     <div className="space-y-6">
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
-          {error} · <button onClick={() => fetchShop()} className="underline underline-offset-2">retry</button>
+          {error} · <button onClick={() => queryClient.invalidateQueries({ queryKey: ['school-shop'] })} className="underline underline-offset-2">retry</button>
         </div>
       )}
       <ModulePageLayout
@@ -604,7 +589,9 @@ export default function SchoolShopModule() {
                   </div>
                   <DialogFooter>
                     <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-                    <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleAddProduct}>Add Product</Button>
+                    <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleAddProduct} disabled={isAdding || !newName || !newPrice || !newStock}>
+                      {isAdding ? 'Adding…' : 'Add Product'}
+                    </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -755,7 +742,7 @@ export default function SchoolShopModule() {
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setSelectedOrder(order); setOrderDetailOpen(true) }}><Eye className="h-3.5 w-3.5" /></Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => handleDeleteOrder(order.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => handleDeleteOrder(order.id)} disabled={isDeletingOrder}><Trash2 className="h-3.5 w-3.5" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1074,10 +1061,10 @@ export default function SchoolShopModule() {
                 <>
                   <Separator />
                   <div className="flex flex-wrap gap-2">
-                    {selectedOrder.status === 'Pending' && <Button size="sm" className="bg-blue-600 hover:bg-blue-700 gap-1" onClick={() => { handleUpdateOrderStatus(selectedOrder.id, 'Processing'); setSelectedOrder({ ...selectedOrder, status: 'Processing' }) }}><Package className="h-3.5 w-3.5" /> Start Processing</Button>}
-                    {selectedOrder.status === 'Processing' && <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 gap-1" onClick={() => { handleUpdateOrderStatus(selectedOrder.id, 'Ready'); setSelectedOrder({ ...selectedOrder, status: 'Ready' }) }}><CheckCircle2 className="h-3.5 w-3.5" /> Mark Ready</Button>}
-                    {selectedOrder.status === 'Ready' && <Button size="sm" className="bg-teal-600 hover:bg-teal-700 gap-1" onClick={() => { handleUpdateOrderStatus(selectedOrder.id, 'Collected'); setSelectedOrder({ ...selectedOrder, status: 'Collected' }) }}><Truck className="h-3.5 w-3.5" /> Mark Collected</Button>}
-                    <Button size="sm" variant="outline" className="text-red-500 hover:text-red-700 gap-1" onClick={() => { handleUpdateOrderStatus(selectedOrder.id, 'Cancelled'); setSelectedOrder({ ...selectedOrder, status: 'Cancelled' }) }}><XCircle className="h-3.5 w-3.5" /> Cancel</Button>
+                    {selectedOrder.status === 'Pending' && <Button size="sm" className="bg-blue-600 hover:bg-blue-700 gap-1" onClick={() => { handleUpdateOrderStatus(selectedOrder.id, 'Processing'); setSelectedOrder({ ...selectedOrder, status: 'Processing' }) }} disabled={isUpdatingOrder}><Package className="h-3.5 w-3.5" /> Start Processing</Button>}
+                    {selectedOrder.status === 'Processing' && <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 gap-1" onClick={() => { handleUpdateOrderStatus(selectedOrder.id, 'Ready'); setSelectedOrder({ ...selectedOrder, status: 'Ready' }) }} disabled={isUpdatingOrder}><CheckCircle2 className="h-3.5 w-3.5" /> Mark Ready</Button>}
+                    {selectedOrder.status === 'Ready' && <Button size="sm" className="bg-teal-600 hover:bg-teal-700 gap-1" onClick={() => { handleUpdateOrderStatus(selectedOrder.id, 'Collected'); setSelectedOrder({ ...selectedOrder, status: 'Collected' }) }} disabled={isUpdatingOrder}><Truck className="h-3.5 w-3.5" /> Mark Collected</Button>}
+                    <Button size="sm" variant="outline" className="text-red-500 hover:text-red-700 gap-1" onClick={() => { handleUpdateOrderStatus(selectedOrder.id, 'Cancelled'); setSelectedOrder({ ...selectedOrder, status: 'Cancelled' }) }} disabled={isUpdatingOrder}><XCircle className="h-3.5 w-3.5" /> Cancel</Button>
                   </div>
                 </>
               )}
@@ -1109,7 +1096,7 @@ export default function SchoolShopModule() {
           )}
           <DialogFooter>
             <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleEditProduct}>Save Changes</Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleEditProduct} disabled={isUpdating}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1121,7 +1108,7 @@ export default function SchoolShopModule() {
           <p className="text-sm text-muted-foreground">Are you sure you want to delete this product? This action cannot be undone.</p>
           <DialogFooter>
             <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-            <Button variant="destructive" onClick={handleDeleteProduct}>Delete</Button>
+            <Button variant="destructive" onClick={handleDeleteProduct} disabled={isDeletingProduct}>Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

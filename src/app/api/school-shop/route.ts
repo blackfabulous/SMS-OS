@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 
@@ -18,7 +20,7 @@ export async function GET(request: NextRequest) {
     const schoolId = school?.id
 
     if (!schoolId) {
-      return NextResponse.json({ success: false, error: 'School not configured' }, { status: 400 })
+      return fail('VALIDATION', 'School not configured')
     }
 
     if (section === 'stats') {
@@ -27,7 +29,7 @@ export async function GET(request: NextRequest) {
         db.schoolShopOrder.count({ where: { schoolId } }),
         db.schoolShopOrder.aggregate({ where: { schoolId, status: { not: 'CANCELLED' } }, _sum: { totalAmount: true } }),
       ])
-      return NextResponse.json({ success: true, data: { totalProducts, totalOrders, totalRevenue: Number(revenueResult._sum.totalAmount ?? 0) } })
+      return ok({ totalProducts, totalOrders, totalRevenue: Number(revenueResult._sum.totalAmount ?? 0) })
     }
 
     const result: Record<string, unknown> = {}
@@ -53,10 +55,10 @@ export async function GET(request: NextRequest) {
       result.stats = { totalProducts, totalOrders, totalRevenue: Number(revenueResult._sum.totalAmount ?? 0) }
     }
 
-    return NextResponse.json({ success: true, data: result })
+    return ok(result)
   } catch (error) {
-    console.error('Shop GET error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to fetch shop data' }, { status: 500 })
+    logger.error({ err: error }, 'Shop GET error')
+    return fail('INTERNAL', 'Failed to fetch shop data')
   }
 }
 
@@ -72,23 +74,23 @@ export async function POST(request: NextRequest) {
     const schoolId = school?.id
 
     if (!schoolId) {
-      return NextResponse.json({ success: false, error: 'School not configured' }, { status: 400 })
+      return fail('VALIDATION', 'School not configured')
     }
 
     if (action === 'createProduct') {
       if (!data?.name || !data?.category || data?.price === undefined) {
-        return NextResponse.json({ success: false, error: 'name, category, and price are required' }, { status: 400 })
+        return fail('VALIDATION', 'name, category, and price are required')
       }
       const product = await db.schoolShopItem.create({
         data: { schoolId, name: data.name, description: data.description, category: data.category, price: data.price, currency: data.currency || 'USD', imageUrl: data.imageUrl, sizes: data.sizes, colors: data.colors, stockQuantity: data.stockQuantity ?? 0, isActive: data.isActive ?? true, sortOrder: data.sortOrder ?? 0 },
       })
       logAudit({ action: 'CREATE', entity: 'school-shop' }).catch(() => {})
-      return NextResponse.json({ success: true, data: product }, { status: 201 })
+      return ok(product, 201)
     }
 
     if (action === 'createOrder') {
       if (!data?.items || !data?.totalAmount) {
-        return NextResponse.json({ success: false, error: 'items and totalAmount are required' }, { status: 400 })
+        return fail('VALIDATION', 'items and totalAmount are required')
       }
       const year = new Date().getFullYear()
       const lastOrder = await db.schoolShopOrder.findFirst({
@@ -102,13 +104,13 @@ export async function POST(request: NextRequest) {
         data: { schoolId, orderNumber, studentId: data.studentId, parentName: data.parentName, parentPhone: data.parentPhone, parentEmail: data.parentEmail, items: typeof data.items === 'string' ? data.items : JSON.stringify(data.items), totalAmount: data.totalAmount, currency: data.currency || 'USD', status: 'PENDING', notes: data.notes },
       })
       logAudit({ action: 'CREATE', entity: 'school-shop' }).catch(() => {})
-      return NextResponse.json({ success: true, data: order }, { status: 201 })
+      return ok(order, 201)
     }
 
-    return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid action')
   } catch (error) {
-    console.error('Shop POST error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to create shop content' }, { status: 500 })
+    logger.error({ err: error }, 'Shop POST error')
+    return fail('INTERNAL', 'Failed to create shop content')
   }
 }
 
@@ -122,32 +124,32 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { action, id, data } = body
 
-    if (!id) return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 })
+    if (!id) return fail('VALIDATION', 'ID is required')
 
     if (action === 'updateProduct') {
       const owned = await db.schoolShopItem.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       const product = await db.schoolShopItem.update({ where: { id }, data: { ...data, updatedAt: new Date() } })
       logAudit({ action: 'UPDATE', entity: 'school-shop', entityId: (body?.id ?? undefined) }).catch(() => {})
-      return NextResponse.json({ success: true, data: product })
+      return ok(product)
     }
 
     if (action === 'updateOrderStatus') {
       const validStatuses = ['PENDING', 'PROCESSING', 'READY', 'COLLECTED', 'CANCELLED']
       if (!data?.status || !validStatuses.includes(data.status)) {
-        return NextResponse.json({ success: false, error: 'Valid status is required (PENDING|PROCESSING|READY|COLLECTED|CANCELLED)' }, { status: 400 })
+        return fail('VALIDATION', 'Valid status is required (PENDING|PROCESSING|READY|COLLECTED|CANCELLED)')
       }
       const ownedOrder = await db.schoolShopOrder.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!ownedOrder) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
+      if (!ownedOrder) return fail('NOT_FOUND', 'Not found')
       const order = await db.schoolShopOrder.update({ where: { id }, data: { status: data.status, updatedAt: new Date() } })
       logAudit({ action: 'UPDATE', entity: 'school-shop', entityId: (body?.id ?? undefined) }).catch(() => {})
-      return NextResponse.json({ success: true, data: order })
+      return ok(order)
     }
 
-    return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid action')
   } catch (error) {
-    console.error('Shop PUT error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to update shop content' }, { status: 500 })
+    logger.error({ err: error }, 'Shop PUT error')
+    return fail('INTERNAL', 'Failed to update shop content')
   }
 }
 
@@ -161,26 +163,26 @@ export async function DELETE(request: NextRequest) {
     const body = await request.json()
     const { action, id } = body
 
-    if (!id) return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 })
+    if (!id) return fail('VALIDATION', 'ID is required')
 
     if (action === 'deleteProduct') {
       const owned = await db.schoolShopItem.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       await db.schoolShopItem.delete({ where: { id } })
       logAudit({ action: 'DELETE', entity: 'school-shop', entityId: (id ?? undefined) }).catch(() => {})
-      return NextResponse.json({ success: true, data: { deleted: true } })
+      return ok({ deleted: true })
     }
     if (action === 'deleteOrder') {
       const owned = await db.schoolShopOrder.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       await db.schoolShopOrder.delete({ where: { id } })
       logAudit({ action: 'DELETE', entity: 'school-shop', entityId: (id ?? undefined) }).catch(() => {})
-      return NextResponse.json({ success: true, data: { deleted: true } })
+      return ok({ deleted: true })
     }
 
-    return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid action')
   } catch (error) {
-    console.error('Shop DELETE error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to delete shop content' }, { status: 500 })
+    logger.error({ err: error }, 'Shop DELETE error')
+    return fail('INTERNAL', 'Failed to delete shop content')
   }
 }
