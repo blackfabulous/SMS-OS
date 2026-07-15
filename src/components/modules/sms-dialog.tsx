@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
+import { useApiMutation } from '@/hooks/use-api-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MessageSquare,
@@ -72,6 +73,17 @@ interface DeliveryResult {
   cost: number
   network: string
   failureReason?: string
+}
+
+interface SmsSendResponse {
+  success: boolean
+  messageId: string
+  status: string
+  cost: number
+  totalSent: number
+  totalFailed: number
+  results: DeliveryResult[]
+  demo?: boolean
 }
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -160,7 +172,16 @@ export function SmsDialog({ open, onOpenChange, defaultRecipientGroup }: SmsDial
     }
   }
 
-  const handleSend = async () => {
+  const { mutate: sendSms, isPending: isSending } = useApiMutation<
+    { to: string[]; message: string; type: 'sms' | 'whatsapp' },
+    SmsSendResponse
+  >('/api/communication/sms/send', {
+    onSuccess: (data) => {
+      // onSuccess is handled in handleSend to clear the simulated progress interval
+    },
+  })
+
+  const handleSend = () => {
     if (!message.trim()) {
       toast.error('Please enter a message')
       return
@@ -196,45 +217,32 @@ export function SmsDialog({ open, onOpenChange, defaultRecipientGroup }: SmsDial
       })
     }, 300)
 
-    try {
-      const response = await fetch('/api/communication/sms/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: phoneNumbers,
-          message,
-          type: smsType,
-        }),
-      })
-
-      const data = await response.json()
-
-      clearInterval(progressInterval)
-      setSendProgress(100)
-
-      if (data.success) {
-        setSendResult({
-          totalSent: data.totalSent,
-          totalFailed: data.totalFailed,
-          cost: data.cost,
-          messageId: data.messageId,
-          results: data.results || [],
-        })
-        setTimeout(() => {
-          setStep('result')
-          toast.success(`${data.totalSent} SMS sent successfully!`)
-        }, 500)
-      } else {
-        toast.error('Failed to send SMS', { description: data.error })
-        setStep('compose')
+    sendSms(
+      { to: phoneNumbers, message, type: smsType },
+      {
+        onSuccess: (data) => {
+          clearInterval(progressInterval)
+          setSendProgress(100)
+          setSendResult({
+            totalSent: data.totalSent,
+            totalFailed: data.totalFailed,
+            cost: data.cost,
+            messageId: data.messageId,
+            results: data.results || [],
+          })
+          setTimeout(() => {
+            setStep('result')
+            toast.success(`${data.totalSent} SMS sent successfully!`)
+          }, 500)
+        },
+        onError: (err) => {
+          clearInterval(progressInterval)
+          toast.error('Failed to send SMS', { description: err.message || 'Network error' })
+          setStep('compose')
+        },
+        onSettled: () => setSending(false),
       }
-    } catch {
-      clearInterval(progressInterval)
-      toast.error('Failed to send SMS', { description: 'Network error' })
-      setStep('compose')
-    } finally {
-      setSending(false)
-    }
+    )
   }
 
   const handleClose = () => {

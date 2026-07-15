@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateRole } from '@/lib/api-auth'
 
@@ -53,18 +55,12 @@ export async function POST(request: NextRequest) {
 
     if (!to) {
       logAudit({ action: 'CREATE', entity: 'send' }).catch(() => {})
-      return NextResponse.json(
-        { error: 'Recipient(s) are required. Provide a phone number or array of phone numbers.' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'Recipient(s) are required. Provide a phone number or array of phone numbers.')
     }
 
     if (!message || message.trim().length === 0) {
       logAudit({ action: 'CREATE', entity: 'send' }).catch(() => {})
-      return NextResponse.json(
-        { error: 'Message content is required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'Message content is required')
     }
 
     // Normalize recipients to array
@@ -72,19 +68,13 @@ export async function POST(request: NextRequest) {
 
     if (recipients.length === 0) {
       logAudit({ action: 'CREATE', entity: 'send' }).catch(() => {})
-      return NextResponse.json(
-        { error: 'At least one recipient is required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'At least one recipient is required')
     }
 
     // Limit bulk SMS to 1000 recipients
     if (recipients.length > 1000) {
       logAudit({ action: 'CREATE', entity: 'send' }).catch(() => {})
-      return NextResponse.json(
-        { error: 'Maximum 1000 recipients per request' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'Maximum 1000 recipients per request')
     }
 
     // Validate and normalize phone numbers
@@ -165,7 +155,7 @@ export async function POST(request: NextRequest) {
           }
 
           logAudit({ action: 'CREATE', entity: 'send' }).catch(() => {})
-          return NextResponse.json({
+          return ok({
             success: true,
             messageId: deliveryResults[0]?.messageId || generateMessageId(),
             status: failedCount === deliveryResults.length ? 'failed' : sentCount > 0 ? 'sent' : 'partial',
@@ -176,17 +166,11 @@ export async function POST(request: NextRequest) {
           })
         } else {
           logAudit({ action: 'CREATE', entity: 'send' }).catch(() => {})
-          return NextResponse.json(
-            { error: 'Africa\'s Talking API error', details: responseData },
-            { status: 400 }
-          )
+          return fail('INTERNAL', "Africa's Talking API error", { details: responseData })
         }
       } catch (error) {
-        console.error('Africa\'s Talking API error:', error)
-        return NextResponse.json(
-          { error: 'Failed to communicate with Africa\'s Talking' },
-          { status: 502 }
-        )
+        logger.error({ err: error }, "Africa's Talking API error")
+        return fail('INTERNAL', "Failed to communicate with Africa's Talking")
       }
     }
 
@@ -233,7 +217,7 @@ export async function POST(request: NextRequest) {
     }
 
     logAudit({ action: 'CREATE', entity: 'send' }).catch(() => {})
-    return NextResponse.json({
+    return ok({
       success: true,
       messageId: deliveryResults[0]?.messageId || generateMessageId(),
       status: failedCount === deliveryResults.length ? 'failed' : sentCount > 0 ? 'sent' : 'partial',
@@ -244,10 +228,7 @@ export async function POST(request: NextRequest) {
       demo: true,
     })
   } catch (error) {
-    console.error('SMS sending error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'SMS sending error')
+    return fail('INTERNAL', 'Internal server error')
   }
 }
