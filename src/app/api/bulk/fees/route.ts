@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateRole } from '@/lib/api-auth'
 import { logAudit } from '@/lib/audit'
 
@@ -13,17 +15,11 @@ export async function POST(request: NextRequest) {
     const { feeStructureId, gradeIds, classIds, studentIds, academicYearId, termId } = body
 
     if (!feeStructureId) {
-      return NextResponse.json(
-        { error: 'feeStructureId is required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'feeStructureId is required')
     }
 
     if (!gradeIds && !classIds && !studentIds) {
-      return NextResponse.json(
-        { error: 'At least one of gradeIds, classIds, or studentIds is required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'At least one of gradeIds, classIds, or studentIds is required')
     }
 
     // Validate fee structure
@@ -32,7 +28,7 @@ export async function POST(request: NextRequest) {
       include: { grade: true },
     })
     if (!feeStructure) {
-      return NextResponse.json({ error: 'Invalid fee structure ID' }, { status: 400 })
+      return fail('VALIDATION', 'Invalid fee structure ID')
     }
 
     // Determine the term to use
@@ -42,7 +38,7 @@ export async function POST(request: NextRequest) {
         where: { isCurrent: true },
       })
       if (!currentTerm) {
-        return NextResponse.json({ error: 'No current term found. Provide termId.' }, { status: 400 })
+        return fail('VALIDATION', 'No current term found. Provide termId.')
       }
       targetTermId = currentTerm.id
     }
@@ -50,7 +46,7 @@ export async function POST(request: NextRequest) {
     // Validate the term exists
     const term = await db.term.findUnique({ where: { id: targetTermId } })
     if (!term) {
-      return NextResponse.json({ error: 'Invalid term ID' }, { status: 400 })
+      return fail('VALIDATION', 'Invalid term ID')
     }
 
     // Build the enrollment query to find matching students
@@ -74,10 +70,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (enrollments.length === 0) {
-      return NextResponse.json(
-        { error: 'No active students found for the selected criteria' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'No active students found for the selected criteria')
     }
 
     // Get the last invoice number for generating the next one
@@ -167,18 +160,17 @@ export async function POST(request: NextRequest) {
       details: `Assigned ${feeStructure.name} (${feeStructure.feeType}) to ${created} students. Total: $${totalAmount.toFixed(2)}`,
     }).catch(() => {})
 
-    return NextResponse.json({
+    return ok({
       created,
+      createdCount: created,
       skipped,
       totalAmount,
+      success: true,
       errors: errors.length > 0 ? errors : [],
       message: `${created} invoice${created !== 1 ? 's' : ''} created for ${feeStructure.name}, ${skipped} skipped (already invoiced). Total: $${totalAmount.toFixed(2)}`,
     })
   } catch (error) {
-    console.error('Bulk fee assignment error:', error)
-    return NextResponse.json(
-      { error: 'Failed to process bulk fee assignment' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Bulk fee assignment error')
+    return fail('INTERNAL', 'Failed to process bulk fee assignment')
   }
 }

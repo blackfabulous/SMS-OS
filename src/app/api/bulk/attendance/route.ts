@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
 import { logAudit } from '@/lib/audit'
@@ -18,33 +20,21 @@ export async function POST(request: NextRequest) {
     const { classId, date, records } = body
 
     if (!classId || !date || !records || !Array.isArray(records)) {
-      return NextResponse.json(
-        { error: 'classId, date, and records array are required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'classId, date, and records array are required')
     }
 
     if (records.length === 0) {
-      return NextResponse.json(
-        { error: 'Records array cannot be empty' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'Records array cannot be empty')
     }
 
     // Validate each record has required fields
     for (let i = 0; i < records.length; i++) {
       if (!records[i].studentId || !records[i].status) {
-        return NextResponse.json(
-          { error: `Record at index ${i} is missing studentId or status` },
-          { status: 400 }
-        )
+        return fail('VALIDATION', `Record at index ${i} is missing studentId or status`)
       }
       const validStatuses = ['PRESENT', 'ABSENT', 'LATE', 'EXCUSED', 'SICK']
       if (!validStatuses.includes(records[i].status)) {
-        return NextResponse.json(
-          { error: `Invalid status '${records[i].status}' at index ${i}. Valid: ${validStatuses.join(', ')}` },
-          { status: 400 }
-        )
+        return fail('VALIDATION', `Invalid status '${records[i].status}' at index ${i}. Valid: ${validStatuses.join(', ')}`)
       }
     }
 
@@ -54,7 +44,7 @@ export async function POST(request: NextRequest) {
       include: { grade: true },
     })
     if (!classData) {
-      return NextResponse.json({ error: 'Invalid class ID' }, { status: 400 })
+      return fail('VALIDATION', 'Invalid class ID')
     }
 
     // Tenant guard: restrict processing to students that belong to this school.
@@ -81,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!term) {
-      return NextResponse.json({ error: 'No term found for the given date' }, { status: 400 })
+      return fail('VALIDATION', 'No term found for the given date')
     }
 
     // Reset date time to start of day for consistent comparison
@@ -158,17 +148,17 @@ export async function POST(request: NextRequest) {
       details: `Recorded attendance for ${created + updated} students in ${classData.name} on ${dateOnly.toISOString().split('T')[0]}`,
     }).catch(() => {})
 
-    return NextResponse.json({
+    return ok({
       created,
       updated,
+      createdCount: created,
+      updatedCount: updated,
+      success: true,
       errors: errors.length > 0 ? errors : [],
       message: `${created + updated} attendance record${created + updated !== 1 ? 's' : ''} processed (${created} new, ${updated} updated)`,
     })
   } catch (error) {
-    console.error('Bulk attendance error:', error)
-    return NextResponse.json(
-      { error: 'Failed to process bulk attendance' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Bulk attendance error')
+    return fail('INTERNAL', 'Failed to process bulk attendance')
   }
 }

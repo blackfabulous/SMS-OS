@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateRole } from '@/lib/api-auth'
 import { logAudit } from '@/lib/audit'
 
@@ -13,22 +15,19 @@ export async function POST(request: NextRequest) {
     const { fromGradeId, toGradeId, studentIds, academicYearId, promoteAll } = body
 
     if (!fromGradeId || !toGradeId || !academicYearId) {
-      return NextResponse.json(
-        { error: 'fromGradeId, toGradeId, and academicYearId are required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'fromGradeId, toGradeId, and academicYearId are required')
     }
 
     // Validate grades + year exist AND belong to the caller's school (tenant guard).
     const fromGrade = await db.grade.findFirst({ where: { id: fromGradeId, schoolId } })
     const toGrade = await db.grade.findFirst({ where: { id: toGradeId, schoolId } })
     if (!fromGrade || !toGrade) {
-      return NextResponse.json({ error: 'Invalid grade IDs' }, { status: 400 })
+      return fail('VALIDATION', 'Invalid grade IDs')
     }
 
     const academicYear = await db.academicYear.findFirst({ where: { id: academicYearId, schoolId } })
     if (!academicYear) {
-      return NextResponse.json({ error: 'Invalid academic year ID' }, { status: 400 })
+      return fail('VALIDATION', 'Invalid academic year ID')
     }
 
     // Determine which students to promote
@@ -58,10 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (studentsToPromote.length === 0) {
-      return NextResponse.json(
-        { error: 'No active students found in the source grade' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'No active students found in the source grade')
     }
 
     // Get target classes in the toGrade
@@ -70,10 +66,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (targetClasses.length === 0) {
-      return NextResponse.json(
-        { error: 'No active classes found in the target grade. Create classes first.' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'No active classes found in the target grade. Create classes first.')
     }
 
     // Promote each student
@@ -147,17 +140,16 @@ export async function POST(request: NextRequest) {
       details: `Promoted ${promoted} students from ${fromGrade.name} to ${toGrade.name} for ${academicYear.name}`,
     }).catch(() => {})
 
-    return NextResponse.json({
+    return ok({
       promoted,
+      promotedCount: promoted,
       failed,
+      success: true,
       errors: errors.length > 0 ? errors : [],
       message: `${promoted} student${promoted !== 1 ? 's' : ''} promoted from ${fromGrade.name} to ${toGrade.name}`,
     })
   } catch (error) {
-    console.error('Bulk promotion error:', error)
-    return NextResponse.json(
-      { error: 'Failed to process bulk promotion' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Bulk promotion error')
+    return fail('INTERNAL', 'Failed to process bulk promotion')
   }
 }
