@@ -1,7 +1,7 @@
 'use client'
 
 import { ModuleContainer, StatGrid, ModuleStatCard, SectionCard, TableShell, ModulePageLayout, ModuleSettingsButton, KitEmptyState, ModuleToolbar } from '@/components/module-ui';
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Banknote,
@@ -35,6 +35,7 @@ import {
 } from 'recharts'
 
 import { cn } from '@/lib/utils'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 import { formatDualCurrency, formatUSD, formatZiG, getCurrentRate, fetchExchangeRate } from '@/lib/currency'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -126,6 +127,14 @@ interface PayrollStats {
   payslipsGenerated: number
 }
 
+interface PayrollResponse {
+  staff: StaffPayroll[]
+  payslips: PayslipRecord[]
+  stats: PayrollStats
+  period: { month: number; year: number }
+  distribution: Array<{ range: string; count: number }>
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const formatCurrency = (amount: number) => {
@@ -141,18 +150,28 @@ const distributionChartConfig = {
 // ─── Payroll Module ─────────────────────────────────────────────────────────
 
 export default function PayrollModule() {
-  const [staff, setStaff] = useState<StaffPayroll[]>([])
-  const [payslips, setPayslips] = useState<PayslipRecord[]>([])
-  const [stats, setStats] = useState<PayrollStats | null>(null)
-  const [distribution, setDistribution] = useState<Array<{ range: string; count: number }>>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [exchangeRate, setExchangeRate] = useState(getCurrentRate().rate)
   const [selectedMonth, setSelectedMonth] = useState(String(new Date().getMonth() + 1))
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()))
-  const [processing, setProcessing] = useState(false)
   const [selectedPayslip, setSelectedPayslip] = useState<PayslipRecord | null>(null)
+
+  const payrollUrl = useMemo(
+    () => `/api/payroll?month=${selectedMonth}&year=${selectedYear}`,
+    [selectedMonth, selectedYear]
+  )
+
+  const {
+    data: payrollResult,
+    isPending: loading,
+  } = useApiQuery<PayrollResponse>(['payroll', selectedMonth, selectedYear], payrollUrl)
+
+  const staff = payrollResult?.staff ?? []
+  const payslips = payrollResult?.payslips ?? []
+  const stats = payrollResult?.stats ?? null
+  const distribution = payrollResult?.distribution ?? []
 
   // Settings state
   const [payrollSettings, setPayrollSettings] = useState({
@@ -168,53 +187,28 @@ export default function PayrollModule() {
     payDayDefault: '25',
   })
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await fetch(`/api/payroll?month=${selectedMonth}&year=${selectedYear}`)
-      if (res.ok) {
-        const data = await res.json()
-        setStaff(data.staff || [])
-        setPayslips(data.payslips || [])
-        setStats(data.stats || null)
-        setDistribution(data.distribution || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch payroll:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [selectedMonth, selectedYear])
-
   useEffect(() => {
-    fetchData()
     fetchExchangeRate().then(r => setExchangeRate(r.rate))
-  }, [fetchData])
+  }, [])
 
-  const handleProcessPayroll = async () => {
-    try {
-      setProcessing(true)
-      const res = await fetch('/api/payroll', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          month: parseInt(selectedMonth),
-          year: parseInt(selectedYear),
-        }),
+  const {
+    mutate: processPayroll,
+    isPending: processing,
+  } = useApiMutation<{ month: number; year: number }>('/api/payroll', {
+    onSuccess: () => {
+      setViewMode('list')
+      queryClient.invalidateQueries({ queryKey: ['payroll'] })
+      toast.success('Payroll processed successfully', {
+        description: `Payslips generated for ${monthNames[parseInt(selectedMonth) - 1]} ${selectedYear}`,
       })
-      if (res.ok) {
-        setViewMode('list')
-        fetchData()
-        toast.success('Payroll processed successfully', {
-          description: `Payslips generated for ${monthNames[parseInt(selectedMonth) - 1]} ${selectedYear}`,
-        })
-      }
-    } catch (err) {
-      console.error('Failed to process payroll:', err)
-      toast.error('Failed to process payroll')
-    } finally {
-      setProcessing(false)
-    }
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to process payroll')
+    },
+  })
+
+  const handleProcessPayroll = () => {
+    processPayroll({ month: parseInt(selectedMonth), year: parseInt(selectedYear) })
   }
 
   // ─── Inline: Process Payroll Confirmation ──────────────────────────────

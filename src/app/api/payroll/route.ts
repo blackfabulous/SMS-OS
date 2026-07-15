@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
 import { logAudit } from '@/lib/audit'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { getRequestTenant } from '@/lib/tenant'
 import { validateRole } from '@/lib/api-auth'
 import { calculatePAYE } from '@/lib/payroll-calc'
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
     const nssaEmployee = staff.reduce((acc, s) => acc + Math.min((s.basicSalary + s.housingAllowance + s.transportAllowance + s.responsibilityAllowance) * 0.045, 339), 0)
     const nssaEmployer = nssaEmployee
 
-    return NextResponse.json({
+    return ok({
       staff: staff.map((s) => ({
         id: s.id, staffNumber: s.staffNumber, firstName: s.firstName, lastName: s.lastName,
         position: s.position, department: s.department, staffType: s.staffType,
@@ -61,10 +62,11 @@ export async function GET(request: Request) {
         payslipsGenerated: payslips.length,
       },
       period: { month, year },
+      distribution: [],
     })
   } catch (error) {
-    console.error('Error fetching payroll:', error)
-    return NextResponse.json({ error: 'Failed to fetch payroll data' }, { status: 500 })
+    logger.error({ err: error }, 'Error fetching payroll')
+    return fail('INTERNAL', 'Failed to fetch payroll data')
   }
 }
 
@@ -78,7 +80,7 @@ export async function POST(request: Request) {
 
     const parsed = RunPayrollSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
+      return fail('VALIDATION', 'Validation failed', parsed.error.issues)
     }
     const { month, year } = parsed.data
 
@@ -118,15 +120,15 @@ export async function POST(request: Request) {
       results.push({ staffId: staff.id, status: 'created', netPay: Math.round(netPay * 100) / 100 })
     }
 
-    return NextResponse.json({
+    return ok({
       message: `Payroll processed for ${month}/${year}`,
       processed: results.filter((r) => r.status === 'created').length,
       skipped: results.filter((r) => r.status === 'already_exists').length,
       results,
-    }, { status: 201 })
+    }, 201)
   } catch (error) {
-    console.error('Error processing payroll:', error)
-    return NextResponse.json({ error: 'Failed to process payroll' }, { status: 500 })
+    logger.error({ err: error }, 'Error processing payroll')
+    return fail('INTERNAL', 'Failed to process payroll')
   }
 }
 
@@ -139,7 +141,7 @@ export async function PUT(request: Request) {
     const body = await request.json()
     const { id, ...updates } = body
 
-    if (!id) return NextResponse.json({ error: 'Payslip ID is required' }, { status: 400 })
+    if (!id) return fail('VALIDATION', 'Payslip ID is required')
 
     // Verify payslip belongs to a staff member of the caller's school
     const existing = await db.payslip.findUnique({
@@ -147,7 +149,7 @@ export async function PUT(request: Request) {
       select: { staff: { select: { schoolId: true } } },
     })
     if (!existing || existing.staff.schoolId !== session.user.schoolId) {
-      return NextResponse.json({ error: 'Payslip not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Payslip not found')
     }
 
     const payslip = await db.payslip.update({
@@ -157,10 +159,10 @@ export async function PUT(request: Request) {
     })
 
     logAudit({ action: 'UPDATE', entity: 'payroll', entityId: payslip.id, afterValue: payslip }).catch(() => {})
-    return NextResponse.json(payslip)
+    return ok(payslip)
   } catch (error) {
-    console.error('Error updating payslip:', error)
-    return NextResponse.json({ error: 'Failed to update payslip' }, { status: 500 })
+    logger.error({ err: error }, 'Error updating payslip')
+    return fail('INTERNAL', 'Failed to update payslip')
   }
 }
 
@@ -173,7 +175,7 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
-    if (!id) return NextResponse.json({ error: 'Payslip ID is required' }, { status: 400 })
+    if (!id) return fail('VALIDATION', 'Payslip ID is required')
 
     // Verify payslip belongs to a staff member of the caller's school
     const existing = await db.payslip.findUnique({
@@ -181,14 +183,14 @@ export async function DELETE(request: Request) {
       select: { staff: { select: { schoolId: true } } },
     })
     if (!existing || existing.staff.schoolId !== session.user.schoolId) {
-      return NextResponse.json({ error: 'Payslip not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Payslip not found')
     }
 
     await db.payslip.delete({ where: { id } })
     logAudit({ action: 'DELETE', entity: 'payroll', entityId: id }).catch(() => {})
-    return NextResponse.json({ message: 'Payslip deleted successfully' })
+    return ok({ message: 'Payslip deleted successfully' })
   } catch (error) {
-    console.error('Error deleting payslip:', error)
-    return NextResponse.json({ error: 'Failed to delete payslip' }, { status: 500 })
+    logger.error({ err: error }, 'Error deleting payslip')
+    return fail('INTERNAL', 'Failed to delete payslip')
   }
 }
