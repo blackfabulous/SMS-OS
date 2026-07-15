@@ -1,6 +1,8 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { logAudit } from '@/lib/audit'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
 
@@ -63,7 +65,7 @@ export async function GET(request: NextRequest) {
         high: await db.securityIncident.count({ where: { schoolId, severity: 'HIGH' } }),
       }
 
-      return NextResponse.json({
+      return ok({
         data: incidents,
         total: incTotal,
         page,
@@ -122,7 +124,7 @@ export async function GET(request: NextRequest) {
       totalVisitors: visTotal,
     }
 
-    return NextResponse.json({
+    return ok({
       data: visitors,
       total: visTotal,
       page,
@@ -130,11 +132,8 @@ export async function GET(request: NextRequest) {
       stats,
     })
   } catch (error) {
-    console.error('Failed to fetch security data:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch security data' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to fetch security data')
+    return fail('INTERNAL', 'Failed to fetch security data')
   }
 }
 
@@ -152,10 +151,7 @@ export async function POST(request: NextRequest) {
     if (action === 'checkIn' || action === 'registerVisitor') {
       const { name, idNumber, purpose, hostPerson, vehicleReg, phone } = body
       if (!name || !purpose) {
-        return NextResponse.json(
-          { error: 'Name and purpose are required' },
-          { status: 400 }
-        )
+        return fail('VALIDATION', 'Name and purpose are required')
       }
 
       const visitor = await db.visitor.create({
@@ -171,17 +167,14 @@ export async function POST(request: NextRequest) {
         },
       })
       logAudit({ action: 'CREATE', entity: 'security', entityId: (visitor as any)?.id, afterValue: visitor }).catch(() => {})
-      return NextResponse.json(visitor, { status: 201 })
+      return ok(visitor, 201)
     }
 
     // Check-out visitor
     if (action === 'checkOut') {
       const { visitorId } = body
       if (!visitorId) {
-        return NextResponse.json(
-          { error: 'Visitor ID is required' },
-          { status: 400 }
-        )
+        return fail('VALIDATION', 'Visitor ID is required')
       }
 
       // Verify visitor exists and is on campus
@@ -189,10 +182,7 @@ export async function POST(request: NextRequest) {
         where: { id: visitorId, schoolId, status: 'ON_CAMPUS' },
       })
       if (!existing) {
-        return NextResponse.json(
-          { error: 'Visitor not found or already checked out' },
-          { status: 404 }
-        )
+        return fail('NOT_FOUND', 'Visitor not found or already checked out')
       }
 
       const visitor = await db.visitor.update({
@@ -200,17 +190,14 @@ export async function POST(request: NextRequest) {
         data: { checkOutTime: new Date(), status: 'OFF_CAMPUS' },
       })
       logAudit({ action: 'CREATE', entity: 'security', entityId: (visitor as any)?.id, afterValue: visitor }).catch(() => {})
-      return NextResponse.json(visitor)
+      return ok(visitor)
     }
 
     // Report security incident
     if (action === 'reportIncident') {
       const { incidentType, location, severity, description, reporter } = body
       if (!incidentType || !description) {
-        return NextResponse.json(
-          { error: 'Incident type and description are required' },
-          { status: 400 }
-        )
+        return fail('VALIDATION', 'Incident type and description are required')
       }
 
       const incident = await db.securityIncident.create({
@@ -225,19 +212,13 @@ export async function POST(request: NextRequest) {
         },
       })
       logAudit({ action: 'CREATE', entity: 'security', entityId: (incident as any)?.id, afterValue: incident }).catch(() => {})
-      return NextResponse.json(incident, { status: 201 })
+      return ok(incident, 201)
     }
 
-    return NextResponse.json(
-      { error: 'Invalid action. Use checkIn, checkOut, or reportIncident' },
-      { status: 400 }
-    )
+    return fail('VALIDATION', 'Invalid action. Use checkIn, checkOut, or reportIncident')
   } catch (error) {
-    console.error('Failed to process security request:', error)
-    return NextResponse.json(
-      { error: 'Failed to process security request' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to process security request')
+    return fail('INTERNAL', 'Failed to process security request')
   }
 }
 
@@ -251,12 +232,12 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { id, type, ...updates } = body
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     if (type === 'incident') {
       const ownedIncident = await db.securityIncident.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!ownedIncident) return NextResponse.json({ error: 'Incident not found' }, { status: 404 })
+      if (!ownedIncident) return fail('NOT_FOUND', 'Incident not found')
       const incident = await db.securityIncident.update({
         where: { id },
         data: {
@@ -268,12 +249,12 @@ export async function PUT(request: NextRequest) {
         },
       })
       logAudit({ action: 'UPDATE', entity: 'security', entityId: (incident as any)?.id, afterValue: incident }).catch(() => {})
-      return NextResponse.json(incident)
+      return ok(incident)
     }
 
     // Update visitor — verify ownership first.
     const ownedVisitor = await db.visitor.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!ownedVisitor) return NextResponse.json({ error: 'Visitor not found' }, { status: 404 })
+    if (!ownedVisitor) return fail('NOT_FOUND', 'Visitor not found')
     const visitor = await db.visitor.update({
       where: { id },
       data: {
@@ -282,13 +263,10 @@ export async function PUT(request: NextRequest) {
       },
     })
     logAudit({ action: 'UPDATE', entity: 'security', entityId: (visitor as any)?.id, afterValue: visitor }).catch(() => {})
-    return NextResponse.json(visitor)
+    return ok(visitor)
   } catch (error) {
-    console.error('Failed to update security record:', error)
-    return NextResponse.json(
-      { error: 'Failed to update security record' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to update security record')
+    return fail('INTERNAL', 'Failed to update security record')
   }
 }
 
@@ -303,27 +281,24 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id')
     const type = searchParams.get('type')
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     // Verify the target belongs to the caller's school before deleting.
     if (type === 'incident') {
       const owned = await db.securityIncident.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       await db.securityIncident.delete({ where: { id } })
     } else {
       const owned = await db.visitor.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       await db.visitor.delete({ where: { id } })
     }
 
     logAudit({ action: 'DELETE', entity: 'security', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ message: 'Deleted successfully' })
+    return ok({ message: 'Deleted successfully' })
   } catch (error) {
-    console.error('Failed to delete security record:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete security record' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to delete security record')
+    return fail('INTERNAL', 'Failed to delete security record')
   }
 }

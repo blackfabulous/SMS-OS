@@ -1,7 +1,7 @@
 'use client'
 
 import { ModulePageLayout, ModuleSettingsButton, ModuleContainer, StatGrid, ModuleStatCard, SectionCard } from '@/components/module-ui';
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   Shield,
@@ -51,6 +51,7 @@ import {
 import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 import { toast } from 'sonner'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -106,6 +107,22 @@ interface ApiIncident { id: string; incidentType: string; location: string | nul
 interface VisitorStats { visitorsToday: number; currentlyOnCampus: number; incidentsThisMonth: number; openIncidents: number; totalVisitors: number }
 interface IncidentStats { total: number; open: number; investigating: number; resolved: number; closed: number; critical: number; high: number }
 
+interface VisitorsResponse {
+  data: ApiVisitor[]
+  total: number
+  page: number
+  totalPages: number
+  stats: VisitorStats
+}
+
+interface IncidentsResponse {
+  data: ApiIncident[]
+  total: number
+  page: number
+  totalPages: number
+  stats: IncidentStats
+}
+
 function apiToVisitor(v: ApiVisitor): Visitor {
   return { id: v.id, name: v.name, idNumber: v.idNumber ?? '', purpose: v.purpose, hostPerson: v.hostPerson ?? '', vehicleReg: v.vehicleReg ?? '', timeIn: fmtTime(v.checkInTime), timeOut: v.checkOutTime ? fmtTime(v.checkOutTime) : null, status: VIS_STATUS_FROM_API[v.status] || 'Checked Out', phone: v.phone ?? '' }
 }
@@ -152,18 +169,39 @@ const securityAlerts = [
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function SecurityModule() {
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [viewMode, setViewMode] = useState<'list' | 'add-visitor' | 'add-incident' | 'detail-visitor' | 'detail-incident' | 'settings'>('list')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [visitors, setVisitors] = useState<Visitor[]>([])
-  const [incidents, setIncidents] = useState<SecurityIncident[]>([])
   const [accessPoints, setAccessPoints] = useState<AccessPoint[]>(mockAccessPoints)
-  const [visitorStats, setVisitorStats] = useState<VisitorStats | null>(null)
-  const [incidentStats, setIncidentStats] = useState<IncidentStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [searchVisitor, setSearchVisitor] = useState('')
   const [searchIncident, setSearchIncident] = useState('')
+
+  const {
+    data: visitorsData,
+    isPending: visitorsLoading,
+    error: visitorsError,
+    refetch: refetchVisitors,
+  } = useApiQuery<VisitorsResponse>(['security', 'visitors'], '/api/security?limit=200')
+
+  const {
+    data: incidentsData,
+    isPending: incidentsLoading,
+    error: incidentsError,
+    refetch: refetchIncidents,
+  } = useApiQuery<IncidentsResponse>(['security', 'incidents'], '/api/security?type=incidents&limit=200')
+
+  const visitors = visitorsData?.data?.map(apiToVisitor) ?? []
+  const visitorStats = visitorsData?.stats ?? null
+  const incidents = incidentsData?.data?.map(apiToIncident) ?? []
+  const incidentStats = incidentsData?.stats ?? null
+  const loading = visitorsLoading || incidentsLoading
+  const error = visitorsError?.message || incidentsError?.message || null
+
+  const handleRefetch = () => {
+    refetchVisitors()
+    refetchIncidents()
+  }
 
   // Form state for new visitor
   const [newVisitorName, setNewVisitorName] = useState('')
@@ -186,31 +224,6 @@ export default function SecurityModule() {
     ipRestrictions: '', auditRetention: '365', visitorAutoCheckout: true, incidentEscalation: true,
   })
 
-  const fetchSecurity = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const [vRes, iRes] = await Promise.all([
-        fetch('/api/security?limit=200'),
-        fetch('/api/security?type=incidents&limit=200'),
-      ])
-      const vJson = await vRes.json()
-      const iJson = await iRes.json()
-      if (!vRes.ok) throw new Error(vJson.error || 'Failed to load visitors')
-      if (!iRes.ok) throw new Error(iJson.error || 'Failed to load incidents')
-      setVisitors((vJson.data || []).map(apiToVisitor))
-      setVisitorStats(vJson.stats || null)
-      setIncidents((iJson.data || []).map(apiToIncident))
-      setIncidentStats(iJson.stats || null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load security data')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { fetchSecurity() }, [fetchSecurity])
-
   // Computed values
   const visitorsToday = visitorStats?.visitorsToday ?? visitors.length
   const currentlyOnCampus = visitorStats?.currentlyOnCampus ?? visitors.filter(v => v.status === 'On Campus').length
@@ -232,58 +245,61 @@ export default function SecurityModule() {
     i.description.toLowerCase().includes(searchIncident.toLowerCase())
   )
 
-  const handleAddVisitor = async () => {
-    if (!newVisitorName || !newVisitorId || !newVisitorPurpose || !newVisitorHost) return
-    try {
-      const res = await fetch('/api/security', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'registerVisitor', name: newVisitorName, idNumber: newVisitorId, purpose: newVisitorPurpose, hostPerson: newVisitorHost, vehicleReg: newVisitorVehicle, phone: newVisitorPhone }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Failed to register visitor')
-      await fetchSecurity()
+  const {
+    mutate: registerVisitor,
+    isPending: isRegistering,
+  } = useApiMutation<{ action: 'registerVisitor'; name: string; idNumber: string; purpose: string; hostPerson: string; vehicleReg: string; phone: string }, ApiVisitor>('/api/security', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['security'] })
       setNewVisitorName(''); setNewVisitorId(''); setNewVisitorPurpose(''); setNewVisitorHost(''); setNewVisitorVehicle(''); setNewVisitorPhone('')
       toast.success('Visitor registered and checked in')
       setViewMode('list')
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to register visitor')
-    }
-  }
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to register visitor')
+    },
+  })
 
-  const handleAddIncident = async () => {
-    if (!newIncidentLocation || !newIncidentDesc || !newIncidentReporter) return
-    try {
-      const res = await fetch('/api/security', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reportIncident', incidentType: newIncidentType, location: newIncidentLocation, severity: SEVERITY_TO_API[newIncidentSeverity], description: newIncidentDesc, reporter: newIncidentReporter }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Failed to report incident')
-      await fetchSecurity()
+  const {
+    mutate: reportIncident,
+    isPending: isReporting,
+  } = useApiMutation<{ action: 'reportIncident'; incidentType: string; location: string; severity: string; description: string; reporter: string }, ApiIncident>('/api/security', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['security'] })
       setNewIncidentType('Other'); setNewIncidentLocation(''); setNewIncidentDesc(''); setNewIncidentReporter(''); setNewIncidentSeverity('Medium')
       toast.success('Security incident reported')
       setViewMode('list')
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to report incident')
-    }
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to report incident')
+    },
+  })
+
+  const {
+    mutate: checkOutVisitor,
+    isPending: isCheckingOut,
+  } = useApiMutation<{ action: 'checkOut'; visitorId: string }, ApiVisitor>('/api/security', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['security'] })
+      toast.success('Visitor checked out')
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to check out visitor')
+    },
+  })
+
+  const handleAddVisitor = () => {
+    if (!newVisitorName || !newVisitorId || !newVisitorPurpose || !newVisitorHost) return
+    registerVisitor({ action: 'registerVisitor', name: newVisitorName, idNumber: newVisitorId, purpose: newVisitorPurpose, hostPerson: newVisitorHost, vehicleReg: newVisitorVehicle, phone: newVisitorPhone })
   }
 
-  const checkoutVisitor = async (id: string) => {
-    try {
-      const res = await fetch('/api/security', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'checkOut', visitorId: id }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Failed to check out visitor')
-      await fetchSecurity()
-      toast.success('Visitor checked out')
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to check out visitor')
-    }
+  const handleAddIncident = () => {
+    if (!newIncidentLocation || !newIncidentDesc || !newIncidentReporter) return
+    reportIncident({ action: 'reportIncident', incidentType: newIncidentType, location: newIncidentLocation, severity: SEVERITY_TO_API[newIncidentSeverity], description: newIncidentDesc, reporter: newIncidentReporter })
+  }
+
+  const checkoutVisitorById = (id: string) => {
+    checkOutVisitor({ action: 'checkOut', visitorId: id })
   }
 
   const toggleAccessPoint = (id: string) => {
@@ -348,7 +364,7 @@ export default function SecurityModule() {
             </CardContent>
             <CardFooter className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
-              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleAddVisitor}>Register & Check In</Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleAddVisitor} disabled={isRegistering}>Register & Check In</Button>
             </CardFooter>
           </Card>
         </div>
@@ -372,7 +388,7 @@ export default function SecurityModule() {
             </CardContent>
             <CardFooter className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
-              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleAddIncident}>Submit Report</Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleAddIncident} disabled={isReporting}>Submit Report</Button>
             </CardFooter>
           </Card>
         </div>
@@ -394,7 +410,7 @@ export default function SecurityModule() {
               <div className="grid grid-cols-2 gap-4 text-sm"><div><span className="text-muted-foreground">ID Number:</span> <span className="font-medium">{visitor.idNumber}</span></div><div><span className="text-muted-foreground">Phone:</span> <span className="font-medium">{visitor.phone}</span></div><div><span className="text-muted-foreground">Purpose:</span> <span className="font-medium">{visitor.purpose}</span></div><div><span className="text-muted-foreground">Host:</span> <span className="font-medium">{visitor.hostPerson}</span></div><div><span className="text-muted-foreground">Time In:</span> <span className="font-medium">{visitor.timeIn}</span></div><div><span className="text-muted-foreground">Time Out:</span> <span className="font-medium">{visitor.timeOut ?? '—'}</span></div></div>
               {visitor.vehicleReg && <div><span className="text-muted-foreground text-sm">Vehicle:</span> <Badge variant="outline" className="text-[10px] ml-1 gap-1"><Car className="h-3 w-3" />{visitor.vehicleReg}</Badge></div>}
             </CardContent>
-            <CardFooter className="flex justify-end gap-3">{visitor.status === 'On Campus' && <Button onClick={() => { checkoutVisitor(visitor.id); setViewMode('list') }}>Check Out</Button>}</CardFooter>
+            <CardFooter className="flex justify-end gap-3">{visitor.status === 'On Campus' && <Button onClick={() => { checkoutVisitorById(visitor.id); setViewMode('list') }} disabled={isCheckingOut}>Check Out</Button>}</CardFooter>
           </Card>
         </div>
       </motion.div>
@@ -447,7 +463,7 @@ export default function SecurityModule() {
     <ModuleContainer>
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
-          {error} · <button onClick={() => fetchSecurity()} className="underline underline-offset-2">retry</button>
+          {error} · <button onClick={() => handleRefetch()} className="underline underline-offset-2">retry</button>
         </div>
       )}
 <ModulePageLayout
@@ -579,7 +595,7 @@ export default function SecurityModule() {
                         <span className="text-[10px] text-muted-foreground">In: {v.timeIn}</span>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => checkoutVisitor(v.id)}>
+                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => checkoutVisitorById(v.id)} disabled={isCheckingOut}>
                       Check Out
                     </Button>
                   </div>
@@ -646,7 +662,7 @@ export default function SecurityModule() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => checkoutVisitor(v.id)}>
+                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => checkoutVisitorById(v.id)}>
                             Check Out
                           </Button>
                         </TableCell>
