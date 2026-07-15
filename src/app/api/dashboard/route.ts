@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateAuth } from '@/lib/api-auth'
 
 export async function GET() {
@@ -163,7 +165,7 @@ export async function GET() {
       where: { status: 'APPROVED', student: { schoolId } },
     })
 
-    return NextResponse.json({
+    return ok({
       enrollment: {
         total: totalStudents,
         active: activeStudents,
@@ -209,10 +211,7 @@ export async function GET() {
       },
     })
   } catch (error) {
-    console.error('Error fetching dashboard data:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch dashboard data' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Error fetching dashboard data')
+    return fail('INTERNAL', 'Failed to fetch dashboard data')
   }
 }

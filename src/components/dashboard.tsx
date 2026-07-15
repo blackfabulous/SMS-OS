@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
   LayoutDashboard, GraduationCap, Users, UserPlus, BookOpen,
@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/chart'
 import { useAppStore } from '@/lib/store'
 import { formatDualCurrency } from '@/lib/currency'
+import { useApiQuery } from '@/hooks/use-api-query'
 
 function StatCard({
   icon: Icon,
@@ -238,11 +239,21 @@ const activityColors: Record<string, string> = {
 
 export default function Dashboard() {
   const { schoolName, setActiveModule } = useAppStore()
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
-  const [financeData, setFinanceData] = useState<FinanceData | null>(null)
-  const [attendanceData, setAttendanceData] = useState<AttendanceData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+
+  const { data: dashboardData, isPending: dashboardLoading, error: dashboardError } = useApiQuery<DashboardData>(
+    ['dashboard'],
+    '/api/dashboard',
+  )
+  const { data: financeData, isPending: financeLoading, error: financeError } = useApiQuery<FinanceData>(
+    ['finance'],
+    '/api/finance',
+  )
+  const { data: attendanceData, isPending: attendanceLoading, error: attendanceError } = useApiQuery<AttendanceData>(
+    ['attendance'],
+    '/api/attendance',
+  )
+  const loading = dashboardLoading || financeLoading || attendanceLoading
+  const error = dashboardError?.message || financeError?.message || attendanceError?.message || null
 
   const today = useMemo(() => {
     return new Date().toLocaleDateString('en-ZW', {
@@ -251,41 +262,6 @@ export default function Dashboard() {
       month: 'long',
       day: 'numeric',
     })
-  }, [])
-
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true)
-      setError(null)
-      try {
-        const [dashboardRes, financeRes, attendanceRes] = await Promise.allSettled([
-          fetch('/api/dashboard'),
-          fetch('/api/finance'),
-          fetch('/api/attendance'),
-        ])
-
-        if (dashboardRes.status === 'fulfilled' && dashboardRes.value.ok) {
-          setDashboardData(await dashboardRes.value.json())
-        }
-
-        if (financeRes.status === 'fulfilled' && financeRes.value.ok) {
-          setFinanceData(await financeRes.value.json())
-        }
-
-        if (attendanceRes.status === 'fulfilled' && attendanceRes.value.ok) {
-          setAttendanceData(await attendanceRes.value.json())
-        }
-
-        if (dashboardRes.status === 'rejected' || (dashboardRes.status === 'fulfilled' && !dashboardRes.value.ok)) {
-          setError('Failed to load dashboard data. Please try again.')
-        }
-      } catch {
-        setError('Failed to load dashboard data. Please try again.')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
   }, [])
 
   // Build enrollment chart data from API

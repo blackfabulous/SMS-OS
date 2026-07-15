@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { getRequestTenant } from '@/lib/tenant'
 import { validateRole } from '@/lib/api-auth'
@@ -51,7 +53,7 @@ export async function GET() {
       monthlyTrend[monthKey] = (monthlyTrend[monthKey] || 0) + Number(payment.amount)
     }
 
-    return NextResponse.json({
+    return ok({
       totalInvoiced, totalCollected, totalOutstanding,
       debtorCount: debtorCount.length, recentPayments,
       invoiceStatusBreakdown: { pending: pendingCount, partial: partialCount, paid: paidCount, overdue: overdueCount },
@@ -59,8 +61,8 @@ export async function GET() {
       collectionRate: totalInvoiced > 0 ? ((totalCollected / totalInvoiced) * 100).toFixed(1) : '0',
     })
   } catch (error) {
-    console.error('Error fetching financial dashboard:', error)
-    return NextResponse.json({ error: 'Failed to fetch financial dashboard' }, { status: 500 })
+    logger.error({ err: error }, 'Error fetching financial dashboard')
+    return fail('INTERNAL', 'Failed to fetch financial dashboard')
   }
 }
 
