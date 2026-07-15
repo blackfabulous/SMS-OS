@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
@@ -20,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     const school = await db.school.findUnique({ where: { id: tenantResult.schoolId } })
     if (!school) {
-      return NextResponse.json({ members: [], meetings: [], projects: [], stats: {} })
+      return fail('NOT_FOUND', 'School not found')
     }
 
     // Build member filter
@@ -59,7 +61,7 @@ export async function GET(request: NextRequest) {
         db.sDCMember.count({ where: memberFilter }),
       ])
 
-      return NextResponse.json({
+      return ok({
         data: members,
         total: memberTotal,
         page,
@@ -80,7 +82,7 @@ export async function GET(request: NextRequest) {
         db.schoolEvent.count({ where: meetingFilter }),
       ])
 
-      return NextResponse.json({
+      return ok({
         data: meetings,
         total: meetingTotal,
         page,
@@ -101,7 +103,7 @@ export async function GET(request: NextRequest) {
         db.schoolEvent.count({ where: projectFilter }),
       ])
 
-      return NextResponse.json({
+      return ok({
         data: projects,
         total: projectTotal,
         page,
@@ -140,7 +142,7 @@ export async function GET(request: NextRequest) {
       totalPayments: totalFunds._count,
     }
 
-    return NextResponse.json({
+    return ok({
       members,
       meetings,
       projects,
@@ -159,8 +161,8 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Error fetching SDC data:', error)
-    return NextResponse.json({ error: 'Failed to fetch SDC data' }, { status: 500 })
+    logger.error({ err: error }, 'Error fetching SDC data')
+    return fail('INTERNAL', 'Failed to fetch SDC data')
   }
 }
 
@@ -169,14 +171,14 @@ export async function POST(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
   const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
-  if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 })
+  if (!school) return fail('NOT_FOUND', 'School not found')
 
   try {
     const body = await request.json()
 
     if (body.type === 'meeting') {
       if (!body.title || !body.startDate) {
-        return NextResponse.json({ error: 'Title and startDate are required' }, { status: 400 })
+        return fail('VALIDATION', 'Title and startDate are required')
       }
       const meeting = await db.schoolEvent.create({
         data: {
@@ -190,12 +192,12 @@ export async function POST(request: NextRequest) {
         },
       })
       logAudit({ action: 'CREATE', entity: 'sdc', entityId: (meeting as any)?.id, afterValue: meeting }).catch(() => {})
-      return NextResponse.json(meeting, { status: 201 })
+      return ok(meeting, 201)
     }
 
     if (body.type === 'project') {
       if (!body.title || !body.startDate) {
-        return NextResponse.json({ error: 'Title and startDate are required' }, { status: 400 })
+        return fail('VALIDATION', 'Title and startDate are required')
       }
       const project = await db.schoolEvent.create({
         data: {
@@ -209,12 +211,12 @@ export async function POST(request: NextRequest) {
         },
       })
       logAudit({ action: 'CREATE', entity: 'sdc', entityId: (project as any)?.id, afterValue: project }).catch(() => {})
-      return NextResponse.json(project, { status: 201 })
+      return ok(project, 201)
     }
 
     // Default: add SDC member
     if (!body.name || !body.position) {
-      return NextResponse.json({ error: 'Name and position are required' }, { status: 400 })
+      return fail('VALIDATION', 'Name and position are required')
     }
     const member = await db.sDCMember.create({
       data: {
@@ -239,10 +241,10 @@ export async function POST(request: NextRequest) {
     }
 
     logAudit({ action: 'CREATE', entity: 'sdc', entityId: (member as any)?.id, afterValue: member }).catch(() => {})
-    return NextResponse.json(member, { status: 201 })
+    return ok(member, 201)
   } catch (error) {
-    console.error('Error creating SDC record:', error)
-    return NextResponse.json({ error: 'Failed to create SDC record' }, { status: 500 })
+    logger.error({ err: error }, 'Error creating SDC record')
+    return fail('INTERNAL', 'Failed to create SDC record')
   }
 }
 
@@ -257,12 +259,12 @@ export async function PUT(request: NextRequest) {
     const { id, type, ...updates } = body
 
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     if (type === 'member') {
       const ownedMember = await db.sDCMember.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!ownedMember) return NextResponse.json({ error: 'SDC member not found' }, { status: 404 })
+      if (!ownedMember) return fail('NOT_FOUND', 'SDC member not found')
       const member = await db.sDCMember.update({
         where: { id },
         data: {
@@ -285,12 +287,12 @@ export async function PUT(request: NextRequest) {
       }
 
       logAudit({ action: 'UPDATE', entity: 'sdc', entityId: (member as any)?.id, afterValue: member }).catch(() => {})
-      return NextResponse.json(member)
+      return ok(member)
     }
 
     if (type === 'event') {
       const ownedEvent = await db.schoolEvent.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!ownedEvent) return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+      if (!ownedEvent) return fail('NOT_FOUND', 'Event not found')
       const event = await db.schoolEvent.update({
         where: { id },
         data: {
@@ -302,13 +304,13 @@ export async function PUT(request: NextRequest) {
         },
       })
       logAudit({ action: 'UPDATE', entity: 'sdc', entityId: (event as any)?.id, afterValue: event }).catch(() => {})
-      return NextResponse.json(event)
+      return ok(event)
     }
 
-    return NextResponse.json({ error: 'Invalid type. Use: member or event' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid type. Use: member or event')
   } catch (error) {
-    console.error('Error updating SDC record:', error)
-    return NextResponse.json({ error: 'Failed to update SDC record' }, { status: 500 })
+    logger.error({ err: error }, 'Error updating SDC record')
+    return fail('INTERNAL', 'Failed to update SDC record')
   }
 }
 
@@ -324,17 +326,17 @@ export async function DELETE(request: NextRequest) {
     const type = searchParams.get('type')
 
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     // Verify the target belongs to the caller's school before mutating.
     if (type === 'event') {
       const owned = await db.schoolEvent.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       await db.schoolEvent.delete({ where: { id } })
     } else {
       const owned = await db.sDCMember.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Not found')
       if (type === 'member') {
         await db.sDCMember.update({ where: { id }, data: { isActive: false } })
       } else {
@@ -343,9 +345,9 @@ export async function DELETE(request: NextRequest) {
     }
 
     logAudit({ action: 'DELETE', entity: 'sdc', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ message: 'Deleted successfully' })
+    return ok({ message: 'Deleted successfully' })
   } catch (error) {
-    console.error('Error deleting SDC record:', error)
-    return NextResponse.json({ error: 'Failed to delete SDC record' }, { status: 500 })
+    logger.error({ err: error }, 'Error deleting SDC record')
+    return fail('INTERNAL', 'Failed to delete SDC record')
   }
 }

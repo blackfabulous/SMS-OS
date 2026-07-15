@@ -1,7 +1,8 @@
 'use client'
 
 import { ModulePageLayout, ModuleSettingsButton, StatGrid, ModuleStatCard, SectionCard } from '@/components/module-ui';
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState } from 'react'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 import { motion } from 'framer-motion'
 import {
   Building,
@@ -97,6 +98,32 @@ interface SDCProject {
   venue?: string
 }
 
+interface SDCResponse {
+  members: SDCMember[]
+  meetings: SDCMeeting[]
+  projects: SDCProject[]
+  events: SDCMeeting[]
+  stats: {
+    totalMembers: number
+    activeMembers: number
+    meetingsThisTerm: number
+    activeProjects: number
+    fundBalance: number
+    totalPayments: number
+  }
+  schoolInfo: {
+    sdcChairperson: string | null
+    sdcSecretary: string | null
+    sdcTreasurer: string | null
+  }
+  pagination: {
+    page: number
+    limit: number
+    totalMembers: number
+    totalPages: number
+  }
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const formatDate = (dateStr: string) => {
@@ -122,17 +149,22 @@ const budgetChartConfig = {
 // ─── SDC Module ──────────────────────────────────────────────────────────────
 
 export default function SDCModule() {
-  const [members, setMembers] = useState<SDCMember[]>([])
-  const [meetings, setMeetings] = useState<SDCMeeting[]>([])
-  const [projects, setProjects] = useState<SDCProject[]>([])
-  const [stats, setStats] = useState<Record<string, unknown>>({})
-  const [schoolInfo, setSchoolInfo] = useState<Record<string, string | null>>({})
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [viewMode, setViewMode] = useState<'list' | 'add' | 'edit' | 'detail' | 'settings'>('list')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [addType, setAddType] = useState<'member' | 'meeting'>('member')
-  const [submitting, setSubmitting] = useState(false)
+
+  const {
+    data: sdcData,
+    isPending: loading,
+  } = useApiQuery<SDCResponse>(['sdc'], '/api/sdc')
+
+  const members = sdcData?.members ?? []
+  const meetings = sdcData?.meetings ?? []
+  const projects = sdcData?.projects ?? []
+  const stats = sdcData?.stats ?? { totalMembers: 0, activeMembers: 0, meetingsThisTerm: 0, activeProjects: 0, fundBalance: 0, totalPayments: 0 }
+  const schoolInfo = sdcData?.schoolInfo ?? { sdcChairperson: null, sdcSecretary: null, sdcTreasurer: null }
 
   // Settings state
   const [settings, setSettings] = useState({
@@ -161,69 +193,38 @@ export default function SDCModule() {
     venue: '',
   })
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await fetch('/api/sdc')
-      if (res.ok) {
-        const data = await res.json()
-        setMembers(data.members || [])
-        setMeetings(data.meetings || [])
-        setProjects(data.projects || [])
-        setStats(data.stats || {})
-        setSchoolInfo(data.schoolInfo || {})
-      }
-    } catch (err) {
-      console.error('Failed to fetch SDC data:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const { mutate: createSdcRecord, isPending: isSubmitting } = useApiMutation<
+    ({ type: 'member' } & typeof memberForm) | ({ type: 'meeting' } & typeof meetingForm),
+    SDCMember | SDCMeeting
+  >('/api/sdc', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sdc'] })
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to create SDC record')
+    },
+  })
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
-
-  const handleAddMember = async () => {
+  const handleAddMember = () => {
     if (!memberForm.name || !memberForm.position) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/sdc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(memberForm),
-      })
-      if (res.ok) {
+    createSdcRecord({ type: 'member', ...memberForm }, {
+      onSuccess: () => {
         setViewMode('list')
         setMemberForm({ name: '', position: 'Committee Member', phone: '', email: '', termStart: '', termEnd: '' })
-        fetchData()
-      }
-    } catch (err) {
-      console.error('Failed to add member:', err)
-    } finally {
-      setSubmitting(false)
-    }
+        toast.success('SDC member added successfully')
+      },
+    })
   }
 
-  const handleAddMeeting = async () => {
+  const handleAddMeeting = () => {
     if (!meetingForm.title || !meetingForm.startDate) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/sdc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'meeting', ...meetingForm }),
-      })
-      if (res.ok) {
+    createSdcRecord({ type: 'meeting', ...meetingForm }, {
+      onSuccess: () => {
         setViewMode('list')
         setMeetingForm({ title: '', description: '', startDate: '', endDate: '', venue: '' })
-        fetchData()
-      }
-    } catch (err) {
-      console.error('Failed to add meeting:', err)
-    } finally {
-      setSubmitting(false)
-    }
+        toast.success('SDC meeting added successfully')
+      },
+    })
   }
 
   // Simulated budget data
@@ -351,8 +352,8 @@ export default function SDCModule() {
         </Card>
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
-          <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white" disabled={submitting} onClick={addType === 'member' ? handleAddMember : handleAddMeeting}>
-            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white" disabled={isSubmitting} onClick={addType === 'member' ? handleAddMember : handleAddMeeting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {addType === 'member' ? 'Add Member' : 'Schedule Meeting'}
           </Button>
         </div>
