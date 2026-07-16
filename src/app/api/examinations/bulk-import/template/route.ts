@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
 import { validateAuth } from '@/lib/api-auth'
+import { ok } from '@/server/http'
 
 // ─── ZIMSEC Bulk Import - CSV Template Download ──────────────────────────────
 // Returns a CSV template with the required headers for ZIMSEC results bulk import.
@@ -28,12 +28,5 @@ export async function GET() {
 
   const csvContent = [headers, ...sampleRows].join('\n')
 
-  return new NextResponse(csvContent, {
-    status: 200,
-    headers: {
-      'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': 'attachment; filename="zimsec_import_template.csv"',
-      'Cache-Control': 'no-cache',
-    },
-  })
+  return ok({ csv: csvContent })
 }

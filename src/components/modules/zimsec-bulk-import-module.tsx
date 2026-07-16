@@ -48,7 +48,7 @@ import {
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { apiPost } from '@/lib/api-client'
+import { apiFetch, apiPost } from '@/lib/api-client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ZimsecCandidate {
@@ -222,21 +222,17 @@ export default function ZimsecBulkImportModule() {
 
   const handleDownloadTemplate = async () => {
     try {
-      const response = await fetch('/api/examinations/bulk-import/template')
-      if (response.ok) {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'zimsec_import_template.csv'
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        window.URL.revokeObjectURL(url)
-        toast.success('ZIMSEC import template downloaded!')
-      } else {
-        toast.error('Failed to download template')
-      }
+      const { csv } = await apiFetch<{ csv: string }>('/api/examinations/bulk-import/template')
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'zimsec_import_template.csv'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+      toast.success('ZIMSEC import template downloaded!')
     } catch {
       toast.error('Failed to download template')
     }
