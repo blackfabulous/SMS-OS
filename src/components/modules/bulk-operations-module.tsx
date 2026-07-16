@@ -22,6 +22,7 @@ import {
 import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'
+import { apiFetch, apiPost } from '@/lib/api-client'
 import { exportToCSV } from '@/lib/export-utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { StatGrid, ModuleStatCard, ModuleContainer, ModulePageLayout } from '@/components/module-ui'
@@ -98,6 +99,32 @@ interface AcademicYearOption {
   isCurrent: boolean
 }
 
+interface AcademicsResponse {
+  grades?: unknown[]
+  classes?: unknown[]
+  academicYears?: unknown[]
+}
+
+interface FinanceResponse {
+  feeStructures?: unknown[]
+}
+
+interface StudentWithEnrollments extends StudentPreview {
+  enrollments?: Array<{ class: { gradeId: string; id: string } }>
+}
+
+interface StudentsResponse {
+  data?: StudentWithEnrollments[]
+}
+
+interface BulkActionResponse {
+  success: boolean
+  message?: string
+  promotedCount?: number
+  createdCount?: number
+  updatedCount?: number
+}
+
 // ─── Bulk Operations Module ──────────────────────────────────────────────
 
 export default function BulkOperationsModule() {
@@ -155,42 +182,30 @@ export default function BulkOperationsModule() {
 
   const fetchGrades = useCallback(async () => {
     try {
-      const res = await fetch('/api/academics')
-      if (res.ok) {
-        const data = await res.json()
-        const gradeList = data.grades || []
-        setGrades(gradeList.map((g: GradeOption) => ({ id: g.id, name: g.name, level: g.level, sequence: g.sequence })))
-      }
+      const data = await apiFetch<AcademicsResponse>('/api/academics')
+      const gradeList = (data.grades || []) as GradeOption[]
+      setGrades(gradeList.map((g) => ({ id: g.id, name: g.name, level: g.level, sequence: g.sequence })))
     } catch { /* ignore */ }
   }, [])
 
   const fetchClasses = useCallback(async () => {
     try {
-      const res = await fetch('/api/academics')
-      if (res.ok) {
-        const data = await res.json()
-        setClasses(data.classes || [])
-      }
+      const data = await apiFetch<AcademicsResponse>('/api/academics')
+      setClasses(data.classes as ClassOption[] || [])
     } catch { /* ignore */ }
   }, [])
 
   const fetchFeeStructures = useCallback(async () => {
     try {
-      const res = await fetch('/api/finance')
-      if (res.ok) {
-        const data = await res.json()
-        setFeeStructures(data.feeStructures || [])
-      }
+      const data = await apiFetch<FinanceResponse>('/api/finance')
+      setFeeStructures(data.feeStructures as FeeStructureOption[] || [])
     } catch { /* ignore */ }
   }, [])
 
   const fetchAcademicYears = useCallback(async () => {
     try {
-      const res = await fetch('/api/academics')
-      if (res.ok) {
-        const data = await res.json()
-        setAcademicYears(data.academicYears || [])
-      }
+      const data = await apiFetch<AcademicsResponse>('/api/academics')
+      setAcademicYears(data.academicYears as AcademicYearOption[] || [])
     } catch { /* ignore */ }
   }, [])
 
@@ -208,16 +223,12 @@ export default function BulkOperationsModule() {
     }
     try {
       setPromotionLoading(true)
-      const res = await fetch(`/api/students?limit=500&enrollmentStatus=ACTIVE`)
-      if (res.ok) {
-        const data = await res.json()
-        const students = (data.data || data || []).filter(
-          (s: StudentPreview & { enrollments?: Array<{ class: { gradeId: string } }> }) =>
-            s.enrollments?.some((e) => e.class?.gradeId === fromGradeId)
-        )
-        setPromotionPreview(students)
-        setShowPromotionPreview(true)
-      }
+      const data = await apiFetch<StudentsResponse>(`/api/students?limit=500&enrollmentStatus=ACTIVE`)
+      const students = (data.data || []).filter(
+        (s) => s.enrollments?.some((e) => e.class?.gradeId === fromGradeId)
+      )
+      setPromotionPreview(students)
+      setShowPromotionPreview(true)
     } catch {
       toast.error('Failed to load student preview')
     } finally {
@@ -233,27 +244,22 @@ export default function BulkOperationsModule() {
     try {
       setPromotionLoading(true)
       const studentIds = promotionPreview.map(s => s.id)
-      const res = await fetch('/api/bulk/promote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fromGradeId,
-          toGradeId,
-          academicYearId: promotionYearId,
-          studentIds: studentIds.length > 0 ? studentIds : undefined,
-        }),
+      const data = await apiPost<BulkActionResponse>('/api/bulk/promote', {
+        fromGradeId,
+        toGradeId,
+        academicYearId: promotionYearId,
+        studentIds: studentIds.length > 0 ? studentIds : undefined,
       })
-      const data = await res.json()
-      if (res.ok && data.success) {
+      if (data.success) {
         toast.success(data.message)
-        setPromotionResult({ count: data.promotedCount, message: data.message })
+        setPromotionResult({ count: data.promotedCount ?? 0, message: data.message ?? '' })
         setShowPromotionPreview(false)
         setPromotionPreview([])
       } else {
-        toast.error(data.error || 'Promotion failed')
+        toast.error('Promotion failed')
       }
-    } catch {
-      toast.error('Failed to process promotion')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to process promotion')
     } finally {
       setPromotionLoading(false)
     }
@@ -269,19 +275,16 @@ export default function BulkOperationsModule() {
     try {
       setFeeLoading(true)
       const params = new URLSearchParams({ limit: '500', enrollmentStatus: 'ACTIVE' })
-      const res = await fetch(`/api/students?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        const students = data.data || data || []
-        const filtered = students.filter(
-          (s: StudentPreview & { enrollments?: Array<{ class: { gradeId: string; id: string } }> }) => {
-            if (feeClassId) return s.enrollments?.some((e) => e.class?.id === feeClassId)
-            return s.enrollments?.some((e) => e.class?.gradeId === feeGradeId)
-          }
-        )
-        setFeePreview(filtered)
-        setShowFeePreview(true)
-      }
+      const data = await apiFetch<StudentsResponse>(`/api/students?${params}`)
+      const students = data.data || []
+      const filtered = students.filter(
+        (s) => {
+          if (feeClassId) return s.enrollments?.some((e) => e.class?.id === feeClassId)
+          return s.enrollments?.some((e) => e.class?.gradeId === feeGradeId)
+        }
+      )
+      setFeePreview(filtered)
+      setShowFeePreview(true)
     } catch {
       toast.error('Failed to load student preview')
     } finally {
@@ -296,28 +299,23 @@ export default function BulkOperationsModule() {
     }
     try {
       setFeeLoading(true)
-      const res = await fetch('/api/bulk/fees', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          gradeId: feeGradeId || undefined,
-          classId: feeClassId || undefined,
-          feeStructureId,
-          dueDate: feeDueDate,
-          studentIds: feePreview.length > 0 ? feePreview.map(s => s.id) : undefined,
-        }),
+      const data = await apiPost<BulkActionResponse>('/api/bulk/fees', {
+        gradeId: feeGradeId || undefined,
+        classId: feeClassId || undefined,
+        feeStructureId,
+        dueDate: feeDueDate,
+        studentIds: feePreview.length > 0 ? feePreview.map(s => s.id) : undefined,
       })
-      const data = await res.json()
-      if (res.ok && data.success) {
+      if (data.success) {
         toast.success(data.message)
-        setFeeResult({ count: data.createdCount, message: data.message })
+        setFeeResult({ count: data.createdCount ?? 0, message: data.message ?? '' })
         setShowFeePreview(false)
         setFeePreview([])
       } else {
-        toast.error(data.error || 'Fee assignment failed')
+        toast.error('Fee assignment failed')
       }
-    } catch {
-      toast.error('Failed to process fee assignment')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to process fee assignment')
     } finally {
       setFeeLoading(false)
     }
@@ -333,24 +331,20 @@ export default function BulkOperationsModule() {
     try {
       setAttendanceLoading(true)
       const params = new URLSearchParams({ limit: '500', enrollmentStatus: 'ACTIVE' })
-      const res = await fetch(`/api/students?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        const students = (data.data || data || []).filter(
-          (s: StudentPreview & { enrollments?: Array<{ class: { id: string } }> }) =>
-            s.enrollments?.some((e) => e.class?.id === attendanceClassId)
-        )
-        setAttendanceRecords(
-          students.map((s: StudentPreview) => ({
-            studentId: s.id,
-            firstName: s.firstName,
-            lastName: s.lastName,
-            studentNumber: s.studentNumber,
-            status: 'PRESENT',
-            remarks: '',
-          }))
-        )
-      }
+      const data = await apiFetch<StudentsResponse>(`/api/students?${params}`)
+      const students = (data.data || []).filter(
+        (s) => s.enrollments?.some((e) => e.class?.id === attendanceClassId)
+      )
+      setAttendanceRecords(
+        students.map((s) => ({
+          studentId: s.id,
+          firstName: s.firstName,
+          lastName: s.lastName,
+          studentNumber: s.studentNumber,
+          status: 'PRESENT',
+          remarks: '',
+        }))
+      )
     } catch {
       toast.error('Failed to load students')
     } finally {
@@ -369,32 +363,27 @@ export default function BulkOperationsModule() {
     }
     try {
       setAttendanceLoading(true)
-      const res = await fetch('/api/bulk/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          classId: attendanceClassId,
-          date: attendanceDate,
-          records: attendanceRecords.map(r => ({
-            studentId: r.studentId,
-            status: r.status,
-            remarks: r.remarks || undefined,
-          })),
-        }),
+      const data = await apiPost<BulkActionResponse>('/api/bulk/attendance', {
+        classId: attendanceClassId,
+        date: attendanceDate,
+        records: attendanceRecords.map(r => ({
+          studentId: r.studentId,
+          status: r.status,
+          remarks: r.remarks || undefined,
+        })),
       })
-      const data = await res.json()
-      if (res.ok && data.success) {
+      if (data.success) {
         toast.success(data.message)
         setAttendanceResult({
-          created: data.createdCount,
-          updated: data.updatedCount,
-          message: data.message,
+          created: data.createdCount ?? 0,
+          updated: data.updatedCount ?? 0,
+          message: data.message ?? '',
         })
       } else {
-        toast.error(data.error || 'Attendance submission failed')
+        toast.error('Attendance submission failed')
       }
-    } catch {
-      toast.error('Failed to submit attendance')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to submit attendance')
     } finally {
       setAttendanceLoading(false)
     }
