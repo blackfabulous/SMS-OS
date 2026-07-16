@@ -48,6 +48,7 @@ import {
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { apiPost } from '@/lib/api-client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ZimsecCandidate {
@@ -179,14 +180,15 @@ export default function ZimsecBulkImportModule() {
     }, 200)
 
     try {
-      const response = await fetch('/api/examinations/bulk-import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ results }),
-      })
+      const data = await apiPost<{
+        success: boolean
+        imported: number
+        skipped: number
+        errors: Array<{ row: number; studentNumber: string; error: string }>
+        message: string
+      }>('/api/examinations/bulk-import', { results })
 
       clearInterval(progressInterval)
-      const data = await response.json()
       setProcessProgress(100)
       setIsProcessing(false)
 
@@ -198,14 +200,14 @@ export default function ZimsecBulkImportModule() {
         setStep('complete')
         toast.success(`${data.imported} results imported for ${validCandidates.length} candidates!`)
       } else {
-        toast.error('Bulk import failed', { description: data.error })
+        toast.error('Bulk import failed')
         setCandidates(prev => prev.map(c => ({
           ...c,
           registrationStatus: (c.errors ?? []).length === 0 ? 'REGISTERED' as const : 'FAILED' as const
         })))
         setStep('complete')
       }
-    } catch {
+    } catch (err) {
       clearInterval(progressInterval)
       setProcessProgress(100)
       setIsProcessing(false)
