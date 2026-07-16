@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CreditCard,
@@ -40,8 +40,12 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { useApiQuery, useApiMutation } from '@/hooks/use-api-query'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+type PaymentStep = 'details' | 'processing' | 'success' | 'failed'
+type PaymentMethod = 'ecocash' | 'onemoney' | 'card'
+type Currency = 'USD' | 'ZiG'
+
 interface PaynowDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -52,13 +56,43 @@ interface PaynowDialogProps {
   onPaymentSuccess?: () => void
 }
 
-type PaymentStep = 'details' | 'processing' | 'success' | 'failed'
-type PaymentMethod = 'ecocash' | 'onemoney' | 'card'
-type Currency = 'USD' | 'ZiG'
+interface InitiateBody {
+  studentId: string
+  invoiceId?: string
+  amount: number
+  currency: Currency
+  returnUrl: string
+  resultUrl: string
+}
+
+interface InitiateResponse {
+  success: boolean
+  transactionId: string
+  reference: string
+  paymentUrl: string
+  pollUrl?: string | null
+  amount?: string
+  currency?: Currency
+  feePaymentId?: string
+  demo?: boolean
+}
+
+interface StatusResponse {
+  transactionId?: string
+  reference: string
+  status: 'pending' | 'paid' | 'failed' | 'cancelled' | 'timedout'
+  amount: number
+  currency: string
+  paidAt: string | null
+  studentId: string
+  invoiceId: string | null
+  paymentUrl: string
+  createdAt: string
+  updatedAt: string
+}
 
 const ZIG_RATE = 10.83
 
-// ─── Component ────────────────────────────────────────────────────────────────
 export function PaynowDialog({
   open,
   onOpenChange,
@@ -88,65 +122,62 @@ export function PaynowDialog({
     ? `ZiG ${(parseFloat(amount || '0') * ZIG_RATE).toLocaleString('en-ZW', { minimumFractionDigits: 2 })}`
     : `$${parseFloat(amount || '0').toLocaleString('en-ZW', { minimumFractionDigits: 2 })}`
 
-  // ─── Poll for payment status via new status API ─────────────────────────
-  const pollPaymentStatus = useCallback(async (txnId: string, ref: string) => {
-    setPolling(true)
-    let attempts = 0
-    const maxAttempts = 12 // 60 seconds total
+  const { mutate: initiatePayment, isPending: isInitiating } = useApiMutation<InitiateBody, InitiateResponse>('/api/payments/paynow/initiate', {
+    onSuccess: (data) => {
+      setTransactionRef(data.reference)
+      setTransactionId(data.transactionId)
+      setPaymentUrl(data.paymentUrl)
+      setStep('processing')
+      setCountdown(30)
+      setPolling(true)
+    },
+    onError: (err) => {
+      setStep('failed')
+      toast.error('Payment initiation failed', { description: err.message })
+    },
+  })
 
-    const poll = async () => {
-      try {
-        const response = await fetch(
-          `/api/payments/paynow/status?transactionId=${encodeURIComponent(txnId)}&reference=${encodeURIComponent(ref)}`
-        )
-        const data = await response.json()
+  const statusUrl = transactionId
+    ? `/api/payments/paynow/status?transactionId=${encodeURIComponent(transactionId)}&reference=${encodeURIComponent(transactionRef || '')}`
+    : ''
 
-        setPaymentStatus(data.status)
+  const { data: statusData } = useApiQuery<StatusResponse>(
+    ['paynow-status', transactionId, transactionRef],
+    statusUrl,
+    {
+      enabled: !!transactionId && polling && step === 'processing',
+      refetchInterval: polling ? 5000 : false,
+      refetchIntervalInBackground: false,
+    },
+  )
 
-        if (data.status === 'paid') {
-          setStep('success')
-          setPolling(false)
-          toast.success('Payment successful!', { description: `Reference: ${data.reference}` })
-          onPaymentSuccess?.()
-          return
-        }
-
-        if (data.status === 'failed' || data.status === 'cancelled' || data.status === 'timedout') {
-          setStep('failed')
-          setPolling(false)
-          toast.error('Payment failed', { description: 'The transaction was not completed.' })
-          return
-        }
-
-        attempts++
-        if (attempts < maxAttempts) {
-          setTimeout(poll, 5000)
-        } else {
-          setPolling(false)
-          toast.info('Payment status check timed out', { description: 'Please check your payment history.' })
-        }
-      } catch {
-        attempts++
-        if (attempts < maxAttempts) {
-          setTimeout(poll, 5000)
-        } else {
-          setPolling(false)
-        }
-      }
-    }
-
-    poll()
-  }, [onPaymentSuccess])
-
-  // ─── Countdown timer for processing step ──────────────────────────────────
   useEffect(() => {
-    if (step === 'processing' && countdown > 0) {
+    if (!statusData) return
+    setPaymentStatus(statusData.status)
+
+    if (statusData.status === 'paid') {
+      setPolling(false)
+      setStep('success')
+      toast.success('Payment successful!', { description: `Reference: ${statusData.reference}` })
+      onPaymentSuccess?.()
+    } else if (['failed', 'cancelled', 'timedout'].includes(statusData.status)) {
+      setPolling(false)
+      setStep('failed')
+      toast.error('Payment failed', { description: 'The transaction was not completed.' })
+    }
+  }, [statusData, onPaymentSuccess])
+
+  useEffect(() => {
+    if (step === 'processing' && polling && countdown > 0) {
       const timer = setTimeout(() => setCountdown(c => c - 1), 1000)
       return () => clearTimeout(timer)
     }
-  }, [step, countdown])
+    if (step === 'processing' && polling && countdown <= 0) {
+      setPolling(false)
+      toast.info('Payment status check timed out', { description: 'Please check your payment history.' })
+    }
+  }, [step, polling, countdown])
 
-  // ─── Reset on close ───────────────────────────────────────────────────────
   const handleClose = () => {
     setStep('details')
     setAmount(defaultAmount?.toString() || '')
@@ -163,14 +194,12 @@ export function PaynowDialog({
     onOpenChange(false)
   }
 
-  // ─── Copy payment link to clipboard ─────────────────────────────────────
   const handleCopyLink = () => {
     navigator.clipboard.writeText(paymentUrl)
     toast.success('Payment link copied to clipboard!')
   }
 
-  // ─── Submit payment via new initiate API ────────────────────────────────
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!selectedStudent || !amount || parseFloat(amount) <= 0) {
       toast.error('Please fill in all required fields')
       return
@@ -181,40 +210,15 @@ export function PaynowDialog({
       return
     }
 
-    setStep('processing')
-    setCountdown(30)
-
-    try {
-      const response = await fetch('/api/payments/paynow/initiate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: selectedStudent,
-          invoiceId: invoiceId || undefined,
-          amount: parseFloat(amount),
-          currency,
-          returnUrl: typeof window !== 'undefined' ? window.location.origin : '',
-          resultUrl: typeof window !== 'undefined' ? `${window.location.origin}/api/payments/paynow/status` : '',
-        }),
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setTransactionRef(data.reference)
-        setTransactionId(data.transactionId)
-        setPaymentUrl(data.paymentUrl)
-
-        // Start polling for status
-        pollPaymentStatus(data.transactionId, data.reference)
-      } else {
-        setStep('failed')
-        toast.error('Payment initiation failed', { description: data.error || 'Unknown error' })
-      }
-    } catch {
-      setStep('failed')
-      toast.error('Payment failed', { description: 'Could not connect to payment gateway' })
-    }
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    initiatePayment({
+      studentId: selectedStudent,
+      invoiceId: invoiceId,
+      amount: parseFloat(amount),
+      currency,
+      returnUrl: origin,
+      resultUrl: `${origin}/api/payments/paynow/status`,
+    })
   }
 
   const paymentMethods: { id: PaymentMethod; label: string; icon: React.ElementType; description: string; color: string }[] = [
@@ -223,7 +227,6 @@ export function PaynowDialog({
     { id: 'card', label: 'Bank Card', icon: CreditCard, description: 'Visa / Mastercard', color: 'text-blue-600' },
   ]
 
-  // ─── QR Code SVG placeholder ──────────────────────────────────────────────
   const QRCodePlaceholder = () => (
     <div className="mx-auto flex h-36 w-36 items-center justify-center rounded-lg border-2 border-dashed border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/20">
       <div className="text-center">
@@ -246,10 +249,8 @@ export function PaynowDialog({
         </DialogHeader>
 
         <AnimatePresence mode="wait">
-          {/* ─── Step: Details ──────────────────────────────────────────────── */}
           {step === 'details' && (
             <motion.div key="details" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-4">
-              {/* Student Selection */}
               <div className="space-y-2">
                 <Label>Student</Label>
                 <Select value={selectedStudent} onValueChange={setSelectedStudent}>
@@ -266,7 +267,6 @@ export function PaynowDialog({
                 </Select>
               </div>
 
-              {/* Amount + Currency */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2 space-y-2">
                   <Label>Amount</Label>
@@ -293,7 +293,6 @@ export function PaynowDialog({
                 </div>
               </div>
 
-              {/* Amount Preview */}
               {parseFloat(amount) > 0 && (
                 <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-3 text-center">
                   <p className="text-xs text-muted-foreground">You are paying</p>
@@ -302,7 +301,6 @@ export function PaynowDialog({
                 </div>
               )}
 
-              {/* Payment Method */}
               <div className="space-y-2">
                 <Label>Payment Method</Label>
                 <RadioGroup value={paymentMethod} onValueChange={v => setPaymentMethod(v as PaymentMethod)} className="space-y-2">
@@ -324,7 +322,6 @@ export function PaynowDialog({
                 </RadioGroup>
               </div>
 
-              {/* Phone Number (for mobile money) */}
               {(paymentMethod === 'ecocash' || paymentMethod === 'onemoney') && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2">
                   <Label>Phone Number</Label>
@@ -340,7 +337,6 @@ export function PaynowDialog({
                 </motion.div>
               )}
 
-              {/* Email (optional, for card) */}
               {paymentMethod === 'card' && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2">
                   <Label>Email (optional)</Label>
@@ -353,7 +349,6 @@ export function PaynowDialog({
                 </motion.div>
               )}
 
-              {/* Security Notice */}
               <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3">
                 <Shield className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
                 <p className="text-xs text-muted-foreground">
@@ -366,15 +361,15 @@ export function PaynowDialog({
                 <Button
                   className="bg-emerald-600 hover:bg-emerald-700 gap-2"
                   onClick={handleSubmit}
-                  disabled={!selectedStudent || !amount || parseFloat(amount) <= 0 || ((paymentMethod === 'ecocash' || paymentMethod === 'onemoney') && !phone)}
+                  disabled={!selectedStudent || !amount || parseFloat(amount) <= 0 || ((paymentMethod === 'ecocash' || paymentMethod === 'onemoney') && !phone) || isInitiating}
                 >
-                  Pay {displayAmount} <ArrowRight className="h-4 w-4" />
+                  {isInitiating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                  Pay {displayAmount}
                 </Button>
               </DialogFooter>
             </motion.div>
           )}
 
-          {/* ─── Step: Processing ──────────────────────────────────────────── */}
           {step === 'processing' && (
             <motion.div key="processing" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5 py-4 text-center">
               <motion.div
@@ -395,7 +390,6 @@ export function PaynowDialog({
                 </p>
               </div>
 
-              {/* Transaction Reference */}
               {transactionRef && (
                 <div className="bg-muted/50 rounded-lg p-3">
                   <p className="text-xs text-muted-foreground">Transaction Reference</p>
@@ -403,7 +397,6 @@ export function PaynowDialog({
                 </div>
               )}
 
-              {/* QR Code & Payment Link */}
               {paymentUrl && (
                 <div className="space-y-3">
                   <QRCodePlaceholder />
@@ -428,7 +421,6 @@ export function PaynowDialog({
                 </div>
               )}
 
-              {/* Status Badge */}
               <div className="flex items-center justify-center gap-2">
                 <Badge className={cn(
                   'text-xs',
@@ -471,7 +463,6 @@ export function PaynowDialog({
             </motion.div>
           )}
 
-          {/* ─── Step: Success ──────────────────────────────────────────────── */}
           {step === 'success' && (
             <motion.div key="success" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="space-y-6 py-6 text-center">
               <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, delay: 0.1 }}>
@@ -518,7 +509,6 @@ export function PaynowDialog({
             </motion.div>
           )}
 
-          {/* ─── Step: Failed ──────────────────────────────────────────────── */}
           {step === 'failed' && (
             <motion.div key="failed" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="space-y-6 py-6 text-center">
               <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
