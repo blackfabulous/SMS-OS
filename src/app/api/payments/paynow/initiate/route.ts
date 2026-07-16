@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { createHash } from 'crypto'
 import { db } from '@/lib/db'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateAuth } from '@/lib/api-auth'
 
@@ -59,12 +61,12 @@ export async function POST(request: NextRequest) {
     const { invoiceId, studentId, amount, currency, returnUrl, resultUrl } = body
 
     if (!studentId || !amount || amount <= 0) {
-      return NextResponse.json({ error: 'Student ID and a valid amount are required' }, { status: 400 })
+      return fail('VALIDATION', 'Student ID and a valid amount are required')
     }
 
     // Validate amount is a finite positive number
     if (!Number.isFinite(amount)) {
-      return NextResponse.json({ error: 'Amount must be a valid number' }, { status: 400 })
+      return fail('VALIDATION', 'Amount must be a valid number')
     }
 
     // Verify student belongs to caller's school
@@ -72,23 +74,20 @@ export async function POST(request: NextRequest) {
       where: { id: studentId, schoolId: session.user.schoolId },
     })
     if (!student) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Student not found')
     }
 
     if (invoiceId) {
       const invoice = await db.feeInvoice.findUnique({ where: { id: invoiceId } })
       if (!invoice) {
-        return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
+        return fail('NOT_FOUND', 'Invoice not found')
       }
       if (invoice.studentId !== studentId) {
-        return NextResponse.json({ error: 'Invoice does not belong to this student' }, { status: 400 })
+        return fail('VALIDATION', 'Invoice does not belong to this student')
       }
       // Validate payment does not exceed invoice balance
       if (amount > invoice.balance + 0.01) {
-        return NextResponse.json(
-          { error: `Payment of $${amount.toFixed(2)} exceeds outstanding balance of $${invoice.balance.toFixed(2)}` },
-          { status: 400 }
-        )
+        return fail('VALIDATION', `Payment of $${amount.toFixed(2)} exceeds outstanding balance of ${invoice.balance.toFixed(2)}`)
       }
     }
 
@@ -157,22 +156,19 @@ export async function POST(request: NextRequest) {
           })
 
           logAudit({ action: 'CREATE', entity: 'paynow_payment', entityId: feePayment.id }).catch(() => {})
-          return NextResponse.json({ success: true, transactionId, reference, paymentUrl, pollUrl, amount: displayAmount, currency, feePaymentId: feePayment.id })
+          return ok({ success: true, transactionId, reference, paymentUrl, pollUrl, amount: displayAmount, currency, feePaymentId: feePayment.id })
         } else {
-          return NextResponse.json({ error: 'Paynow transaction failed', details: responseData.error || 'Unknown error' }, { status: 400 })
+          return fail('INTERNAL', 'Paynow transaction failed', responseData.error || 'Unknown error')
         }
       } catch (error) {
-        console.error('Paynow API error:', error)
-        return NextResponse.json({ error: 'Failed to communicate with Paynow' }, { status: 502 })
+        logger.error({ err: error }, 'Paynow API error')
+        return fail('INTERNAL', 'Failed to communicate with Paynow')
       }
     }
 
     // ─── Demo / development mode (only when credentials are NOT configured) ─
     if (process.env.NODE_ENV === 'production') {
-      return NextResponse.json(
-        { error: 'Paynow credentials are not configured. Set PAYNOW_INTEGRATION_ID and PAYNOW_INTEGRATION_KEY.' },
-        { status: 503 }
-      )
+      return fail('INTERNAL', 'Paynow credentials are not configured. Set PAYNOW_INTEGRATION_ID and PAYNOW_INTEGRATION_KEY.')
     }
 
     const paymentUrl = `https://paynow.co.zw/payment/${reference}`
@@ -229,12 +225,19 @@ export async function POST(request: NextRequest) {
     }, 5000)
 
     logAudit({ action: 'CREATE', entity: 'paynow_payment', entityId: feePayment.id }).catch(() => {})
-    return NextResponse.json({
-      success: true, transactionId, reference, paymentUrl, pollUrl: null,
-      amount: displayAmount, currency, feePaymentId: feePayment.id, demo: true,
+    return ok({
+      success: true,
+      transactionId,
+      reference,
+      paymentUrl,
+      pollUrl: null,
+      amount: displayAmount,
+      currency,
+      feePaymentId: feePayment.id,
+      demo: true,
     })
   } catch (error) {
-    console.error('Paynow initiation error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    logger.error({ err: error }, 'Paynow initiation error')
+    return fail('INTERNAL', 'Internal server error')
   }
 }

@@ -1,7 +1,9 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
-import { validateAuth, validateRole } from '@/lib/api-auth'
+import { validateRole } from '@/lib/api-auth'
 
 // GET /api/procurement - List purchase orders, vendors, requisitions with status filters
 export async function GET(request: NextRequest) {
@@ -21,7 +23,7 @@ export async function GET(request: NextRequest) {
     const schoolId = school?.id
 
     if (!schoolId) {
-      return NextResponse.json({ error: 'School not configured' }, { status: 400 })
+      return fail('FORBIDDEN', 'School not configured')
     }
 
     // Vendors list
@@ -48,7 +50,7 @@ export async function GET(request: NextRequest) {
         db.supplier.count({ where: vendorWhere }),
       ])
 
-      return NextResponse.json({
+      return ok({
         data: vendors,
         total,
         page,
@@ -79,7 +81,7 @@ export async function GET(request: NextRequest) {
         db.requisition.count({ where: reqWhere }),
       ])
 
-      return NextResponse.json({
+      return ok({
         data: requisitions,
         total: reqTotal,
         page,
@@ -122,7 +124,7 @@ export async function GET(request: NextRequest) {
       totalPOValue: Number((await db.purchaseOrder.aggregate({ where: { schoolId }, _sum: { totalAmount: true } }))._sum.totalAmount ?? 0),
     }
 
-    return NextResponse.json({
+    return ok({
       data: purchaseOrders,
       total: poTotal,
       page,
@@ -130,11 +132,8 @@ export async function GET(request: NextRequest) {
       stats,
     })
   } catch (error) {
-    console.error('Failed to fetch procurement data:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch procurement data' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to fetch procurement data')
+    return fail('INTERNAL', 'Failed to fetch procurement data')
   }
 }
 
@@ -150,14 +149,14 @@ export async function POST(request: NextRequest) {
     const schoolId = school?.id
 
     if (!schoolId) {
-      return NextResponse.json({ error: 'School not configured' }, { status: 400 })
+      return fail('FORBIDDEN', 'School not configured')
     }
 
     // Create Purchase Order
     if (action === 'createPO') {
       const { title, description, supplierId, items, requestedBy, expectedDate } = body
       if (!title) {
-        return NextResponse.json({ error: 'Title is required' }, { status: 400 })
+        return fail('VALIDATION', 'Title is required')
       }
 
       // Generate PO number
@@ -201,14 +200,14 @@ export async function POST(request: NextRequest) {
       })
 
       logAudit({ action: 'CREATE', entity: 'procurement', entityId: (po as any)?.id, afterValue: po }).catch(() => {})
-      return NextResponse.json(po, { status: 201 })
+      return ok(po, 201)
     }
 
     // Add Vendor
     if (action === 'addVendor') {
       const { name, contactPerson, phone, email, address, taxNumber, bankName, bankAccount } = body
       if (!name) {
-        return NextResponse.json({ error: 'Vendor name is required' }, { status: 400 })
+        return fail('VALIDATION', 'Vendor name is required')
       }
 
       const vendor = await db.supplier.create({
@@ -225,14 +224,14 @@ export async function POST(request: NextRequest) {
         },
       })
       logAudit({ action: 'CREATE', entity: 'procurement', entityId: (vendor as any)?.id, afterValue: vendor }).catch(() => {})
-      return NextResponse.json(vendor, { status: 201 })
+      return ok(vendor, 201)
     }
 
     // Create Requisition
     if (action === 'createRequisition') {
       const { title, description, requestedBy, department, estimatedCost, priority } = body
       if (!title) {
-        return NextResponse.json({ error: 'Title is required' }, { status: 400 })
+        return fail('VALIDATION', 'Title is required')
       }
 
       const req = await db.requisition.create({
@@ -248,19 +247,13 @@ export async function POST(request: NextRequest) {
         },
       })
       logAudit({ action: 'CREATE', entity: 'procurement', entityId: (req as any)?.id, afterValue: req }).catch(() => {})
-      return NextResponse.json(req, { status: 201 })
+      return ok(req, 201)
     }
 
-    return NextResponse.json(
-      { error: 'Invalid action. Use createPO, addVendor, or createRequisition' },
-      { status: 400 }
-    )
+    return fail('VALIDATION', 'Invalid action. Use createPO, addVendor, or createRequisition')
   } catch (error) {
-    console.error('Failed to process procurement request:', error)
-    return NextResponse.json(
-      { error: 'Failed to process procurement request' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to process procurement request')
+    return fail('INTERNAL', 'Failed to process procurement request')
   }
 }
 
@@ -274,12 +267,12 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { id, type, ...updates } = body
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     if (type === 'purchaseOrder') {
       const owned = await db.purchaseOrder.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Purchase order not found')
       const po = await db.purchaseOrder.update({
         where: { id },
         data: {
@@ -291,12 +284,12 @@ export async function PUT(request: NextRequest) {
         include: { items: true, supplier: true },
       })
       logAudit({ action: 'UPDATE', entity: 'procurement', entityId: (po as any)?.id, afterValue: po }).catch(() => {})
-      return NextResponse.json(po)
+      return ok(po)
     }
 
     if (type === 'vendor') {
       const owned = await db.supplier.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Vendor not found')
       const vendor = await db.supplier.update({
         where: { id },
         data: {
@@ -312,12 +305,12 @@ export async function PUT(request: NextRequest) {
         },
       })
       logAudit({ action: 'UPDATE', entity: 'procurement', entityId: (vendor as any)?.id, afterValue: vendor }).catch(() => {})
-      return NextResponse.json(vendor)
+      return ok(vendor)
     }
 
     if (type === 'requisition') {
       const owned = await db.requisition.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Requisition not found')
       const req = await db.requisition.update({
         where: { id },
         data: {
@@ -329,16 +322,13 @@ export async function PUT(request: NextRequest) {
         },
       })
       logAudit({ action: 'UPDATE', entity: 'procurement', entityId: (req as any)?.id, afterValue: req }).catch(() => {})
-      return NextResponse.json(req)
+      return ok(req)
     }
 
-    return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid type')
   } catch (error) {
-    console.error('Failed to update procurement record:', error)
-    return NextResponse.json(
-      { error: 'Failed to update procurement record' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to update procurement record')
+    return fail('INTERNAL', 'Failed to update procurement record')
   }
 }
 
@@ -353,31 +343,28 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id')
     const type = searchParams.get('type')
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+      return fail('VALIDATION', 'ID is required')
     }
 
     // Verify the target belongs to the caller's school before mutating.
     if (type === 'vendor') {
       const owned = await db.supplier.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Vendor not found')
       await db.supplier.update({ where: { id }, data: { isActive: false } })
     } else if (type === 'requisition') {
       const owned = await db.requisition.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Requisition not found')
       await db.requisition.delete({ where: { id } })
     } else {
       const owned = await db.purchaseOrder.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (!owned) return fail('NOT_FOUND', 'Purchase order not found')
       await db.purchaseOrder.delete({ where: { id } })
     }
 
     logAudit({ action: 'DELETE', entity: 'procurement', entityId: (id ?? undefined) }).catch(() => {})
-    return NextResponse.json({ message: 'Deleted successfully' })
+    return ok({ deleted: true })
   } catch (error) {
-    console.error('Failed to delete procurement record:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete procurement record' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Failed to delete procurement record')
+    return fail('INTERNAL', 'Failed to delete procurement record')
   }
 }

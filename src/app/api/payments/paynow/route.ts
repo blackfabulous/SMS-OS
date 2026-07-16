@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { createHash } from 'crypto'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateAuth } from '@/lib/api-auth'
 
@@ -65,10 +67,7 @@ export async function POST(request: NextRequest) {
 
     if (!studentId || !amount || amount <= 0) {
       logAudit({ action: 'CREATE', entity: 'paynow' }).catch(() => {})
-      return NextResponse.json(
-        { error: 'Student ID and a valid amount are required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'Student ID and a valid amount are required')
     }
 
     const reference = generateReference()
@@ -144,8 +143,7 @@ export async function POST(request: NextRequest) {
           transactions.set(transactionId, transaction)
 
           logAudit({ action: 'CREATE', entity: 'paynow' }).catch(() => {})
-          return NextResponse.json({
-            success: true,
+          return ok({
             transactionId,
             reference,
             status: transaction.status,
@@ -156,17 +154,11 @@ export async function POST(request: NextRequest) {
           })
         } else {
           logAudit({ action: 'CREATE', entity: 'paynow' }).catch(() => {})
-          return NextResponse.json(
-            { error: 'Paynow transaction failed', details: responseData.error || 'Unknown error' },
-            { status: 400 }
-          )
+          return fail('INTERNAL', 'Paynow transaction failed', responseData.error || 'Unknown error')
         }
       } catch (error) {
-        console.error('Paynow API error:', error)
-        return NextResponse.json(
-          { error: 'Failed to communicate with Paynow' },
-          { status: 502 }
-        )
+        logger.error({ err: error }, 'Paynow API error')
+        return fail('INTERNAL', 'Failed to communicate with Paynow')
       }
     }
 
@@ -203,8 +195,7 @@ export async function POST(request: NextRequest) {
     }, 5000)
 
     logAudit({ action: 'CREATE', entity: 'paynow' }).catch(() => {})
-    return NextResponse.json({
-      success: true,
+    return ok({
       transactionId,
       reference,
       status: 'pending',
@@ -218,11 +209,8 @@ export async function POST(request: NextRequest) {
       demo: true,
     })
   } catch (error) {
-    console.error('Paynow initiation error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Paynow initiation error')
+    return fail('INTERNAL', 'Internal server error')
   }
 }
 
@@ -235,18 +223,12 @@ export async function GET(request: NextRequest) {
   const transactionId = searchParams.get('transactionId')
 
   if (!transactionId) {
-    return NextResponse.json(
-      { error: 'transactionId query parameter is required' },
-      { status: 400 }
-    )
+    return fail('VALIDATION', 'transactionId query parameter is required')
   }
 
   const transaction = transactions.get(transactionId)
   if (!transaction) {
-    return NextResponse.json(
-      { error: 'Transaction not found' },
-      { status: 404 }
-    )
+    return fail('NOT_FOUND', 'Transaction not found')
   }
 
   // If Paynow credentials are set and pollUrl exists, poll Paynow
@@ -273,7 +255,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({
+  return ok({
     transactionId: transaction.id,
     reference: transaction.reference,
     studentId: transaction.studentId,

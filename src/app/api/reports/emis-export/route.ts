@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
 import { db } from '@/lib/db'
+import { logger } from '@/lib/logger'
+import { fail } from '@/server/http'
 import { requireContext } from '@/server/context'
 
 export async function GET() {
@@ -335,10 +337,7 @@ export async function GET() {
       },
     })
   } catch (error) {
-    console.error('EMIS export error:', error)
-    return NextResponse.json(
-      { error: 'Failed to generate EMIS export' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'EMIS export error')
+    return fail('INTERNAL', 'Failed to generate EMIS export')
   }
 }

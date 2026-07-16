@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { requireContext } from '@/server/context'
 
 export async function GET(request: Request) {
@@ -58,7 +59,7 @@ export async function GET(request: Request) {
           classes: g.classes.length,
         }))
 
-        return NextResponse.json({
+        return ok({
           type: 'academic',
           gradeData,
           subjectPerformance,
@@ -95,7 +96,7 @@ export async function GET(request: Request) {
           statusBreakdown[i.status] = (statusBreakdown[i.status] || 0) + 1
         })
 
-        return NextResponse.json({
+        return ok({
           type: 'finance',
           totalInvoiced,
           totalCollected,
@@ -123,7 +124,7 @@ export async function GET(request: Request) {
 
         const totalPayroll = payslips.reduce((s, p) => s + p.netPay, 0)
 
-        return NextResponse.json({
+        return ok({
           type: 'hr',
           totalStaff: staff.length,
           staffByType: Object.entries(staffByType).map(([type, count]) => ({ type, count })),
@@ -146,7 +147,7 @@ export async function GET(request: Request) {
           welfareByCategory[w.category] = (welfareByCategory[w.category] || 0) + 1
         })
 
-        return NextResponse.json({
+        return ok({
           type: 'welfare',
           totalCases: welfareRecords.length,
           beamBeneficiaries: beamApps.filter((b) => b.status === 'APPROVED').length,
@@ -171,7 +172,7 @@ export async function GET(request: Request) {
           genderDist[s.gender] = (genderDist[s.gender] || 0) + 1
         })
 
-        return NextResponse.json({
+        return ok({
           type: 'emis',
           schoolInfo: school ? {
             name: school.name,
@@ -216,7 +217,7 @@ export async function GET(request: Request) {
           db.feeInvoice.aggregate({ where: { student: { schoolId } }, _sum: { totalAmount: true, amountPaid: true } }),
         ])
 
-        return NextResponse.json({
+        return ok({
           type: 'overview',
           students: studentCount,
           staff: staffCount,
@@ -226,7 +227,7 @@ export async function GET(request: Request) {
       }
     }
   } catch (error) {
-    console.error('Error generating report:', error)
-    return NextResponse.json({ error: 'Failed to generate report' }, { status: 500 })
+    logger.error({ err: error }, 'Error generating report')
+    return fail('INTERNAL', 'Failed to generate report')
   }
 }

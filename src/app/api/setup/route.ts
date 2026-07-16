@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateRole } from '@/lib/api-auth'
 import { logAudit } from '@/lib/audit'
 import type { Currency, SchoolType, SchoolLevelType, OwnershipType, AcademicLevel } from '@prisma/client'
@@ -61,10 +63,7 @@ export async function POST(request: NextRequest) {
     const data: SetupData = await request.json()
 
     if (!data.school?.name || !data.school?.code) {
-      return NextResponse.json(
-        { error: 'School name and code are required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'School name and code are required')
     }
 
     // Check if school code already exists
@@ -73,10 +72,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (existingSchool) {
-      return NextResponse.json(
-        { error: 'A school with this code already exists' },
-        { status: 409 }
-      )
+      return fail('CONFLICT', 'A school with this code already exists')
     }
 
     // ─── Create School ──────────────────────────────────────────────────────
@@ -300,8 +296,7 @@ export async function POST(request: NextRequest) {
       details: `School "${school.name}" setup completed with ${Object.keys(gradeMap).length} grades, ${Object.keys(subjectMap).length} subjects, ${data.academic.classes?.length || 0} classes, ${staffToCreate.length} staff`,
     })
 
-    return NextResponse.json({
-      success: true,
+    return ok({
       schoolId: school.id,
       schoolName: school.name,
       summary: {
@@ -313,13 +308,10 @@ export async function POST(request: NextRequest) {
         terms: data.academic.terms?.length || 0,
         feeStructures: data.fees?.grades?.length || 0,
       },
-    })
+    }, 201)
   } catch (error) {
-    console.error('School setup error:', error)
-    return NextResponse.json(
-      { error: 'Failed to create school setup', details: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'School setup error')
+    return fail('INTERNAL', 'Failed to create school setup', { details: error instanceof Error ? error.message : 'Unknown error' })
   }
 }
 
@@ -345,7 +337,7 @@ export async function GET() {
     'Zvimba', 'Zvishavane',
   ]
 
-  return NextResponse.json({
+  return ok({
     provinces: zimbabweProvinces,
     districts: zimbabweDistricts,
     schoolTypes: ['GOVERNMENT', 'MISSION', 'PRIVATE', 'COUNCIL', 'GROUP_A', 'GROUP_B'],

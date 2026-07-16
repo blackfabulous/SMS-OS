@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
 import { logAudit } from '@/lib/audit'
@@ -22,16 +24,13 @@ export async function GET(request: NextRequest) {
     const academicYearId = searchParams.get('academicYearId')
 
     if (!studentId || !termId) {
-      return NextResponse.json(
-        { error: 'studentId and termId are required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'studentId and termId are required')
     }
 
     // Ownership: staff may view any in-school student; a parent only their
     // children; a student only themselves (prevents cross-family report access).
     if (!(await canAccessStudent(ctx, studentId))) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Student not found')
     }
 
     // Fetch student details — SCOPED to the caller's school (tenant isolation).
@@ -69,7 +68,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!student) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Student not found')
     }
 
     // Fetch school info (scoped to the caller's school)
@@ -569,11 +568,8 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Report card generation error:', error)
-    return NextResponse.json(
-      { error: 'Failed to generate report card' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Report card generation error')
+    return fail('INTERNAL', 'Failed to generate report card')
   }
 }
 
@@ -593,10 +589,10 @@ export async function PATCH(request: NextRequest) {
   const role = authResult.session.user.role as Role
 
   let body: { reportCardId?: string; action?: ReportCardAction; classTeacherComment?: string; headComment?: string }
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
+  try { body = await request.json() } catch { return fail('VALIDATION', 'Invalid JSON body') }
 
   if (!body.reportCardId || !body.action) {
-    return NextResponse.json({ error: 'reportCardId and action are required' }, { status: 400 })
+    return fail('VALIDATION', 'reportCardId and action are required')
   }
 
   // Load the card scoped to the caller's school (via the student relation).
@@ -604,11 +600,13 @@ export async function PATCH(request: NextRequest) {
     where: { id: body.reportCardId, student: { schoolId: tenant.schoolId } },
     select: { id: true, status: true },
   })
-  if (!card) return NextResponse.json({ error: 'Report card not found' }, { status: 404 })
+  if (!card) return fail('NOT_FOUND', 'Report card not found')
 
   const result = transition(card.status as ReportCardStatus, body.action, role)
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.code === 'FORBIDDEN' ? 403 : 409 })
+    return result.code === 'FORBIDDEN'
+      ? fail('FORBIDDEN', result.error)
+      : fail('VALIDATION', result.error)
   }
 
   const data: Prisma.ReportCardUpdateInput = { status: result.next, isPublished: result.effects.isPublished }
@@ -622,5 +620,5 @@ export async function PATCH(request: NextRequest) {
   const updated = await db.reportCard.update({ where: { id: card.id }, data })
   logAudit({ action: 'UPDATE', entity: 'report-card.workflow', entityId: card.id, afterValue: { action: body.action, status: result.next } }).catch(() => {})
 
-  return NextResponse.json({ id: updated.id, status: updated.status, isPublished: updated.isPublished })
+  return ok({ id: updated.id, status: updated.status, isPublished: updated.isPublished })
 }

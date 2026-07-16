@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateRole } from '@/lib/api-auth'
 import type { EnrollmentStatus, BoardingStatus, StaffType, AcademicLevel } from '@prisma/client'
@@ -79,10 +80,7 @@ export async function POST(request: Request) {
     const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
     if (!school) {
       logAudit({ action: 'CREATE', entity: 'import' }).catch(() => {})
-      return NextResponse.json(
-        { error: 'No school configured. Run setup wizard first.' },
-        { status: 400 }
-      )
+      return fail('FORBIDDEN', 'No school configured. Run setup wizard first.')
     }
 
     const imported = {
@@ -347,16 +345,13 @@ export async function POST(request: Request) {
     }
 
     logAudit({ action: 'CREATE', entity: 'import' }).catch(() => {})
-    return NextResponse.json({
+    return ok({
       imported,
       skipped,
       errors: errors.length > 50 ? errors.slice(0, 50).concat([`... and ${errors.length - 50} more errors`]) : errors,
     })
   } catch (error) {
-    console.error('Error during data migration:', error)
-    return NextResponse.json(
-      { error: 'Data migration failed. ' + (error instanceof Error ? error.message : 'Unknown error') },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Error during data migration')
+    return fail('INTERNAL', 'Data migration failed. ' + (error instanceof Error ? error.message : 'Unknown error'))
   }
 }

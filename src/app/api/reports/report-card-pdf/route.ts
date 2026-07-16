@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { logger } from '@/lib/logger'
+import { fail } from '@/server/http'
 import { requireContext } from '@/server/context'
 import { canAccessStudent } from '@/server/student-access'
 import { getSetting } from '@/lib/settings'
@@ -16,17 +18,14 @@ export async function GET(request: NextRequest) {
     const termId = searchParams.get('termId')
 
     if (!studentId) {
-      return NextResponse.json(
-        { error: 'studentId query parameter is required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'studentId query parameter is required')
     }
 
     // Ownership: staff may view any student in their school; a parent only their
     // children; a student only themselves. (Previously any authed user could
     // fetch ANY student's report card by id — cross-family PII leak.)
     if (!(await canAccessStudent(ctx, studentId))) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Student not found')
     }
 
     // Fetch student with all related data — SCOPED to the caller's school.
@@ -63,7 +62,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!student) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+      return fail('NOT_FOUND', 'Student not found')
     }
 
     // Fetch school info (scoped to the caller's school)
@@ -605,10 +604,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Report card PDF generation error:', error)
-    return NextResponse.json(
-      { error: 'Failed to generate report card' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Report card PDF generation error')
+    return fail('INTERNAL', 'Failed to generate report card')
   }
 }

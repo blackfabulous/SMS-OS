@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 
@@ -15,7 +17,7 @@ export async function GET(request: NextRequest) {
     const schoolId = school?.id
 
     if (!schoolId) {
-      return NextResponse.json({ success: false, error: 'School not configured' }, { status: 400 })
+      return fail('FORBIDDEN', 'School not configured')
     }
 
     const result: Record<string, unknown> = {}
@@ -73,10 +75,10 @@ export async function GET(request: NextRequest) {
       result.branding = school
     }
 
-    return NextResponse.json({ success: true, data: result })
+    return ok(result)
   } catch (error) {
-    console.error('CMS GET error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to fetch CMS data' }, { status: 500 })
+    logger.error({ err: error }, 'CMS GET error')
+    return fail('INTERNAL', 'Failed to fetch CMS data')
   }
 }
 
@@ -92,69 +94,69 @@ export async function POST(request: NextRequest) {
     const schoolId = school?.id
 
     if (!schoolId) {
-      return NextResponse.json({ success: false, error: 'School not configured' }, { status: 400 })
+      return fail('FORBIDDEN', 'School not configured')
     }
 
     if (action === 'createPage') {
       if (!data?.title || !data?.slug || !data?.content) {
-        return NextResponse.json({ success: false, error: 'title, slug, and content are required' }, { status: 400 })
+        return fail('VALIDATION', 'title, slug, and content are required')
       }
       const page = await db.websitePage.create({
         data: { schoolId, slug: data.slug, title: data.title, content: data.content, heroImage: data.heroImage, metaTitle: data.metaTitle, metaDescription: data.metaDescription, metaKeywords: data.metaKeywords, schemaMarkup: data.schemaMarkup, isPublished: data.isPublished ?? false, showInNavigation: data.showInNavigation ?? true, sortOrder: data.sortOrder ?? 0 },
       })
       logAudit({ action: 'CREATE', entity: 'website-cms' }).catch(() => {})
-      return NextResponse.json({ success: true, data: page }, { status: 201 })
+      return ok(page, 201)
     }
 
     if (action === 'createNews') {
       if (!data?.title || !data?.slug || !data?.content) {
-        return NextResponse.json({ success: false, error: 'title, slug, and content are required' }, { status: 400 })
+        return fail('VALIDATION', 'title, slug, and content are required')
       }
       const article = await db.newsArticle.create({
         data: { schoolId, title: data.title, slug: data.slug, content: data.content, excerpt: data.excerpt, featuredImage: data.featuredImage, category: data.category || 'GENERAL', authorName: data.authorName, isPublished: data.isPublished ?? false, isFeatured: data.isFeatured ?? false, publishedAt: data.isPublished ? new Date() : null, metaTitle: data.metaTitle, metaDescription: data.metaDescription },
       })
       logAudit({ action: 'CREATE', entity: 'website-cms' }).catch(() => {})
-      return NextResponse.json({ success: true, data: article }, { status: 201 })
+      return ok(article, 201)
     }
 
     if (action === 'uploadGalleryImage') {
       if (!data?.title || !data?.imageUrl) {
-        return NextResponse.json({ success: false, error: 'title and imageUrl are required' }, { status: 400 })
+        return fail('VALIDATION', 'title and imageUrl are required')
       }
       const image = await db.galleryImage.create({
         data: { schoolId, title: data.title, description: data.description, imageUrl: data.imageUrl, category: data.category || 'GENERAL', isFeatured: data.isFeatured ?? false, sortOrder: data.sortOrder ?? 0 },
       })
       logAudit({ action: 'CREATE', entity: 'website-cms' }).catch(() => {})
-      return NextResponse.json({ success: true, data: image }, { status: 201 })
+      return ok(image, 201)
     }
 
     if (action === 'createPartner') {
       if (!data?.name) {
-        return NextResponse.json({ success: false, error: 'name is required' }, { status: 400 })
+        return fail('VALIDATION', 'name is required')
       }
       const partner = await db.partner.create({
         data: { schoolId, name: data.name, logoUrl: data.logoUrl || null, websiteUrl: data.websiteUrl || null, category: data.category || 'PARTNER', sortOrder: data.sortOrder ?? 0, isActive: data.isActive ?? true },
       })
       logAudit({ action: 'CREATE', entity: 'website-cms' }).catch(() => {})
-      return NextResponse.json({ success: true, data: partner }, { status: 201 })
+      return ok(partner, 201)
     }
 
     if (action === 'createFaq') {
       if (!data?.question || !data?.answer) {
-        return NextResponse.json({ success: false, error: 'question and answer are required' }, { status: 400 })
+        return fail('VALIDATION', 'question and answer are required')
       }
       const faq = await db.faq.create({
         data: { schoolId, question: data.question, answer: data.answer, category: data.category || 'GENERAL', sortOrder: data.sortOrder ?? 0, isActive: data.isActive ?? true },
       })
       logAudit({ action: 'CREATE', entity: 'website-cms' }).catch(() => {})
-      return NextResponse.json({ success: true, data: faq }, { status: 201 })
+      return ok(faq, 201)
     }
 
     if (action === 'createSeo') {
       const slug = String(data?.pageSlug || '').trim()
-      if (!slug) return NextResponse.json({ success: false, error: 'pageSlug is required' }, { status: 400 })
+      if (!slug) return fail('VALIDATION', 'pageSlug is required')
       const existing = await db.sEOSetting.findUnique({ where: { schoolId_pageSlug: { schoolId, pageSlug: slug } } })
-      if (existing) return NextResponse.json({ success: false, error: `SEO settings for "${slug}" already exist` }, { status: 409 })
+      if (existing) return fail('CONFLICT', `SEO settings for "${slug}" already exist`)
       const seo = await db.sEOSetting.create({
         data: {
           schoolId, pageSlug: slug,
@@ -165,13 +167,13 @@ export async function POST(request: NextRequest) {
         },
       })
       logAudit({ action: 'CREATE', entity: 'website-cms' }).catch(() => {})
-      return NextResponse.json({ success: true, data: seo }, { status: 201 })
+      return ok(seo, 201)
     }
 
-    return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid action')
   } catch (error) {
-    console.error('CMS POST error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to create CMS content' }, { status: 500 })
+    logger.error({ err: error }, 'CMS POST error')
+    return fail('INTERNAL', 'Failed to create CMS content')
   }
 }
 
@@ -185,46 +187,46 @@ export async function PUT(request: NextRequest) {
     const { action, id, data } = body
 
     if (action === 'updatePage') {
-      if (!id) return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 })
+      if (!id) return fail('VALIDATION', 'ID is required')
       const page = await db.websitePage.update({ where: { id }, data: { ...data, updatedAt: new Date() } })
       logAudit({ action: 'UPDATE', entity: 'website-cms', entityId: (body?.id ?? undefined) }).catch(() => {})
-      return NextResponse.json({ success: true, data: page })
+      return ok(page)
     }
 
     if (action === 'updateNews') {
-      if (!id) return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 })
+      if (!id) return fail('VALIDATION', 'ID is required')
       const updateData = { ...data, updatedAt: new Date() }
       if (data.isPublished && !data.publishedAt) updateData.publishedAt = new Date()
       const article = await db.newsArticle.update({ where: { id }, data: updateData })
       logAudit({ action: 'UPDATE', entity: 'website-cms', entityId: (body?.id ?? undefined) }).catch(() => {})
-      return NextResponse.json({ success: true, data: article })
+      return ok(article)
     }
 
     if (action === 'updateBranding') {
       const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
-      if (!school) return NextResponse.json({ success: false, error: 'School not found' }, { status: 404 })
+      if (!school) return fail('NOT_FOUND', 'School not found')
       const updated = await db.school.update({ where: { id: school.id }, data: { ...data, updatedAt: new Date() } })
       logAudit({ action: 'UPDATE', entity: 'website-cms', entityId: (body?.id ?? undefined) }).catch(() => {})
-      return NextResponse.json({ success: true, data: updated })
+      return ok(updated)
     }
 
     if (action === 'updateGallery') {
-      if (!id) return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 })
+      if (!id) return fail('VALIDATION', 'ID is required')
       const image = await db.galleryImage.update({ where: { id }, data })
       logAudit({ action: 'UPDATE', entity: 'website-cms', entityId: id }).catch(() => {})
-      return NextResponse.json({ success: true, data: image })
+      return ok(image)
     }
 
     if (action === 'updatePartner') {
-      if (!id) return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 })
+      if (!id) return fail('VALIDATION', 'ID is required')
       const partner = await db.partner.update({ where: { id }, data: { ...data, updatedAt: new Date() } })
       logAudit({ action: 'UPDATE', entity: 'website-cms', entityId: id }).catch(() => {})
-      return NextResponse.json({ success: true, data: partner })
+      return ok(partner)
     }
 
     if (action === 'updateTheme') {
       const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
-      if (!school) return NextResponse.json({ success: false, error: 'School not found' }, { status: 404 })
+      if (!school) return fail('NOT_FOUND', 'School not found')
       // Upsert so the row is created on first save if the seed never ran.
       const theme = await db.siteTheme.upsert({
         where: { schoolId: school.id },
@@ -232,28 +234,28 @@ export async function PUT(request: NextRequest) {
         create: { schoolId: school.id, ...data },
       })
       logAudit({ action: 'UPDATE', entity: 'website-cms', entityId: theme.id }).catch(() => {})
-      return NextResponse.json({ success: true, data: theme })
+      return ok(theme)
     }
 
     if (action === 'updateFaq') {
-      if (!id) return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 })
+      if (!id) return fail('VALIDATION', 'ID is required')
       const faq = await db.faq.update({ where: { id }, data: { ...data, updatedAt: new Date() } })
       logAudit({ action: 'UPDATE', entity: 'website-cms', entityId: id }).catch(() => {})
-      return NextResponse.json({ success: true, data: faq })
+      return ok(faq)
     }
 
     if (action === 'updateSeo') {
-      if (!id) return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 })
+      if (!id) return fail('VALIDATION', 'ID is required')
       // pageSlug is the natural key; don't let it be edited to a colliding value here.
       const { pageSlug: _ignore, schoolId: _s, id: _i, ...fields } = data ?? {}
       void _ignore; void _s; void _i
       const seo = await db.sEOSetting.update({ where: { id }, data: { ...fields, updatedAt: new Date() } })
       logAudit({ action: 'UPDATE', entity: 'website-cms', entityId: id }).catch(() => {})
-      return NextResponse.json({ success: true, data: seo })
+      return ok(seo)
     }
 
     if (action === 'updateStaffWebsite') {
-      if (!id) return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 })
+      if (!id) return fail('VALIDATION', 'ID is required')
       // Only the public-website fields are editable here; HR owns the rest of the record.
       const allowed: Record<string, unknown> = {}
       if (data?.showOnWebsite !== undefined) allowed.showOnWebsite = Boolean(data.showOnWebsite)
@@ -268,13 +270,13 @@ export async function PUT(request: NextRequest) {
         },
       })
       logAudit({ action: 'UPDATE', entity: 'website-cms', entityId: id }).catch(() => {})
-      return NextResponse.json({ success: true, data: staff })
+      return ok(staff)
     }
 
-    return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid action')
   } catch (error) {
-    console.error('CMS PUT error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to update CMS content' }, { status: 500 })
+    logger.error({ err: error }, 'CMS PUT error')
+    return fail('INTERNAL', 'Failed to update CMS content')
   }
 }
 
@@ -287,42 +289,42 @@ export async function DELETE(request: NextRequest) {
     const body = await request.json()
     const { action, id } = body
 
-    if (!id) return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 })
+    if (!id) return fail('VALIDATION', 'ID is required')
 
     if (action === 'deletePage') {
       await db.websitePage.delete({ where: { id } })
       logAudit({ action: 'DELETE', entity: 'website-cms', entityId: (id ?? undefined) }).catch(() => {})
-      return NextResponse.json({ success: true, data: { deleted: true } })
+      return ok({ deleted: true })
     }
     if (action === 'deleteNews') {
       await db.newsArticle.delete({ where: { id } })
       logAudit({ action: 'DELETE', entity: 'website-cms', entityId: (id ?? undefined) }).catch(() => {})
-      return NextResponse.json({ success: true, data: { deleted: true } })
+      return ok({ deleted: true })
     }
     if (action === 'deleteGalleryImage') {
       await db.galleryImage.delete({ where: { id } })
       logAudit({ action: 'DELETE', entity: 'website-cms', entityId: (id ?? undefined) }).catch(() => {})
-      return NextResponse.json({ success: true, data: { deleted: true } })
+      return ok({ deleted: true })
     }
     if (action === 'deletePartner') {
       await db.partner.delete({ where: { id } })
       logAudit({ action: 'DELETE', entity: 'website-cms', entityId: (id ?? undefined) }).catch(() => {})
-      return NextResponse.json({ success: true, data: { deleted: true } })
+      return ok({ deleted: true })
     }
     if (action === 'deleteFaq') {
       await db.faq.delete({ where: { id } })
       logAudit({ action: 'DELETE', entity: 'website-cms', entityId: (id ?? undefined) }).catch(() => {})
-      return NextResponse.json({ success: true, data: { deleted: true } })
+      return ok({ deleted: true })
     }
     if (action === 'deleteSeo') {
       await db.sEOSetting.delete({ where: { id } })
       logAudit({ action: 'DELETE', entity: 'website-cms', entityId: (id ?? undefined) }).catch(() => {})
-      return NextResponse.json({ success: true, data: { deleted: true } })
+      return ok({ deleted: true })
     }
 
-    return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid action')
   } catch (error) {
-    console.error('CMS DELETE error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to delete CMS content' }, { status: 500 })
+    logger.error({ err: error }, 'CMS DELETE error')
+    return fail('INTERNAL', 'Failed to delete CMS content')
   }
 }

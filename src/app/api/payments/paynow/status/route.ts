@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateAuth } from '@/lib/api-auth'
 
 // ─── Paynow Payment Gateway - Status Check ───────────────────────────────────
@@ -37,10 +39,7 @@ export async function GET(request: NextRequest) {
     const transactionId = searchParams.get('transactionId')
 
     if (!reference && !transactionId) {
-      return NextResponse.json(
-        { error: 'Either reference or transactionId query parameter is required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'Either reference or transactionId query parameter is required')
     }
 
     // Find transaction by reference or transactionId
@@ -55,10 +54,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!transaction) {
-      return NextResponse.json(
-        { error: 'Transaction not found' },
-        { status: 404 }
-      )
+      return fail('NOT_FOUND', 'Transaction not found')
     }
 
     // If Paynow credentials are set and pollUrl exists, poll Paynow for live status
@@ -89,7 +85,7 @@ export async function GET(request: NextRequest) {
 
     const paidAt = transaction.status === 'paid' ? transaction.updatedAt : null
 
-    return NextResponse.json({
+    return ok({
       reference: transaction.reference,
       status: transaction.status,
       amount: transaction.amount,
@@ -102,10 +98,7 @@ export async function GET(request: NextRequest) {
       updatedAt: transaction.updatedAt,
     })
   } catch (error) {
-    console.error('Paynow status check error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'Paynow status check error')
+    return fail('INTERNAL', 'Internal server error')
   }
 }
