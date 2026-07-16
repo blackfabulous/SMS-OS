@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CreditCard,
@@ -93,6 +93,15 @@ interface StatusResponse {
 
 const ZIG_RATE = 10.83
 
+const QRCodePlaceholder = () => (
+  <div className="mx-auto flex h-36 w-36 items-center justify-center rounded-lg border-2 border-dashed border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/20">
+    <div className="text-center">
+      <QrCode className="h-10 w-10 text-emerald-400 mx-auto mb-1" />
+      <p className="text-[9px] text-emerald-600 font-medium">SCAN TO PAY</p>
+    </div>
+  </div>
+)
+
 export function PaynowDialog({
   open,
   onOpenChange,
@@ -122,8 +131,11 @@ export function PaynowDialog({
     ? `ZiG ${(parseFloat(amount || '0') * ZIG_RATE).toLocaleString('en-ZW', { minimumFractionDigits: 2 })}`
     : `$${parseFloat(amount || '0').toLocaleString('en-ZW', { minimumFractionDigits: 2 })}`
 
+  const processedStatusRef = useRef<string | null>(null)
+
   const { mutate: initiatePayment, isPending: isInitiating } = useApiMutation<InitiateBody, InitiateResponse>('/api/payments/paynow/initiate', {
     onSuccess: (data) => {
+      processedStatusRef.current = null
       setTransactionRef(data.reference)
       setTransactionId(data.transactionId)
       setPaymentUrl(data.paymentUrl)
@@ -153,29 +165,41 @@ export function PaynowDialog({
 
   useEffect(() => {
     if (!statusData) return
-    setPaymentStatus(statusData.status)
+    if (processedStatusRef.current === statusData.status) return
 
-    if (statusData.status === 'paid') {
-      setPolling(false)
-      setStep('success')
-      toast.success('Payment successful!', { description: `Reference: ${statusData.reference}` })
-      onPaymentSuccess?.()
-    } else if (['failed', 'cancelled', 'timedout'].includes(statusData.status)) {
-      setPolling(false)
-      setStep('failed')
-      toast.error('Payment failed', { description: 'The transaction was not completed.' })
-    }
+    const timer = setTimeout(() => {
+      setPaymentStatus(statusData.status)
+      processedStatusRef.current = statusData.status
+
+      if (statusData.status === 'paid') {
+        setPolling(false)
+        setStep('success')
+        toast.success('Payment successful!', { description: `Reference: ${statusData.reference}` })
+        onPaymentSuccess?.()
+      } else if (['failed', 'cancelled', 'timedout'].includes(statusData.status)) {
+        setPolling(false)
+        setStep('failed')
+        toast.error('Payment failed', { description: 'The transaction was not completed.' })
+      }
+    }, 0)
+
+    return () => clearTimeout(timer)
   }, [statusData, onPaymentSuccess])
 
   useEffect(() => {
-    if (step === 'processing' && polling && countdown > 0) {
-      const timer = setTimeout(() => setCountdown(c => c - 1), 1000)
-      return () => clearTimeout(timer)
-    }
-    if (step === 'processing' && polling && countdown <= 0) {
-      setPolling(false)
-      toast.info('Payment status check timed out', { description: 'Please check your payment history.' })
-    }
+    if (step !== 'processing' || !polling || countdown <= 0) return
+
+    const timer = setTimeout(() => {
+      if (countdown <= 1) {
+        setPolling(false)
+        setCountdown(30)
+        toast.info('Payment status check timed out', { description: 'Please check your payment history.' })
+      } else {
+        setCountdown(c => c - 1)
+      }
+    }, 1000)
+
+    return () => clearTimeout(timer)
   }, [step, polling, countdown])
 
   const handleClose = () => {
@@ -226,15 +250,6 @@ export function PaynowDialog({
     { id: 'onemoney', label: 'OneMoney', icon: Smartphone, description: 'Pay with NetOne OneMoney', color: 'text-red-600' },
     { id: 'card', label: 'Bank Card', icon: CreditCard, description: 'Visa / Mastercard', color: 'text-blue-600' },
   ]
-
-  const QRCodePlaceholder = () => (
-    <div className="mx-auto flex h-36 w-36 items-center justify-center rounded-lg border-2 border-dashed border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/20">
-      <div className="text-center">
-        <QrCode className="h-10 w-10 text-emerald-400 mx-auto mb-1" />
-        <p className="text-[9px] text-emerald-600 font-medium">SCAN TO PAY</p>
-      </div>
-    </div>
-  )
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
