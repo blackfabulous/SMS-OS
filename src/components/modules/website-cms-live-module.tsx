@@ -6,7 +6,7 @@
  * NewsArticle / GalleryImage). Replaces the previous mock module.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Globe, Palette, Newspaper, Camera, Handshake, Plus, Trash2, Save,
   Loader2, ExternalLink, Eye, EyeOff, GripVertical, RefreshCw,
@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
+import { apiFetch } from '@/lib/api-client'
 import { ModuleContainer, SectionCard, ModuleToolbar, ModulePageLayout } from '@/components/module-ui'
 
 // ─── Types mirroring the API payloads ───────────────────────────────────────
@@ -45,17 +46,25 @@ interface ThemeRow {
   showStats: boolean; showPartners: boolean; showValues: boolean; showGallery: boolean; showTestimonials: boolean; showNews: boolean; showEvents: boolean
 }
 
+interface AllCMSData {
+  theme: ThemeRow | null
+  partners: Partner[]
+  news: NewsItem[]
+  gallery: GalleryItem[]
+  staff: StaffItem[]
+  faqs: FaqItem[]
+  seo: SeoItem[]
+}
+
 const ICON_OPTIONS = ['ShieldCheck', 'Lightbulb', 'Heart', 'Target', 'GraduationCap', 'Users', 'Award', 'BookOpen', 'Microscope', 'Globe2', 'Trophy', 'HeartHandshake', 'Sparkles']
 
 async function api(method: string, body?: unknown) {
-  const res = await fetch('/api/website-cms', {
+  const url = method === 'GET' ? '/api/website-cms?section=all' : '/api/website-cms'
+  const options: RequestInit | undefined = method === 'GET' ? undefined : {
     method,
-    headers: { 'Content-Type': 'application/json' },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  })
-  const json = await res.json().catch(() => ({}))
-  if (!res.ok || json?.success === false) throw new Error(json?.error || `Request failed (${res.status})`)
-  return json.data
+    body: JSON.stringify(body),
+  }
+  return apiFetch(url, options)
 }
 
 function slugify(s: string) {
@@ -73,13 +82,10 @@ export default function WebsiteCMSLiveModule() {
   const [faqs, setFaqs] = useState<FaqItem[]>([])
   const [seo, setSeo] = useState<SeoItem[]>([])
 
-  const load = useCallback(async () => {
+  const load = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/website-cms?section=all')
-      const json = await res.json()
-      if (!json?.success) throw new Error(json?.error || 'Failed to load')
-      const d = json.data
+      const d = await api('GET') as AllCMSData
       setTheme(d.theme ?? null)
       setPartners(d.partners ?? [])
       setNews(d.news ?? [])
@@ -92,9 +98,9 @@ export default function WebsiteCMSLiveModule() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load() }, [])
 
   if (loading) {
     return <div className="flex h-64 items-center justify-center text-muted-foreground"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading website content…</div>
@@ -166,7 +172,7 @@ function HeroThemeTab({ theme, onSaved }: { theme: ThemeRow | null; onSaved: (t:
       // statsJson/values/testimonials live on the Home Content tab; about prose on the About tab.
       const { statsJson, valuesJson, testimonialsJson, aboutHistory, missionText, visionText, ...rest } = form
       void statsJson; void valuesJson; void testimonialsJson; void aboutHistory; void missionText; void visionText
-      const saved = await api('PUT', { action: 'updateTheme', data: rest })
+      const saved = await api('PUT', { action: 'updateTheme', data: rest }) as ThemeRow
       onSaved(saved)
       toast.success('Theme & hero saved — refresh the site to see changes')
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Save failed') } finally { setSaving(false) }
@@ -255,7 +261,7 @@ function HomeContentTab({ theme, onSaved }: { theme: ThemeRow | null; onSaved: (
   const save = async () => {
     setSaving(true)
     try {
-      const saved = await api('PUT', { action: 'updateTheme', data: { statsJson: JSON.stringify(stats), valuesJson: JSON.stringify(values), testimonialsJson: JSON.stringify(testimonials) } })
+      const saved = await api('PUT', { action: 'updateTheme', data: { statsJson: JSON.stringify(stats), valuesJson: JSON.stringify(values), testimonialsJson: JSON.stringify(testimonials) } }) as ThemeRow
       onSaved(saved)
       toast.success('Home content saved')
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Save failed') } finally { setSaving(false) }
@@ -469,7 +475,7 @@ function AboutTab({ theme, onSaved }: { theme: ThemeRow | null; onSaved: (t: The
   const save = async () => {
     setSaving(true)
     try {
-      const saved = await api('PUT', { action: 'updateTheme', data: { aboutHistory, missionText, visionText } })
+      const saved = await api('PUT', { action: 'updateTheme', data: { aboutHistory, missionText, visionText } }) as ThemeRow
       onSaved(saved)
       toast.success('About page content saved')
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Save failed') } finally { setSaving(false) }
