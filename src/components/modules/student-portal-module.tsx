@@ -66,6 +66,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { apiFetch } from '@/lib/api-client'
 import { Switch } from '@/components/ui/switch'
 import {
   Table,
@@ -77,6 +78,11 @@ import {
 } from '@/components/ui/table'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+interface ListResponse<T = unknown> {
+  data?: T[]
+  summary?: Record<string, unknown>
+}
+
 interface TimetablePeriod {
   day: string
   periods: {
@@ -369,22 +375,19 @@ export default function StudentPortalModule() {
   useEffect(() => {
     async function fetchAssignments() {
       try {
-        const res = await fetch('/api/elearning?type=assignments')
-        if (res.ok) {
-          const json = await res.json()
-          if (json.data && json.data.length > 0) {
-            const apiAssignments: Assignment[] = json.data.map((a: Record<string, unknown>) => ({
-              id: a.id as string,
-              title: a.title as string,
-              subject: (a.course as Record<string, string>)?.name || 'General',
-              teacher: '',
-              dueDate: a.dueDate ? new Date(a.dueDate as string).toISOString().split('T')[0] : '',
-              status: ((a.status as string) || 'OPEN').toLowerCase() === 'closed' ? 'graded' : ((a.status as string) || 'OPEN').toLowerCase() === 'grading' ? 'submitted' : 'pending',
-              maxMark: a.maxMarks as number || 100,
-              description: a.description as string || '',
-            }))
-            setAssignments(apiAssignments)
-          }
+        const json = await apiFetch<ListResponse<Record<string, unknown>>>('/api/elearning?type=assignments')
+        if (json.data && json.data.length > 0) {
+          const apiAssignments: Assignment[] = json.data.map((a: Record<string, unknown>) => ({
+            id: a.id as string,
+            title: a.title as string,
+            subject: (a.course as Record<string, string>)?.name || 'General',
+            teacher: '',
+            dueDate: a.dueDate ? new Date(a.dueDate as string).toISOString().split('T')[0] : '',
+            status: ((a.status as string) || 'OPEN').toLowerCase() === 'closed' ? 'graded' : ((a.status as string) || 'OPEN').toLowerCase() === 'grading' ? 'submitted' : 'pending',
+            maxMark: a.maxMarks as number || 100,
+            description: a.description as string || '',
+          }))
+          setAssignments(apiAssignments)
         }
       } catch { /* fallback to mock */ }
       setLoading(prev => ({ ...prev, assignments: false }))
@@ -395,20 +398,17 @@ export default function StudentPortalModule() {
   useEffect(() => {
     async function fetchResources() {
       try {
-        const res = await fetch('/api/elearning?type=resources')
-        if (res.ok) {
-          const json = await res.json()
-          if (json.data && json.data.length > 0) {
-            const apiResources: DigitalResource[] = json.data.map((r: Record<string, unknown>) => ({
-              id: r.id as string,
-              title: r.title as string,
-              subject: (r.course as Record<string, string>)?.name || 'General',
-              type: ((r.resourceType as string) || 'notes').toLowerCase() === 'video' ? 'Video' : ((r.resourceType as string) || 'notes').toLowerCase() === 'past_paper' ? 'Past Paper' : ((r.resourceType as string) || 'notes').toLowerCase() === 'worksheet' ? 'Worksheet' : 'Notes',
-              size: r.fileSize ? `${(r.fileSize as number / 1024).toFixed(1)} MB` : '—',
-              downloads: 0,
-            }))
-            setResources(apiResources)
-          }
+        const json = await apiFetch<ListResponse<Record<string, unknown>>>('/api/elearning?type=resources')
+        if (json.data && json.data.length > 0) {
+          const apiResources: DigitalResource[] = json.data.map((r: Record<string, unknown>) => ({
+            id: r.id as string,
+            title: r.title as string,
+            subject: (r.course as Record<string, string>)?.name || 'General',
+            type: ((r.resourceType as string) || 'notes').toLowerCase() === 'video' ? 'Video' : ((r.resourceType as string) || 'notes').toLowerCase() === 'past_paper' ? 'Past Paper' : ((r.resourceType as string) || 'notes').toLowerCase() === 'worksheet' ? 'Worksheet' : 'Notes',
+            size: r.fileSize ? `${(r.fileSize as number / 1024).toFixed(1)} MB` : '—',
+            downloads: 0,
+          }))
+          setResources(apiResources)
         }
       } catch { /* fallback to mock */ }
       setLoading(prev => ({ ...prev, resources: false }))
@@ -419,12 +419,9 @@ export default function StudentPortalModule() {
   useEffect(() => {
     async function fetchAttendance() {
       try {
-        const res = await fetch('/api/attendance?limit=60')
-        if (res.ok) {
-          const json = await res.json()
-          if (json.summary && json.summary.attendanceRate) {
-            setAttendanceRate(parseFloat(json.summary.attendanceRate))
-          }
+        const json = await apiFetch<ListResponse>('/api/attendance?limit=60')
+        if (json.summary && json.summary.attendanceRate) {
+          setAttendanceRate(parseFloat(String(json.summary.attendanceRate)))
         }
       } catch { /* fallback to mock */ }
       setLoading(prev => ({ ...prev, attendance: false }))
