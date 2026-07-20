@@ -49,7 +49,7 @@ export async function listStudents(schoolId: string, params: ListParams) {
   } else {
     where.NOT = [
       { studentNumber: { startsWith: 'APP' } },
-      { enrollmentStatus: { in: ['PENDING', 'REJECTED', 'UNDER_REVIEW', 'WAITLISTED'] } },
+      { enrollmentStatus: { in: ['PENDING'] } },
     ]
   }
 

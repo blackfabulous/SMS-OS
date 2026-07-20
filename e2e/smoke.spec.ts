@@ -42,6 +42,13 @@ test.describe('authenticated smoke', () => {
     await expect(page.getByRole('heading', { name: 'Students' }).first()).toBeVisible()
   })
 
+  test('students module searches', async ({ page }) => {
+    await page.goto('/dashboard/students')
+    const search = page.getByPlaceholder(/Search by name/i)
+    await search.fill('Tendai')
+    await expect(page.getByRole('row').filter({ hasText: /Tendai/i }).first()).toBeVisible()
+  })
+
   test('settings module loads', async ({ page }) => {
     await page.goto('/dashboard/settings')
     await expect(page.getByRole('heading', { name: 'Settings' }).first()).toBeVisible()
