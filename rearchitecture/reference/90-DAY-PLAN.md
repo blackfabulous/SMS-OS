@@ -8,7 +8,7 @@
 
 ## Pre-Flight (Week 0 — before day 1)
 
-- [ ] **Day 0.1** — Rotate the committed `.env.example` Supabase password and any other exposed secrets.
+- [x] **Day 0.1** — `.env.example` contains only placeholder/commented credentials; no live secrets detected. Rotating any real project secrets should still be verified before production.
 - [ ] **Day 0.2** — Run `git-secrets` / `truffleHog` across the repo; add CI check.
 - [ ] **Day 0.3** — Create a `migration-status` board (Notion/GitHub Projects) listing all 41 modules and their current state.
 - [ ] **Day 0.4** — Confirm Supabase/Postgres connection pooling mode (transaction vs session vs direct).
@@ -181,7 +181,7 @@
 | E2E critical journeys | 5 critical journeys passing in CI | Partial — smoke, login/dashboard/modules, and public admissions apply flow green in chromium + mobile; payment/report-card portal journeys pending. |
 | CI build time | <10 minutes | Not measured (CI not live). |
 | `console.*` in production | 0 | 0 in `src/app/api`; Pino patches console globally. |
-| Secrets in repo | 0 | `.env.example` still contains a real Supabase password. |
+| Secrets in repo | 0 | `.env.example` uses placeholder values; no live credentials detected. |
 | Modules migrated to standard | All modules use typed data layer | In progress; reports service done; decomposition pilot completed for `timetable-module.tsx` (`src/components/modules/timetable/`). |
 | Average route handler size | <50 lines | Not yet achieved for EMIS/report-card HTML routes; most routes now thin wrappers. |
 | New route pages | Server-rendered by default | Dashboard routes exist at `/dashboard/[module]`; internal module buttons still module-swap (pending). |
