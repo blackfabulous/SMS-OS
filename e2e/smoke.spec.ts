@@ -58,6 +58,16 @@ test.describe('authenticated smoke', () => {
     await expect(page.getByRole('row').filter({ hasText: /Tendai/i }).first()).toBeVisible()
   })
 
+  test('staff module loads', async ({ page }) => {
+    await page.goto('/dashboard/staff')
+    await expect(page.getByRole('heading', { name: 'Staff' }).first()).toBeVisible()
+  })
+
+  test('timetable module loads', async ({ page }) => {
+    await page.goto('/dashboard/timetable')
+    await expect(page.getByRole('heading', { name: 'Timetable' }).first()).toBeVisible()
+  })
+
   test('settings module loads', async ({ page }) => {
     await page.goto('/dashboard/settings')
     await expect(page.getByRole('heading', { name: 'Settings' }).first()).toBeVisible()
