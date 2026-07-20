@@ -65,6 +65,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 import { toast } from 'sonner'
+import { AdmissionsSettingsView } from './admissions/admissions-settings-view'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -180,15 +181,17 @@ export default function AdmissionsModule() {
   const [form, setForm] = useState({ ...defaultForm })
 
   // Settings state
-  const [defaultIntakeYear, setDefaultIntakeYear] = useState('2026')
-  const [requireInterview, setRequireInterview] = useState(true)
-  const [requireBirthCert, setRequireBirthCert] = useState(true)
-  const [requireTransferLetter, setRequireTransferLetter] = useState(true)
-  const [autoAssignStudentNumber, setAutoAssignStudentNumber] = useState(true)
-  const [notifyGuardianOnStatusChange, setNotifyGuardianOnStatusChange] = useState(true)
-  const [applicationFeeAmount, setApplicationFeeAmount] = useState('25')
-  const [maxApplicationsPerGrade, setMaxApplicationsPerGrade] = useState('50')
-  const [welcomeMessage, setWelcomeMessage] = useState('Welcome to our school! Please complete your application carefully.')
+  const [admissionsSettings, setAdmissionsSettings] = useState({
+    defaultIntakeYear: '2026',
+    applicationFeeAmount: '25',
+    maxApplicationsPerGrade: '50',
+    welcomeMessage: 'Welcome to our school! Please complete your application carefully.',
+    requireBirthCert: true,
+    requireTransferLetter: true,
+    requireInterview: true,
+    autoAssignStudentNumber: true,
+    notifyGuardianOnStatusChange: true,
+  })
 
   const selectedApp = applications.find(a => a.id === selectedId)
 
@@ -241,92 +244,11 @@ export default function AdmissionsModule() {
   // ─── Settings View ──────────────────────────────────────────────────────
   if (viewMode === 'settings') {
     return (
-      <ModuleContainer>
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="gap-1" onClick={() => setViewMode('list')}>
-            <ArrowLeft className="h-4 w-4" /> Back
-          </Button>
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Admissions Settings</h1>
-          <p className="text-sm text-muted-foreground mt-1">Configure admission process, requirements, and defaults</p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <SectionCard
-            title="Default Configuration"
-            description="Set defaults for new applications"
-          >
-            <div className="space-y-4">
-              <div className="grid gap-2">
-                <Label>Default Intake Year</Label>
-                <Input value={defaultIntakeYear} onChange={e => setDefaultIntakeYear(e.target.value)} placeholder="e.g. 2026" />
-              </div>
-              <div className="grid gap-2">
-                <Label>Application Fee (USD)</Label>
-                <Input type="number" value={applicationFeeAmount} onChange={e => setApplicationFeeAmount(e.target.value)} placeholder="0.00" />
-              </div>
-              <div className="grid gap-2">
-                <Label>Max Applications Per Grade</Label>
-                <Input type="number" value={maxApplicationsPerGrade} onChange={e => setMaxApplicationsPerGrade(e.target.value)} placeholder="50" />
-              </div>
-              <div className="grid gap-2">
-                <Label>Welcome Message for Applicants</Label>
-                <Textarea value={welcomeMessage} onChange={e => setWelcomeMessage(e.target.value)} rows={3} placeholder="Welcome message..." />
-              </div>
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Document Requirements"
-            description="Required documents for application submission"
-          >
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 rounded-lg border">
-                <div>
-                  <p className="text-sm font-medium">Birth Certificate</p>
-                  <p className="text-xs text-muted-foreground">Require birth certificate copy</p>
-                </div>
-                <Switch checked={requireBirthCert} onCheckedChange={setRequireBirthCert} />
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg border">
-                <div>
-                  <p className="text-sm font-medium">Transfer Letter</p>
-                  <p className="text-xs text-muted-foreground">Require transfer letter from previous school</p>
-                </div>
-                <Switch checked={requireTransferLetter} onCheckedChange={setRequireTransferLetter} />
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg border">
-                <div>
-                  <p className="text-sm font-medium">Interview Required</p>
-                  <p className="text-xs text-muted-foreground">Schedule interview before acceptance</p>
-                </div>
-                <Switch checked={requireInterview} onCheckedChange={setRequireInterview} />
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg border">
-                <div>
-                  <p className="text-sm font-medium">Auto-assign Student Number</p>
-                  <p className="text-xs text-muted-foreground">Automatically generate student numbers</p>
-                </div>
-                <Switch checked={autoAssignStudentNumber} onCheckedChange={setAutoAssignStudentNumber} />
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg border">
-                <div>
-                  <p className="text-sm font-medium">Notify Guardian on Status Change</p>
-                  <p className="text-xs text-muted-foreground">Send SMS/email when application status changes</p>
-                </div>
-                <Switch checked={notifyGuardianOnStatusChange} onCheckedChange={setNotifyGuardianOnStatusChange} />
-              </div>
-            </div>
-          </SectionCard>
-        </div>
-
-        <div className="flex justify-end">
-          <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white" onClick={() => toast.success('Settings saved successfully')}>
-            <Save className="mr-2 h-4 w-4" /> Save Settings
-          </Button>
-        </div>
-      </ModuleContainer>
+      <AdmissionsSettingsView
+        settings={admissionsSettings}
+        onSettingsChange={setAdmissionsSettings}
+        onBack={() => setViewMode('list')}
+      />
     )
   }
 
