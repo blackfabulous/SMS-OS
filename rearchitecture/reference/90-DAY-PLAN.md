@@ -155,7 +155,7 @@
 ### Week 12 end: Gate
 
 - [~] `tsc`, lint, unit tests, cross-tenant tests, and build all pass.
-- [~] Critical user journeys (enroll → attendance → fee → payment → statement, marks → report card → publish) pass in Playwright E2E. Smoke tests cover public pages, contact, admissions apply, authenticated dashboard, finance, students (search), staff, timetable, settings, and `/api/health/deep`; remaining end-to-end payment/report-card/parent-portal workflows pending.
+- [~] Critical user journeys (enroll → attendance → fee → payment → statement, marks → report card → publish) pass in Playwright E2E. Smoke tests cover public pages, contact, admissions apply, authenticated dashboard, finance, students (search), staff, timetable, admissions, academics, attendance, examinations, boarding, payroll, settings, and `/api/health/deep`; remaining end-to-end payment/report-card/parent-portal workflows pending.
 
 ---
 
