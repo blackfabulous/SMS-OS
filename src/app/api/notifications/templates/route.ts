@@ -1,9 +1,8 @@
-import { db } from '@/lib/db'
 import { NextRequest } from 'next/server'
 import { logger } from '@/lib/logger'
 import { ok, fail } from '@/server/http'
-import { logAudit } from '@/lib/audit'
 import { validateAuth, validateRole } from '@/lib/api-auth'
+import { listNotificationTemplates, createNotificationTemplate, handleNotificationsError } from '@/server/services/notifications'
 
 export async function GET() {
   const auth = await validateAuth()
@@ -12,11 +11,12 @@ export async function GET() {
   if (!schoolId) return fail('VALIDATION', 'School not configured')
 
   try {
-    const templates = await db.notificationTemplate.findMany({ where: { schoolId }, orderBy: { createdAt: 'desc' } })
+    const templates = await listNotificationTemplates(schoolId)
     return ok({ data: templates })
   } catch (error) {
-    logger.error({ err: error }, 'templates GET error')
-    return fail('INTERNAL', 'Failed to fetch templates')
+    const { code, message } = handleNotificationsError(error, 'Failed to fetch templates')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }
 
@@ -28,23 +28,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { name, category, channels, subject, body: messageBody } = body
-    if (!name || !messageBody) return fail('VALIDATION', 'name and body are required')
-
-    const template = await db.notificationTemplate.create({
-      data: {
-        schoolId,
-        name,
-        category: category || 'General',
-        channels: Array.isArray(channels) ? channels.join(',') : (channels || 'SMS'),
-        subject: subject || null,
-        body: messageBody,
-      },
-    })
-    logAudit({ action: 'CREATE', entity: 'notification-template', entityId: template.id }).catch(() => {})
+    const template = await createNotificationTemplate(schoolId, body)
     return ok(template, 201)
   } catch (error) {
-    logger.error({ err: error }, 'templates POST error')
-    return fail('INTERNAL', 'Failed to create template')
+    const { code, message } = handleNotificationsError(error, 'Failed to create template')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }

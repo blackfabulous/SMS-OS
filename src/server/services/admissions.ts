@@ -2,6 +2,7 @@ import 'server-only'
 import { db } from '@/lib/db'
 import { logAudit } from '@/lib/audit'
 import { AppError, isAppError } from '@/lib/errors'
+import { dispatchNotification } from '@/lib/notifications'
 
 interface ListParams {
   search?: string | null
@@ -217,6 +218,66 @@ export async function dropAdmission(schoolId: string, id: string) {
 
   logAudit({ action: 'DELETE', entity: 'admissions', entityId: id, schoolId }).catch(() => {})
   return { message: 'Admission record updated (student dropped out)', student }
+}
+
+export async function submitApplication(d: Record<string, unknown>) {
+  const school = await db.school.findFirst()
+  if (!school) throw new AppError('INTERNAL', 'Admissions are not currently configured. Please contact the school directly.')
+
+  const currentYear = new Date().getFullYear()
+  const last = await db.student.findFirst({
+    where: { schoolId: school.id, studentNumber: { startsWith: `APP${currentYear}` } },
+    orderBy: { studentNumber: 'desc' },
+  })
+  const nextNum = last ? parseInt(last.studentNumber.slice(-4)) + 1 : 1
+  const studentNumber = `APP${currentYear}${String(nextNum).padStart(4, '0')}`
+
+  const student = await db.student.create({
+    data: {
+      schoolId: school.id,
+      studentNumber,
+      firstName: d.firstName as string,
+      lastName: d.lastName as string,
+      middleName: (d.middleName as string) || null,
+      gender: d.gender as any,
+      dateOfBirth: new Date(d.dateOfBirth as string),
+      enrollmentStatus: 'PENDING' as any,
+      boardingStatus: (d.boardingStatus as any) || null,
+      previousSchool: (d.previousSchool as string) || null,
+      admissionDate: new Date(),
+    },
+  })
+
+  const parent = await db.parent.create({
+    data: {
+      schoolId: school.id,
+      firstName: d.guardianFirstName as string,
+      lastName: d.guardianLastName as string,
+      phone: d.guardianPhone as string,
+      email: (d.guardianEmail as string) || null,
+      preferredContact: d.guardianEmail ? 'EMAIL' : 'SMS',
+      isFeeResponsible: true,
+    },
+  })
+
+  await db.studentParent.create({
+    data: {
+      schoolId: school.id,
+      studentId: student.id,
+      parentId: parent.id,
+      relationship: (d.guardianRelationship as string) || 'Guardian',
+      isPrimary: true,
+      isFeeResponsible: true,
+    },
+  })
+
+  void dispatchNotification(
+    school.id,
+    { type: 'admission.received' as any, applicantName: `${d.firstName} ${d.lastName}`, reference: studentNumber },
+    { parentId: parent.id, phone: d.guardianPhone as string, email: (d.guardianEmail as string) || null, name: `${d.guardianFirstName} ${d.guardianLastName}` },
+  ).catch(() => {})
+
+  return { message: 'Application received', reference: studentNumber, appliedFor: d.gradeApplyingFor }
 }
 
 export function handleAdmissionsError(error: unknown, fallbackMessage: string) {
