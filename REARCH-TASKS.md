@@ -22,13 +22,13 @@
 | Tenancy backstop (RLS) | Implemented: `src/lib/db.ts` Prisma extension, `prisma/rls/enable-rls.sql` now uses direct `schoolId` policies and covers every tenant table (no `EXISTS` join policies); `docs/RLS.md` | Done / advanced |
 | RBAC | `src/lib/rbac.ts` matrix, `src/server/context.ts` `requireContext` wrapper | Done |
 | Service layer (`src/server`) | `src/lib/settings.ts`, `src/server/finance/scope.ts`, `src/server/services/payment-service.ts`, `src/server/services/notifications.ts`, `src/server/services/settings.ts`, `src/server/services/attendance.ts`, `src/server/services/report-cards.ts`, `src/lib/finance-calc.ts`, `src/lib/grading.ts`, etc. | Partial — payments + notification + settings + attendance + report-card services moved; other contexts pending |
-| Real dashboard routes | `src/app/dashboard/[module]/page.tsx` introduced; `DashboardShell` drives module from URL; `AppSidebar` and `MobileBottomNav` navigate via `router.push`; legacy Zustand `activeModule` still used by internal module buttons (migration pending) | Partial |
+| Real dashboard routes | `src/app/dashboard/[module]/page.tsx` introduced and fixed to use a server-safe `isModuleId` from `src/lib/module-ids.ts`; `DashboardShell` drives module from URL; `AppSidebar` and `MobileBottomNav` navigate via `router.push`; legacy Zustand `activeModule` still used by internal module buttons (migration pending) | Partial |
 | TanStack Query | `QueryProvider` added to root layout; `src/lib/api-client.ts` typed envelope client; `src/hooks/use-api-query.ts` hooks; dashboard, `SettingsRegistryPanel`, `settings-module`, `setup-wizard-module`, `alumni-module`, `attendance-module`, `finance-module`, `documents-module`, `communication-module`, `notification-module`, `admissions-module`, `boarding-module`, and `payroll-module` migrated to `useApiQuery`/`useApiMutation`; other modules pending | Partial |
 | Design system | Emerald tokens + `components/ui` exist; module files are 800–1,500-line monoliths with inconsistent loading/error/empty states | Partial |
-| Tests | 13 Vitest files, including `tests/tenant-safety.test.ts`, `tests/tenant-context.test.ts`, `tests/finance-scope.test.ts`, `tests/student-access.test.ts` | Partial |
+| Tests | 13 Vitest files, including `tests/tenant-safety.test.ts`, `tests/tenant-context.test.ts`, `tests/finance-scope.test.ts`, `tests/student-access.test.ts`; Playwright E2E smoke + critical journeys green with setup project + shared auth state | Partial |
 | Observability | `src/lib/logger.ts` (server Pino) and `src/lib/logger-client.ts` (browser) introduced; Sentry init via `instrumentation.ts` and `sentry.*.config.ts`; used in `/api/finance/payments`; Playwright CI still pending | Partial |
 | Outbox / durable jobs | `Outbox` model + `src/server/outbox.ts` (`enqueueOutbox`, `processOutboxJob`, `processOutbox`) wired into notifications (`src/lib/notifications.ts`) and report-card generation (`src/lib/report-card-service.ts`); new `POST /api/outbox/process` endpoint | Done |
-| Ops | Root `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `scripts/github-ci.yml`, Playwright E2E config + smoke spec, and Pino logging added; `.github/workflows/ci.yml` needs GitHub `workflow` OAuth scope to push; Sentry pending | Done (core) |
+| Ops | Root `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `scripts/github-ci.yml`, Playwright E2E config + smoke/critical-journey specs with setup auth, and Pino logging added; `.github/workflows/ci.yml` needs GitHub `workflow` OAuth scope to push; Sentry pending | Done (core) |
 | Public site | Real App Router routes, metadata, sitemap/robots/JSON-LD | Done |
 | Settings registry | `src/lib/settings-schema.ts` + `src/lib/settings.ts` with Zod, categories, defaults, UI hints | Done |
 | Finance allocation | `PaymentAllocation` model added; payment creation (`/api/finance/payments`, `/api/finance/beam/apply`) creates allocations; reverse deletes allocations; `FeeInvoice.balance` still cached during transition | Done (ledger + cached balance) |
@@ -184,4 +184,4 @@ The 2026-07-10 push lands the P0 items needed before wider refactoring:
 - RA-G3/RA-G4: CI + Docker wiring.
 - Updated `REARCHITECTURE-BLUEPRINT.md` and `REARCH-TASKS.md`.
 
-Remaining work (RA-A9 identity model, RA-D2 routing, RA-D3 module decomposition, RA-F design system, RA-G5 Playwright E2E) is queued in the Phase 1–5 backlog above.
+Remaining work (RA-A9 identity model, RA-D3 module decomposition, RA-F design system, RA-G2 Sentry, RA-G3 CI workflow scope) is queued in the Phase 1–5 backlog above.

@@ -155,7 +155,7 @@
 ### Week 12 end: Gate
 
 - [~] `tsc`, lint, unit tests, cross-tenant tests, and build all pass.
-- [ ] Critical user journeys (enroll → attendance → fee → payment → statement, marks → report card → publish) pass in Playwright E2E.
+- [~] Critical user journeys (enroll → attendance → fee → payment → statement, marks → report card → publish) pass in Playwright E2E. Smoke + login/dashboard/module/admissions journeys green; remaining end-to-end payment/report-card workflows pending.
 
 ---
 
@@ -178,7 +178,7 @@
 | Cross-tenant tests | 100% pass, cover all tenant-owned resources | Partial — static route guard + dynamic finance tests pass; per-resource coverage pending. |
 | Service-layer coverage | 100% of finance, assessment, people, settings logic | Partial — settings/payments/report-cards/reports done; people/examinations/timetable pending. |
 | Unit test coverage | ≥70% of service layer | Not yet measured. |
-| E2E critical journeys | 5 critical journeys passing in CI | Not yet implemented (`e2e/smoke.spec.ts` is a stub). |
+| E2E critical journeys | 5 critical journeys passing in CI | Partial — smoke, login/dashboard/modules, and public admissions apply flow green in chromium + mobile; payment/report-card portal journeys pending. |
 | CI build time | <10 minutes | Not measured (CI not live). |
 | `console.*` in production | 0 | 0 in `src/app/api`; Pino patches console globally. |
 | Secrets in repo | 0 | `.env.example` still contains a real Supabase password. |
