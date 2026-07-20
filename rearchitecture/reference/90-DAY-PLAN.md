@@ -96,7 +96,7 @@
 
 - [x] Replace `console.*` with Pino structured logging (`src/lib/logger.ts` + `instrumentation.ts` patches console on server).
 - [x] Add Sentry for errors and traces (`sentry.*.config.ts` wired into `next.config.ts`).
-- [ ] Add `/api/health/deep` endpoint.
+- [x] Add `/api/health/deep` endpoint (`src/app/api/health/deep/route.ts` pings the DB and returns ok()/fail() envelope).
 - [ ] Set up Upstash QStash for notifications and outbox-style jobs (outbox worker runs in-process; managed QStash integration pending).
 - [~] Replace in-memory rate-limit with Upstash Redis rate-limit (Postgres-backed distributed rate-limit exists in `src/lib/rate-limit.ts`; Upstash/Redis swap is interface-compatible but not configured).
 - [x] Add Docker + `docker-compose` for local development.
