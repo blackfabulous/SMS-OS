@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
+  globalSetup: require.resolve('./e2e/global-setup'),
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -13,8 +14,9 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'Mobile Chrome', use: { ...devices['Pixel 5'] } },
+    { name: 'setup', testMatch: '**/*.setup.ts' },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, dependencies: ['setup'], testIgnore: '**/*.setup.ts' },
+    { name: 'Mobile Chrome', use: { ...devices['Pixel 5'] }, dependencies: ['setup'], testIgnore: '**/*.setup.ts' },
   ],
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
@@ -23,5 +25,6 @@ export default defineConfig({
         url: 'http://localhost:3000',
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
+        env: { PLAYWRIGHT_E2E: 'true' },
       },
 })

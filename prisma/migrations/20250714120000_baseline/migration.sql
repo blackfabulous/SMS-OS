@@ -2664,5 +2664,5 @@ ALTER TABLE "SchoolSetting" ADD CONSTRAINT "SchoolSetting_schoolId_fkey" FOREIGN
 -- have exactly one. This is enforced at the DB level to keep the polymorphic link
 -- unambiguous.
 ALTER TABLE "User" ADD CONSTRAINT "User_identity_check"
-  CHECK (numnonnulls("staffId", "studentId", "parentId") <= 1);
+  CHECK (num_nonnulls("staffId"::text, "studentId"::text, "parentId"::text) <= 1);
 

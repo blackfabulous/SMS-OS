@@ -10,7 +10,7 @@ const ApplySchema = z.object({
   gender: z.enum(['MALE', 'FEMALE']),
   dateOfBirth: z.string().min(1),
   gradeApplyingFor: z.string().min(1).max(60),
-  boardingStatus: z.enum(['DAY_SCHOLAR', 'BOARDER']).optional(),
+  boardingStatus: z.enum(['DAY_SCHOLAR', 'BOARDER']).optional().or(z.literal('')),
   previousSchool: z.string().max(160).optional().or(z.literal('')),
   guardianFirstName: z.string().min(1).max(80),
   guardianLastName: z.string().min(1).max(80),

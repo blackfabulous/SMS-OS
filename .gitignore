@@ -60,6 +60,7 @@ server.log
 # test artifacts
 /test-results/
 /playwright-report/
+/e2e/.auth/
 
 # editor/scratch
 *.bak
