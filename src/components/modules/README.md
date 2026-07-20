@@ -38,10 +38,10 @@ src/components/modules/
 - `sdc/` — extracted from `sdc-module.tsx`
 - `sms/` — extracted from `sms-dialog.tsx`
 - `paynow/` — extracted from `paynow-dialog.tsx`
+- `admissions/` — extracted from `admissions-module.tsx`
 
 ## Next candidates
 
-- `admissions-module.tsx` (~797 lines)
 - `boarding-module.tsx` (~802 lines)
 - `discipline-module.tsx` (~843 lines)
 - `payroll-module.tsx` (~848 lines)
