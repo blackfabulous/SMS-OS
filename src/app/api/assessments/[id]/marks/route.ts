@@ -1,194 +1,42 @@
-import { db } from '@/lib/db'
+import { NextRequest } from 'next/server'
 import { logger } from '@/lib/logger'
 import { ok, fail } from '@/server/http'
-import { logAudit } from '@/lib/audit'
 import { validateAuth, validateRole } from '@/lib/api-auth'
-import { SaveMarksSchema } from '@/lib/validations'
-import { getSetting } from '@/lib/settings'
-import { symbolForMark, validateMark, markToPercent } from '@/lib/grading'
-import type { AssessmentMark } from '@prisma/client'
+import { getAssessmentWithMarks, saveAssessmentMarks, handleAssessmentsError } from '@/server/services/assessments'
 
 export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const authResult = await validateAuth()
   if ('error' in authResult) return authResult.error
 
   try {
     const { id } = await params
-
-    const assessment = await db.assessment.findUnique({
-      where: { id },
-      include: {
-        subject: true,
-        marks: {
-          include: {
-            student: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                studentNumber: true,
-              },
-            },
-          },
-          orderBy: {
-            student: { lastName: 'asc' },
-          },
-        },
-      },
-    })
-
-    if (!assessment) {
-      return fail('NOT_FOUND', 'Assessment not found')
-    }
-
-    // If classId is set, also get all students in that class for marks entry
-    let classStudents: Array<{
-      id: string
-      firstName: string
-      lastName: string
-      studentNumber: string
-      existingMarkId: string | null
-      marksObtained: number | null
-      grade: string | null
-    }> = []
-
-    if (assessment.classId) {
-      const enrollments = await db.studentEnrollment.findMany({
-        where: {
-          classId: assessment.classId,
-          status: 'ACTIVE',
-        },
-        include: {
-          student: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              studentNumber: true,
-            },
-          },
-        },
-      })
-
-      // Map existing marks
-      const marksMap = new Map(
-        assessment.marks.map((m) => [m.studentId, m])
-      )
-
-      classStudents = enrollments.map((e) => {
-        const existingMark = marksMap.get(e.student.id)
-        return {
-          id: e.student.id,
-          firstName: e.student.firstName,
-          lastName: e.student.lastName,
-          studentNumber: e.student.studentNumber,
-          existingMarkId: existingMark?.id || null,
-          marksObtained: existingMark?.marksObtained ?? null,
-          grade: existingMark?.grade ?? null,
-        }
-      })
-    }
-
-    return ok({
-      assessment,
-      classStudents,
-    })
+    const result = await getAssessmentWithMarks(authResult.session.user.schoolId, id)
+    return ok(result)
   } catch (error) {
-    logger.error({ err: error }, 'Error fetching assessment marks')
-    return fail('INTERNAL', 'Failed to fetch assessment marks')
+    const { code, message } = handleAssessmentsError(error, 'Failed to fetch assessment marks')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }
 
 export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const authResult = await validateRole(['ADMIN', 'TEACHER'])
   if ('error' in authResult) return authResult.error
-  const { session } = authResult
 
   try {
     const { id } = await params
     const body = await request.json()
-
-    const parsed = SaveMarksSchema.safeParse(body)
-    if (!parsed.success) {
-      return fail('VALIDATION', 'Validation failed', { details: parsed.error.issues })
-    }
-    const marks = parsed.data.marks
-
-    // Verify the assessment exists AND belongs to the caller's school
-    const assessment = await db.assessment.findFirst({
-      where: { id, schoolId: session.user.schoolId },
-    })
-
-    if (!assessment) {
-      return fail('NOT_FOUND', 'Assessment not found')
-    }
-
-    if (assessment.isLocked) {
-      return fail('CONFLICT', 'Assessment is locked and cannot be modified')
-    }
-
-    // Reject marks above the assessment's maximum
-    for (const m of marks) {
-      const v = validateMark(m.marksObtained, assessment.totalMarks)
-      if (!v.ok) {
-        return fail('VALIDATION', `Student ${m.studentId}: ${v.error}`)
-      }
-    }
-
-    // Verify every target student belongs to the caller's school (prevents
-    // writing marks against another school's students via a forged studentId)
-    const studentIds = [...new Set(marks.map((m) => m.studentId))]
-    const validStudents = await db.student.count({
-      where: { id: { in: studentIds }, schoolId: session.user.schoolId },
-    })
-    if (validStudents !== studentIds.length) {
-      return fail('FORBIDDEN', 'One or more students do not belong to your school')
-    }
-
-    // Grade symbols come from the school's ZIMSEC grading scale (settings).
-    const gradingScale = await getSetting(session.user.schoolId, 'grading.scale')
-
-    // Upsert marks
-    const results: AssessmentMark[] = []
-    for (const mark of marks) {
-      const grade = mark.grade || symbolForMark(markToPercent(mark.marksObtained, assessment.totalMarks), gradingScale)
-      const result = await db.assessmentMark.upsert({
-        where: {
-          assessmentId_studentId: {
-            assessmentId: id,
-            studentId: mark.studentId,
-          },
-        },
-        create: {
-          schoolId: session.user.schoolId,
-          assessmentId: id,
-          studentId: mark.studentId,
-          marksObtained: mark.marksObtained,
-          grade,
-          comments: mark.comments,
-        },
-        update: {
-          marksObtained: mark.marksObtained,
-          grade,
-          comments: mark.comments,
-        },
-      })
-      results.push(result)
-    }
-
-    logAudit({ action: 'CREATE', entity: 'marks' }).catch(() => {})
-    return ok({
-      saved: results.length,
-      marks: results,
-    })
+    const result = await saveAssessmentMarks(authResult.session.user.schoolId, id, body)
+    return ok(result)
   } catch (error) {
-    logger.error({ err: error }, 'Error saving marks')
-    return fail('INTERNAL', 'Failed to save marks')
+    const { code, message } = handleAssessmentsError(error, 'Failed to save marks')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }
