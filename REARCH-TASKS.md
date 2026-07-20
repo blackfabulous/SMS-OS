@@ -110,7 +110,7 @@
 |----|------|-----|--------|------|-----------|
 | RA-D1 | **`(app)` route group + shell layout** (sidebar/header as Server Components) | P1 | M | — | Authenticated shell rendered by a layout |
 | RA-D2 | **Migrate dashboard from Zustand `activeModule` swap to real nested routes** — one module at a time (coexist during transition) | P1 | XL | RA-D1 | Deep-linkable URLs; back/forward; per-route SSR + code-split |
-| RA-D3 | **Module decomposition standard** — `page.tsx (server) + components/ + hooks/`, ≤~300 lines/file (current modules are 800–1,500). Pilots completed for `timetable-module.tsx` (`src/components/modules/timetable/`) and `sdc-module.tsx` (`src/components/modules/sdc/`); remaining modules pending | P2 | XL | RA-D2 | No monolith module files |
+| RA-D3 | **Module decomposition standard** — `page.tsx (server) + components/ + hooks/`, ≤~300 lines/file (current modules are 800–1,500). Pilots completed for `timetable-module.tsx` (`src/components/modules/timetable/`), `sdc-module.tsx` (`src/components/modules/sdc/`), and `sms-dialog.tsx` (`src/components/modules/sms/`); remaining modules pending | P2 | XL | RA-D2 | No monolith module files |
 | RA-D4 | **Error boundaries** at shell + per route segment | P2 | S | RA-D1 | One module crash can't blank the app |
 | RA-D5 | Zustand limited to genuine UI state (sidebar/theme) | P3 | S | RA-D2 | No server data in Zustand |
 
