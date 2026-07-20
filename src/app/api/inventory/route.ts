@@ -1,160 +1,47 @@
-import { db } from '@/lib/db'
 import { NextRequest } from 'next/server'
 import { logger } from '@/lib/logger'
 import { ok, fail } from '@/server/http'
-import { logAudit } from '@/lib/audit'
 import { validateAuth, validateRole } from '@/lib/api-auth'
+import {
+  listInventory,
+  addAsset,
+  requestMaintenance,
+  updateAsset,
+  updateMaintenanceRequest,
+  deleteAsset,
+  deleteMaintenanceRequest,
+  handleInventoryError,
+} from '@/server/services/inventory'
 
 // GET /api/inventory — List assets with maintenance status
-// Query params: search, category, condition, isDisposed, maintenanceStatus, page, limit
 export async function GET(request: NextRequest) {
   const authResult = await validateAuth()
   if ('error' in authResult) return authResult.error
-  const schoolId = authResult.session.user.schoolId
 
   try {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
     const category = searchParams.get('category') || ''
     const condition = searchParams.get('condition') || ''
-    const isDisposedStr = searchParams.get('isDisposed')
+    const isDisposed = searchParams.get('isDisposed')
     const maintenanceStatus = searchParams.get('maintenanceStatus') || ''
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
 
-    // Build asset filter
-    const assetFilter: Record<string, unknown> = { schoolId }
-    if (search) {
-      assetFilter.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { assetTag: { contains: search, mode: 'insensitive' } },
-        { location: { contains: search, mode: 'insensitive' } },
-        { custodian: { contains: search, mode: 'insensitive' } },
-        { donorSource: { contains: search, mode: 'insensitive' } },
-      ]
-    }
-    if (category && category !== 'ALL') {
-      assetFilter.category = category
-    }
-    if (condition) {
-      assetFilter.condition = condition
-    }
-    if (isDisposedStr !== null) {
-      assetFilter.isDisposed = isDisposedStr === 'true'
-    } else {
-      assetFilter.isDisposed = false
-    }
-
-    const [assets, assetTotal] = await Promise.all([
-      db.asset.findMany({
-        where: assetFilter,
-        include: {
-          maintenanceRequests: {
-            orderBy: { createdAt: 'desc' },
-            take: 5,
-          },
-        },
-        orderBy: { name: 'asc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      db.asset.count({ where: assetFilter }),
-    ])
-
-    // Maintenance requests with filter
-    const maintenanceFilter: Record<string, unknown> = { schoolId }
-    if (maintenanceStatus) {
-      maintenanceFilter.status = maintenanceStatus
-    }
-    if (search) {
-      maintenanceFilter.OR = [
-        { description: { contains: search, mode: 'insensitive' } },
-        { category: { contains: search, mode: 'insensitive' } },
-      ]
-    }
-
-    const [maintenanceRequests, maintenanceTotal] = await Promise.all([
-      db.maintenanceRequest.findMany({
-        where: maintenanceFilter,
-        include: {
-          asset: { select: { id: true, name: true, assetTag: true, location: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      db.maintenanceRequest.count({ where: maintenanceFilter }),
-    ])
-
-    // Stats
-    const allActiveAssets = await db.asset.findMany({
-      where: { schoolId, isDisposed: false },
-      select: { condition: true, purchaseCost: true, category: true },
+    const result = await listInventory(authResult.session.user.schoolId, {
+      search,
+      category,
+      condition,
+      isDisposed,
+      maintenanceStatus,
+      page,
+      limit,
     })
-
-    const totalAssets = allActiveAssets.length
-    const goodCondition = allActiveAssets.filter((a) => a.condition === 'GOOD' || a.condition === 'NEW').length
-    const fairCondition = allActiveAssets.filter((a) => a.condition === 'FAIR').length
-    const poorCondition = allActiveAssets.filter((a) => a.condition === 'POOR').length
-    const totalAssetValue = allActiveAssets.reduce((sum, a) => sum + a.purchaseCost, 0)
-
-    const pendingMaintenance = await db.maintenanceRequest.count({ where: { schoolId, status: 'PENDING' } })
-    const inProgressMaintenance = await db.maintenanceRequest.count({ where: { schoolId, status: 'IN_PROGRESS' } })
-    const completedMaintenance = await db.maintenanceRequest.count({ where: { schoolId, status: 'COMPLETED' } })
-
-    // Category breakdown
-    const categoryBreakdown = await db.asset.groupBy({
-      by: ['category'],
-      where: { schoolId, isDisposed: false },
-      _count: { id: true },
-      _sum: { purchaseCost: true },
-    })
-
-    // Maintenance by status
-    const maintenanceByStatus = await db.maintenanceRequest.groupBy({
-      by: ['status'],
-      where: { schoolId },
-      _count: { id: true },
-    })
-
-    // Maintenance by priority
-    const maintenanceByPriority = await db.maintenanceRequest.groupBy({
-      by: ['priority'],
-      where: { schoolId },
-      _count: { id: true },
-    })
-
-    return ok({
-      assets,
-      maintenanceRequests,
-      stats: {
-        totalAssets,
-        goodCondition,
-        fairCondition,
-        poorCondition,
-        pendingMaintenance,
-        inProgressMaintenance,
-        completedMaintenance,
-        totalAssetValue,
-      },
-      categoryBreakdown: categoryBreakdown.map((c) => ({
-        category: c.category || 'Uncategorized',
-        count: c._count.id,
-        value: Number(c._sum.purchaseCost ?? 0),
-      })),
-      maintenanceByStatus: maintenanceByStatus.map((m) => ({ status: m.status, count: m._count.id })),
-      maintenanceByPriority: maintenanceByPriority.map((m) => ({ priority: m.priority, count: m._count.id })),
-      pagination: {
-        page,
-        limit,
-        totalAssets: assetTotal,
-        totalMaintenance: maintenanceTotal,
-        totalPages: Math.ceil(assetTotal / limit),
-      },
-    })
+    return ok(result)
   } catch (error) {
-    logger.error({ err: error }, 'Failed to fetch inventory data')
-    return fail('INTERNAL', 'Failed to fetch inventory data')
+    const { code, message } = handleInventoryError(error, 'Failed to fetch inventory data')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }
 
@@ -162,65 +49,27 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
-  const schoolId = authResult.session.user.schoolId
 
   try {
     const body = await request.json()
     const { action } = body
+    const schoolId = authResult.session.user.schoolId
 
     if (action === 'addAsset') {
-      const { name, category, location, purchaseCost, condition, donorSource, custodian, purchaseDate } = body
-      if (!name || !category) {
-        return fail('VALIDATION', 'Name and category are required')
-      }
-
-      const assetCount = await db.asset.count({ where: { schoolId } })
-      const assetTag = `AST-${String(assetCount + 1).padStart(5, '0')}`
-
-      const asset = await db.asset.create({
-        data: {
-          schoolId,
-          assetTag,
-          name,
-          category,
-          location: location || null,
-          purchaseCost: purchaseCost ? parseFloat(String(purchaseCost)) : 0,
-          purchaseDate: purchaseDate ? new Date(purchaseDate) : new Date(),
-          condition: condition || 'GOOD',
-          donorSource: donorSource || null,
-          custodian: custodian || null,
-        },
-      })
-      logAudit({ action: 'CREATE', entity: 'inventory', entityId: (asset as any)?.id, afterValue: asset }).catch(() => {})
+      const asset = await addAsset(schoolId, body)
       return ok(asset, 201)
     }
 
     if (action === 'requestMaintenance') {
-      const { assetId, description, priority, category, estimatedCost } = body
-      if (!description) {
-        return fail('VALIDATION', 'Description is required')
-      }
-
-      const maintenanceRequest = await db.maintenanceRequest.create({
-        data: {
-          assetId: assetId || null,
-          schoolId,
-          category: category || 'GENERAL',
-          description,
-          priority: priority || 'MEDIUM',
-          status: 'PENDING',
-          estimatedCost: estimatedCost ? parseFloat(String(estimatedCost)) : null,
-        },
-        include: { asset: { select: { name: true, assetTag: true, location: true } } },
-      })
-      logAudit({ action: 'CREATE', entity: 'inventory', entityId: (maintenanceRequest as any)?.id, afterValue: maintenanceRequest }).catch(() => {})
+      const maintenanceRequest = await requestMaintenance(schoolId, body)
       return ok(maintenanceRequest, 201)
     }
 
     return fail('VALIDATION', 'Invalid action. Use: addAsset or requestMaintenance')
   } catch (error) {
-    logger.error({ err: error }, 'Failed to process inventory request')
-    return fail('INTERNAL', 'Failed to process inventory request')
+    const { code, message } = handleInventoryError(error, 'Failed to process inventory request')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }
 
@@ -232,48 +81,21 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
     const { id, type, ...updates } = body
-
-    if (!id) {
-      return fail('VALIDATION', 'ID is required')
-    }
     const schoolId = authResult.session.user.schoolId
 
+    if (!id) return fail('VALIDATION', 'ID is required')
+
     if (type === 'maintenance') {
-      const owned = await db.maintenanceRequest.findFirst({ where: { id, asset: { schoolId } }, select: { id: true } })
-      if (!owned) return fail('NOT_FOUND', 'Not found')
-      const record = await db.maintenanceRequest.update({
-        where: { id },
-        data: {
-          status: updates.status,
-          priority: updates.priority,
-          actualCost: updates.actualCost ? parseFloat(String(updates.actualCost)) : undefined,
-          description: updates.description,
-        },
-        include: { asset: { select: { name: true, assetTag: true } } },
-      })
-      logAudit({ action: 'UPDATE', entity: 'inventory', entityId: (record as any)?.id, afterValue: record }).catch(() => {})
+      const record = await updateMaintenanceRequest(schoolId, id, updates)
       return ok(record)
     }
 
-    const ownedAsset = await db.asset.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!ownedAsset) return fail('NOT_FOUND', 'Not found')
-    const asset = await db.asset.update({
-      where: { id },
-      data: {
-        name: updates.name,
-        category: updates.category,
-        location: updates.location,
-        condition: updates.condition,
-        custodian: updates.custodian,
-        isDisposed: updates.isDisposed,
-        donorSource: updates.donorSource,
-      },
-    })
-    logAudit({ action: 'UPDATE', entity: 'inventory', entityId: (asset as any)?.id, afterValue: asset }).catch(() => {})
+    const asset = await updateAsset(schoolId, id, updates)
     return ok(asset)
   } catch (error) {
-    logger.error({ err: error }, 'Failed to update inventory record')
-    return fail('INTERNAL', 'Failed to update inventory record')
+    const { code, message } = handleInventoryError(error, 'Failed to update inventory record')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }
 
@@ -286,26 +108,20 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     const type = searchParams.get('type')
-
-    if (!id) {
-      return fail('VALIDATION', 'ID is required')
-    }
-
     const schoolId = authResult.session.user.schoolId
+
+    if (!id) return fail('VALIDATION', 'ID is required')
+
     if (type === 'maintenance') {
-      const owned = await db.maintenanceRequest.findFirst({ where: { id, asset: { schoolId } }, select: { id: true } })
-      if (!owned) return fail('NOT_FOUND', 'Not found')
-      await db.maintenanceRequest.delete({ where: { id } })
-    } else {
-      const owned = await db.asset.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return fail('NOT_FOUND', 'Not found')
-      await db.asset.update({ where: { id }, data: { isDisposed: true } })
+      const result = await deleteMaintenanceRequest(schoolId, id)
+      return ok(result)
     }
 
-    logAudit({ action: 'DELETE', entity: 'inventory', entityId: (id ?? undefined) }).catch(() => {})
-    return ok({ message: 'Deleted successfully' })
+    const result = await deleteAsset(schoolId, id)
+    return ok(result)
   } catch (error) {
-    logger.error({ err: error }, 'Failed to delete inventory record')
-    return fail('INTERNAL', 'Failed to delete inventory record')
+    const { code, message } = handleInventoryError(error, 'Failed to delete inventory record')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }
