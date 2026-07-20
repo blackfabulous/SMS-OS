@@ -1,16 +1,21 @@
-import { db } from '@/lib/db'
 import { NextRequest } from 'next/server'
 import { logger } from '@/lib/logger'
 import { ok, fail } from '@/server/http'
-import { logAudit } from '@/lib/audit'
 import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
+import {
+  listCanteen,
+  createCanteenItem,
+  recordCanteenTransaction,
+  updateCanteenItem,
+  deleteCanteenItem,
+  handleCanteenError,
+} from '@/server/services/canteen'
 
 // GET /api/canteen - List menu items, sales, stock with category/status filters
 export async function GET(request: NextRequest) {
   const tenantResult = await getRequestTenant()
   if ('error' in tenantResult) return tenantResult.error
-  const { schoolId } = tenantResult
 
   try {
     const { searchParams } = new URL(request.url)
@@ -20,148 +25,27 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || ''
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
-    const skip = (page - 1) * limit
 
-    // Sales / transactions
-    if (type === 'sales') {
-      const paymentMethod = searchParams.get('paymentMethod')
-      const dateFrom = searchParams.get('dateFrom')
-      const dateTo = searchParams.get('dateTo')
+    const paymentMethod = searchParams.get('paymentMethod')
+    const dateFrom = searchParams.get('dateFrom')
+    const dateTo = searchParams.get('dateTo')
 
-      const txWhere: Record<string, unknown> = { schoolId }
-      if (paymentMethod) txWhere.paymentMethod = paymentMethod
-      if (status) txWhere.status = status
-      if (dateFrom || dateTo) {
-        const dateFilter: Record<string, Date> = {}
-        if (dateFrom) dateFilter.gte = new Date(dateFrom)
-        if (dateTo) dateFilter.lte = new Date(dateTo)
-        txWhere.createdAt = dateFilter
-      }
-
-      const [transactions, total] = await Promise.all([
-        db.canteenTransaction.findMany({
-          where: txWhere,
-          include: { items: { include: { item: true } } },
-          orderBy: { createdAt: 'desc' },
-          skip,
-          take: limit,
-        }),
-        db.canteenTransaction.count({ where: txWhere }),
-      ])
-
-      const totalRevenue = await db.canteenTransaction.aggregate({
-        where: txWhere,
-        _sum: { totalAmount: true },
-      })
-
-      return ok({
-        data: transactions,
-        total,
-        page,
-        totalPages: Math.ceil(total / limit),
-        totalRevenue: Number(totalRevenue._sum.totalAmount ?? 0),
-      })
-    }
-
-    // Stock view - items with stock info
-    if (type === 'stock') {
-      const stockWhere: Record<string, unknown> = { schoolId }
-      if (category) stockWhere.category = category
-      if (status === 'low_stock') {
-        stockWhere.stockQuantity = { lte: db.canteenItem.fields.reorderLevel ? 5 : 5 }
-      } else if (status === 'inactive') {
-        stockWhere.isActive = false
-      } else {
-        stockWhere.isActive = true
-      }
-      if (search) {
-        stockWhere.OR = [
-          { name: { contains: search, mode: 'insensitive' } },
-          { category: { contains: search, mode: 'insensitive' } },
-        ]
-      }
-
-      const [items, total] = await Promise.all([
-        db.canteenItem.findMany({
-          where: stockWhere,
-          orderBy: { name: 'asc' },
-          skip,
-          take: limit,
-        }),
-        db.canteenItem.count({ where: stockWhere }),
-      ])
-
-      const lowStockItems = await db.canteenItem.findMany({
-        where: { schoolId, isActive: true, stockQuantity: { lte: 5 } },
-      })
-
-      return ok({
-        data: items,
-        total,
-        page,
-        totalPages: Math.ceil(total / limit),
-        lowStockItems,
-      })
-    }
-
-    // Default: menu items
-    const where: Record<string, unknown> = { schoolId, isActive: true }
-    if (category) where.category = category
-    if (status === 'inactive') where.isActive = false
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { category: { contains: search, mode: 'insensitive' } },
-      ]
-    }
-
-    const [items, total] = await Promise.all([
-      db.canteenItem.findMany({
-        where,
-        orderBy: { name: 'asc' },
-        skip,
-        take: limit,
-      }),
-      db.canteenItem.count({ where }),
-    ])
-
-    // Statistics
-    const totalItems = await db.canteenItem.count({ where: { schoolId, isActive: true } })
-    const lowStockCount = await db.canteenItem.count({
-      where: { schoolId, isActive: true, stockQuantity: { lte: 5 } },
-    })
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
-    const todayTransactions = await db.canteenTransaction.findMany({
-      where: { schoolId, createdAt: { gte: todayStart } },
-    })
-    const todayRevenue = todayTransactions.reduce((sum, t) => sum + t.totalAmount, 0)
-
-    const categoryBreakdown = await db.canteenItem.groupBy({
-      by: ['category'],
-      where: { schoolId, isActive: true },
-      _count: { id: true },
-    })
-
-    return ok({
-      data: items,
-      total,
+    const result = await listCanteen(tenantResult.schoolId, {
+      type,
+      category,
+      status,
+      search,
       page,
-      totalPages: Math.ceil(total / limit),
-      stats: {
-        totalItems,
-        lowStockItems: lowStockCount,
-        todayRevenue,
-        todayTransactions: todayTransactions.length,
-        categoryBreakdown: categoryBreakdown.map((c) => ({
-          category: c.category,
-          count: c._count.id,
-        })),
-      },
+      limit,
+      paymentMethod,
+      dateFrom,
+      dateTo,
     })
+    return ok(result)
   } catch (error) {
-    logger.error({ err: error }, 'Failed to fetch canteen data')
-    return fail('INTERNAL', 'Failed to fetch canteen data')
+    const { code, message } = handleCanteenError(error, 'Failed to fetch canteen data')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }
 
@@ -169,97 +53,27 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const authResult = await validateRole(['ADMIN', 'BURSAR'])
   if ('error' in authResult) return authResult.error
-  const schoolId = authResult.session.user.schoolId
 
   try {
     const body = await request.json()
     const { action } = body
+    const schoolId = authResult.session.user.schoolId
 
-    // Add menu item
     if (action === 'addItem') {
-      const { name, category, price, costPrice, stockQuantity, reorderLevel } = body
-      if (!name) {
-        return fail('VALIDATION', 'Item name is required')
-      }
-
-      const item = await db.canteenItem.create({
-        data: {
-          schoolId,
-          name,
-          category: category || 'FOOD',
-          price: price || 0,
-          costPrice: costPrice || 0,
-          stockQuantity: stockQuantity || 0,
-          reorderLevel: reorderLevel || 5,
-        },
-      })
-      logAudit({ action: 'CREATE', entity: 'canteen', entityId: (item as any)?.id, afterValue: item }).catch(() => {})
+      const item = await createCanteenItem(schoolId, body)
       return ok(item, 201)
     }
 
-    // Record sale / transaction
     if (action === 'transaction') {
-      const { buyerType, buyerId, buyerName, paymentMethod, items } = body
-      if (!items || !Array.isArray(items) || items.length === 0) {
-        return fail('VALIDATION', 'Items are required')
-      }
-
-      // Generate transaction number
-      const currentYear = new Date().getFullYear()
-      const lastTx = await db.canteenTransaction.findFirst({
-        where: { transactionNumber: { startsWith: `CTX${currentYear}` } },
-        orderBy: { transactionNumber: 'desc' },
-      })
-      const nextNum = lastTx ? parseInt(lastTx.transactionNumber.slice(-4)) + 1 : 1
-      const transactionNumber = `CTX${currentYear}${String(nextNum).padStart(4, '0')}`
-
-      const totalAmount = items.reduce(
-        (sum: number, item: { quantity: number; unitPrice: number }) =>
-          sum + item.quantity * item.unitPrice,
-        0
-      )
-
-      const transaction = await db.canteenTransaction.create({
-        data: {
-          schoolId,
-          transactionNumber,
-          buyerType: buyerType || 'STUDENT',
-          buyerId: buyerId || null,
-          buyerName: buyerName || 'Walk-in',
-          totalAmount,
-          paymentMethod: paymentMethod || 'CASH',
-          status: 'COMPLETED',
-          items: {
-            create: items.map(
-              (item: { itemId: string; quantity: number; unitPrice: number }) => ({
-                schoolId,
-                itemId: item.itemId,
-                quantity: item.quantity || 1,
-                unitPrice: item.unitPrice,
-                totalPrice: item.quantity * item.unitPrice,
-              })
-            ),
-          },
-        },
-        include: { items: { include: { item: true } } },
-      })
-
-      // Decrease stock for each item
-      for (const item of items) {
-        await db.canteenItem.update({
-          where: { id: item.itemId },
-          data: { stockQuantity: { decrement: item.quantity } },
-        })
-      }
-
-      logAudit({ action: 'CREATE', entity: 'canteen', entityId: (transaction as any)?.id, afterValue: transaction }).catch(() => {})
+      const transaction = await recordCanteenTransaction(schoolId, body)
       return ok(transaction, 201)
     }
 
     return fail('VALIDATION', 'Invalid action. Use addItem or transaction')
   } catch (error) {
-    logger.error({ err: error }, 'Failed to process canteen request')
-    return fail('INTERNAL', 'Failed to process canteen request')
+    const { code, message } = handleCanteenError(error, 'Failed to process canteen request')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }
 
@@ -270,31 +84,13 @@ export async function PUT(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { id, ...updates } = body
-    if (!id) {
-      return fail('VALIDATION', 'ID is required')
-    }
-
     const schoolId = authResult.session.user.schoolId
-    const owned = await db.canteenItem.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!owned) return fail('NOT_FOUND', 'Canteen item not found')
-    const item = await db.canteenItem.update({
-      where: { id },
-      data: {
-        name: updates.name,
-        category: updates.category,
-        price: updates.price,
-        costPrice: updates.costPrice,
-        stockQuantity: updates.stockQuantity,
-        reorderLevel: updates.reorderLevel,
-        isActive: updates.isActive,
-      },
-    })
-    logAudit({ action: 'UPDATE', entity: 'canteen', entityId: (item as any)?.id, afterValue: item }).catch(() => {})
+    const item = await updateCanteenItem(schoolId, body)
     return ok(item)
   } catch (error) {
-    logger.error({ err: error }, 'Failed to update canteen item')
-    return fail('INTERNAL', 'Failed to update canteen item')
+    const { code, message } = handleCanteenError(error, 'Failed to update canteen item')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }
 
@@ -306,18 +102,14 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
-    if (!id) {
-      return fail('VALIDATION', 'ID is required')
-    }
+    if (!id) return fail('VALIDATION', 'ID is required')
 
     const schoolId = authResult.session.user.schoolId
-    const owned = await db.canteenItem.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!owned) return fail('NOT_FOUND', 'Canteen item not found')
-    await db.canteenItem.update({ where: { id }, data: { isActive: false } })
-    logAudit({ action: 'DELETE', entity: 'canteen', entityId: (id ?? undefined) }).catch(() => {})
-    return ok({ message: 'Canteen item deleted successfully' })
+    const result = await deleteCanteenItem(schoolId, id)
+    return ok(result)
   } catch (error) {
-    logger.error({ err: error }, 'Failed to delete canteen item')
-    return fail('INTERNAL', 'Failed to delete canteen item')
+    const { code, message } = handleCanteenError(error, 'Failed to delete canteen item')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }
