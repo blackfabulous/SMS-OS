@@ -182,7 +182,7 @@
 | CI build time | <10 minutes | Not measured (CI not live). |
 | `console.*` in production | 0 | 0 in `src/app/api`; Pino patches console globally. |
 | Secrets in repo | 0 | `.env.example` still contains a real Supabase password. |
-| Modules migrated to standard | All modules use typed data layer | In progress; reports service done; decomposition of monoliths pending. |
+| Modules migrated to standard | All modules use typed data layer | In progress; reports service done; decomposition pilot completed for `timetable-module.tsx` (`src/components/modules/timetable/`). |
 | Average route handler size | <50 lines | Not yet achieved for EMIS/report-card HTML routes; most routes now thin wrappers. |
 | New route pages | Server-rendered by default | Dashboard routes exist at `/dashboard/[module]`; internal module buttons still module-swap (pending). |
 
