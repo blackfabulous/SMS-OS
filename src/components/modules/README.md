@@ -37,6 +37,7 @@ src/components/modules/
 - `timetable/` — extracted from `timetable-module.tsx`
 - `sdc/` — extracted from `sdc-module.tsx`
 - `sms/` — extracted from `sms-dialog.tsx`
+- `paynow/` — extracted from `paynow-dialog.tsx`
 
 ## Next candidates
 
