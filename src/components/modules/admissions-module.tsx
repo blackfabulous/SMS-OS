@@ -65,7 +65,6 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 import { toast } from 'sonner'
-import { useAppStore } from '@/lib/store'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
