@@ -41,6 +41,8 @@ export const CreateInvoiceSchema = z.object({
     .min(1, 'At least one invoice item is required'),
 })
 
+export type CreateInvoiceInput = z.infer<typeof CreateInvoiceSchema>
+
 // Only the genuinely-required fields are validated; the route reads the many
 // optional profile fields directly from the body afterwards.
 export const CreateStudentSchema = z.object({

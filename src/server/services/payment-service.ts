@@ -86,4 +86,18 @@ export async function createPaymentWithDefaults(
   return payment
 }
 
+export async function markPaymentReversed(schoolId: string, id: string): Promise<PaymentWithRelations> {
+  const existing = await findPayment(schoolId, id)
+  if (!existing) throw new AppError('NOT_FOUND', 'Payment not found')
+
+  const payment = await db.feePayment.update({
+    where: { id },
+    data: { isReversed: true },
+    include: { student: { select: { firstName: true, lastName: true } } },
+  })
+
+  logAudit({ action: 'UPDATE', entity: 'payments', entityId: payment.id, schoolId, afterValue: payment }).catch(() => {})
+  return payment as unknown as PaymentWithRelations
+}
+
 export { findPayment, listPayments, reversePaymentById, type PaymentWithRelations }

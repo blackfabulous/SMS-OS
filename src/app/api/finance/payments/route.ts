@@ -1,4 +1,3 @@
-import { db } from '@/lib/db'
 import { logAudit } from '@/lib/audit'
 import { AppError, isAppError } from '@/lib/errors'
 import { requireContext } from '@/server/context'
@@ -12,6 +11,7 @@ import {
   createPaymentWithDefaults,
   findPayment,
   listPayments,
+  markPaymentReversed,
   reversePaymentById,
 } from '@/server/services/payment-service'
 
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
 
     const extra: Record<string, unknown> = { ...scope.where }
     if (scope.staff && studentId) extra.studentId = studentId
-    if (paymentMethod) extra.paymentMethod = paymentMethod
+    if (paymentMethod) extra.paymentMethod = paymentMethod as any
     if (startDate || endDate) {
       extra.createdAt = {}
       if (startDate) (extra.createdAt as Record<string, unknown>).gte = new Date(startDate)
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
     }
 
     const { data, total } = await listPayments(result.ctx.schoolId, {
-      where: extra,
+      where: extra as any,
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
@@ -136,26 +136,18 @@ export async function PUT(request: Request) {
 
   try {
     const body = await request.json()
-    const { id, ...updates } = body
+    const { id } = body
     if (!id) {
       return fail('VALIDATION', 'Payment ID is required')
     }
 
-    const existing = await findPayment(ctx.schoolId, id)
-    if (!existing) {
-      return fail('NOT_FOUND', 'Payment not found')
-    }
-
-    const payment = await db.feePayment.update({
-      where: { id },
-      data: { isReversed: updates.isReversed },
-      include: { student: { select: { firstName: true, lastName: true } } },
-    })
-
-    logAudit({ action: 'UPDATE', entity: 'payments', entityId: payment.id, afterValue: payment }).catch(() => {})
+    const payment = await markPaymentReversed(ctx.schoolId, id)
     return ok(payment)
   } catch (error) {
     logger.error({ err: error }, 'Error updating payment')
+    if (isAppError(error)) {
+      return fail(error.code, error.message, error.details)
+    }
     return fail('INTERNAL', 'Failed to update payment')
   }
 }
@@ -181,11 +173,13 @@ export async function DELETE(request: Request) {
     }
 
     const payment = await reversePaymentById(ctx.schoolId, id)
-
-    logAudit({ action: 'DELETE', entity: 'payments', entityId: id }).catch(() => {})
+    logAudit({ action: 'DELETE', entity: 'payments', entityId: id, schoolId: ctx.schoolId }).catch(() => {})
     return ok({ message: 'Payment reversed successfully', payment })
   } catch (error) {
     logger.error({ err: error }, 'Error reversing payment')
+    if (isAppError(error)) {
+      return fail(error.code, error.message, error.details)
+    }
     return fail('INTERNAL', 'Failed to reverse payment')
   }
 }
