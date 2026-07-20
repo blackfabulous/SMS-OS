@@ -1,5 +1,13 @@
 import { test, expect } from '@playwright/test'
 
+test('deep health endpoint is healthy', async ({ request }) => {
+  const res = await request.get('/api/health/deep')
+  expect(res.status()).toBe(200)
+  const body = (await res.json()) as { data?: { status: string; checks: Record<string, string> } }
+  expect(body.data?.status).toBe('healthy')
+  expect(body.data?.checks.database).toBe('ok')
+})
+
 test.describe('public pages', () => {
   test('homepage loads', async ({ page }) => {
     await page.goto('/')
