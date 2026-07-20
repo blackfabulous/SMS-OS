@@ -76,6 +76,21 @@ test.describe('authenticated smoke', () => {
     await expect(page.getByRole('heading', { name: 'Timetable' }).first()).toBeVisible()
   })
 
+  const modules = [
+    { id: 'admissions', label: 'Admissions' },
+    { id: 'academics', label: 'Academics' },
+    { id: 'attendance', label: 'Attendance' },
+    { id: 'examinations', label: 'Examinations' },
+    { id: 'boarding', label: 'Boarding' },
+    { id: 'payroll', label: 'Payroll' },
+  ]
+  for (const { id, label } of modules) {
+    test(`${id} module loads`, async ({ page }) => {
+      await page.goto(`/dashboard/${id}`)
+      await expect(page.getByRole('heading', { name: label }).first()).toBeVisible()
+    })
+  }
+
   test('settings module loads', async ({ page }) => {
     await page.goto('/dashboard/settings')
     await expect(page.getByRole('heading', { name: 'Settings' }).first()).toBeVisible()
