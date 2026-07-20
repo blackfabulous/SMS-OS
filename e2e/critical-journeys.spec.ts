@@ -9,6 +9,16 @@ test.describe('authenticated critical journeys', () => {
     // Core finance summary cards should be present once data loads.
     await expect(page.getByText(/Total Invoiced|Total Collected|Total Outstanding/i).first()).toBeVisible()
   })
+
+  test('admin searches for and opens a student record', async ({ page }) => {
+    await page.goto('/dashboard/students')
+    const search = page.getByPlaceholder(/Search by name/i)
+    await search.fill('Tendai')
+    const row = page.getByRole('row').filter({ hasText: /Tendai/i }).first()
+    await expect(row).toBeVisible()
+    await row.click()
+    await expect(page.getByRole('heading', { name: 'Student Details' }).first()).toBeVisible()
+  })
 })
 
 test.describe('public critical journeys', () => {
