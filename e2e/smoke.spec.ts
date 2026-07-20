@@ -13,9 +13,18 @@ test.describe('public pages', () => {
     await expect(page.locator('form')).toBeVisible()
   })
 
-  test('contact page loads', async ({ page }) => {
+  test('contact page loads and submits', async ({ page }) => {
     await page.goto('/contact')
     await expect(page.getByRole('heading', { name: /Contact Us/i })).toBeVisible()
+
+    await page.getByLabel(/Name/i).fill('Test User')
+    await page.getByLabel(/Email/i).fill('test@example.com')
+    await page.getByLabel(/Phone/i).fill('+263772000000')
+    await page.getByLabel(/Subject/i).fill('E2E smoke test')
+    await page.getByLabel(/Message/i).fill('This is a test message from Playwright.')
+    await page.getByRole('button', { name: /Send message/i }).click()
+
+    await expect(page.getByRole('heading', { name: 'Message sent' })).toBeVisible()
   })
 
   test('admissions apply page loads', async ({ page }) => {
