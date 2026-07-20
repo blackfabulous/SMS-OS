@@ -182,7 +182,7 @@
 | CI build time | <10 minutes | Not measured (CI not live). |
 | `console.*` in production | 0 | 0 in `src/app/api`; Pino patches console globally. |
 | Secrets in repo | 0 | `.env.example` uses placeholder values; no live credentials detected. |
-| Modules migrated to standard | All modules use typed data layer | In progress; reports service done; decomposition pilots completed for `timetable-module.tsx`, `sdc-module.tsx`, `sms-dialog.tsx`, and `paynow-dialog.tsx`. |
+| Modules migrated to standard | All modules use typed data layer | In progress; reports service done; decomposition pilots completed for `timetable-module.tsx`, `sdc-module.tsx`, `sms-dialog.tsx`, `paynow-dialog.tsx`, and `admissions-module.tsx`. |
 | Average route handler size | <50 lines | Not yet achieved for EMIS/report-card HTML routes; most routes now thin wrappers. |
 | New route pages | Server-rendered by default | Dashboard routes exist at `/dashboard/[module]`; internal module buttons still module-swap (pending). |
 
