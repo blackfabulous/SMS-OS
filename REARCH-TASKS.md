@@ -96,8 +96,8 @@
 | ID | Task | Pri | Effort | Deps | Acceptance |
 |----|------|-----|--------|------|-----------|
 | RA-C1 | **Create `src/server/repositories/` structure** + tenant-scoped helper (`tenant-scope.ts`) and a payments reference repository | P1 | M | — | Payments repository injects `schoolId` and is used by `/api/finance/payments`; remaining contexts to follow |
-| RA-C2 | Migrate domain logic into services context-by-context (payments, notifications, settings, attendance, report-cards done; finance invoices, examinations, students, staff, and others pending) | P1 | XL | RA-C1 | Each service unit-tested; routes thin |
-| RA-C3 | **Response envelope** `{data}` / `{error:{code,message,details}}` + `ok()`/`fail()` helpers in `src/server/http.ts` | P2 | S | — | Helpers created; `/api/finance/payments`, `/api/notifications/send`, `/api/attendance`, `/api/dashboard`, `/api/finance` (GET), `/api/settings`, `/api/school`, and `/api/audit` converted; route-wide rollout pending |
+| RA-C2 | Migrate domain logic into services context-by-context (payments, notifications, settings, attendance, report-cards, reports/EMIS, report-card workflow done; examinations, students, staff, and others pending) | P1 | XL | RA-C1 | Each service unit-tested; routes thin |
+| RA-C3 | **Response envelope** `{data}` / `{error:{code,message,details}}` + `ok()`/`fail()` helpers in `src/server/http.ts` | P2 | S | — | Done — all API routes now use `ok()`/`fail()`; no `NextResponse.json` or `console.*` in `src/app/api` |
 | RA-C4 | **Outbox table + worker** for notifications/SMS/email/reports — replace fire-and-forget | P0 | L | RA-A7 | Done — `src/server/outbox.ts` with registry, `processOutboxJob`, `processOutbox`; handlers for `notification.dispatch`, `notification.batch`, `report.generate`; `/api/outbox/process` endpoint |
 | RA-C5 | **Idempotency keys** for money/comms operations — `src/lib/idempotency.ts` with Postgres-backed `IdempotencyKey` store | P2 | M | RA-C2 | Done — applied to `/api/finance/payments` (POST) and `/api/notifications/send`; safe retries with stored responses |
 | RA-C6 | Adopt **Server Actions** for form mutations (admissions, settings, marks) | P2 | M | RA-C1 | Forms use actions + shared Zod |
@@ -121,7 +121,7 @@
 | ID | Task | Pri | Effort | Deps | Acceptance |
 |----|------|-----|--------|------|-----------|
 | RA-E1 | **`QueryClientProvider` + typed `api` client** over the response envelope | P1 | S | RA-C3 | TanStack wired app-wide |
-| RA-E2 | **Replace ad-hoc `fetch`** with TanStack Query hooks (`use-<feature>.ts`) — per module as it migrates | P2 | XL | RA-E1, RA-D2 | Caching/optimistic updates; 0 raw `fetch('/api')` in modules |
+| RA-E2 | **Replace ad-hoc `fetch`** with TanStack Query hooks (`use-<feature>.ts`) — per module as it migrates | P2 | XL | RA-E1, RA-D2 | Done — 0 raw `fetch('/api')` calls in `src`; public forms and currency utility use `apiPost`/`apiFetch` |
 
 ---
 
@@ -184,4 +184,4 @@ The 2026-07-10 push lands the P0 items needed before wider refactoring:
 - RA-G3/RA-G4: CI + Docker wiring.
 - Updated `REARCHITECTURE-BLUEPRINT.md` and `REARCH-TASKS.md`.
 
-Remaining work (RA-A5 full `schoolId` backfill, RA-A9 identity model, RA-D2 routing, RA-E2 TanStack Query, etc.) is queued in the Phase 1–5 backlog above.
+Remaining work (RA-A9 identity model, RA-D2 routing, RA-D3 module decomposition, RA-F design system, RA-G5 Playwright E2E) is queued in the Phase 1–5 backlog above.

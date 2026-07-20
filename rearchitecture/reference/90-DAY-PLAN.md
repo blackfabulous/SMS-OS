@@ -23,6 +23,7 @@
 - [x] Create `src/server/db/` with tenant-scoped Prisma helpers (`tenant.ts`, plus `src/lib/db.ts` RLS-aware extension).
 - [x] Create `src/server/services/` with a `settings/` context as the reference implementation.
 - [x] Add `ok()` / `fail()` response envelope helpers.
+- [x] Convert all API routes to `ok()` / `fail()`; eliminate `NextResponse.json` and `console.*` in `src/app/api`.
 - [~] Add central `policies.ts` for RBAC with one sample policy (`settings.read`, `settings.update`) — RBAC matrix lives in `src/lib/rbac.ts`; central `policies.ts` wrapper not yet created.
 - [x] Set up Vitest + one sample unit test for the `settings` service (`tests/settings-schema.test.ts`, plus tenant-safety and server-foundation tests).
 - [x] Add `cross-tenant` test harness that asserts `schoolId` isolation.
@@ -145,9 +146,9 @@
 
 ### Week 12: Assessment (Grading, Marks, Report Cards)
 
-- [~] Consolidate duplicated grading ladders into `GradingScale` service (ZIMSEC scale lives in settings registry; grading helpers in `src/server/algorithms/`).
-- [~] Migrate `Assessment`, `AssessmentMark`, `ReportCard` to service layer (`src/server/services/report-cards.ts` exists; not fully converted).
-- [~] Add report-card workflow (draft → review → publish) (`tests/report-card-workflow.test.ts` validates workflow; route wiring needs finishing).
+- [x] Consolidate duplicated grading ladders into `GradingScale` service (ZIMSEC scale in settings registry; grading helpers in `src/server/algorithms/`).
+- [x] Migrate `Assessment`, `AssessmentMark`, `ReportCard` to service layer (`src/server/services/reports.ts` handles EMIS, report-card data, and workflow transitions).
+- [x] Add report-card workflow (draft → review → publish) (`tests/report-card-workflow.test.ts` validates workflow; routes use `transitionReportCard`).
 - [x] Add ZIMSEC grading support as data-driven rules (default scale in settings registry).
 - [ ] Add parent/teacher report-card views.
 
@@ -160,7 +161,7 @@
 
 ## Phase 5 — Stabilization & Handoff (Week 13 and beyond)
 
-- [~] Migrate remaining contexts (Operations, Welfare, Communications, CMS, Portals, Reports/EMIS/Analytics) using the standard slice (many routes converted to `ok()/fail()` and modules to TanStack Query; service extraction and decomposition still pending).
+- [~] Migrate remaining contexts (Operations, Welfare, Communications, CMS, Portals, Students/Staff, Examinations, Timetable) using the standard slice. Reports/EMIS/Analytics routes are now service-backed; frontend modules all use TanStack Query or typed `api-client`.
 - [ ] Run a full adversarial security review.
 - [ ] Add Playwright E2E for parent and student portals.
 - [ ] Add PWA/offline strategy for attendance entry.
@@ -175,15 +176,15 @@
 | Metric | Target by Week 12 | Status |
 |--------|-------------------|--------|
 | Cross-tenant tests | 100% pass, cover all tenant-owned resources | Partial — static route guard + dynamic finance tests pass; per-resource coverage pending. |
-| Service-layer coverage | 100% of finance, assessment, people, settings logic | Partial — settings/payments/report-cards started. |
+| Service-layer coverage | 100% of finance, assessment, people, settings logic | Partial — settings/payments/report-cards/reports done; people/examinations/timetable pending. |
 | Unit test coverage | ≥70% of service layer | Not yet measured. |
 | E2E critical journeys | 5 critical journeys passing in CI | Not yet implemented (`e2e/smoke.spec.ts` is a stub). |
 | CI build time | <10 minutes | Not measured (CI not live). |
-| `console.*` in production | 0 | Pino patches console; direct `console.*` still being swept. |
+| `console.*` in production | 0 | 0 in `src/app/api`; Pino patches console globally. |
 | Secrets in repo | 0 | `.env.example` still contains a real Supabase password. |
-| Modules migrated to standard | 10+ of the 41 modules (core contexts done) | In progress; ~10 modules converted to typed TanStack Query hooks. |
-| Average route handler size | <50 lines | Not yet achieved for large monolith routes. |
-| New route pages | Server-rendered by default | Dashboard still uses module-swap pattern. |
+| Modules migrated to standard | All modules use typed data layer | In progress; reports service done; decomposition of monoliths pending. |
+| Average route handler size | <50 lines | Not yet achieved for EMIS/report-card HTML routes; most routes now thin wrappers. |
+| New route pages | Server-rendered by default | Dashboard routes exist at `/dashboard/[module]`; internal module buttons still module-swap (pending). |
 
 ---
 

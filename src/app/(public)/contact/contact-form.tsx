@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Loader2, Send, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { apiPost } from '@/lib/api-client'
 
 const inputCls = 'w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
 const labelCls = 'mb-1.5 block text-sm font-medium text-foreground'
@@ -23,13 +24,7 @@ export function ContactForm() {
     setSubmitting(true)
     setError('')
     try {
-      const res = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to send')
+      await apiPost('/api/contact', form)
       setSent(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')

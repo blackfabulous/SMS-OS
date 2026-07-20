@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { School, Lock, Eye, EyeOff, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { apiPost } from '@/lib/api-client'
 
 function ResetInner() {
   const token = useSearchParams().get('token') ?? ''
@@ -22,12 +23,7 @@ function ResetInner() {
     e.preventDefault()
     setLoading(true); setError('')
     try {
-      const res = await fetch('/api/password/reset', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, password }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Reset failed')
+      await apiPost('/api/password/reset', { token, password })
       setDone(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')

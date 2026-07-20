@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { User, Users, CheckCircle2, ArrowRight, ArrowLeft, Loader2, PartyPopper } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { apiPost } from '@/lib/api-client'
 
 interface ApplyFormProps {
   gradeOptions: string[]
@@ -51,13 +52,7 @@ export function ApplyForm({ gradeOptions }: ApplyFormProps) {
     setSubmitting(true)
     setError('')
     try {
-      const res = await fetch('/api/admissions/apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Submission failed')
+      const data = await apiPost<{ reference: string }>('/api/admissions/apply', form)
       setDone({ reference: data.reference })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')

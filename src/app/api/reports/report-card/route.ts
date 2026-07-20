@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
 import { logger } from '@/lib/logger'
 import { ok, fail } from '@/server/http'
-import { validateAuth, validateRole } from '@/lib/api-auth'
+import { validateRole } from '@/lib/api-auth'
 import { getRequestTenant } from '@/lib/tenant'
 import { logAudit } from '@/lib/audit'
-import { getSetting } from '@/lib/settings'
-import { symbolForMark, computeFinalMark } from '@/lib/grading'
 import { requireContext } from '@/server/context'
 import { canAccessStudent } from '@/server/student-access'
-import { transition, type ReportCardAction, type ReportCardStatus, type Role } from '@/lib/report-card-workflow'
-import { Prisma } from '@prisma/client'
+import { type ReportCardAction, type Role } from '@/lib/report-card-workflow'
+import { getReportCardData, transitionReportCard, handleReportsError } from '@/server/services/reports'
 
 export async function GET(request: NextRequest) {
   const result = await requireContext()
@@ -21,7 +18,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const studentId = searchParams.get('studentId')
     const termId = searchParams.get('termId')
-    const academicYearId = searchParams.get('academicYearId')
 
     if (!studentId || !termId) {
       return fail('VALIDATION', 'studentId and termId are required')
@@ -33,146 +29,10 @@ export async function GET(request: NextRequest) {
       return fail('NOT_FOUND', 'Student not found')
     }
 
-    // Fetch student details — SCOPED to the caller's school (tenant isolation).
-    const student = await db.student.findFirst({
-      where: { id: studentId, schoolId: ctx.schoolId },
-      include: {
-        enrollments: {
-          where: { status: 'ACTIVE' },
-          include: { class: { include: { grade: true } } },
-          take: 1,
-        },
-        parentLinks: {
-          where: { isPrimary: true },
-          include: { parent: true },
-          take: 1,
-        },
-        attendanceRecords: {
-          where: { termId },
-        },
-        assessmentMarks: {
-          where: {
-            assessment: { termId },
-          },
-          include: {
-            assessment: {
-              include: { subject: true },
-            },
-          },
-        },
-        reportCards: {
-          where: { termId },
-          take: 1,
-        },
-      },
-    })
-
-    if (!student) {
-      return fail('NOT_FOUND', 'Student not found')
-    }
-
-    // Fetch school info (scoped to the caller's school)
-    const school = await db.school.findUnique({ where: { id: ctx.schoolId } })
-
-    // Fetch term info
-    const term = await db.term.findUnique({
-      where: { id: termId },
-      include: { academicYear: true },
-    })
-
-    // Build report card data
-    const currentEnrollment = student.enrollments[0]
-    const primaryParent = student.parentLinks[0]?.parent
-
-    // Group assessment marks by subject
-    const subjectMarks: Record<string, {
-      subject: string
-      midTerm: number | null
-      test: number | null
-      exam: number | null
-      grade: string
-    }> = {}
-
-    for (const mark of student.assessmentMarks) {
-      const subjectName = mark.assessment.subject.name
-      if (!subjectMarks[subjectName]) {
-        subjectMarks[subjectName] = {
-          subject: subjectName,
-          midTerm: null,
-          test: null,
-          exam: null,
-          grade: '',
-        }
-      }
-      const type = mark.assessment.assessmentType
-      if (type === 'MID_TERM' || type === 'MIDTERM') {
-        subjectMarks[subjectName].midTerm = mark.marksObtained
-      } else if (type === 'TEST' || type === 'ASSIGNMENT') {
-        subjectMarks[subjectName].test = mark.marksObtained
-      } else if (type === 'EXAM' || type === 'FINAL') {
-        subjectMarks[subjectName].exam = mark.marksObtained
-      }
-      if (mark.grade) {
-        subjectMarks[subjectName].grade = mark.grade
-      }
-    }
-
-    // Grading scale + CA weighting come from the school settings (ZIMSEC by default).
-    const gradingScale = await getSetting(student.schoolId, 'grading.scale')
-    const caWeight = await getSetting(student.schoolId, 'grading.continuousAssessmentWeight')
-
-    // Attendance summary
-    const totalDays = student.attendanceRecords.length
-    const daysPresent = student.attendanceRecords.filter(r => r.status === 'PRESENT').length
-    const daysAbsent = student.attendanceRecords.filter(r => r.status === 'ABSENT').length
-    const daysLate = student.attendanceRecords.filter(r => r.status === 'LATE').length
-
-    // Report card from DB if exists
-    const reportCard = student.reportCards[0]
-
-    // Build subjects array for the HTML
-    const subjectsHtml = Object.values(subjectMarks).map(sm => {
-      // Continuous assessment = tests/mid-term; exam weighted per settings.
-      const finalScore = computeFinalMark({
-        continuousAssessment: sm.test ?? sm.midTerm ?? null,
-        exam: sm.exam ?? null,
-        caWeight,
-      })
-      const grade = sm.grade || symbolForMark(finalScore, gradingScale)
-      return {
-        subject: sm.subject,
-        midTerm: sm.midTerm ?? '—',
-        test: sm.test ?? '—',
-        exam: sm.exam ?? '—',
-        grade,
-      }
-    })
-
-    // If no assessment marks, provide placeholder subjects
-    if (subjectsHtml.length === 0) {
-      const placeholderSubjects = [
-        { subject: 'Mathematics', midTerm: 62, test: 58, exam: 65, grade: 'C' },
-        { subject: 'English Language', midTerm: 71, test: 68, exam: 74, grade: 'B' },
-        { subject: 'Shona', midTerm: 78, test: 82, exam: 80, grade: 'A' },
-        { subject: 'Physics', midTerm: 55, test: 52, exam: 58, grade: 'D' },
-        { subject: 'Chemistry', midTerm: 60, test: 57, exam: 63, grade: 'C' },
-        { subject: 'Biology', midTerm: 68, test: 65, exam: 70, grade: 'B' },
-        { subject: 'History', midTerm: 74, test: 70, exam: 76, grade: 'B' },
-        { subject: 'Geography', midTerm: 65, test: 62, exam: 67, grade: 'C' },
-        { subject: 'Accounts', midTerm: 58, test: 55, exam: 60, grade: 'C' },
-        { subject: 'Computer Science', midTerm: 72, test: 75, exam: 78, grade: 'A' },
-      ]
-      subjectsHtml.push(...placeholderSubjects)
-    }
-
-    // Generate the full HTML for the report card
-    const totalScore = subjectsHtml.reduce((sum, s) => sum + (typeof s.exam === 'number' ? s.exam : 0), 0)
-    const avgScore = subjectsHtml.length > 0 ? (totalScore / subjectsHtml.length).toFixed(1) : '0'
+    const { student, school, term, currentEnrollment, primaryParent, reportCard, subjectsHtml, totalDays, daysPresent, daysAbsent, daysLate, totalScore, avgScore } = await getReportCardData(ctx.schoolId, studentId, termId)
 
     // Next term info
-    const nextTermDate = term?.academicYear
-      ? 'To be announced'
-      : 'To be announced'
+    const nextTermDate = term?.academicYear ? 'To be announced' : 'To be announced'
 
     const gradeColor = (g: string) => {
       if (g === 'A' || g === 'A*') return '#065f46'
@@ -568,8 +428,9 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    logger.error({ err: error }, 'Report card generation error')
-    return fail('INTERNAL', 'Failed to generate report card')
+    const { code, message } = handleReportsError(error, 'Failed to generate report card')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }
 
@@ -595,30 +456,15 @@ export async function PATCH(request: NextRequest) {
     return fail('VALIDATION', 'reportCardId and action are required')
   }
 
-  // Load the card scoped to the caller's school (via the student relation).
-  const card = await db.reportCard.findFirst({
-    where: { id: body.reportCardId, student: { schoolId: tenant.schoolId } },
-    select: { id: true, status: true },
-  })
-  if (!card) return fail('NOT_FOUND', 'Report card not found')
+  const { reportCardId, action, classTeacherComment, headComment } = body
 
-  const result = transition(card.status as ReportCardStatus, body.action, role)
-  if (!result.ok) {
-    return result.code === 'FORBIDDEN'
-      ? fail('FORBIDDEN', result.error)
-      : fail('VALIDATION', result.error)
+  try {
+    const updated = await transitionReportCard(tenant.schoolId, role, { reportCardId, action, classTeacherComment, headComment })
+    logAudit({ action: 'UPDATE', entity: 'report-card.workflow', entityId: reportCardId, afterValue: { action, status: updated.status } }).catch(() => {})
+    return ok(updated)
+  } catch (error) {
+    const { code, message } = handleReportsError(error, 'Failed to update report card')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
-
-  const data: Prisma.ReportCardUpdateInput = { status: result.next, isPublished: result.effects.isPublished }
-  if (result.effects.classTeacherSignedAt === 'set') data.classTeacherSignedAt = new Date()
-  if (result.effects.classTeacherSignedAt === 'clear') data.classTeacherSignedAt = null
-  if (result.effects.headSignedAt === 'set') data.headSignedAt = new Date()
-  if (result.effects.headSignedAt === 'clear') data.headSignedAt = null
-  if (typeof body.classTeacherComment === 'string') data.classTeacherComment = body.classTeacherComment
-  if (typeof body.headComment === 'string') data.headComment = body.headComment
-
-  const updated = await db.reportCard.update({ where: { id: card.id }, data })
-  logAudit({ action: 'UPDATE', entity: 'report-card.workflow', entityId: card.id, afterValue: { action: body.action, status: result.next } }).catch(() => {})
-
-  return ok({ id: updated.id, status: updated.status, isPublished: updated.isPublished })
 }

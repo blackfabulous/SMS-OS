@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
-import { db } from '@/lib/db'
 import { logger } from '@/lib/logger'
 import { fail } from '@/server/http'
 import { requireContext } from '@/server/context'
+import { getEmisCensusData, handleReportsError } from '@/server/services/reports'
 
 export async function GET() {
   // EMIS census is an administrative (head/admin) export. Restrict to admins.
@@ -12,25 +12,21 @@ export async function GET() {
   const { schoolId } = result.ctx
 
   try {
-    // Fetch school data — every query MUST be scoped to schoolId. (Previously
-    // unscoped: findFirst() returned an arbitrary school and the rest returned
-    // ALL tenants' rows — a cross-tenant data breach.)
-    const school = await db.school.findUnique({ where: { id: schoolId } })
-    const students = await db.student.findMany({
-      where: { schoolId, enrollmentStatus: 'ACTIVE' },
-      include: {
-        enrollments: {
-          where: { status: 'ACTIVE' },
-          include: { class: { include: { grade: true } } },
-          take: 1,
-        },
-      },
-    })
-    const staffMembers = await db.staff.findMany({
-      where: { schoolId, isActive: true },
-    })
-    const assets = await db.asset.findMany({ where: { schoolId } })
-    const invoices = await db.feeInvoice.findMany({ where: { student: { schoolId } } })
+    const {
+      school,
+      students,
+      staffMembers,
+      invoices,
+      gradeGenderMap,
+      maleTeachers,
+      femaleTeachers,
+      maleNonTeach,
+      femaleNonTeach,
+      totalInvoiced,
+      totalCollected,
+      totalOutstanding,
+      pupilTeacherRatio,
+    } = await getEmisCensusData(schoolId)
 
     // Create workbook
     const workbook = new ExcelJS.Workbook()
@@ -135,23 +131,6 @@ export async function GET() {
       cell.alignment = { horizontal: 'center' }
     })
 
-    // Calculate enrollment by grade and gender
-    const gradeGenderMap: Record<string, { boys: number; girls: number; beam: number }> = {}
-    for (const student of students) {
-      const gradeName = student.enrollments[0]?.class?.grade?.name || 'Unknown'
-      if (!gradeGenderMap[gradeName]) {
-        gradeGenderMap[gradeName] = { boys: 0, girls: 0, beam: 0 }
-      }
-      if (student.gender === 'MALE') {
-        gradeGenderMap[gradeName].boys++
-      } else {
-        gradeGenderMap[gradeName].girls++
-      }
-      if (student.beamStatus === 'APPROVED' || student.beamStatus === 'ACTIVE') {
-        gradeGenderMap[gradeName].beam++
-      }
-    }
-
     let totalBoys = 0
     let totalGirls = 0
     let totalBeam = 0
@@ -198,13 +177,7 @@ export async function GET() {
       cell.alignment = { horizontal: 'center' }
     })
 
-    const teachingStaff = staffMembers.filter(s => s.staffType === 'TEACHING')
-    const nonTeachingStaff = staffMembers.filter(s => s.staffType !== 'TEACHING')
 
-    const maleTeachers = teachingStaff.filter(s => s.gender === 'MALE').length
-    const femaleTeachers = teachingStaff.filter(s => s.gender === 'FEMALE').length
-    const maleNonTeach = nonTeachingStaff.filter(s => s.gender === 'MALE').length
-    const femaleNonTeach = nonTeachingStaff.filter(s => s.gender === 'FEMALE').length
 
     const staffRows = [
       ['Headmaster', 1, 0, 1],
@@ -228,7 +201,7 @@ export async function GET() {
 
     // Pupil:Teacher Ratio
     staffSheet.addRow([])
-    staffSheet.addRow(['Pupil:Teacher Ratio', '', '', `${Math.round(students.length / Math.max(teachingStaff.length, 1))}:1`])
+    staffSheet.addRow(['Pupil:Teacher Ratio', '', '', `${pupilTeacherRatio}:1`])
 
     // ─── Sheet 4: Infrastructure ─────────────────────────────────────────
     const infraSheet = workbook.addWorksheet('Infrastructure', {
@@ -297,9 +270,7 @@ export async function GET() {
       cell.alignment = { horizontal: 'center' }
     })
 
-    const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0)
-    const totalCollected = invoices.reduce((sum, inv) => sum + inv.amountPaid, 0)
-    const totalOutstanding = totalInvoiced - totalCollected
+
     const collectionRate = totalInvoiced > 0 ? ((totalCollected / totalInvoiced) * 100).toFixed(1) : '0'
 
     const financeRows = [
@@ -337,7 +308,8 @@ export async function GET() {
       },
     })
   } catch (error) {
-    logger.error({ err: error }, 'EMIS export error')
-    return fail('INTERNAL', 'Failed to generate EMIS export')
+    const { code, message } = handleReportsError(error, 'Failed to generate EMIS export')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }

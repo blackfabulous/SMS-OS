@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
-import { db } from '@/lib/db'
 import { logger } from '@/lib/logger'
 import { fail } from '@/server/http'
 import { requireContext } from '@/server/context'
+import { getEmisDetailedCensusData, handleReportsError } from '@/server/services/reports'
 
 export async function GET(request: NextRequest) {
   // EMIS census is an administrative (head/admin) export. Restrict to admins.
@@ -16,87 +16,24 @@ export async function GET(request: NextRequest) {
     const academicYearId = searchParams.get('academicYearId')
     const termId = searchParams.get('termId')
 
-    // ── Fetch all required data — every query MUST be scoped to schoolId.
-    // (Previously unscoped: returned ALL tenants' rows — a cross-tenant breach.)
-    const school = await db.school.findUnique({ where: { id: schoolId } })
-
-    // Determine the academic year (scoped to this school)
-    let academicYear: { id: string; name: string; startDate: Date } | null = null
-    if (academicYearId) {
-      academicYear = await db.academicYear.findFirst({ where: { id: academicYearId, schoolId } })
-    }
-    if (!academicYear) {
-      academicYear = await db.academicYear.findFirst({ where: { isCurrent: true, schoolId } })
-    }
-    if (!academicYear) {
-      academicYear = await db.academicYear.findFirst({ where: { schoolId } })
-    }
-
-    // Determine the term (scoped via its academic year → school)
-    let targetTerm: { id: string; name: string; termNumber: number; startDate: Date; endDate: Date } | null = null
-    if (termId) {
-      targetTerm = await db.term.findFirst({ where: { id: termId, academicYear: { schoolId } } })
-    }
-    if (!targetTerm && academicYear) {
-      targetTerm = await db.term.findFirst({
-        where: { academicYearId: academicYear.id, isCurrent: true },
-      })
-    }
-    if (!targetTerm && academicYear) {
-      targetTerm = await db.term.findFirst({
-        where: { academicYearId: academicYear.id },
-        orderBy: { termNumber: 'asc' },
-      })
-    }
-
-    // Fetch students with enrollment info
-    const students = await db.student.findMany({
-      where: { schoolId, enrollmentStatus: 'ACTIVE' },
-      include: {
-        enrollments: {
-          where: { status: 'ACTIVE' },
-          include: { class: { include: { grade: true } } },
-          take: 1,
-        },
-        beamApplication: true,
-      },
-    })
-
-    // Fetch staff
-    const staffMembers = await db.staff.findMany({
-      where: { schoolId, isActive: true },
-    })
-
-    // Fetch grades
-    const grades = await db.grade.findMany({
-      where: { schoolId, isActive: true },
-      orderBy: { sequence: 'asc' },
-      include: { classes: { where: { isActive: true } } },
-    })
-
-    // Fetch assets / infrastructure
-    const assets = await db.asset.findMany({ where: { schoolId } })
-
-    // Fetch hostels and dormitories
-    const hostels = await db.hostel.findMany({
-      where: { schoolId },
-      include: { dormitories: true },
-    })
-
-    // Fetch fee invoices (always scoped to the school via the student relation)
-    const invoiceWhere: Record<string, unknown> = { student: { schoolId } }
-    if (targetTerm) {
-      invoiceWhere.termId = targetTerm.id
-    } else if (academicYear) {
-      invoiceWhere.term = { academicYearId: academicYear.id }
-    }
-    const invoices = await db.feeInvoice.findMany({ where: invoiceWhere })
-
-    // Fetch BEAM applications
-    const beamApplications = await db.beamApplication.findMany({
-      where: { status: 'APPROVED', student: { schoolId } },
-      include: { student: true },
-    })
+    const {
+      school,
+      academicYear,
+      targetTerm,
+      students,
+      staffMembers,
+      grades,
+      assets,
+      hostels,
+      invoices,
+      beamApplications,
+      gradeGenderMap,
+      totalBeamCovered,
+      totalBeamOutstanding,
+      totalInvoiced,
+      totalCollected,
+      totalOutstanding,
+    } = await getEmisDetailedCensusData(schoolId, { academicYearId, termId })
 
     // ── Create workbook ──────────────────────────────────────────────────
     const workbook = new ExcelJS.Workbook()
@@ -281,28 +218,6 @@ export async function GET(request: NextRequest) {
     enrollmentSheet.addRow([])
     enrollmentSheet.addRow(['Grade', 'Male', 'Female', 'Total', 'BEAM', 'Special Needs'])
     styleHeaderRow(enrollmentSheet.getRow(4))
-
-    // Calculate enrollment by grade and gender
-    const gradeGenderMap: Record<string, { male: number; female: number; beam: number; specialNeeds: number }> = {}
-
-    for (const student of students) {
-      const gradeName = student.enrollments[0]?.class?.grade?.name || 'Unassigned'
-      if (!gradeGenderMap[gradeName]) {
-        gradeGenderMap[gradeName] = { male: 0, female: 0, beam: 0, specialNeeds: 0 }
-      }
-      const g = student.gender?.toUpperCase()
-      if (g === 'MALE' || g === 'M') {
-        gradeGenderMap[gradeName].male++
-      } else {
-        gradeGenderMap[gradeName].female++
-      }
-      if (student.beamStatus === 'APPROVED' || student.beamStatus === 'ACTIVE') {
-        gradeGenderMap[gradeName].beam++
-      }
-      if (student.isSpecialNeeds) {
-        gradeGenderMap[gradeName].specialNeeds++
-      }
-    }
 
     let totalMale = 0
     let totalFemale = 0
@@ -567,9 +482,7 @@ export async function GET(request: NextRequest) {
     financeSheet.addRow(['Category', 'Amount (USD)', 'Count / Rate', 'Notes'])
     styleHeaderRow(financeSheet.getRow(financeSheet.rowCount))
 
-    const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0)
-    const totalCollected = invoices.reduce((sum, inv) => sum + inv.amountPaid, 0)
-    const totalOutstanding = invoices.reduce((sum, inv) => sum + inv.balance, 0)
+
     const paidInvoices = invoices.filter(inv => inv.status === 'PAID').length
     const pendingInvoices = invoices.filter(inv => inv.status === 'PENDING').length
     const overdueInvoices = invoices.filter(inv => inv.status === 'OVERDUE').length
@@ -603,8 +516,7 @@ export async function GET(request: NextRequest) {
     financeSheet.addRow(['Category', 'Amount (USD)', 'Count', 'Notes'])
     styleHeaderRow(financeSheet.getRow(financeSheet.rowCount))
 
-    const totalBeamCovered = beamApplications.reduce((sum, b) => sum + b.coveredAmount, 0)
-    const totalBeamOutstanding = beamApplications.reduce((sum, b) => sum + b.outstandingBalance, 0)
+
 
     const beamRows = [
       ['BEAM Covered Amount', totalBeamCovered, String(beamApplications.length), 'Government BEAM program'],
@@ -635,10 +547,8 @@ export async function GET(request: NextRequest) {
     const statusBreakdown: Record<string, { amount: number; count: number }> = {}
     for (const inv of invoices) {
       const st = inv.status || 'UNKNOWN'
-      if (!statusBreakdown[st]) {
-        statusBreakdown[st] = { amount: 0, count: 0 }
-      }
-      statusBreakdown[st].amount += inv.balance
+      if (!statusBreakdown[st]) statusBreakdown[st] = { amount: 0, count: 0 }
+      statusBreakdown[st].amount += Number(inv.balance)
       statusBreakdown[st].count++
     }
 
@@ -684,7 +594,8 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    logger.error({ err: error }, 'EMIS Excel export error')
-    return fail('INTERNAL', 'Failed to generate EMIS Excel export')
+    const { code, message } = handleReportsError(error, 'Failed to generate EMIS Excel export')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }
