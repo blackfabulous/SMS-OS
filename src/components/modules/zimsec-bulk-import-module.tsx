@@ -48,6 +48,7 @@ import {
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { apiFetch, apiPost } from '@/lib/api-client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ZimsecCandidate {
@@ -179,14 +180,15 @@ export default function ZimsecBulkImportModule() {
     }, 200)
 
     try {
-      const response = await fetch('/api/examinations/bulk-import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ results }),
-      })
+      const data = await apiPost<{
+        success: boolean
+        imported: number
+        skipped: number
+        errors: Array<{ row: number; studentNumber: string; error: string }>
+        message: string
+      }>('/api/examinations/bulk-import', { results })
 
       clearInterval(progressInterval)
-      const data = await response.json()
       setProcessProgress(100)
       setIsProcessing(false)
 
@@ -198,14 +200,14 @@ export default function ZimsecBulkImportModule() {
         setStep('complete')
         toast.success(`${data.imported} results imported for ${validCandidates.length} candidates!`)
       } else {
-        toast.error('Bulk import failed', { description: data.error })
+        toast.error('Bulk import failed')
         setCandidates(prev => prev.map(c => ({
           ...c,
           registrationStatus: (c.errors ?? []).length === 0 ? 'REGISTERED' as const : 'FAILED' as const
         })))
         setStep('complete')
       }
-    } catch {
+    } catch (err) {
       clearInterval(progressInterval)
       setProcessProgress(100)
       setIsProcessing(false)
@@ -220,21 +222,17 @@ export default function ZimsecBulkImportModule() {
 
   const handleDownloadTemplate = async () => {
     try {
-      const response = await fetch('/api/examinations/bulk-import/template')
-      if (response.ok) {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'zimsec_import_template.csv'
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        window.URL.revokeObjectURL(url)
-        toast.success('ZIMSEC import template downloaded!')
-      } else {
-        toast.error('Failed to download template')
-      }
+      const { csv } = await apiFetch<{ csv: string }>('/api/examinations/bulk-import/template')
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'zimsec_import_template.csv'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+      toast.success('ZIMSEC import template downloaded!')
     } catch {
       toast.error('Failed to download template')
     }

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Loader2, Send, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { apiPost } from '@/lib/api-client'
 
 const inputCls = 'w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
 const labelCls = 'mb-1.5 block text-sm font-medium text-foreground'
@@ -23,13 +24,7 @@ export function ContactForm() {
     setSubmitting(true)
     setError('')
     try {
-      const res = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to send')
+      await apiPost('/api/contact', form)
       setSent(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')
@@ -54,12 +49,27 @@ export function ContactForm() {
     <form onSubmit={onSubmit} className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8">
       <input type="text" name="company" tabIndex={-1} autoComplete="off" value={form.company} onChange={set('company')} className="absolute left-[-9999px] h-0 w-0 opacity-0" aria-hidden="true" />
       <div className="grid gap-4 sm:grid-cols-2">
-        <div><label className={labelCls}>Name *</label><input className={inputCls} value={form.name} onChange={set('name')} /></div>
-        <div><label className={labelCls}>Email *</label><input type="email" className={inputCls} value={form.email} onChange={set('email')} /></div>
-        <div><label className={labelCls}>Phone</label><input className={inputCls} value={form.phone} onChange={set('phone')} /></div>
-        <div><label className={labelCls}>Subject *</label><input className={inputCls} value={form.subject} onChange={set('subject')} /></div>
+        <div>
+          <label htmlFor="contactName" className={labelCls}>Name *</label>
+          <input id="contactName" className={inputCls} value={form.name} onChange={set('name')} />
+        </div>
+        <div>
+          <label htmlFor="contactEmail" className={labelCls}>Email *</label>
+          <input id="contactEmail" type="email" className={inputCls} value={form.email} onChange={set('email')} />
+        </div>
+        <div>
+          <label htmlFor="contactPhone" className={labelCls}>Phone</label>
+          <input id="contactPhone" className={inputCls} value={form.phone} onChange={set('phone')} />
+        </div>
+        <div>
+          <label htmlFor="contactSubject" className={labelCls}>Subject *</label>
+          <input id="contactSubject" className={inputCls} value={form.subject} onChange={set('subject')} />
+        </div>
       </div>
-      <div className="mt-4"><label className={labelCls}>Message *</label><textarea className={cn(inputCls, 'min-h-[140px]')} value={form.message} onChange={set('message')} /></div>
+      <div className="mt-4">
+        <label htmlFor="contactMessage" className={labelCls}>Message *</label>
+        <textarea id="contactMessage" className={cn(inputCls, 'min-h-[140px]')} value={form.message} onChange={set('message')} />
+      </div>
       {error && <p className="mt-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-400">{error}</p>}
       <button
         type="submit"

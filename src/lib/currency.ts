@@ -3,6 +3,8 @@
  * Handles USD and Zimbabwe Gold (ZiG) currency formatting and conversion
  */
 
+import { apiFetch } from '@/lib/api-client'
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export type CurrencyCode = 'USD' | 'ZiG'
@@ -127,16 +129,18 @@ export function updateCachedRate(rate: ExchangeRate): void {
  */
 export async function fetchExchangeRate(): Promise<ExchangeRate> {
   try {
-    const res = await fetch('/api/finance/exchange-rate')
-    if (res.ok) {
-      const data = await res.json()
-      cachedRate = {
-        rate: data.rate,
-        lastUpdated: data.lastUpdated,
-        source: data.source || 'api',
-      }
-      return cachedRate
+    const data = await apiFetch<{
+      rate: number
+      lastUpdated: string
+      source: string
+      updatedBy?: string
+    }>('/api/finance/exchange-rate')
+    cachedRate = {
+      rate: data.rate,
+      lastUpdated: data.lastUpdated,
+      source: data.source || 'api',
     }
+    return cachedRate
   } catch {
     // Return cached rate on error
   }

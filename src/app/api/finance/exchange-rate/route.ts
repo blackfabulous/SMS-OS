@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateAuth, validateRole } from '@/lib/api-auth'
 
@@ -15,7 +16,7 @@ export async function GET() {
   const authResult = await validateAuth()
   if ('error' in authResult) return authResult.error
 
-  return NextResponse.json({
+  return ok({
     rate: exchangeRate.rate,
     lastUpdated: exchangeRate.lastUpdated,
     source: exchangeRate.source,
@@ -35,10 +36,7 @@ export async function PUT(request: Request) {
     const body = await request.json()
 
     if (!body.rate || typeof body.rate !== 'number' || body.rate <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid rate. Must be a positive number.' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'Invalid rate. Must be a positive number.')
     }
 
     exchangeRate = {
@@ -49,17 +47,15 @@ export async function PUT(request: Request) {
     }
 
     logAudit({ action: 'UPDATE', entity: 'exchange-rate', entityId: (body?.id ?? undefined) }).catch(() => {})
-    return NextResponse.json({
+    return ok({
       message: 'Exchange rate updated successfully',
       rate: exchangeRate.rate,
       lastUpdated: exchangeRate.lastUpdated,
       source: exchangeRate.source,
       updatedBy: exchangeRate.updatedBy,
     })
-  } catch {
-    return NextResponse.json(
-      { error: 'Invalid request body' },
-      { status: 400 }
-    )
+  } catch (error) {
+    logger.error({ err: error }, 'Error updating exchange rate')
+    return fail('VALIDATION', 'Invalid request body')
   }
 }

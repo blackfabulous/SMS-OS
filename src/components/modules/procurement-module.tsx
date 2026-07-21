@@ -78,6 +78,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell } from 'recharts'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
+import { apiFetch, apiPost, apiPut, apiDelete } from '@/lib/api-client'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Progress } from '@/components/ui/progress'
@@ -261,20 +262,14 @@ export default function ProcurementModule() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
-      const poRes = await fetch('/api/procurement')
-      if (!poRes.ok) throw new Error('Failed to fetch purchase orders')
-      const poData = await poRes.json()
+      const poData = await apiFetch<{ data: unknown[]; stats?: Record<string, number> }>('/api/procurement')
       setPurchaseOrders((poData.data || []).map(mapDbPO))
       if (poData.stats) setStats(poData.stats)
 
-      const vendorRes = await fetch('/api/procurement?type=vendors')
-      if (!vendorRes.ok) throw new Error('Failed to fetch vendors')
-      const vendorData = await vendorRes.json()
+      const vendorData = await apiFetch<{ data: unknown[] }>('/api/procurement?type=vendors')
       setVendors((vendorData.data || []).map(mapDbVendor))
 
-      const reqRes = await fetch('/api/procurement?type=requisitions')
-      if (!reqRes.ok) throw new Error('Failed to fetch requisitions')
-      const reqData = await reqRes.json()
+      const reqData = await apiFetch<{ data: unknown[] }>('/api/procurement?type=requisitions')
       setRequisitions((reqData.data || []).map(mapDbRequisition))
     } catch (err: any) {
       console.error(err)
@@ -352,28 +347,19 @@ export default function ProcurementModule() {
 
     try {
       setSubmitting(true)
-      const res = await fetch('/api/procurement', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'createPO',
-          title: newPODescription || `Purchase Order for ${newPOVendor}`,
-          description: newPODescription,
-          supplierId: selectedVendor.id,
-          requestedBy: 'Admin User',
-          items: newPOItems.map(item => ({
-            description: item.name,
-            quantity: item.qty,
-            unitPrice: item.unitCost,
-            totalPrice: item.qty * item.unitCost,
-          })),
-        }),
+      await apiPost('/api/procurement', {
+        action: 'createPO',
+        title: newPODescription || `Purchase Order for ${newPOVendor}`,
+        description: newPODescription,
+        supplierId: selectedVendor.id,
+        requestedBy: 'Admin User',
+        items: newPOItems.map(item => ({
+          description: item.name,
+          quantity: item.qty,
+          unitPrice: item.unitCost,
+          totalPrice: item.qty * item.unitCost,
+        })),
       })
-
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to create purchase order')
-      }
 
       toast.success('Purchase order created successfully')
       setNewPOVendor('')
@@ -398,23 +384,14 @@ export default function ProcurementModule() {
 
     try {
       setSubmitting(true)
-      const res = await fetch('/api/procurement', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'addVendor',
-          name: newVendorName,
-          contactPerson: newVendorContact,
-          phone: newVendorPhone,
-          email: newVendorEmail,
-          address: newVendorAddress,
-        }),
+      await apiPost('/api/procurement', {
+        action: 'addVendor',
+        name: newVendorName,
+        contactPerson: newVendorContact,
+        phone: newVendorPhone,
+        email: newVendorEmail,
+        address: newVendorAddress,
       })
-
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to add vendor')
-      }
 
       toast.success('Vendor added successfully')
       setNewVendorName('')
@@ -437,21 +414,12 @@ export default function ProcurementModule() {
   const updatePOStatus = async (id: string, status: PurchaseOrder['status']) => {
     const dbStatus = status.toUpperCase()
     try {
-      const res = await fetch('/api/procurement', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id,
-          type: 'purchaseOrder',
-          status: dbStatus,
-          approvedBy: dbStatus === 'APPROVED' ? 'Admin User' : undefined,
-        }),
+      await apiPut('/api/procurement', {
+        id,
+        type: 'purchaseOrder',
+        status: dbStatus,
+        approvedBy: dbStatus === 'APPROVED' ? 'Admin User' : undefined,
       })
-
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to update status')
-      }
 
       toast.success(`Purchase order marked as ${status.toLowerCase()}`)
       loadData()
@@ -465,21 +433,12 @@ export default function ProcurementModule() {
   const updateReqStatus = async (id: string, status: Requisition['status'], comments?: string) => {
     const dbStatus = status.toUpperCase()
     try {
-      const res = await fetch('/api/procurement', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id,
-          type: 'requisition',
-          status: dbStatus,
-          comments,
-        }),
+      await apiPut('/api/procurement', {
+        id,
+        type: 'requisition',
+        status: dbStatus,
+        comments,
       })
-
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to update requisition status')
-      }
 
       toast.success(`Requisition marked as ${status.toLowerCase()}`)
       loadData()
@@ -491,14 +450,7 @@ export default function ProcurementModule() {
 
   const deleteVendor = async (id: string) => {
     try {
-      const res = await fetch(`/api/procurement?id=${id}&type=vendor`, {
-        method: 'DELETE',
-      })
-
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to delete vendor')
-      }
+      await apiDelete(`/api/procurement?id=${id}&type=vendor`)
 
       toast.success('Vendor deactivated successfully')
       loadData()

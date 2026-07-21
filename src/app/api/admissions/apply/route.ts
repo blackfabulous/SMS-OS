@@ -1,14 +1,8 @@
-import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { z } from 'zod'
-import { dispatchNotification } from '@/lib/notifications'
+import { submitApplication, handleAdmissionsError } from '@/server/services/admissions'
 
-/**
- * PUBLIC admission application endpoint (no auth) for the website apply form.
- * Creates a Student in PENDING status plus a guardian Parent + link, so the
- * application surfaces in the dashboard Admissions module for staff review.
- * Spam-guarded with a honeypot field and basic validation.
- */
 const ApplySchema = z.object({
   firstName: z.string().min(1).max(80),
   lastName: z.string().min(1).max(80),
@@ -16,7 +10,7 @@ const ApplySchema = z.object({
   gender: z.enum(['MALE', 'FEMALE']),
   dateOfBirth: z.string().min(1),
   gradeApplyingFor: z.string().min(1).max(60),
-  boardingStatus: z.enum(['DAY_SCHOLAR', 'BOARDER']).optional(),
+  boardingStatus: z.enum(['DAY_SCHOLAR', 'BOARDER']).optional().or(z.literal('')),
   previousSchool: z.string().max(160).optional().or(z.literal('')),
   guardianFirstName: z.string().min(1).max(80),
   guardianLastName: z.string().min(1).max(80),
@@ -24,8 +18,6 @@ const ApplySchema = z.object({
   guardianEmail: z.string().email().optional().or(z.literal('')),
   guardianRelationship: z.string().max(40).optional().or(z.literal('')),
   message: z.string().max(1000).optional().or(z.literal('')),
-  // Honeypot — accept any value at the schema level so a filled value doesn't
-  // produce a validation error that signals the trap; handled after parsing.
   company: z.string().optional(),
 })
 
@@ -34,89 +26,25 @@ export async function POST(request: Request) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid request body')
   }
 
   const parsed = ApplySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Please check the form and try again.', details: parsed.error.issues }, { status: 400 })
+    return fail('VALIDATION', 'Please check the form and try again.', { details: parsed.error.issues })
   }
   const d = parsed.data
 
-  // Honeypot triggered → pretend success, persist nothing.
   if (d.company) {
-    return NextResponse.json({ message: 'Application received', reference: 'APP-OK' }, { status: 201 })
-  }
-
-  const school = await db.school.findFirst()
-  if (!school) {
-    return NextResponse.json({ error: 'Admissions are not currently configured. Please contact the school directly.' }, { status: 503 })
+    return ok({ message: 'Application received', reference: 'APP-OK' }, 201)
   }
 
   try {
-    const currentYear = new Date().getFullYear()
-    const last = await db.student.findFirst({
-      where: { studentNumber: { startsWith: `APP${currentYear}` } },
-      orderBy: { studentNumber: 'desc' },
-    })
-    const nextNum = last ? parseInt(last.studentNumber.slice(-4)) + 1 : 1
-    const studentNumber = `APP${currentYear}${String(nextNum).padStart(4, '0')}`
-
-    const student = await db.student.create({
-      data: {
-        schoolId: school.id,
-        studentNumber,
-        firstName: d.firstName,
-        lastName: d.lastName,
-        middleName: d.middleName || null,
-        gender: d.gender,
-        dateOfBirth: new Date(d.dateOfBirth),
-        enrollmentStatus: 'PENDING',
-        boardingStatus: d.boardingStatus || null,
-        previousSchool: d.previousSchool || null,
-        admissionDate: new Date(),
-      },
-    })
-
-    const parent = await db.parent.create({
-      data: {
-        schoolId: school.id,
-        firstName: d.guardianFirstName,
-        lastName: d.guardianLastName,
-        phone: d.guardianPhone,
-        email: d.guardianEmail || null,
-        preferredContact: d.guardianEmail ? 'EMAIL' : 'SMS',
-        isFeeResponsible: true,
-      },
-    })
-    await db.studentParent.create({
-      data: {
-        studentId: student.id,
-        parentId: parent.id,
-        relationship: d.guardianRelationship || 'Guardian',
-        isPrimary: true,
-        isFeeResponsible: true,
-      },
-    })
-
-    // Acknowledge the application to the guardian over enabled channels.
-    // Fire-and-forget (matches the logAudit pattern) so it never blocks the response.
-    void dispatchNotification(
-      school.id,
-      { type: 'admission.received', applicantName: `${d.firstName} ${d.lastName}`, reference: studentNumber },
-      { parentId: parent.id, phone: d.guardianPhone, email: d.guardianEmail || null, name: `${d.guardianFirstName} ${d.guardianLastName}` },
-    ).catch(() => {})
-
-    return NextResponse.json(
-      {
-        message: 'Application received',
-        reference: studentNumber,
-        appliedFor: d.gradeApplyingFor,
-      },
-      { status: 201 },
-    )
+    const result = await submitApplication(d)
+    return ok(result, 201)
   } catch (error) {
-    console.error('Public admission application failed:', error)
-    return NextResponse.json({ error: 'Something went wrong submitting your application. Please try again later.' }, { status: 500 })
+    const { code, message } = handleAdmissionsError(error, 'Something went wrong submitting your application. Please try again later.')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }

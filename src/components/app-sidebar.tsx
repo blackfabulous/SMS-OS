@@ -6,7 +6,6 @@ import {
   School, Shield, Settings, LogOut, User, ChevronRight, ChevronDown,
   Sparkles, Search, X,
 } from 'lucide-react'
-import { useAppStore } from '@/lib/store'
 import { type UserRole } from '@/lib/rbac'
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -37,6 +36,8 @@ export function AppSidebar({
   currentRole,
   onRoleChange,
   filteredNavGroups,
+  activeModule,
+  onSelect,
 }: {
   onLogout: () => void
   notificationCount: number
@@ -46,8 +47,9 @@ export function AppSidebar({
   currentRole: UserRole
   onRoleChange: (role: UserRole) => void
   filteredNavGroups: NavGroup[]
+  activeModule: string
+  onSelect: (moduleId: string) => void
 }) {
-  const { activeModule, setActiveModule } = useAppStore()
   const { state, isMobile, setOpenMobile } = useSidebar()
   const iconMode = state === 'collapsed' && !isMobile
 
@@ -65,7 +67,7 @@ export function AppSidebar({
   }, [filteredNavGroups, query, searching])
 
   const handleSelect = (id: string) => {
-    setActiveModule(id)
+    onSelect(id)
     if (isMobile) setOpenMobile(false)
   }
 

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { User, Users, CheckCircle2, ArrowRight, ArrowLeft, Loader2, PartyPopper } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { apiPost } from '@/lib/api-client'
 
 interface ApplyFormProps {
   gradeOptions: string[]
@@ -51,13 +52,7 @@ export function ApplyForm({ gradeOptions }: ApplyFormProps) {
     setSubmitting(true)
     setError('')
     try {
-      const res = await fetch('/api/admissions/apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Submission failed')
+      const data = await apiPost<{ reference: string }>('/api/admissions/apply', form)
       setDone({ reference: data.reference })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')
@@ -120,30 +115,30 @@ export function ApplyForm({ gradeOptions }: ApplyFormProps) {
               <User className="h-5 w-5" /><h2 className="text-lg font-semibold">Learner details</h2>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div><label className={labelCls}>First name *</label><input className={inputCls} value={form.firstName} onChange={set('firstName')} /></div>
-              <div><label className={labelCls}>Last name *</label><input className={inputCls} value={form.lastName} onChange={set('lastName')} /></div>
-              <div><label className={labelCls}>Middle name</label><input className={inputCls} value={form.middleName} onChange={set('middleName')} /></div>
+              <div><label htmlFor="firstName" className={labelCls}>First name *</label><input id="firstName" className={inputCls} value={form.firstName} onChange={set('firstName')} /></div>
+              <div><label htmlFor="lastName" className={labelCls}>Last name *</label><input id="lastName" className={inputCls} value={form.lastName} onChange={set('lastName')} /></div>
+              <div><label htmlFor="middleName" className={labelCls}>Middle name</label><input id="middleName" className={inputCls} value={form.middleName} onChange={set('middleName')} /></div>
               <div>
-                <label className={labelCls}>Gender *</label>
-                <select className={inputCls} value={form.gender} onChange={set('gender')}>
+                <label htmlFor="gender" className={labelCls}>Gender *</label>
+                <select id="gender" className={inputCls} value={form.gender} onChange={set('gender')}>
                   <option value="">Select…</option><option value="MALE">Male</option><option value="FEMALE">Female</option>
                 </select>
               </div>
-              <div><label className={labelCls}>Date of birth *</label><input type="date" className={inputCls} value={form.dateOfBirth} onChange={set('dateOfBirth')} /></div>
+              <div><label htmlFor="dateOfBirth" className={labelCls}>Date of birth *</label><input id="dateOfBirth" type="date" className={inputCls} value={form.dateOfBirth} onChange={set('dateOfBirth')} /></div>
               <div>
-                <label className={labelCls}>Grade applying for *</label>
-                <select className={inputCls} value={form.gradeApplyingFor} onChange={set('gradeApplyingFor')}>
+                <label htmlFor="gradeApplyingFor" className={labelCls}>Grade applying for *</label>
+                <select id="gradeApplyingFor" className={inputCls} value={form.gradeApplyingFor} onChange={set('gradeApplyingFor')}>
                   <option value="">Select…</option>
                   {gradeOptions.map((g) => <option key={g} value={g}>{g}</option>)}
                 </select>
               </div>
               <div>
-                <label className={labelCls}>Boarding preference</label>
-                <select className={inputCls} value={form.boardingStatus} onChange={set('boardingStatus')}>
+                <label htmlFor="boardingStatus" className={labelCls}>Boarding preference</label>
+                <select id="boardingStatus" className={inputCls} value={form.boardingStatus} onChange={set('boardingStatus')}>
                   <option value="">No preference</option><option value="DAY_SCHOLAR">Day scholar</option><option value="BOARDER">Boarder</option>
                 </select>
               </div>
-              <div><label className={labelCls}>Previous school</label><input className={inputCls} value={form.previousSchool} onChange={set('previousSchool')} /></div>
+              <div><label htmlFor="previousSchool" className={labelCls}>Previous school</label><input id="previousSchool" className={inputCls} value={form.previousSchool} onChange={set('previousSchool')} /></div>
             </div>
           </div>
         )}
@@ -154,13 +149,13 @@ export function ApplyForm({ gradeOptions }: ApplyFormProps) {
               <Users className="h-5 w-5" /><h2 className="text-lg font-semibold">Parent / guardian details</h2>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div><label className={labelCls}>First name *</label><input className={inputCls} value={form.guardianFirstName} onChange={set('guardianFirstName')} /></div>
-              <div><label className={labelCls}>Last name *</label><input className={inputCls} value={form.guardianLastName} onChange={set('guardianLastName')} /></div>
-              <div><label className={labelCls}>Phone *</label><input className={inputCls} placeholder="+263…" value={form.guardianPhone} onChange={set('guardianPhone')} /></div>
-              <div><label className={labelCls}>Email</label><input type="email" className={inputCls} value={form.guardianEmail} onChange={set('guardianEmail')} /></div>
-              <div><label className={labelCls}>Relationship</label><input className={inputCls} placeholder="Mother, Father, Guardian…" value={form.guardianRelationship} onChange={set('guardianRelationship')} /></div>
+              <div><label htmlFor="guardianFirstName" className={labelCls}>First name *</label><input id="guardianFirstName" className={inputCls} value={form.guardianFirstName} onChange={set('guardianFirstName')} /></div>
+              <div><label htmlFor="guardianLastName" className={labelCls}>Last name *</label><input id="guardianLastName" className={inputCls} value={form.guardianLastName} onChange={set('guardianLastName')} /></div>
+              <div><label htmlFor="guardianPhone" className={labelCls}>Phone *</label><input id="guardianPhone" className={inputCls} placeholder="+263…" value={form.guardianPhone} onChange={set('guardianPhone')} /></div>
+              <div><label htmlFor="guardianEmail" className={labelCls}>Email</label><input id="guardianEmail" type="email" className={inputCls} value={form.guardianEmail} onChange={set('guardianEmail')} /></div>
+              <div><label htmlFor="guardianRelationship" className={labelCls}>Relationship</label><input id="guardianRelationship" className={inputCls} placeholder="Mother, Father, Guardian…" value={form.guardianRelationship} onChange={set('guardianRelationship')} /></div>
             </div>
-            <div><label className={labelCls}>Anything else we should know?</label><textarea className={cn(inputCls, 'min-h-[96px]')} value={form.message} onChange={set('message')} /></div>
+            <div><label htmlFor="message" className={labelCls}>Anything else we should know?</label><textarea id="message" className={cn(inputCls, 'min-h-[96px]')} value={form.message} onChange={set('message')} /></div>
           </div>
         )}
 

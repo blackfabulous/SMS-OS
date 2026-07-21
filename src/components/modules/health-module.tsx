@@ -10,7 +10,8 @@ import {
   TableShell,
   KitEmptyState,
 } from '@/components/module-ui';
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState } from 'react'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 import { motion } from 'framer-motion'
 import {
   HeartPulse,
@@ -116,6 +117,29 @@ interface HealthRecord {
   student: Student
 }
 
+interface StudentsResponse {
+  data: Student[]
+  total: number
+  page: number
+  totalPages: number
+}
+
+interface HealthResponse {
+  data: HealthRecord[]
+  total: number
+  page: number
+  totalPages: number
+  stats: {
+    totalRecords: number
+    todayVisits: number
+    confidentialCount: number
+    referralsCount: number
+    studentsWithChronicConditions: number
+    studentsWithAllergies: number
+  }
+  visitTypeBreakdown: { type: string; count: number }[]
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const formatDate = (dateStr: string) => {
@@ -169,16 +193,25 @@ const visitDonutConfig = {
 // ─── Health Module ───────────────────────────────────────────────────────────
 
 export default function HealthModule() {
-  const [records, setRecords] = useState<HealthRecord[]>([])
-  const [students, setStudents] = useState<Student[]>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [searchQuery, setSearchQuery] = useState('')
   const [showConfidential, setShowConfidential] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
-  const [submitting, setSubmitting] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState<HealthRecord | null>(null)
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
+
+  const {
+    data: healthData,
+    isPending: loading,
+  } = useApiQuery<HealthResponse>(['health'], '/api/health')
+
+  const {
+    data: studentsData,
+  } = useApiQuery<StudentsResponse>(['students', 'health'], '/api/students?limit=500')
+
+  const students = studentsData?.data ?? []
+  const records = healthData?.data ?? []
 
   // Form state
   const [form, setForm] = useState({
@@ -217,99 +250,64 @@ export default function HealthModule() {
 
   const { toast } = useToast()
 
-  // ─── Data Fetching ─────────────────────────────────────────────────────
+  // ─── Mutations ──────────────────────────────────────────────────────────
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await fetch('/api/health')
-      if (res.ok) {
-        const data = await res.json()
-        setRecords(data.data || data.records || [])
-        // Also fetch students for profiles
-        const sRes = await fetch('/api/students?limit=500')
-        if (sRes.ok) {
-          const sData = await sRes.json()
-          setStudents(sData.data || sData || [])
-        }
-      }
-    } catch (err) {
-      console.error('Failed to fetch health data:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  type CreateHealthBody = {
+    studentId: string
+    visitType: string
+    description: string
+    treatment?: string
+    medicationGiven?: string
+    referredTo?: string
+    isConfidential?: boolean
+    visitDate?: string
+  }
 
-  const fetchStudents = useCallback(async () => {
-    try {
-      const res = await fetch('/api/students?limit=500')
-      if (res.ok) {
-        const data = await res.json()
-        setStudents(data.data || data || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch students:', err)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
-
-  useEffect(() => {
-    if (viewMode === 'add' || viewMode === 'quick-sickbay') fetchStudents()
-  }, [viewMode, fetchStudents])
+  const { mutate: createHealthRecord, isPending: isCreating } = useApiMutation<CreateHealthBody, HealthRecord>('/api/health', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['health'] })
+    },
+    onError: (err) => {
+      toast({ title: 'Error', description: err.message || 'Failed to add health record', variant: 'destructive' })
+    },
+  })
 
   // ─── Form Handlers ─────────────────────────────────────────────────────
 
-  const handleAddRecord = async () => {
+  const handleAddRecord = () => {
     if (!form.studentId || !form.visitType || !form.description) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/health', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      if (res.ok) {
+    createHealthRecord({
+      studentId: form.studentId,
+      visitType: form.visitType,
+      description: form.description,
+      treatment: form.treatment || undefined,
+      medicationGiven: form.medicationGiven || undefined,
+      referredTo: form.referredTo || undefined,
+      isConfidential: form.isConfidential,
+    }, {
+      onSuccess: () => {
         setForm({ studentId: '', visitType: 'SICK_BAY', description: '', treatment: '', medicationGiven: '', referredTo: '', isConfidential: false })
         setViewMode('list')
-        fetchData()
         toast({ title: 'Record added', description: 'Health record has been created successfully.' })
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to add health record', variant: 'destructive' })
-    } finally {
-      setSubmitting(false)
-    }
+      },
+    })
   }
 
-  const handleQuickAdd = async () => {
+  const handleQuickAdd = () => {
     if (!quickForm.studentId || !quickForm.description) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/health', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: quickForm.studentId,
-          visitType: 'SICK_BAY',
-          description: quickForm.description,
-          treatment: quickForm.treatment || undefined,
-          medicationGiven: quickForm.medicationGiven || undefined,
-        }),
-      })
-      if (res.ok) {
+    createHealthRecord({
+      studentId: quickForm.studentId,
+      visitType: 'SICK_BAY',
+      description: quickForm.description,
+      treatment: quickForm.treatment || undefined,
+      medicationGiven: quickForm.medicationGiven || undefined,
+    }, {
+      onSuccess: () => {
         setQuickForm({ studentId: '', description: '', treatment: '', medicationGiven: '' })
         setViewMode('list')
-        fetchData()
         toast({ title: 'Sick bay visit added', description: 'Sick bay entry has been recorded.' })
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to add sick bay record', variant: 'destructive' })
-    } finally {
-      setSubmitting(false)
-    }
+      },
+    })
   }
 
   const handleSaveSettings = () => {
@@ -424,8 +422,8 @@ export default function HealthModule() {
               </div>
             </div>
             <div className="flex items-center gap-3 pt-4">
-              <Button onClick={handleAddRecord} disabled={submitting || !form.studentId || !form.description} className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white">
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add Record
+              <Button onClick={handleAddRecord} disabled={isCreating || !form.studentId || !form.description} className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white">
+                {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add Record
               </Button>
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
             </div>
@@ -473,8 +471,8 @@ export default function HealthModule() {
               <Input placeholder="Medication details..." value={quickForm.medicationGiven} onChange={(e) => setQuickForm((p) => ({ ...p, medicationGiven: e.target.value }))} />
             </div>
             <div className="flex items-center gap-3 pt-4">
-              <Button onClick={handleQuickAdd} disabled={submitting || !quickForm.studentId || !quickForm.description} className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white">
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add Visit
+              <Button onClick={handleQuickAdd} disabled={isCreating || !quickForm.studentId || !quickForm.description} className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white">
+                {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add Visit
               </Button>
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
             </div>

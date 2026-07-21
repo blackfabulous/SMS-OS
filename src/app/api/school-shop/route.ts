@@ -1,7 +1,17 @@
-import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
-import { logAudit } from '@/lib/audit'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateAuth, validateRole } from '@/lib/api-auth'
+import {
+  getShop,
+  createShopProduct,
+  createShopOrder,
+  updateShopProduct,
+  updateShopOrderStatus,
+  deleteShopProduct,
+  deleteShopOrder,
+  handleSchoolShopError,
+} from '@/server/services/school-shop'
 
 // GET /api/school-shop - Returns shop data
 export async function GET(request: NextRequest) {
@@ -14,49 +24,15 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category')
     const search = searchParams.get('search')
     const isActive = searchParams.get('isActive')
-    const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
-    const schoolId = school?.id
+    const schoolId = authResult.session.user.schoolId
+    if (!schoolId) return fail('VALIDATION', 'School not configured')
 
-    if (!schoolId) {
-      return NextResponse.json({ success: false, error: 'School not configured' }, { status: 400 })
-    }
-
-    if (section === 'stats') {
-      const [totalProducts, totalOrders, revenueResult] = await Promise.all([
-        db.schoolShopItem.count({ where: { schoolId, isActive: true } }),
-        db.schoolShopOrder.count({ where: { schoolId } }),
-        db.schoolShopOrder.aggregate({ where: { schoolId, status: { not: 'CANCELLED' } }, _sum: { totalAmount: true } }),
-      ])
-      return NextResponse.json({ success: true, data: { totalProducts, totalOrders, totalRevenue: Number(revenueResult._sum.totalAmount ?? 0) } })
-    }
-
-    const result: Record<string, unknown> = {}
-
-    if (section === 'all' || section === 'products') {
-      const where: Record<string, unknown> = { schoolId }
-      if (category) where.category = category
-      if (isActive !== null && isActive !== undefined) where.isActive = isActive === 'true'
-      if (search) where.OR = [{ name: { contains: search, mode: 'insensitive' } }, { description: { contains: search, mode: 'insensitive' } }]
-      result.products = await db.schoolShopItem.findMany({ where, orderBy: { sortOrder: 'asc' } })
-    }
-
-    if (section === 'all' || section === 'orders') {
-      result.orders = await db.schoolShopOrder.findMany({ where: { schoolId }, orderBy: { createdAt: 'desc' } })
-    }
-
-    if (section === 'all') {
-      const [totalProducts, totalOrders, revenueResult] = await Promise.all([
-        db.schoolShopItem.count({ where: { schoolId, isActive: true } }),
-        db.schoolShopOrder.count({ where: { schoolId } }),
-        db.schoolShopOrder.aggregate({ where: { schoolId, status: { not: 'CANCELLED' } }, _sum: { totalAmount: true } }),
-      ])
-      result.stats = { totalProducts, totalOrders, totalRevenue: Number(revenueResult._sum.totalAmount ?? 0) }
-    }
-
-    return NextResponse.json({ success: true, data: result })
+    const result = await getShop(schoolId, { section, category, search, isActive })
+    return ok(result)
   } catch (error) {
-    console.error('Shop GET error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to fetch shop data' }, { status: 500 })
+    const { code, message } = handleSchoolShopError(error, 'Failed to fetch shop data')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }
 
@@ -68,47 +44,23 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { action, data } = body
-    const school = await db.school.findUnique({ where: { id: authResult.session.user.schoolId } })
-    const schoolId = school?.id
-
-    if (!schoolId) {
-      return NextResponse.json({ success: false, error: 'School not configured' }, { status: 400 })
-    }
+    const schoolId = authResult.session.user.schoolId
 
     if (action === 'createProduct') {
-      if (!data?.name || !data?.category || data?.price === undefined) {
-        return NextResponse.json({ success: false, error: 'name, category, and price are required' }, { status: 400 })
-      }
-      const product = await db.schoolShopItem.create({
-        data: { schoolId, name: data.name, description: data.description, category: data.category, price: data.price, currency: data.currency || 'USD', imageUrl: data.imageUrl, sizes: data.sizes, colors: data.colors, stockQuantity: data.stockQuantity ?? 0, isActive: data.isActive ?? true, sortOrder: data.sortOrder ?? 0 },
-      })
-      logAudit({ action: 'CREATE', entity: 'school-shop' }).catch(() => {})
-      return NextResponse.json({ success: true, data: product }, { status: 201 })
+      const product = await createShopProduct(schoolId, data)
+      return ok(product, 201)
     }
 
     if (action === 'createOrder') {
-      if (!data?.items || !data?.totalAmount) {
-        return NextResponse.json({ success: false, error: 'items and totalAmount are required' }, { status: 400 })
-      }
-      const year = new Date().getFullYear()
-      const lastOrder = await db.schoolShopOrder.findFirst({
-        where: { orderNumber: { startsWith: `SHOP${year}` } },
-        orderBy: { orderNumber: 'desc' },
-      })
-      const nextNum = lastOrder ? parseInt(lastOrder.orderNumber.slice(-4)) + 1 : 1
-      const orderNumber = `SHOP${year}${String(nextNum).padStart(4, '0')}`
-
-      const order = await db.schoolShopOrder.create({
-        data: { schoolId, orderNumber, studentId: data.studentId, parentName: data.parentName, parentPhone: data.parentPhone, parentEmail: data.parentEmail, items: typeof data.items === 'string' ? data.items : JSON.stringify(data.items), totalAmount: data.totalAmount, currency: data.currency || 'USD', status: 'PENDING', notes: data.notes },
-      })
-      logAudit({ action: 'CREATE', entity: 'school-shop' }).catch(() => {})
-      return NextResponse.json({ success: true, data: order }, { status: 201 })
+      const order = await createShopOrder(schoolId, data)
+      return ok(order, 201)
     }
 
-    return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid action')
   } catch (error) {
-    console.error('Shop POST error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to create shop content' }, { status: 500 })
+    const { code, message } = handleSchoolShopError(error, 'Failed to create shop content')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }
 
@@ -116,38 +68,29 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
-  const schoolId = authResult.session.user.schoolId
 
   try {
     const body = await request.json()
     const { action, id, data } = body
+    const schoolId = authResult.session.user.schoolId
 
-    if (!id) return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 })
+    if (!id) return fail('VALIDATION', 'ID is required')
 
     if (action === 'updateProduct') {
-      const owned = await db.schoolShopItem.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
-      const product = await db.schoolShopItem.update({ where: { id }, data: { ...data, updatedAt: new Date() } })
-      logAudit({ action: 'UPDATE', entity: 'school-shop', entityId: (body?.id ?? undefined) }).catch(() => {})
-      return NextResponse.json({ success: true, data: product })
+      const product = await updateShopProduct(schoolId, id, data)
+      return ok(product)
     }
 
     if (action === 'updateOrderStatus') {
-      const validStatuses = ['PENDING', 'PROCESSING', 'READY', 'COLLECTED', 'CANCELLED']
-      if (!data?.status || !validStatuses.includes(data.status)) {
-        return NextResponse.json({ success: false, error: 'Valid status is required (PENDING|PROCESSING|READY|COLLECTED|CANCELLED)' }, { status: 400 })
-      }
-      const ownedOrder = await db.schoolShopOrder.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!ownedOrder) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
-      const order = await db.schoolShopOrder.update({ where: { id }, data: { status: data.status, updatedAt: new Date() } })
-      logAudit({ action: 'UPDATE', entity: 'school-shop', entityId: (body?.id ?? undefined) }).catch(() => {})
-      return NextResponse.json({ success: true, data: order })
+      const order = await updateShopOrderStatus(schoolId, id, data?.status)
+      return ok(order)
     }
 
-    return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 })
+    return fail('VALIDATION', 'Invalid action')
   } catch (error) {
-    console.error('Shop PUT error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to update shop content' }, { status: 500 })
+    const { code, message } = handleSchoolShopError(error, 'Failed to update shop content')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }
 
@@ -155,32 +98,28 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const authResult = await validateRole(['ADMIN'])
   if ('error' in authResult) return authResult.error
-  const schoolId = authResult.session.user.schoolId
 
   try {
     const body = await request.json()
     const { action, id } = body
+    const schoolId = authResult.session.user.schoolId
 
-    if (!id) return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 })
+    if (!id) return fail('VALIDATION', 'ID is required')
 
     if (action === 'deleteProduct') {
-      const owned = await db.schoolShopItem.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
-      await db.schoolShopItem.delete({ where: { id } })
-      logAudit({ action: 'DELETE', entity: 'school-shop', entityId: (id ?? undefined) }).catch(() => {})
-      return NextResponse.json({ success: true, data: { deleted: true } })
-    }
-    if (action === 'deleteOrder') {
-      const owned = await db.schoolShopOrder.findFirst({ where: { id, schoolId }, select: { id: true } })
-      if (!owned) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
-      await db.schoolShopOrder.delete({ where: { id } })
-      logAudit({ action: 'DELETE', entity: 'school-shop', entityId: (id ?? undefined) }).catch(() => {})
-      return NextResponse.json({ success: true, data: { deleted: true } })
+      const result = await deleteShopProduct(schoolId, id)
+      return ok(result)
     }
 
-    return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 })
+    if (action === 'deleteOrder') {
+      const result = await deleteShopOrder(schoolId, id)
+      return ok(result)
+    }
+
+    return fail('VALIDATION', 'Invalid action')
   } catch (error) {
-    console.error('Shop DELETE error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to delete shop content' }, { status: 500 })
+    const { code, message } = handleSchoolShopError(error, 'Failed to delete shop content')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }

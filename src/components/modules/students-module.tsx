@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   GraduationCap,
@@ -94,6 +94,7 @@ import { cn } from '@/lib/utils'
 import { exportToCSV, printReport, buildHTMLTable } from '@/lib/export-utils'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/empty-state'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 
 // ─── View Mode Type ──────────────────────────────────────────────────────────
 type ViewMode = 'list' | 'add' | 'edit' | 'detail' | 'settings'
@@ -344,6 +345,13 @@ function AttendanceStatusBadge({ status }: { status: string }) {
   )
 }
 
+function SortIcon({ field, sortField, sortDir }: { field: string; sortField: string; sortDir: 'asc' | 'desc' }) {
+  if (sortField !== field) return <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground/50" />
+  return sortDir === 'asc'
+    ? <ArrowUp className="ml-1 h-3 w-3 text-emerald-600" />
+    : <ArrowDown className="ml-1 h-3 w-3 text-emerald-600" />
+}
+
 // ─── Student List View ────────────────────────────────────────────────────────
 function StudentListView({
   onSelectStudent,
@@ -355,69 +363,63 @@ function StudentListView({
   onOpenSettings: () => void
 }) {
   const [activeTab, setActiveTab] = useState('directory')
-  const [students, setStudents] = useState<Student[]>([])
-  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [genderFilter, setGenderFilter] = useState('ALL')
   const [boardingFilter, setBoardingFilter] = useState('ALL')
   const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [total, setTotal] = useState(0)
   const [sortField, setSortField] = useState<string>('studentNumber')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
-  const [stats, setStats] = useState({
-    total: 0, active: 0, boarders: 0, dayScholars: 0, beam: 0,
-  })
 
-  const fetchStudents = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams()
-      params.set('page', page.toString())
-      params.set('limit', '20')
-      if (search) params.set('search', search)
-      if (statusFilter !== 'ALL') params.set('enrollmentStatus', statusFilter)
-      if (genderFilter !== 'ALL') params.set('gender', genderFilter)
-      if (boardingFilter !== 'ALL') params.set('boardingStatus', boardingFilter)
-
-      const res = await fetch(`/api/students?${params.toString()}`)
-      if (res.ok) {
-        const json: StudentsResponse = await res.json()
-        setStudents(json.data)
-        setTotalPages(json.totalPages)
-        setTotal(json.total)
-      }
-    } catch (err) {
-      console.error('Error fetching students:', err)
-    } finally {
-      setLoading(false)
-    }
+  const listParams = useMemo(() => {
+    const params = new URLSearchParams()
+    params.set('page', page.toString())
+    params.set('limit', '20')
+    if (search) params.set('search', search)
+    if (statusFilter !== 'ALL') params.set('enrollmentStatus', statusFilter)
+    if (genderFilter !== 'ALL') params.set('gender', genderFilter)
+    if (boardingFilter !== 'ALL') params.set('boardingStatus', boardingFilter)
+    return params.toString()
   }, [page, search, statusFilter, genderFilter, boardingFilter])
 
-  const fetchStats = useCallback(async () => {
-    try {
-      const res = await fetch('/api/students?limit=1000')
-      if (res.ok) {
-        const json: StudentsResponse = await res.json()
-        const allStudents = json.data
-        setStats({
-          total: json.total,
-          active: allStudents.filter(s => s.enrollmentStatus === 'ACTIVE').length,
-          boarders: allStudents.filter(s => s.boardingStatus === 'BOARDER').length,
-          dayScholars: allStudents.filter(s => s.boardingStatus === 'DAY_SCHOLAR').length,
-          beam: allStudents.filter(s => s.beamStatus === 'APPROVED' || s.beamStatus === 'ACTIVE').length,
-        })
-      }
-    } catch {
-      // silently ignore
+  const {
+    data: listData,
+    isPending: loading,
+  } = useApiQuery<StudentsResponse>(['students', 'list', listParams], `/api/students?${listParams}`)
+
+  const students = listData?.data ?? []
+  const totalPages = listData?.totalPages ?? 1
+  const total = listData?.total ?? 0
+
+  const { data: statsData } = useApiQuery<StudentsResponse>(['students', 'stats'], '/api/students?limit=1000')
+
+  const stats = useMemo(() => {
+    const allStudents = statsData?.data ?? []
+    return {
+      total: statsData?.total ?? 0,
+      active: allStudents.filter(s => s.enrollmentStatus === 'ACTIVE').length,
+      boarders: allStudents.filter(s => s.boardingStatus === 'BOARDER').length,
+      dayScholars: allStudents.filter(s => s.boardingStatus === 'DAY_SCHOLAR').length,
+      beam: allStudents.filter(s => s.beamStatus === 'APPROVED' || s.beamStatus === 'ACTIVE').length,
     }
-  }, [])
+  }, [statsData])
 
-  useEffect(() => { fetchStudents() }, [fetchStudents])
-  useEffect(() => { fetchStats() }, [fetchStats])
-
-  useEffect(() => { setPage(1) }, [search, statusFilter, genderFilter, boardingFilter])
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setPage(1)
+  }
+  const handleStatusFilter = (value: string) => {
+    setStatusFilter(value)
+    setPage(1)
+  }
+  const handleGenderFilter = (value: string) => {
+    setGenderFilter(value)
+    setPage(1)
+  }
+  const handleBoardingFilter = (value: string) => {
+    setBoardingFilter(value)
+    setPage(1)
+  }
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -446,13 +448,6 @@ function StudentListView({
     const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0
     return sortDir === 'asc' ? cmp : -cmp
   })
-
-  const SortIcon = ({ field }: { field: string }) => {
-    if (sortField !== field) return <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground/50" />
-    return sortDir === 'asc'
-      ? <ArrowUp className="ml-1 h-3 w-3 text-emerald-600" />
-      : <ArrowDown className="ml-1 h-3 w-3 text-emerald-600" />
-  }
 
   return (
     <div className="space-y-5">
@@ -536,7 +531,7 @@ function StudentListView({
                   placeholder="Search by name or student number..."
                   className="pl-9 h-9 bg-muted/40 border-0 focus-visible:ring-1 focus-visible:ring-emerald-500/30"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                 />
               </div>
               <div className="flex flex-wrap gap-2">
@@ -552,13 +547,13 @@ function StudentListView({
                           ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                           : 'hover:bg-muted/60'
                       )}
-                      onClick={() => setStatusFilter(s)}
+                      onClick={() => handleStatusFilter(s)}
                     >
                       {s === 'ALL' ? 'All' : s === 'DROPPED_OUT' ? 'Dropped' : s.charAt(0) + s.slice(1).toLowerCase()}
                     </Button>
                   ))}
                 </div>
-                <Select value={genderFilter} onValueChange={setGenderFilter}>
+                <Select value={genderFilter} onValueChange={handleGenderFilter}>
                   <SelectTrigger className="h-7 w-[120px] text-xs">
                     <SelectValue placeholder="Gender" />
                   </SelectTrigger>
@@ -568,7 +563,7 @@ function StudentListView({
                     <SelectItem value="FEMALE">Female</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select value={boardingFilter} onValueChange={setBoardingFilter}>
+                <Select value={boardingFilter} onValueChange={handleBoardingFilter}>
                   <SelectTrigger className="h-7 w-[140px] text-xs">
                     <SelectValue placeholder="Boarding" />
                   </SelectTrigger>
@@ -587,23 +582,23 @@ function StudentListView({
                 <TableHeader>
                   <TableRow className="bg-muted/30 hover:bg-muted/30">
                     <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('studentNumber')}>
-                      <span className="flex items-center text-xs">Student # <SortIcon field="studentNumber" /></span>
+                      <span className="flex items-center text-xs">Student # <SortIcon field="studentNumber" sortField={sortField} sortDir={sortDir} /></span>
                     </TableHead>
                     <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('name')}>
-                      <span className="flex items-center text-xs">Name <SortIcon field="name" /></span>
+                      <span className="flex items-center text-xs">Name <SortIcon field="name" sortField={sortField} sortDir={sortDir} /></span>
                     </TableHead>
                     <TableHead className="cursor-pointer select-none h-10 hidden sm:table-cell" onClick={() => handleSort('gender')}>
-                      <span className="flex items-center text-xs">Gender <SortIcon field="gender" /></span>
+                      <span className="flex items-center text-xs">Gender <SortIcon field="gender" sortField={sortField} sortDir={sortDir} /></span>
                     </TableHead>
                     <TableHead className="cursor-pointer select-none h-10 hidden md:table-cell" onClick={() => handleSort('grade')}>
-                      <span className="flex items-center text-xs">Grade <SortIcon field="grade" /></span>
+                      <span className="flex items-center text-xs">Grade <SortIcon field="grade" sortField={sortField} sortDir={sortDir} /></span>
                     </TableHead>
                     <TableHead className="hidden lg:table-cell">Class</TableHead>
                     <TableHead className="cursor-pointer select-none h-10 hidden md:table-cell" onClick={() => handleSort('boardingStatus')}>
-                      <span className="flex items-center text-xs">Boarding <SortIcon field="boardingStatus" /></span>
+                      <span className="flex items-center text-xs">Boarding <SortIcon field="boardingStatus" sortField={sortField} sortDir={sortDir} /></span>
                     </TableHead>
                     <TableHead className="cursor-pointer select-none h-10" onClick={() => handleSort('enrollmentStatus')}>
-                      <span className="flex items-center text-xs">Status <SortIcon field="enrollmentStatus" /></span>
+                      <span className="flex items-center text-xs">Status <SortIcon field="enrollmentStatus" sortField={sortField} sortDir={sortDir} /></span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -727,8 +722,8 @@ function AddStudentInlineForm({
   onBack: () => void
   onSuccess: () => void
 }) {
+  const queryClient = useQueryClient()
   const [step, setStep] = useState(0)
-  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const steps = ['Basic Info', 'Parent/Guardian', 'Medical', 'Review']
 
@@ -780,6 +775,21 @@ function AddStudentInlineForm({
     setStep(0)
   }
 
+  const { mutate: createStudent, isPending: submitting } = useApiMutation<
+    Record<string, unknown>,
+    any
+  >('/api/students', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students'] })
+      resetForm()
+      toast.success('Student added successfully', {
+        description: `${form.firstName} ${form.lastName} has been enrolled`,
+      })
+      onSuccess()
+    },
+    onError: (err) => setError(err.message || 'An error occurred'),
+  })
+
   const canProceed = () => {
     switch (step) {
       case 0: return form.firstName.trim() && form.lastName.trim() && form.gender && form.dateOfBirth
@@ -795,38 +805,18 @@ function AddStudentInlineForm({
       setStep(0)
       return
     }
-    setSubmitting(true)
     setError('')
-    try {
-      const res = await fetch('/api/students', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firstName: form.firstName.trim(),
-          lastName: form.lastName.trim(),
-          middleName: form.middleName.trim() || undefined,
-          dateOfBirth: form.dateOfBirth,
-          gender: form.gender,
-          birthCertNumber: form.birthCertNumber.trim() || undefined,
-          boardingStatus: form.boardingStatus || undefined,
-          previousSchool: form.previousSchool.trim() || undefined,
-          nationality: form.nationality.trim() || undefined,
-        }),
-      })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Failed to create student')
-      }
-      resetForm()
-      toast.success('Student added successfully', {
-        description: `${form.firstName} ${form.lastName} has been enrolled`,
-      })
-      onSuccess()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
-    } finally {
-      setSubmitting(false)
-    }
+    createStudent({
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
+      middleName: form.middleName.trim() || undefined,
+      dateOfBirth: form.dateOfBirth,
+      gender: form.gender,
+      birthCertNumber: form.birthCertNumber.trim() || undefined,
+      boardingStatus: form.boardingStatus || undefined,
+      previousSchool: form.previousSchool.trim() || undefined,
+      nationality: form.nationality.trim() || undefined,
+    })
   }
 
   return (
@@ -1430,27 +1420,13 @@ function StudentDetailView({
   onBack: () => void
   onEdit: () => void
 }) {
-  const [data, setData] = useState<StudentDetail | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const {
+    data,
+    isPending: loading,
+    error: queryError,
+  } = useApiQuery<StudentDetail>(['students', studentId], `/api/students/${studentId}`)
 
-  useEffect(() => {
-    const fetchDetail = async () => {
-      setLoading(true)
-      setError('')
-      try {
-        const res = await fetch(`/api/students/${studentId}`)
-        if (!res.ok) throw new Error('Failed to fetch student details')
-        const json = await res.json()
-        setData(json)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchDetail()
-  }, [studentId])
+  const error = queryError ? (queryError.message || 'An error occurred') : ''
 
   if (loading) {
     return (

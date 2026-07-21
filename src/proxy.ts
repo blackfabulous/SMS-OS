@@ -34,6 +34,8 @@ const BLOCK_DURATION = 15 * 60 * 1000 // 15 minutes
 
 const store = new Map<string, RateLimitEntry>()
 
+const E2E_BYPASS = process.env.PLAYWRIGHT_E2E === 'true' || process.env.CI === 'true'
+
 function getClientIP(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for')
   if (forwarded) return forwarded.split(',')[0].trim()
@@ -61,6 +63,8 @@ function blockIP(ip: string): void {
 }
 
 function checkRateLimit(ip: string, path: string): { allowed: boolean; retryAfter?: number } {
+  if (E2E_BYPASS) return { allowed: true }
+
   if (isBlocked(ip)) {
     const entry = store.get(`block:${ip}`)!
     return { allowed: false, retryAfter: Math.ceil((entry.blockedUntil! - Date.now()) / 1000) }

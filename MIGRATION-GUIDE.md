@@ -1,56 +1,108 @@
 # Migration Guide — Re-Architecture Fixes
 
 > This guide covers applying the schema changes introduced in this branch to an existing ZimSchool Pro database.
-> For a fresh/empty database you can run `bun run db:push`.
+> A baseline migration now lives in `prisma/migrations/`. For fresh databases run `bun run db:deploy`. For existing databases, first mark the baseline as applied, then use `bun run db:deploy` for all future changes.
 
 ## What changed
 
 1. **Soft-delete (`deletedAt`)** added to every tenant-owned Prisma model.
-2. **`schoolId` added** to `FeeInvoice`, `FeePayment`, `InvoiceItem`, `PaymentAllocation`, `Outbox`, `AuditLog`.
+2. **`schoolId` added** to every tenant-owned business table (including all child/join/line-item tables previously isolated through `EXISTS` RLS policies such as `Term`, `GradeSubject`, `StudentEnrollment`, `AssessmentMark`, `ReportCard`, `BoardingAssignment`, `TransportAssignment`, `Payslip`, `CanteenTransactionItem`, `PurchaseOrderItem`, etc.).
 3. **Per-school unique numbers** for `FeeInvoice.invoiceNumber` and `FeePayment.receiptNumber`.
 4. **New `PaymentAllocation` ledger** between payments and invoices.
 5. **New `Outbox` durable-jobs table**.
 6. **`AuditLog` now tenant-scoped** with `schoolId`, `actorId`, and `beforeValue`/`afterValue` as JSON.
 7. **Prisma extension in `src/lib/db.ts`** auto-filters soft-deleted rows and converts `delete` → soft-delete.
+8. **Prisma enums** replace `String` status/type columns for high-risk domains (finance, HR, operations, academics, welfare).
+9. **All money/rate fields** are now `Decimal @db.Decimal(15,2)` (`FeePayment.exchangeRate` uses `(15,6)`).
+10. **All timestamps** use `@db.Timestamptz(3)`.
+11. **RLS policies** in `prisma/rls/enable-rls.sql` now use direct `schoolId` comparisons, removing the `EXISTS` join block.
 
 ## Recommended migration path
 
-### 1. Create a Prisma migration
+### 1. Baseline an existing database
+
+If your database already has the current tables, mark the baseline migration as already applied so Prisma does not try to re-create them.
 
 ```bash
-cp .env .env.bak
-# Make sure DATABASE_URL points to a staging or production database
-npx prisma migrate dev --name rearchitecture_runtime_fixes
+npx prisma migrate resolve --applied 20250714120000_baseline
 ```
 
-Review the generated migration SQL before applying it. Prisma Migrate will produce `ALTER TABLE` statements for the new columns and `CREATE TABLE` for `PaymentAllocation`/`Outbox`.
+For existing databases, generate a diff between your current schema and the target datamodel to produce a focused migration:
+
+```bash
+bunx prisma migrate diff \
+  --from-schema-datasource prisma/schema.prisma \
+  --to-schema-datamodel prisma/schema.prisma \
+  --script > prisma/migrations/20250714120001_db_domain/migration.sql
+```
+
+Review the generated SQL, add any required back-fill `UPDATE` statements (see below), then mark it applied and run `bun run db:deploy`.
+
+Then deploy any subsequent migrations:
+
+```bash
+bun run db:deploy
+```
+
+For a fresh/empty database, simply run `bun run db:deploy` and Prisma will create everything from the baseline SQL.
+
+### 2. Create future migrations
+
+After schema changes, generate a new migration with:
+
+```bash
+bunx prisma migrate dev --name <descriptive_name>
+```
+
+Review the generated SQL before running `bun run db:deploy` in CI/prod.
 
 ### 2. Back-fill required `schoolId` values
 
-If you have existing data, run the following SQL **inside the same transaction as the migration** (or immediately after) so required columns are not null:
+If you have existing data, run back-fill `UPDATE` statements **inside the same transaction as the migration** (or immediately after) so required `schoolId` columns are not null. Derive from the most direct parent relationship:
 
 ```sql
--- Finance tables: derive schoolId from the owning student
-UPDATE "FeeInvoice" i
-SET "schoolId" = s."schoolId"
-FROM "Student" s
-WHERE i."studentId" = s.id AND i."schoolId" IS NULL;
+-- Finance
+UPDATE "FeeInvoice"   SET "schoolId" = s."schoolId" FROM "Student" s WHERE "FeeInvoice"."studentId" = s.id AND "FeeInvoice"."schoolId" IS NULL;
+UPDATE "FeePayment"   SET "schoolId" = s."schoolId" FROM "Student" s WHERE "FeePayment"."studentId" = s.id AND "FeePayment"."schoolId" IS NULL;
+UPDATE "InvoiceItem"  SET "schoolId" = i."schoolId" FROM "FeeInvoice" i WHERE "InvoiceItem"."invoiceId" = i.id AND "InvoiceItem"."schoolId" IS NULL;
 
-UPDATE "FeePayment" p
-SET "schoolId" = s."schoolId"
-FROM "Student" s
-WHERE p."studentId" = s.id AND p."schoolId" IS NULL;
+-- Academics / assessments / records
+UPDATE "Term" SET "schoolId" = y."schoolId" FROM "AcademicYear" y WHERE "Term"."academicYearId" = y.id AND "Term"."schoolId" IS NULL;
+UPDATE "GradeSubject" SET "schoolId" = g."schoolId" FROM "Grade" g WHERE "GradeSubject"."gradeId" = g.id AND "GradeSubject"."schoolId" IS NULL;
+UPDATE "StudentParent" SET "schoolId" = s."schoolId" FROM "Student" s WHERE "StudentParent"."studentId" = s.id AND "StudentParent"."schoolId" IS NULL;
+UPDATE "StudentEnrollment" SET "schoolId" = s."schoolId" FROM "Student" s WHERE "StudentEnrollment"."studentId" = s.id AND "StudentEnrollment"."schoolId" IS NULL;
+UPDATE "Attendance" SET "schoolId" = s."schoolId" FROM "Student" s WHERE "Attendance"."studentId" = s.id AND "Attendance"."schoolId" IS NULL;
+UPDATE "AssessmentMark" SET "schoolId" = s."schoolId" FROM "Student" s WHERE "AssessmentMark"."studentId" = s.id AND "AssessmentMark"."schoolId" IS NULL;
+UPDATE "ReportCard" SET "schoolId" = s."schoolId" FROM "Student" s WHERE "ReportCard"."studentId" = s.id AND "ReportCard"."schoolId" IS NULL;
+UPDATE "ZimsecCandidate" SET "schoolId" = s."schoolId" FROM "Student" s WHERE "ZimsecCandidate"."studentId" = s.id AND "ZimsecCandidate"."schoolId" IS NULL;
+UPDATE "Scholarship" SET "schoolId" = s."schoolId" FROM "Student" s WHERE "Scholarship"."studentId" = s.id AND "Scholarship"."schoolId" IS NULL;
 
-UPDATE "InvoiceItem" ii
-SET "schoolId" = i."schoolId"
-FROM "FeeInvoice" i
-WHERE ii."invoiceId" = i.id AND ii."schoolId" IS NULL;
+-- Operations / HR / welfare
+UPDATE "DisciplineRecord" SET "schoolId" = s."schoolId" FROM "Student" s WHERE "DisciplineRecord"."studentId" = s.id AND "DisciplineRecord"."schoolId" IS NULL;
+UPDATE "HealthRecord" SET "schoolId" = s."schoolId" FROM "Student" s WHERE "HealthRecord"."studentId" = s.id AND "HealthRecord"."schoolId" IS NULL;
+UPDATE "Dormitory" SET "schoolId" = h."schoolId" FROM "Hostel" h WHERE "Dormitory"."hostelId" = h.id AND "Dormitory"."schoolId" IS NULL;
+UPDATE "BoardingAssignment" SET "schoolId" = s."schoolId" FROM "Student" s WHERE "BoardingAssignment"."studentId" = s.id AND "BoardingAssignment"."schoolId" IS NULL;
+UPDATE "TransportAssignment" SET "schoolId" = s."schoolId" FROM "Student" s WHERE "TransportAssignment"."studentId" = s.id AND "TransportAssignment"."schoolId" IS NULL;
+UPDATE "LibraryTransaction" SET "schoolId" = b."schoolId" FROM "LibraryBook" b WHERE "LibraryTransaction"."bookId" = b.id AND "LibraryTransaction"."schoolId" IS NULL;
+UPDATE "Payslip" SET "schoolId" = st."schoolId" FROM "Staff" st WHERE "Payslip"."staffId" = st.id AND "Payslip"."schoolId" IS NULL;
+UPDATE "LeaveRecord" SET "schoolId" = st."schoolId" FROM "Staff" st WHERE "LeaveRecord"."staffId" = st.id AND "LeaveRecord"."schoolId" IS NULL;
+UPDATE "AppraisalRecord" SET "schoolId" = st."schoolId" FROM "Staff" st WHERE "AppraisalRecord"."staffId" = st.id AND "AppraisalRecord"."schoolId" IS NULL;
+UPDATE "StaffDiscipline" SET "schoolId" = st."schoolId" FROM "Staff" st WHERE "StaffDiscipline"."staffId" = st.id AND "StaffDiscipline"."schoolId" IS NULL;
+UPDATE "BeamApplication" SET "schoolId" = s."schoolId" FROM "Student" s WHERE "BeamApplication"."studentId" = s.id AND "BeamApplication"."schoolId" IS NULL;
+UPDATE "WelfareRecord" SET "schoolId" = s."schoolId" FROM "Student" s WHERE "WelfareRecord"."studentId" = s.id AND "WelfareRecord"."schoolId" IS NULL;
 
--- AuditLog: where possible, link to the school of the performing user
-UPDATE "AuditLog" al
-SET "schoolId" = u."schoolId"
-FROM "User" u
-WHERE al."performedBy" = u.id AND al."schoolId" IS NULL;
+-- e-Learning
+UPDATE "CourseResource" SET "schoolId" = c."schoolId" FROM "Course" c WHERE "CourseResource"."courseId" = c.id AND "CourseResource"."schoolId" IS NULL;
+UPDATE "CourseAssignment" SET "schoolId" = c."schoolId" FROM "Course" c WHERE "CourseAssignment"."courseId" = c.id AND "CourseAssignment"."schoolId" IS NULL;
+
+-- Canteen / procurement line items
+UPDATE "CanteenTransactionItem" SET "schoolId" = t."schoolId" FROM "CanteenTransaction" t WHERE "CanteenTransactionItem"."transactionId" = t.id AND "CanteenTransactionItem"."schoolId" IS NULL;
+UPDATE "PurchaseOrderItem" SET "schoolId" = p."schoolId" FROM "PurchaseOrder" p WHERE "PurchaseOrderItem"."purchaseOrderId" = p.id AND "PurchaseOrderItem"."schoolId" IS NULL;
+
+-- Alumni / audit / outbox
+UPDATE "AlumniContribution" SET "schoolId" = a."schoolId" FROM "Alumni" a WHERE "AlumniContribution"."alumniId" = a.id AND "AlumniContribution"."schoolId" IS NULL;
+UPDATE "AuditLog" al SET "schoolId" = u."schoolId" FROM "User" u WHERE al."performedBy" = u.id AND al."schoolId" IS NULL;
+UPDATE "Outbox" SET "schoolId" = s."schoolId" FROM "School" s WHERE "Outbox"."schoolId" IS NULL; -- or link to the actor/user
 ```
 
 ### 3. Handle per-school unique number collisions

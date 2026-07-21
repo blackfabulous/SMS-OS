@@ -50,6 +50,7 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { useApiMutation } from '@/hooks/use-api-query'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface WizardStep {
@@ -57,6 +58,19 @@ interface WizardStep {
   title: string
   description: string
   icon: React.ElementType
+}
+
+interface SetupPayload {
+  school: Record<string, unknown>
+  academic: Record<string, unknown>
+  fees: Record<string, unknown>
+  admin: Record<string, unknown>
+}
+
+interface SetupResult {
+  success: boolean
+  schoolName: string
+  summary: Record<string, number>
 }
 
 const STEPS: WizardStep[] = [
@@ -123,9 +137,19 @@ const stepVariants = {
 export default function SetupWizardModule() {
   const [currentStep, setCurrentStep] = useState(1)
   const [direction, setDirection] = useState(1)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [setupComplete, setSetupComplete] = useState(false)
   const [setupResult, setSetupResult] = useState<{ schoolName: string; summary: Record<string, number> } | null>(null)
+
+  const { mutate: submitSetup, isPending: isSubmitting } = useApiMutation<SetupPayload, SetupResult>('/api/school', {
+    onSuccess: (data) => {
+      setSetupComplete(true)
+      setSetupResult({ schoolName: data.schoolName, summary: data.summary })
+      toast.success('School setup completed!', { description: `${data.schoolName} has been configured successfully.` })
+    },
+    onError: (error) => {
+      toast.error('Setup failed', { description: error.message })
+    },
+  })
 
   // Step 1: School Info
   const [schoolName, setSchoolName] = useState('')
@@ -282,75 +306,53 @@ export default function SetupWizardModule() {
   }, [currentStep])
 
   // ─── Submit ───────────────────────────────────────────────────────────────
-  const handleSubmit = async () => {
-    setIsSubmitting(true)
-
-    try {
-      const feeItems: { gradeName: string; feeType: string; amount: number; currency: string }[] = []
-      for (const [gradeName, fees] of Object.entries(feeData)) {
-        for (const [feeKey, amounts] of Object.entries(fees)) {
-          const usdVal = parseFloat(amounts.usd) || 0
-          const zigVal = parseFloat(amounts.zig) || 0
-          if (usdVal > 0) {
-            feeItems.push({ gradeName, feeType: FEE_TYPES.find(f => f.key === feeKey)?.label || feeKey, amount: usdVal, currency: 'USD' })
-          }
-          if (zigVal > 0) {
-            feeItems.push({ gradeName, feeType: FEE_TYPES.find(f => f.key === feeKey)?.label || feeKey, amount: zigVal, currency: 'ZiG' })
-          }
+  const handleSubmit = () => {
+    const feeItems: { gradeName: string; feeType: string; amount: number; currency: string }[] = []
+    for (const [gradeName, fees] of Object.entries(feeData)) {
+      for (const [feeKey, amounts] of Object.entries(fees)) {
+        const usdVal = parseFloat(amounts.usd) || 0
+        const zigVal = parseFloat(amounts.zig) || 0
+        if (usdVal > 0) {
+          feeItems.push({ gradeName, feeType: FEE_TYPES.find(f => f.key === feeKey)?.label || feeKey, amount: usdVal, currency: 'USD' })
+        }
+        if (zigVal > 0) {
+          feeItems.push({ gradeName, feeType: FEE_TYPES.find(f => f.key === feeKey)?.label || feeKey, amount: zigVal, currency: 'ZiG' })
         }
       }
-
-      const payload = {
-        school: {
-          name: schoolName,
-          code: emisNumber,
-          emisNumber,
-          motto: motto || undefined,
-          levelType: schoolType,
-          province,
-          contactEmail: contactEmail || undefined,
-          contactPhone,
-          headName: principalName,
-          schoolType: 'GOVERNMENT',
-          ownershipType: 'GOVERNMENT',
-        },
-        academic: {
-          yearName: `${new Date().getFullYear()} Academic Year`,
-          startDate: yearStart,
-          endDate: `${new Date().getFullYear()}-12-05`,
-          terms,
-          grades,
-          classes,
-          subjects: [],
-        },
-        fees: { grades: feeItems },
-        admin: {
-          email: adminEmail,
-          name: adminName,
-          password: adminPassword,
-        },
-      }
-
-      const response = await fetch('/api/school', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setSetupComplete(true)
-        setSetupResult({ schoolName: data.schoolName || schoolName, summary: data.summary || {} })
-        toast.success('School setup completed!', { description: `${schoolName} has been configured successfully.` })
-      } else {
-        toast.error('Setup failed', { description: data.error || 'Unknown error' })
-      }
-    } catch {
-      toast.error('Setup failed', { description: 'Could not connect to server' })
-    } finally {
-      setIsSubmitting(false)
     }
+
+    const payload: SetupPayload = {
+      school: {
+        name: schoolName,
+        code: emisNumber,
+        emisNumber,
+        motto: motto || undefined,
+        levelType: schoolType,
+        province,
+        contactEmail: contactEmail || undefined,
+        contactPhone,
+        headName: principalName,
+        schoolType: 'GOVERNMENT',
+        ownershipType: 'GOVERNMENT',
+      },
+      academic: {
+        yearName: `${new Date().getFullYear()} Academic Year`,
+        startDate: yearStart,
+        endDate: `${new Date().getFullYear()}-12-05`,
+        terms,
+        grades,
+        classes,
+        subjects: [],
+      },
+      fees: { grades: feeItems },
+      admin: {
+        email: adminEmail,
+        name: adminName,
+        password: adminPassword,
+      },
+    }
+
+    submitSetup(payload)
   }
 
   const progressPercent = (currentStep / 5) * 100

@@ -1,7 +1,10 @@
 'use client'
 
 import { ModuleContainer, ModulePageLayout, ModuleSettingsButton, StatGrid, ModuleStatCard, SectionCard } from '@/components/module-ui';
-import React, { useState, useMemo, useEffect, useCallback } from 'react'
+import React, { useState, useMemo, useCallback } from 'react'
+import { useQueryClient, useMutation } from '@tanstack/react-query'
+import { useApiQuery, useApiMutation, useApiPut } from '@/hooks/use-api-query'
+import { apiDelete } from '@/lib/api-client'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Trophy, Calendar, MapPin, Plus, Edit, Trash2, Clock,
@@ -71,6 +74,20 @@ interface EventsStats {
   sportsCodes: number
   byType: { type: string; count: number }[]
   thisMonth: number
+}
+
+interface EventsResponse {
+  data: SchoolEvent[]
+  total: number
+  page: number
+  totalPages: number
+  sportsCodes: Array<{ id: string; name: string; season?: string | null; isActive?: boolean }>
+  upcomingEvents: SchoolEvent[]
+  stats: EventsStats
+}
+
+interface EventDetail extends SchoolEvent {
+  relatedEvents: SchoolEvent[]
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -230,12 +247,28 @@ export default function EventsModule() {
   const [viewMode, setViewMode] = useState<ViewMode>('overview')
   const [activeTab, setActiveTab] = useState('overview')
 
+  const queryClient = useQueryClient()
+
   // Data state
-  const [events, setEvents] = useState<SchoolEvent[]>([])
   const [fixtures] = useState<SportsFixture[]>(INITIAL_FIXTURES)
-  const [stats, setStats] = useState<EventsStats | null>(null)
-  const [sportsCodes, setSportsCodes] = useState<SportsCode[]>(SPORTS_CODES)
-  const [loading, setLoading] = useState(true)
+
+  const {
+    data: eventsData,
+    isPending: loading,
+  } = useApiQuery<EventsResponse>(['events'], '/api/events?limit=100')
+
+  const events = eventsData?.data ?? []
+  const stats = eventsData?.stats ?? null
+  const sportsCodes = useMemo(() =>
+    (eventsData?.sportsCodes ?? SPORTS_CODES).map((sc) => ({
+      id: sc.id,
+      name: sc.name,
+      coach: 'TBD',
+      teams: ['1st Team'],
+      fixtures: 0,
+    })),
+    [eventsData?.sportsCodes]
+  )
 
   // Event form
   const [editEvent, setEditEvent] = useState<SchoolEvent | null>(null)
@@ -243,7 +276,6 @@ export default function EventsModule() {
   const [eventForm, setEventForm] = useState({
     title: '', description: '', eventType: 'Academic', startDate: '', endDate: '', venue: '',
   })
-  const [saving, setSaving] = useState(false)
 
   // Fixture form
   const [fixtureForm, setFixtureForm] = useState({
@@ -274,36 +306,52 @@ export default function EventsModule() {
     exportFormat: 'csv',
   })
 
-  // ─── Fetch Events from API ───────────────────────────────────────────
+  // ─── API Queries & Mutations ───────────────────────────────────────────
 
-  const fetchEvents = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await fetch('/api/events?limit=100')
-      if (res.ok) {
-        const data = await res.json()
-        setEvents(data.data || [])
-        setStats(data.stats || null)
-        setSportsCodes(
-          (data.sportsCodes || []).map((sc: { id: string; name: string; season?: string | null }) => ({
-            id: sc.id,
-            name: sc.name,
-            coach: 'TBD',
-            teams: ['1st Team'],
-            fixtures: 0,
-          }))
-        )
-      }
-    } catch {
-      toast.error('Failed to load events')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const {
+    data: eventDetail,
+  } = useApiQuery<EventDetail>(
+    ['events', 'detail', selectedEvent?.id],
+    selectedEvent ? `/api/events/${selectedEvent.id}` : '',
+    { enabled: !!selectedEvent?.id }
+  )
 
-  useEffect(() => {
-    fetchEvents()
-  }, [fetchEvents])
+  type EventBody = {
+    title: string
+    description: string | null
+    eventType: string
+    startDate: string
+    endDate: string | null
+    venue: string | null
+  }
+
+  const { mutate: createEvent, isPending: isCreating } = useApiMutation<EventBody, SchoolEvent>('/api/events', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+      toast.success('Event created successfully')
+      goBack()
+    },
+    onError: (err) => toast.error(err.message || 'Failed to create event'),
+  })
+
+  const { mutate: updateEvent, isPending: isUpdating } = useApiPut<EventBody & { id: string; type: 'event' }, SchoolEvent>('/api/events', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+      toast.success('Event updated successfully')
+      goBack()
+    },
+    onError: (err) => toast.error(err.message || 'Failed to update event'),
+  })
+
+  const { mutate: deleteEvent, isPending: isDeleting } = useMutation<void, Error, string>({
+    mutationFn: (id) => apiDelete(`/api/events/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+      toast.success('Event deleted successfully')
+      if (selectedEvent?.id) goBack()
+    },
+    onError: (err) => toast.error(err.message || 'Failed to delete event'),
+  })
 
   // ─── Computed ─────────────────────────────────────────────────────────
 
@@ -383,97 +431,35 @@ export default function EventsModule() {
     navigateTo('edit-event')
   }, [navigateTo])
 
-  const handleViewEvent = useCallback(async (ev: SchoolEvent) => {
+  const handleViewEvent = useCallback((ev: SchoolEvent) => {
     setSelectedEvent(ev)
     navigateTo('event-detail')
-    // Fetch full detail with related events
-    try {
-      const res = await fetch(`/api/events/${ev.id}`)
-      if (res.ok) {
-        const data = await res.json()
-        setSelectedEvent(data)
-      }
-    } catch {
-      // Use the event we already have
-    }
   }, [navigateTo])
 
-  const handleDeleteEvent = useCallback(async (id: string) => {
+  const handleDeleteEvent = useCallback((id: string) => {
     if (!confirm('Are you sure you want to delete this event?')) return
-    try {
-      const res = await fetch(`/api/events/${id}`, { method: 'DELETE' })
-      if (res.ok) {
-        setEvents((prev) => prev.filter((e) => e.id !== id))
-        toast.success('Event deleted successfully')
-        if (selectedEvent?.id === id) {
-          goBack()
-        }
-      } else {
-        toast.error('Failed to delete event')
-      }
-    } catch {
-      toast.error('Failed to delete event')
-    }
-  }, [selectedEvent, goBack])
+    deleteEvent(id)
+  }, [deleteEvent])
 
-  const handleSaveEvent = useCallback(async () => {
+  const handleSaveEvent = useCallback(() => {
     if (!eventForm.title || !eventForm.startDate) {
       toast.error('Title and start date are required')
       return
     }
-    setSaving(true)
-    try {
-      if (editEvent) {
-        // Update
-        const res = await fetch(`/api/events/${editEvent.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: eventForm.title,
-            description: eventForm.description || null,
-            eventType: eventForm.eventType,
-            startDate: eventForm.startDate,
-            endDate: eventForm.endDate || null,
-            venue: eventForm.venue || null,
-          }),
-        })
-        if (res.ok) {
-          const updated = await res.json()
-          setEvents((prev) => prev.map((e) => e.id === updated.id ? updated : e))
-          toast.success('Event updated successfully')
-          goBack()
-        } else {
-          toast.error('Failed to update event')
-        }
-      } else {
-        // Create
-        const res = await fetch('/api/events', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: eventForm.title,
-            description: eventForm.description || null,
-            eventType: eventForm.eventType,
-            startDate: eventForm.startDate,
-            endDate: eventForm.endDate || null,
-            venue: eventForm.venue || null,
-          }),
-        })
-        if (res.ok) {
-          const created = await res.json()
-          setEvents((prev) => [...prev, created])
-          toast.success('Event created successfully')
-          goBack()
-        } else {
-          toast.error('Failed to create event')
-        }
-      }
-    } catch {
-      toast.error('Failed to save event')
-    } finally {
-      setSaving(false)
+    const body: EventBody = {
+      title: eventForm.title,
+      description: eventForm.description || null,
+      eventType: eventForm.eventType,
+      startDate: eventForm.startDate,
+      endDate: eventForm.endDate || null,
+      venue: eventForm.venue || null,
     }
-  }, [editEvent, eventForm, goBack])
+    if (editEvent) {
+      updateEvent({ id: editEvent.id, type: 'event', ...body })
+    } else {
+      createEvent(body)
+    }
+  }, [editEvent, eventForm, createEvent, updateEvent])
 
   // ─── Fixture Handlers ─────────────────────────────────────────────────
 
@@ -647,10 +633,10 @@ export default function EventsModule() {
               <Button variant="outline" onClick={goBack}>Cancel</Button>
               <Button
                 onClick={handleSaveEvent}
-                disabled={!eventForm.title || !eventForm.startDate || saving}
+                disabled={!eventForm.title || !eventForm.startDate || isCreating || isUpdating}
                 className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md min-w-[140px]"
               >
-                {saving ? (
+                {isCreating || isUpdating ? (
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                 ) : (
                   <>
@@ -668,7 +654,7 @@ export default function EventsModule() {
 
   // ─── EVENT DETAIL VIEW ───────────────────────────────────────────────
   if (viewMode === 'event-detail' && selectedEvent) {
-    const ev = selectedEvent
+    const ev = eventDetail ?? selectedEvent
     const daysUntil = getDaysUntil(ev.startDate)
     const related = ev.relatedEvents || []
 

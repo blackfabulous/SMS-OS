@@ -11,7 +11,7 @@ import {
   KitEmptyState,
   ModuleToolbar,
 } from '@/components/module-ui'
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   DollarSign,
@@ -60,6 +60,7 @@ import { exportToCSV, printReport, buildHTMLTable, formatCurrency as fmtCurrency
 import { EmptyState } from '@/components/empty-state'
 import { ModuleSkeleton } from '@/components/module-skeleton'
 import { formatDualCurrency, formatUSD, formatZiG, getCurrentRate, fetchExchangeRate, type CurrencyCode } from '@/lib/currency'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -123,6 +124,20 @@ interface FinanceDashboard {
   monthlyCollectionTrend: Record<string, number>
 }
 
+interface FinancePaymentsResponse {
+  data: Payment[]
+  total: number
+  page: number
+  totalPages: number
+}
+
+interface InvoicesResponse {
+  data: Invoice[]
+  total: number
+  page: number
+  totalPages: number
+}
+
 interface InvoiceItem {
   id: string
   description: string
@@ -173,6 +188,13 @@ interface Student {
   studentNumber: string
 }
 
+interface StudentsResponse {
+  data: Student[]
+  total: number
+  page: number
+  totalPages: number
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const formatCurrency = (amount: number, currency = 'USD') => {
@@ -212,26 +234,60 @@ const trendChartConfig = {
 // ─── Finance Module ─────────────────────────────────────────────────────────
 
 export default function FinanceModule() {
-  const [dashboard, setDashboard] = useState<FinanceDashboard | null>(null)
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [exchangeRate, setExchangeRate] = useState(getCurrentRate().rate)
   const [primaryCurrency, setPrimaryCurrency] = useState<CurrencyCode>('USD')
 
+  // Dashboard data
+  const {
+    data: dashboard,
+    isPending: loading,
+    error: dashboardError,
+  } = useApiQuery<FinanceDashboard>(['finance', 'dashboard'], '/api/finance')
+
   // Invoices state
-  const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [invoicesLoading, setInvoicesLoading] = useState(false)
   const [invoiceFilter, setInvoiceFilter] = useState('ALL')
   const [invoiceSearch, setInvoiceSearch] = useState('')
   const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null)
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
 
   // Payments state
-  const [payments, setPayments] = useState<Payment[]>([])
-  const [paymentsLoading, setPaymentsLoading] = useState(false)
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('ALL')
   const [paymentSearch, setPaymentSearch] = useState('')
+
+  const paymentsUrl = useMemo(() => {
+    const params = new URLSearchParams()
+    if (paymentMethodFilter !== 'ALL') params.set('paymentMethod', paymentMethodFilter)
+    params.set('page', '1')
+    params.set('limit', '50')
+    return `/api/finance/payments?${params.toString()}`
+  }, [paymentMethodFilter])
+
+  const {
+    data: paymentsResult,
+    isPending: paymentsLoading,
+    error: paymentsError,
+  } = useApiQuery<FinancePaymentsResponse>(['finance', 'payments', paymentMethodFilter], paymentsUrl, { enabled: activeTab === 'payments' })
+
+  const payments = paymentsResult?.data ?? []
+
+  const invoicesUrl = useMemo(() => {
+    const params = new URLSearchParams()
+    if (invoiceFilter !== 'ALL') params.set('status', invoiceFilter)
+    params.set('page', '1')
+    params.set('limit', '50')
+    return `/api/finance/invoices?${params.toString()}`
+  }, [invoiceFilter])
+
+  const {
+    data: invoicesResult,
+    isPending: invoicesLoading,
+    error: invoicesError,
+  } = useApiQuery<InvoicesResponse>(['finance', 'invoices', invoiceFilter], invoicesUrl, { enabled: activeTab === 'invoices' })
+
+  const invoices = invoicesResult?.data ?? []
 
   // Settings state
   const [financeSettings, setFinanceSettings] = useState({
@@ -248,9 +304,15 @@ export default function FinanceModule() {
     paymentMethods: 'ALL',
   })
 
-  // Students & submitting
-  const [students, setStudents] = useState<Student[]>([])
-  const [submitting, setSubmitting] = useState(false)
+  // Students
+  const {
+    data: studentsResult,
+    isPending: studentsLoading,
+  } = useApiQuery<StudentsResponse>(['students', 'finance-select'], '/api/students?limit=200', {
+    enabled: viewMode === 'add-payment' || viewMode === 'add-invoice',
+  })
+  const students = studentsResult?.data ?? []
+
 
   // Form states - Record Payment
   const [paymentForm, setPaymentForm] = useState({
@@ -269,160 +331,87 @@ export default function FinanceModule() {
     items: [{ description: '', amount: '', feeType: 'TUITION' }],
   })
 
-  // ─── Data Fetching ─────────────────────────────────────────────────────
+  // ─── Mutations ─────────────────────────────────────────────────────
 
-  const fetchDashboard = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await fetch('/api/finance')
-      if (res.ok) {
-        const data = await res.json()
-        setDashboard(data)
-      }
-    } catch (err) {
-      console.error('Failed to fetch finance dashboard:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const { mutate: recordPayment, isPending: isRecordingPayment } = useApiMutation<
+    Record<string, unknown>,
+    any
+  >('/api/finance/payments', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance'] })
+      toast.success('Payment recorded successfully', {
+        description: `${paymentForm.amount} ${paymentForm.currency} payment recorded`,
+      })
+      setPaymentForm({ studentId: '', amount: '', paymentMethod: 'CASH', currency: 'USD', reference: '' })
+      setViewMode('list')
+    },
+    onError: (err) => {
+      toast.error('Failed to record payment', { description: err.message || 'An error occurred' })
+    },
+  })
 
-  const fetchInvoices = useCallback(async () => {
-    try {
-      setInvoicesLoading(true)
-      const params = new URLSearchParams()
-      if (invoiceFilter !== 'ALL') params.set('status', invoiceFilter)
-      params.set('page', '1')
-      params.set('limit', '50')
-      const res = await fetch(`/api/finance/invoices?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        setInvoices(data.data || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch invoices:', err)
-    } finally {
-      setInvoicesLoading(false)
-    }
-  }, [invoiceFilter])
+  const { mutate: createInvoice, isPending: isCreatingInvoice } = useApiMutation<
+    Record<string, unknown>,
+    any
+  >('/api/finance/invoices', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance'] })
+      toast.success('Invoice created successfully')
+      setInvoiceForm({ studentId: '', termId: '', dueDate: '', items: [{ description: '', amount: '', feeType: 'TUITION' }] })
+      setViewMode('list')
+    },
+    onError: (err) => {
+      toast.error('Failed to create invoice', { description: err.message || 'An error occurred' })
+    },
+  })
 
-  const fetchPayments = useCallback(async () => {
-    try {
-      setPaymentsLoading(true)
-      const params = new URLSearchParams()
-      if (paymentMethodFilter !== 'ALL') params.set('paymentMethod', paymentMethodFilter)
-      params.set('page', '1')
-      params.set('limit', '50')
-      const res = await fetch(`/api/finance/payments?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        setPayments(data.data || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch payments:', err)
-    } finally {
-      setPaymentsLoading(false)
-    }
-  }, [paymentMethodFilter])
+  const submitting = isRecordingPayment || isCreatingInvoice
 
-  const fetchStudents = useCallback(async () => {
-    try {
-      const res = await fetch('/api/students?limit=200')
-      if (res.ok) {
-        const data = await res.json()
-        setStudents(data.data || data || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch students:', err)
-    }
-  }, [])
+  // ─── Effects ─────────────────────────────────────────────────────
 
   useEffect(() => {
-    fetchDashboard()
+    if (dashboardError) toast.error(dashboardError.message || 'Failed to load finance dashboard')
+  }, [dashboardError])
+
+  useEffect(() => {
+    if (paymentsError) toast.error(paymentsError.message || 'Failed to load payments')
+  }, [paymentsError])
+
+  useEffect(() => {
+    if (invoicesError) toast.error(invoicesError.message || 'Failed to load invoices')
+  }, [invoicesError])
+
+  useEffect(() => {
     fetchExchangeRate().then(r => setExchangeRate(r.rate))
-  }, [fetchDashboard])
-
-  useEffect(() => {
-    if (activeTab === 'invoices') fetchInvoices()
-  }, [activeTab, fetchInvoices])
-
-  useEffect(() => {
-    if (activeTab === 'payments') fetchPayments()
-  }, [activeTab, fetchPayments])
-
-  useEffect(() => {
-    if (viewMode === 'add-payment' || viewMode === 'add-invoice') fetchStudents()
-  }, [viewMode, fetchStudents])
+  }, [])
 
   // ─── Form Handlers ─────────────────────────────────────────────────────
 
-  const handleRecordPayment = async () => {
+  const handleRecordPayment = () => {
     if (!paymentForm.studentId || !paymentForm.amount) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/finance/payments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: paymentForm.studentId,
-          amount: parseFloat(paymentForm.amount),
-          paymentMethod: paymentForm.paymentMethod,
-          currency: paymentForm.currency,
-          reference: paymentForm.reference || undefined,
-        }),
-      })
-      if (res.ok) {
-        setPaymentForm({ studentId: '', amount: '', paymentMethod: 'CASH', currency: 'USD', reference: '' })
-        setViewMode('list')
-        fetchDashboard()
-        if (activeTab === 'payments') fetchPayments()
-        if (activeTab === 'invoices') fetchInvoices()
-        toast.success('Payment recorded successfully', {
-          description: `$${parseFloat(paymentForm.amount).toLocaleString()} ${paymentForm.currency} payment recorded`,
-        })
-      }
-    } catch (err) {
-      console.error('Failed to record payment:', err)
-      toast.error('Failed to record payment', {
-        description: 'An error occurred while recording the payment',
-      })
-    } finally {
-      setSubmitting(false)
-    }
+    recordPayment({
+      studentId: paymentForm.studentId,
+      amount: parseFloat(paymentForm.amount),
+      paymentMethod: paymentForm.paymentMethod,
+      currency: paymentForm.currency,
+      reference: paymentForm.reference || undefined,
+    })
   }
 
-  const handleCreateInvoice = async () => {
+  const handleCreateInvoice = () => {
     if (!invoiceForm.studentId || !invoiceForm.items.length) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/finance/invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: invoiceForm.studentId,
-          termId: invoiceForm.termId || undefined,
-          dueDate: invoiceForm.dueDate || undefined,
-          items: invoiceForm.items
-            .filter((item) => item.description && item.amount)
-            .map((item) => ({
-              description: item.description,
-              amount: parseFloat(item.amount),
-              feeType: item.feeType,
-            })),
-        }),
-      })
-      if (res.ok) {
-        setInvoiceForm({ studentId: '', termId: '', dueDate: '', items: [{ description: '', amount: '', feeType: 'TUITION' }] })
-        setViewMode('list')
-        fetchDashboard()
-        if (activeTab === 'invoices') fetchInvoices()
-        toast.success('Invoice created successfully')
-      }
-    } catch (err) {
-      console.error('Failed to create invoice:', err)
-      toast.error('Failed to create invoice')
-    } finally {
-      setSubmitting(false)
-    }
+    createInvoice({
+      studentId: invoiceForm.studentId,
+      termId: invoiceForm.termId || undefined,
+      dueDate: invoiceForm.dueDate || undefined,
+      items: invoiceForm.items
+        .filter((item) => item.description && item.amount)
+        .map((item) => ({
+          description: item.description,
+          amount: parseFloat(item.amount),
+          feeType: item.feeType,
+        })),
+    })
   }
 
   const addInvoiceItem = () => {

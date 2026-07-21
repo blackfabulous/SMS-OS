@@ -13,22 +13,22 @@
 
 | Blueprint pillar | Current state (verified) | Gap |
 |---|---|---|
-| Money as `Decimal` | 50 `Decimal @db.Decimal(15,2)` fields; 11 `Float` fields remain (academic percentages, `exchangeRate`, `discountPercentage`, `rating`, etc.) | Partial |
-| Closed sets as `enum` | 23 Prisma enums defined; several models still use `String` for status/type fields (`Student.beamStatus`, `StudentEnrollment.status`, `Staff.contractType`, `Staff.payType`, etc.) | Partial |
+| Money as `Decimal` | All money/rate fields are `Decimal @db.Decimal(15,2)` (or 15,6 for exchange rate); remaining `Float` columns are academic/score percentages (`totalMarks`, `marksObtained`, `passMark`, `weight`, etc.) | Done |
+| Closed sets as `enum` | 38 Prisma enums defined; high-risk status/type columns converted (`BoardingAssignment`, `TransportAssignment`, `MaintenanceRequest`, `Payslip`, `AppraisalRecord`, `StaffDiscipline`, `Outbox`, `Communication`, `CanteenItem`, `CanteenTransaction`, `PurchaseOrder`, `Requisition`, `Document`, `AlumniContribution`). Remaining strings are free-form labels/colors/categories (CMS, themes, templates) | Done (core) |
 | Soft-delete `deletedAt` | Added `deletedAt` + `@@index([deletedAt])` on 77 tenant-owned models; Prisma extension auto-filters and converts `delete` → soft-delete | Done |
 | Per-school unique keys | 10 composite `@@unique([schoolId, ...])`; `FeeInvoice.invoiceNumber` and `FeePayment.receiptNumber` now per-school unique | Done (finance) |
-| `schoolId` on every tenant-owned row | 47 + `FeeInvoice`, `FeePayment`, `InvoiceItem`, `PaymentAllocation`, `Outbox`, `AuditLog` now carry `schoolId`; remaining relation-scoped tables still on `EXISTS` RLS | Partial |
-| DB migrations | `prisma/migrations/` still absent; manual migration SQL recommended for existing data before `prisma db push` | Partial |
-| Tenancy backstop (RLS) | Implemented: `src/server/tenant-context.ts` (`AsyncLocalStorage`), `src/lib/db.ts` Prisma extension, `prisma/rls/enable-rls.sql`, `docs/RLS.md` | Done / advanced |
+| `schoolId` on every tenant-owned row | Every tenant-owned model with `deletedAt` now carries a `schoolId` column (required on business tables, nullable on `AuditLog`/`Outbox` for system events); `CanteenTransactionItem` and `PurchaseOrderItem` added; `EXISTS` RLS block removed | Done |
+| DB migrations | `prisma/migrations/20250714120000_baseline/migration.sql` created and kept in sync with schema; `bun run db:deploy` replaces `prisma db push` | Done |
+| Tenancy backstop (RLS) | Implemented: `src/lib/db.ts` Prisma extension, `prisma/rls/enable-rls.sql` now uses direct `schoolId` policies and covers every tenant table (no `EXISTS` join policies); `docs/RLS.md` | Done / advanced |
 | RBAC | `src/lib/rbac.ts` matrix, `src/server/context.ts` `requireContext` wrapper | Done |
-| Service layer (`src/server`) | `src/lib/settings.ts`, `src/server/finance/scope.ts`, `src/lib/finance-calc.ts`, `src/lib/grading.ts`, etc. | Partial |
-| Real dashboard routes | `src/app/dashboard/page.tsx` is `'use client'` with Zustand `activeModule` module-swap; public `(public)` routes are real SSR | Partial |
-| TanStack Query | Installed (`@tanstack/react-query ^5.82`); `src/lib/use-api.ts` exists; dashboard/modules use ad-hoc `fetch` | Partial |
+| Service layer (`src/server`) | `src/lib/settings.ts`, `src/server/finance/scope.ts`, `src/server/services/payment-service.ts`, `src/server/services/notifications.ts`, `src/server/services/settings.ts`, `src/server/services/attendance.ts`, `src/server/services/report-cards.ts`, `src/lib/finance-calc.ts`, `src/lib/grading.ts`, etc. | Partial — payments + notification + settings + attendance + report-card services moved; other contexts pending |
+| Real dashboard routes | `src/app/dashboard/[module]/page.tsx` introduced and fixed to use a server-safe `isModuleId` from `src/lib/module-ids.ts`; `DashboardShell` drives module from URL; `AppSidebar` and `MobileBottomNav` navigate via `router.push`; legacy Zustand `activeModule` still used by internal module buttons (migration pending) | Partial |
+| TanStack Query | `QueryProvider` added to root layout; `src/lib/api-client.ts` typed envelope client; `src/hooks/use-api-query.ts` hooks; dashboard, `SettingsRegistryPanel`, `settings-module`, `setup-wizard-module`, `alumni-module`, `attendance-module`, `finance-module`, `documents-module`, `communication-module`, `notification-module`, `admissions-module`, `boarding-module`, and `payroll-module` migrated to `useApiQuery`/`useApiMutation`; other modules pending | Partial |
 | Design system | Emerald tokens + `components/ui` exist; module files are 800–1,500-line monoliths with inconsistent loading/error/empty states | Partial |
-| Tests | 13 Vitest files, including `tests/tenant-safety.test.ts`, `tests/tenant-context.test.ts`, `tests/finance-scope.test.ts`, `tests/student-access.test.ts` | Partial |
-| Observability | `console.*` only; no Pino/Sentry | Full |
-| Outbox / durable jobs | `Outbox` model + `src/server/outbox.ts` (`enqueueOutbox`, `processOutbox`) added; not yet wired into notifications | Done (model + worker) |
-| Ops | Root `Dockerfile`, `.dockerignore`, `scripts/github-ci.yml`, and `package.json` `typecheck` script added; `.github/workflows/ci.yml` needs GitHub `workflow` OAuth scope to push | Done |
+| Tests | 13 Vitest files, including `tests/tenant-safety.test.ts`, `tests/tenant-context.test.ts`, `tests/finance-scope.test.ts`, `tests/student-access.test.ts`; Playwright E2E (121 tests across chromium + Mobile Chrome) covering all 39 dashboard modules, public pages, contact submission, admissions apply, student search, student record detail, finance dashboard, and `/api/health/deep` | Partial |
+| Observability | `src/lib/logger.ts` (server Pino) and `src/lib/logger-client.ts` (browser) introduced; Sentry init via `instrumentation.ts` and `sentry.*.config.ts`; used in `/api/finance/payments`; Playwright CI still pending | Partial |
+| Outbox / durable jobs | `Outbox` model + `src/server/outbox.ts` (`enqueueOutbox`, `processOutboxJob`, `processOutbox`) wired into notifications (`src/lib/notifications.ts`) and report-card generation (`src/lib/report-card-service.ts`); new `POST /api/outbox/process` endpoint | Done |
+| Ops | Root `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `scripts/github-ci.yml`, Playwright E2E config + smoke/critical-journey specs with setup auth, Pino logging, and `/api/health/deep` endpoint added; `.github/workflows/ci.yml` needs GitHub `workflow` OAuth scope to push; Sentry pending | Done (core) |
 | Public site | Real App Router routes, metadata, sitemap/robots/JSON-LD | Done |
 | Settings registry | `src/lib/settings-schema.ts` + `src/lib/settings.ts` with Zod, categories, defaults, UI hints | Done |
 | Finance allocation | `PaymentAllocation` model added; payment creation (`/api/finance/payments`, `/api/finance/beam/apply`) creates allocations; reverse deletes allocations; `FeeInvoice.balance` still cached during transition | Done (ledger + cached balance) |
@@ -64,17 +64,17 @@
 
 | ID | Task | Pri | Effort | Deps | Acceptance |
 |----|------|-----|--------|------|-----------|
-| RA-A1 | **Introduce Prisma migration history** (`prisma migrate`); stop relying on `db push` | P1 | M | — | `prisma/migrations/` exists; `migrate deploy` in CI |
-| RA-A2 | **Finish money → `Decimal @db.Decimal(15,2)`**; audit remaining 11 `Float` fields (`exchangeRate`, `discountPercentage`, etc.) | P2 | M | RA-A1 | No `Float` used for money; finance tests pass |
-| RA-A3 | **Finish Prisma enums** — migrate remaining `String` status/type columns (`Student.beamStatus`, `StudentEnrollment.status`, `Staff.contractType`, `Staff.payType`, etc.) | P2 | L | RA-A1 | Closed sets are enums; invalid states impossible |
-| RA-A4 | **Per-school unique keys** — complete `@@unique([schoolId, ...])` for all natural keys; replace global `@unique` on `FeeInvoice.invoiceNumber`, `FeePayment.receiptNumber`, etc. | P1 | M | RA-A1 | Two schools can hold the same number |
-| RA-A5 | **Backfill `schoolId` on remaining child/join tables** (the 32 models currently using `EXISTS` RLS) | P2 | XL | RA-A2, RA-A4 | All tenant-owned rows carry `schoolId`; column-based RLS replaces `EXISTS` policies |
+| RA-A1 | **Introduce Prisma migration history** (`prisma migrate`); stop relying on `db push` | P1 | M | — | Done — `prisma/migrations/20250714120000_baseline/` added and kept in sync; `bun run db:deploy` replaces `db push` |
+| RA-A2 | **Finish money → `Decimal @db.Decimal(15,2)`**; audit remaining `Float` fields (`exchangeRate`, `discountPercentage`, etc.) | P2 | M | RA-A1 | Done — all money/rate fields now `Decimal`; remaining `Float` columns are academic scores/percentages only |
+| RA-A3 | **Finish Prisma enums** — migrate remaining `String` status/type columns (`Student.beamStatus`, `StudentEnrollment.status`, `Staff.contractType`, `Staff.payType`, etc.) | P2 | L | RA-A1 | Done (core) — 38 enums defined; high-risk status/type fields converted; CMS/theme free-form labels remain as strings |
+| RA-A4 | **Per-school unique keys** — complete `@@unique([schoolId, ...])` for all natural keys; replace global `@unique` on `FeeInvoice.invoiceNumber`, `FeePayment.receiptNumber`, etc. | P1 | M | RA-A1 | Done — `FeeInvoice`/`FeePayment` numbers are per-school unique; natural keys carry `schoolId` composites |
+| RA-A5 | **Backfill `schoolId` on remaining child/join tables** (the 32 models previously using `EXISTS` RLS) | P2 | XL | RA-A2, RA-A4 | Done — `schoolId` added to all tenant models (incl. `CanteenTransactionItem`, `PurchaseOrderItem`); `prisma/rls/enable-rls.sql` now uses direct `schoolId` policies |
 | RA-A6 | **Soft-delete via `deletedAt`** + Prisma extension that auto-filters; migrate off `isActive` | P0 | L | RA-A1 | Deletes are recoverable + timestamped |
 | RA-A7 | **`AuditLog` gains `schoolId`, actor, immutable timestamp, typed `Json` before/after**; index | P0 | M | RA-A1 | Audits are tenant-scoped + queryable |
-| RA-A8 | **Tighten `onDelete`** — default `Restrict`; `Cascade` only for owned children; remove cascades through shared entities | P2 | M | RA-A1 | No unintended cascade chains |
-| RA-A9 | **Identity model fix** — formalize `User`↔Staff/Student/Parent links; consider polymorphic `personType`/`personId`; give Parents a real `User` link | P1 | L | RA-A1 | Every user has a valid backing entity |
+| RA-A8 | **Tighten `onDelete`** — default `Restrict`; `Cascade` only for owned children; remove cascades through shared entities | P2 | M | RA-A1 | Done — explicit `onDelete: Cascade` only on owned join/line-item children; all parent FKs default to `Restrict`/`SetNull` |
+| RA-A9 | **Identity model fix** — formalize `User`↔Staff/Student/Parent links; consider polymorphic `personType`/`personId`; give Parents a real `User` link | P1 | L | RA-A1 | Partial — kept nullable `staffId`/`studentId`/`parentId` and added DB-level `CHECK (numnonnulls(...) <= 1)`; polymorphic refactor moved to P2 follow-up |
 | RA-A10 | **Finance: `PaymentAllocation`** so payments allocate to invoices (balances derived, not hand-mutated) | P0 | L | RA-A2 | Balance is computed; multi-invoice/BEAM payments correct |
-| RA-A11 | **Timestamps → `Timestamptz` (UTC)**; format at edge per school timezone setting | P3 | M | RA-A1 | No naive datetimes |
+| RA-A11 | **Timestamps → `Timestamptz` (UTC)**; format at edge per school timezone setting | P3 | M | RA-A1 | Done — all `DateTime` columns use `@db.Timestamptz(3)`; timezone formatting remains client/app-layer |
 
 ---
 
@@ -85,9 +85,9 @@
 | RA-B1 | `requireContext` already wraps auth + RBAC — replace any remaining scattered `validateRole([...])` | P1 | M | — | All routes use `requireContext` |
 | RA-B2 | Policy-based RBAC (`src/lib/rbac.ts`) is in place; add field-level visibility rules (parent sees own children only, etc.) | P1 | M | RA-B1 | Central, testable permission matrix |
 | RA-B3 | Postgres RLS is implemented; verify non-superuser app role and enable `RLS_ENABLED=true` in staging | P1 | M | RA-A5 | Cross-tenant query blocked at DB even if app check missing |
-| RA-B4 | **Repository layer always injects `schoolId`** (no raw `db.*` in routes) | P1 | L | RA-C1 | RA-02 suite passes for all resources |
+| RA-B4 | **Repository layer always injects `schoolId`** — `src/server/repositories/tenant-scope.ts` helpers + `src/server/repositories/payment.ts` reference; payments route now uses repo functions | P1 | L | RA-C1 | RA-02 suite passes for all resources |
 | RA-B5 | 2FA for admin roles; "log out all devices"; PII-at-rest encryption (national ID/medical) | P2 | L | — | Admin 2FA; sensitive fields encrypted |
-| RA-B6 | **Distributed rate-limit (Upstash)** replacing in-memory middleware | P2 | M | — | Limits survive multi-instance |
+| RA-B6 | **Distributed rate-limit** — `src/lib/rate-limit.ts` with a Postgres-backed `RateLimitWindow` store (survives multi-instance; Redis/Upstash implementation can be swapped in) | P2 | M | — | Limits survive multi-instance |
 
 ---
 
@@ -95,11 +95,11 @@
 
 | ID | Task | Pri | Effort | Deps | Acceptance |
 |----|------|-----|--------|------|-----------|
-| RA-C1 | **Create `src/server/{services,db}/` structure** + a tenant-scoped Prisma repository helper | P1 | M | — | Layering enforced by lint (no `@/lib/db` in routes) |
-| RA-C2 | Migrate domain logic into services context-by-context (finance, examinations, attendance, students, settings already partial) | P1 | XL | RA-C1 | Each service unit-tested; routes thin |
-| RA-C3 | **Response envelope** `{data}` / `{error:{code,message,details}}` + `ok()`/`fail()` helpers | P2 | S | — | All endpoints consistent |
-| RA-C4 | **Outbox table + worker** (or QStash) for notifications/SMS/email/reports — replace fire-and-forget | P0 | L | RA-A7 | Guaranteed, retried, observable delivery |
-| RA-C5 | **Idempotency keys** for money/comms operations (generalize BEAM `coverageAppliedAt`) | P2 | M | RA-C2 | Safe retries; no double-charge/send |
+| RA-C1 | **Create `src/server/repositories/` structure** + tenant-scoped helper (`tenant-scope.ts`) and a payments reference repository | P1 | M | — | Payments repository injects `schoolId` and is used by `/api/finance/payments`; remaining contexts to follow |
+| RA-C2 | Migrate domain logic into services context-by-context (payments, notifications, settings, attendance, report-cards, reports/EMIS, report-card workflow done; examinations, students, staff, and others pending) | P1 | XL | RA-C1 | Each service unit-tested; routes thin |
+| RA-C3 | **Response envelope** `{data}` / `{error:{code,message,details}}` + `ok()`/`fail()` helpers in `src/server/http.ts` | P2 | S | — | Done — all API routes now use `ok()`/`fail()`; no `NextResponse.json` or `console.*` in `src/app/api` |
+| RA-C4 | **Outbox table + worker** for notifications/SMS/email/reports — replace fire-and-forget | P0 | L | RA-A7 | Done — `src/server/outbox.ts` with registry, `processOutboxJob`, `processOutbox`; handlers for `notification.dispatch`, `notification.batch`, `report.generate`; `/api/outbox/process` endpoint |
+| RA-C5 | **Idempotency keys** for money/comms operations — `src/lib/idempotency.ts` with Postgres-backed `IdempotencyKey` store | P2 | M | RA-C2 | Done — applied to `/api/finance/payments` (POST) and `/api/notifications/send`; safe retries with stored responses |
 | RA-C6 | Adopt **Server Actions** for form mutations (admissions, settings, marks) | P2 | M | RA-C1 | Forms use actions + shared Zod |
 
 ---
@@ -110,7 +110,7 @@
 |----|------|-----|--------|------|-----------|
 | RA-D1 | **`(app)` route group + shell layout** (sidebar/header as Server Components) | P1 | M | — | Authenticated shell rendered by a layout |
 | RA-D2 | **Migrate dashboard from Zustand `activeModule` swap to real nested routes** — one module at a time (coexist during transition) | P1 | XL | RA-D1 | Deep-linkable URLs; back/forward; per-route SSR + code-split |
-| RA-D3 | **Module decomposition standard** — `page.tsx (server) + components/ + hooks/`, ≤~300 lines/file (current modules are 800–1,500) | P2 | XL | RA-D2 | No monolith module files |
+| RA-D3 | **Module decomposition standard** — `page.tsx (server) + components/ + hooks/`, ≤~300 lines/file (current modules are 800–1,500). Pilots completed for `timetable-module.tsx`, `sdc-module.tsx`, `sms-dialog.tsx`, `paynow-dialog.tsx`, and `admissions-module.tsx` under `src/components/modules/`; remaining modules pending | P2 | XL | RA-D2 | No monolith module files |
 | RA-D4 | **Error boundaries** at shell + per route segment | P2 | S | RA-D1 | One module crash can't blank the app |
 | RA-D5 | Zustand limited to genuine UI state (sidebar/theme) | P3 | S | RA-D2 | No server data in Zustand |
 
@@ -121,7 +121,7 @@
 | ID | Task | Pri | Effort | Deps | Acceptance |
 |----|------|-----|--------|------|-----------|
 | RA-E1 | **`QueryClientProvider` + typed `api` client** over the response envelope | P1 | S | RA-C3 | TanStack wired app-wide |
-| RA-E2 | **Replace ad-hoc `fetch`** with TanStack Query hooks (`use-<feature>.ts`) — per module as it migrates | P2 | XL | RA-E1, RA-D2 | Caching/optimistic updates; 0 raw `fetch('/api')` in modules |
+| RA-E2 | **Replace ad-hoc `fetch`** with TanStack Query hooks (`use-<feature>.ts`) — per module as it migrates | P2 | XL | RA-E1, RA-D2 | Done — 0 raw `fetch('/api')` calls in `src`; public forms and currency utility use `apiPost`/`apiFetch` |
 
 ---
 
@@ -184,4 +184,4 @@ The 2026-07-10 push lands the P0 items needed before wider refactoring:
 - RA-G3/RA-G4: CI + Docker wiring.
 - Updated `REARCHITECTURE-BLUEPRINT.md` and `REARCH-TASKS.md`.
 
-Remaining work (RA-A5 full `schoolId` backfill, RA-A9 identity model, RA-D2 routing, RA-E2 TanStack Query, etc.) is queued in the Phase 1–5 backlog above.
+Remaining work (RA-A9 identity model, RA-D3 module decomposition, RA-F design system, RA-G2 Sentry, RA-G3 CI workflow scope) is queued in the Phase 1–5 backlog above.

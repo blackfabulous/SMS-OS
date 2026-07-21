@@ -1,10 +1,8 @@
-import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
-import { logAudit } from '@/lib/audit'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { validateRole } from '@/lib/api-auth'
-
-// PUT    /api/notifications/templates/[id]  -> update a template
-// DELETE /api/notifications/templates/[id]  -> delete a template
+import { updateNotificationTemplate, deleteNotificationTemplate, handleNotificationsError } from '@/server/services/notifications'
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await validateRole(['ADMIN', 'TEACHER'])
@@ -13,28 +11,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params
 
   try {
-    const owned = await db.notificationTemplate.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!owned) return NextResponse.json({ error: 'Template not found' }, { status: 404 })
-
     const body = await request.json()
-    const { name, category, channels, subject, body: messageBody, usageCount, lastUsed } = body
-    const template = await db.notificationTemplate.update({
-      where: { id },
-      data: {
-        name,
-        category,
-        channels: Array.isArray(channels) ? channels.join(',') : channels,
-        subject,
-        body: messageBody,
-        usageCount,
-        lastUsed: lastUsed ? new Date(lastUsed) : undefined,
-      },
-    })
-    logAudit({ action: 'UPDATE', entity: 'notification-template', entityId: id }).catch(() => {})
-    return NextResponse.json(template)
+    const template = await updateNotificationTemplate(schoolId, id, body)
+    return ok(template)
   } catch (error) {
-    console.error('template PUT error', error)
-    return NextResponse.json({ error: 'Failed to update template' }, { status: 500 })
+    const { code, message } = handleNotificationsError(error, 'Failed to update template')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }
 
@@ -45,14 +28,11 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   const { id } = await params
 
   try {
-    const owned = await db.notificationTemplate.findFirst({ where: { id, schoolId }, select: { id: true } })
-    if (!owned) return NextResponse.json({ error: 'Template not found' }, { status: 404 })
-
-    await db.notificationTemplate.delete({ where: { id } })
-    logAudit({ action: 'DELETE', entity: 'notification-template', entityId: id }).catch(() => {})
-    return NextResponse.json({ message: 'Template deleted' })
+    const result = await deleteNotificationTemplate(schoolId, id)
+    return ok(result)
   } catch (error) {
-    console.error('template DELETE error', error)
-    return NextResponse.json({ error: 'Failed to delete template' }, { status: 500 })
+    const { code, message } = handleNotificationsError(error, 'Failed to delete template')
+    if (code === 'INTERNAL') logger.error({ err: error }, message)
+    return fail(code, message)
   }
 }

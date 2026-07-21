@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { School, Mail, ArrowLeft, Loader2, CheckCircle2, Send } from 'lucide-react'
+import { apiPost } from '@/lib/api-client'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -14,12 +15,7 @@ export default function ForgotPasswordPage() {
     e.preventDefault()
     setLoading(true); setError('')
     try {
-      const res = await fetch('/api/password/forgot', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Request failed')
+      await apiPost('/api/password/forgot', { email })
       setSent(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')

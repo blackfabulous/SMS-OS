@@ -64,6 +64,7 @@ import { TabsContent, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { apiFetch } from '@/lib/api-client'
 import { PaynowDialog } from '@/components/modules/paynow-dialog'
 import { SmsDialog } from '@/components/modules/sms-dialog'
 import { Switch } from '@/components/ui/switch'
@@ -77,6 +78,15 @@ import {
 } from '@/components/ui/table'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+interface ListResponse<T = unknown> {
+  data?: T[]
+  summary?: Record<string, unknown>
+}
+
+interface StudentRecord extends Record<string, unknown> {
+  enrollments?: Array<{ class: { name: string; grade?: { name: string } } }>
+}
+
 interface Child {
   id: string
   name: string
@@ -474,25 +484,22 @@ export default function ParentPortalModule() {
   useEffect(() => {
     async function fetchChildren() {
       try {
-        const res = await fetch('/api/students?limit=10&enrollmentStatus=ACTIVE')
-        if (res.ok) {
-          const json = await res.json()
-          if (json.data && json.data.length > 0) {
-            const apiChildren: Child[] = json.data.map((s: Record<string, unknown>) => ({
-              id: s.id as string,
-              name: `${s.firstName} ${s.lastName}`,
-              class: (s as any).enrollments?.[0]?.class ? `${(s as any).enrollments[0].class.grade?.name || ''} ${(s as any).enrollments[0].class.name || ''}`.trim() : 'N/A',
-              studentNumber: s.studentNumber as string,
-              initials: `${(s.firstName as string)[0]}${(s.lastName as string)[0]}`,
-              grades: [],
-              attendanceRate: 0,
-              outstandingFees: 0,
-              recentGrades: [],
-              attendanceHistory: [],
-              disciplineNotes: [],
-            }))
-            setChildren(apiChildren)
-          }
+        const json = await apiFetch<ListResponse<StudentRecord>>('/api/students?limit=10&enrollmentStatus=ACTIVE')
+        if (json.data && json.data.length > 0) {
+          const apiChildren: Child[] = json.data.map((s) => ({
+            id: s.id as string,
+            name: `${s.firstName} ${s.lastName}`,
+            class: s.enrollments?.[0]?.class ? `${s.enrollments[0].class.grade?.name || ''} ${s.enrollments[0].class.name || ''}`.trim() : 'N/A',
+            studentNumber: s.studentNumber as string,
+            initials: `${(s.firstName as string)[0]}${(s.lastName as string)[0]}`,
+            grades: [],
+            attendanceRate: 0,
+            outstandingFees: 0,
+            recentGrades: [],
+            attendanceHistory: [],
+            disciplineNotes: [],
+          }))
+          setChildren(apiChildren)
         }
       } catch { /* fallback to mock */ }
       setLoading(prev => ({ ...prev, children: false }))
@@ -503,43 +510,37 @@ export default function ParentPortalModule() {
   useEffect(() => {
     async function fetchFees() {
       try {
-        const [invRes, payRes] = await Promise.all([
-          fetch('/api/finance/invoices?limit=20'),
-          fetch('/api/finance/payments?limit=20'),
+        const [invJson, payJson] = await Promise.all([
+          apiFetch<ListResponse<Record<string, unknown>>>('/api/finance/invoices?limit=20'),
+          apiFetch<ListResponse<Record<string, unknown>>>('/api/finance/payments?limit=20'),
         ])
-        if (invRes.ok) {
-          const invJson = await invRes.json()
-          if (invJson.data && invJson.data.length > 0) {
-            const apiInvoices: Invoice[] = invJson.data.map((inv: Record<string, unknown>) => ({
-              id: inv.id as string,
-              studentName: `${(inv.student as Record<string, string>)?.firstName || ''} ${(inv.student as Record<string, string>)?.lastName || ''}`.trim(),
-              description: (inv.items as Record<string, string>[])?.[0]?.description || (inv as Record<string, string>).invoiceNumber || 'Fee Invoice',
-              amount: inv.totalAmount as number,
-              amountZiG: (inv.totalAmount as number) * ZIG_RATE,
-              paid: inv.amountPaid as number,
-              paidZiG: (inv.amountPaid as number) * ZIG_RATE,
-              status: ((inv.status as string) || 'PENDING').toLowerCase() === 'paid' ? 'Paid' : (inv.status as string) === 'PARTIAL' ? 'Partial' : (inv.status as string) === 'OVERDUE' ? 'Overdue' : 'Pending',
-              dueDate: inv.dueDate ? new Date(inv.dueDate as string).toISOString().split('T')[0] : '',
-              invoiceNumber: inv.invoiceNumber as string,
-            }))
-            setInvoices(apiInvoices)
-          }
+        if (invJson.data && invJson.data.length > 0) {
+          const apiInvoices: Invoice[] = invJson.data.map((inv) => ({
+            id: inv.id as string,
+            studentName: `${(inv.student as Record<string, string>)?.firstName || ''} ${(inv.student as Record<string, string>)?.lastName || ''}`.trim(),
+            description: (inv.items as Record<string, string>[])?.[0]?.description || (inv as Record<string, string>).invoiceNumber || 'Fee Invoice',
+            amount: inv.totalAmount as number,
+            amountZiG: (inv.totalAmount as number) * ZIG_RATE,
+            paid: inv.amountPaid as number,
+            paidZiG: (inv.amountPaid as number) * ZIG_RATE,
+            status: ((inv.status as string) || 'PENDING').toLowerCase() === 'paid' ? 'Paid' : (inv.status as string) === 'PARTIAL' ? 'Partial' : (inv.status as string) === 'OVERDUE' ? 'Overdue' : 'Pending',
+            dueDate: inv.dueDate ? new Date(inv.dueDate as string).toISOString().split('T')[0] : '',
+            invoiceNumber: inv.invoiceNumber as string,
+          }))
+          setInvoices(apiInvoices)
         }
-        if (payRes.ok) {
-          const payJson = await payRes.json()
-          if (payJson.data && payJson.data.length > 0) {
-            const apiPayments: Payment[] = payJson.data.map((pay: Record<string, unknown>) => ({
-              id: pay.id as string,
-              receiptNumber: pay.receiptNumber as string,
-              studentName: `${(pay.student as Record<string, string>)?.firstName || ''} ${(pay.student as Record<string, string>)?.lastName || ''}`.trim(),
-              amount: pay.amount as number,
-              amountZiG: (pay.amount as number) * ZIG_RATE,
-              method: pay.paymentMethod as string,
-              date: pay.createdAt ? new Date(pay.createdAt as string).toISOString().split('T')[0] : '',
-              description: `Fee Payment - ${pay.paymentMethod || 'Cash'}`,
-            }))
-            setPayments(apiPayments)
-          }
+        if (payJson.data && payJson.data.length > 0) {
+          const apiPayments: Payment[] = payJson.data.map((pay) => ({
+            id: pay.id as string,
+            receiptNumber: pay.receiptNumber as string,
+            studentName: `${(pay.student as Record<string, string>)?.firstName || ''} ${(pay.student as Record<string, string>)?.lastName || ''}`.trim(),
+            amount: pay.amount as number,
+            amountZiG: (pay.amount as number) * ZIG_RATE,
+            method: pay.paymentMethod as string,
+            date: pay.createdAt ? new Date(pay.createdAt as string).toISOString().split('T')[0] : '',
+            description: `Fee Payment - ${pay.paymentMethod || 'Cash'}`,
+          }))
+          setPayments(apiPayments)
         }
       } catch { /* fallback to mock */ }
       setLoading(prev => ({ ...prev, fees: false }))
@@ -550,19 +551,16 @@ export default function ParentPortalModule() {
   useEffect(() => {
     async function fetchMessagesAndEvents() {
       try {
-        const evRes = await fetch('/api/events?limit=20')
-        if (evRes.ok) {
-          const evJson = await evRes.json()
-          if (evJson.data && evJson.data.length > 0) {
-            const apiEvents: CalendarEvent[] = evJson.data.map((ev: Record<string, unknown>) => ({
-              id: ev.id as string,
-              title: ev.title as string,
-              date: ev.startDate ? new Date(ev.startDate as string).toISOString().split('T')[0] : '',
-              type: (ev.eventType as string)?.toLowerCase() === 'sports' ? 'event' : (ev.eventType as string)?.toLowerCase() === 'academic' ? 'exam' : (ev.eventType as string)?.toLowerCase() === 'meeting' ? 'meeting' : 'event',
-              description: ev.description as string || '',
-            }))
-            setCalendarEvents(apiEvents.length > 0 ? apiEvents : mockCalendarEvents)
-          }
+        const evJson = await apiFetch<ListResponse<Record<string, unknown>>>('/api/events?limit=20')
+        if (evJson.data && evJson.data.length > 0) {
+          const apiEvents: CalendarEvent[] = evJson.data.map((ev) => ({
+            id: ev.id as string,
+            title: ev.title as string,
+            date: ev.startDate ? new Date(ev.startDate as string).toISOString().split('T')[0] : '',
+            type: (ev.eventType as string)?.toLowerCase() === 'sports' ? 'event' : (ev.eventType as string)?.toLowerCase() === 'academic' ? 'exam' : (ev.eventType as string)?.toLowerCase() === 'meeting' ? 'meeting' : 'event',
+            description: ev.description as string || '',
+          }))
+          setCalendarEvents(apiEvents.length > 0 ? apiEvents : mockCalendarEvents)
         }
       } catch { /* fallback to mock */ }
       setLoading(prev => ({ ...prev, messages: false }))

@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
+import { ok, fail } from '@/server/http'
 import { logAudit } from '@/lib/audit'
 import { validateRole } from '@/lib/api-auth'
 
@@ -82,27 +84,18 @@ export async function POST(request: NextRequest) {
 
     if (!recipients || recipients.length === 0) {
       logAudit({ action: 'CREATE', entity: 'sms' }).catch(() => {})
-      return NextResponse.json(
-        { error: 'At least one recipient is required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'At least one recipient is required')
     }
 
     if (!message || message.trim().length === 0) {
       logAudit({ action: 'CREATE', entity: 'sms' }).catch(() => {})
-      return NextResponse.json(
-        { error: 'Message content is required' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'Message content is required')
     }
 
     // Limit bulk SMS to 1000 recipients
     if (recipients.length > 1000) {
       logAudit({ action: 'CREATE', entity: 'sms' }).catch(() => {})
-      return NextResponse.json(
-        { error: 'Maximum 1000 recipients per request' },
-        { status: 400 }
-      )
+      return fail('VALIDATION', 'Maximum 1000 recipients per request')
     }
 
     // Validate phone numbers (Zimbabwe format: +263XXXXXXXXX)
@@ -183,8 +176,7 @@ export async function POST(request: NextRequest) {
           smsRecords.set(smsId, record)
 
           logAudit({ action: 'CREATE', entity: 'sms' }).catch(() => {})
-          return NextResponse.json({
-            success: true,
+          return ok({
             smsId,
             totalSent: deliveredCount,
             totalFailed: failedCount,
@@ -194,17 +186,11 @@ export async function POST(request: NextRequest) {
           })
         } else {
           logAudit({ action: 'CREATE', entity: 'sms' }).catch(() => {})
-          return NextResponse.json(
-            { error: 'Africa\'s Talking API error', details: responseData },
-            { status: 400 }
-          )
+          return fail('INTERNAL', 'Africa\'s Talking API error', { details: responseData })
         }
       } catch (error) {
-        console.error('Africa\'s Talking API error:', error)
-        return NextResponse.json(
-          { error: 'Failed to communicate with Africa\'s Talking' },
-          { status: 502 }
-        )
+        logger.error({ err: error }, 'Africa\'s Talking API error')
+        return fail('INTERNAL', 'Failed to communicate with Africa\'s Talking')
       }
     }
 
@@ -245,8 +231,7 @@ export async function POST(request: NextRequest) {
     smsRecords.set(smsId, record)
 
     logAudit({ action: 'CREATE', entity: 'sms' }).catch(() => {})
-    return NextResponse.json({
-      success: true,
+    return ok({
       smsId,
       totalSent: deliveredCount,
       totalFailed: failedCount,
@@ -256,11 +241,8 @@ export async function POST(request: NextRequest) {
       demo: true,
     })
   } catch (error) {
-    console.error('SMS sending error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    logger.error({ err: error }, 'SMS sending error')
+    return fail('INTERNAL', 'Internal server error')
   }
 }
 
@@ -278,12 +260,9 @@ export async function GET(request: NextRequest) {
   if (messageId) {
     const record = smsRecords.get(messageId)
     if (!record) {
-      return NextResponse.json(
-        { error: 'SMS record not found' },
-        { status: 404 }
-      )
+      return fail('NOT_FOUND', 'SMS record not found')
     }
-    return NextResponse.json(record)
+    return ok(record)
   }
 
   // Otherwise, return list of SMS records with optional filters
@@ -300,7 +279,7 @@ export async function GET(request: NextRequest) {
   // Sort by most recent first
   records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
-  return NextResponse.json({
+  return ok({
     total: records.length,
     records: records.slice(0, 50),
     templates: smsTemplates,

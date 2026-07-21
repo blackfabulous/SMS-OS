@@ -9,7 +9,7 @@ import {
   SectionCard,
   TableShell,
 } from '@/components/module-ui';
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   BedDouble,
@@ -41,6 +41,7 @@ import {
 } from 'recharts'
 
 import { cn } from '@/lib/utils'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -72,122 +73,30 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 import { toast } from 'sonner'
-
-// ─── Types ──────────────────────────────────────────────────────────────────
-
-type ViewMode = 'list' | 'assign-boarder' | 'detail' | 'settings'
-
-interface Dormitory {
-  id: string
-  name: string
-  capacity: number
-  currentOccupancy: number
-  boardingAssignments: Array<{
-    id: string
-    bedNumber: string | null
-    status: string
-    student: {
-      id: string
-      firstName: string
-      lastName: string
-      studentNumber: string
-      gender: string
-    }
-  }>
-}
-
-interface Hostel {
-  id: string
-  name: string
-  gender: string | null
-  capacity: number
-  isActive: boolean
-  dormitories: Dormitory[]
-}
-
-interface BoardingAssignment {
-  id: string
-  bedNumber: string | null
-  startDate: string
-  status: string
-  student: {
-    id: string
-    firstName: string
-    lastName: string
-    studentNumber: string
-    gender: string
-  }
-  dormitory: {
-    id: string
-    name: string
-    hostel: {
-      id: string
-      name: string
-      gender: string | null
-    }
-  }
-}
-
-interface BoardingData {
-  hostels: Hostel[]
-  stats: {
-    totalBoarders: number
-    totalHostels: number
-    totalDormitories: number
-    totalCapacity: number
-    totalOccupancy: number
-    occupancyRate: string
-  }
-  assignments: BoardingAssignment[]
-}
-
-interface Student {
-  id: string
-  firstName: string
-  lastName: string
-  studentNumber: string
-}
-
-// ─── Chart Config ────────────────────────────────────────────────────────────
-
-const occupancyChartConfig = {
-  occupancy: { label: 'Occupancy', color: '#10b981' },
-  capacity: { label: 'Capacity', color: '#d1d5db' },
-} satisfies ChartConfig
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-const genderColors: Record<string, string> = {
-  MALE: 'bg-teal-100 text-teal-700 border-teal-200',
-  FEMALE: 'bg-rose-100 text-rose-700 border-rose-200',
-  MIXED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-}
-
-const getCapacityColor = (occupancy: number, capacity: number) => {
-  const rate = capacity > 0 ? occupancy / capacity : 0
-  if (rate >= 1) return 'bg-red-500'
-  if (rate >= 0.8) return 'bg-amber-500'
-  return 'bg-emerald-500'
-}
-
-const getCapacityBarColor = (occupancy: number, capacity: number) => {
-  const rate = capacity > 0 ? occupancy / capacity : 0
-  if (rate >= 1) return 'from-red-400 to-red-500'
-  if (rate >= 0.8) return 'from-amber-400 to-amber-500'
-  return 'from-emerald-400 to-teal-500'
-}
+import { BoardingSettingsView } from './boarding/boarding-settings-view'
+import { genderColors, getCapacityColor, getCapacityBarColor } from './boarding/boarding-constants'
+import { occupancyChartConfig } from './boarding/boarding-types'
+import type { ViewMode, BoardingData, BoardingAssignment, BoardingStudent, StudentsResponse, Dormitory, Hostel, BoardingSettings } from './boarding/boarding-types'
 
 // ─── Boarding Module ─────────────────────────────────────────────────────────
 
 export default function BoardingModule() {
-  const [data, setData] = useState<BoardingData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [selectedHostel, setSelectedHostel] = useState<Hostel | null>(null)
-  const [students, setStudents] = useState<Student[]>([])
-  const [submitting, setSubmitting] = useState(false)
+
+  const {
+    data: boardingData,
+    isPending: loading,
+  } = useApiQuery<BoardingData>(['boarding'], '/api/boarding')
+
+  const {
+    data: studentsData,
+  } = useApiQuery<StudentsResponse>(['students', 'boarding'], '/api/students?limit=200')
+
+  const students = studentsData?.data ?? []
 
   // Form
   const [assignForm, setAssignForm] = useState({
@@ -210,73 +119,29 @@ export default function BoardingModule() {
     showBedNumbers: true,
   })
 
-  // ─── Data Fetching ─────────────────────────────────────────────────────
+  const {
+    mutate: assignBoarder,
+    isPending: submitting,
+  } = useApiMutation<{ action: string; studentId: string; dormitoryId: string; bedNumber?: string }, BoardingAssignment>('/api/boarding', {
+    onSuccess: () => {
+      toast.success('Boarder assigned successfully')
+      setAssignForm({ studentId: '', dormitoryId: '', bedNumber: '' })
+      setViewMode('list')
+      queryClient.invalidateQueries({ queryKey: ['boarding'] })
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to assign boarder')
+    },
+  })
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await fetch('/api/boarding')
-      if (res.ok) {
-        const d = await res.json()
-        setData(d)
-      }
-    } catch (err) {
-      console.error('Failed to fetch boarding data:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  const fetchStudents = useCallback(async () => {
-    try {
-      const res = await fetch('/api/students?limit=200')
-      if (res.ok) {
-        const d = await res.json()
-        setStudents(d.data || d || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch students:', err)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
-
-  useEffect(() => {
-    if (viewMode === 'assign-boarder') fetchStudents()
-  }, [viewMode, fetchStudents])
-
-  // ─── Handlers ──────────────────────────────────────────────────────────
-
-  const handleAssign = async () => {
+  const handleAssign = () => {
     if (!assignForm.studentId || !assignForm.dormitoryId) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/boarding', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'assign',
-          studentId: assignForm.studentId,
-          dormitoryId: assignForm.dormitoryId,
-          bedNumber: assignForm.bedNumber || undefined,
-        }),
-      })
-      if (res.ok) {
-        toast.success('Boarder assigned successfully')
-        setAssignForm({ studentId: '', dormitoryId: '', bedNumber: '' })
-        setViewMode('list')
-        fetchData()
-      } else {
-        const err = await res.json()
-        toast.error(err.error || 'Failed to assign boarder')
-      }
-    } catch {
-      toast.error('Failed to assign boarder')
-    } finally {
-      setSubmitting(false)
-    }
+    assignBoarder({
+      action: 'assign',
+      studentId: assignForm.studentId,
+      dormitoryId: assignForm.dormitoryId,
+      bedNumber: assignForm.bedNumber || undefined,
+    })
   }
 
   const handleSaveSettings = () => {
@@ -285,8 +150,8 @@ export default function BoardingModule() {
 
   // ─── Chart Data ────────────────────────────────────────────────────────
 
-  const occupancyChartData = data
-    ? data.hostels.map((h) => ({
+  const occupancyChartData = boardingData
+    ? boardingData.hostels.map((h) => ({
         name: h.name.length > 12 ? h.name.slice(0, 12) + '...' : h.name,
         occupancy: h.dormitories.reduce((s, d) => s + d.currentOccupancy, 0),
         capacity: h.dormitories.reduce((s, d) => s + d.capacity, 0),
@@ -294,7 +159,7 @@ export default function BoardingModule() {
     : []
 
   // Filtered boarders
-  const filteredAssignments = (data?.assignments || []).filter((a) => {
+  const filteredAssignments = (boardingData?.assignments || []).filter((a) => {
     if (!search) return true
     const q = search.toLowerCase()
     return (
@@ -306,8 +171,8 @@ export default function BoardingModule() {
   })
 
   // Get all dormitories for the select dropdown
-  const allDormitories = data
-    ? data.hostels.flatMap((h) =>
+  const allDormitories = boardingData
+    ? boardingData.hostels.flatMap((h) =>
         h.dormitories.map((d) => ({
           id: d.id,
           name: `${d.name} (${h.name})`,
@@ -335,10 +200,9 @@ export default function BoardingModule() {
     )
   }
 
-  const stats = data?.stats
+  const stats = boardingData?.stats
 
   // ─── Inline Views ──────────────────────────────────────────────────────
-
   const AssignBoarderInlineForm = () => (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
       <div className="flex items-center gap-3">
@@ -494,102 +358,24 @@ export default function BoardingModule() {
     )
   }
 
-  const BoardingSettingsView = () => (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1">
-          <ArrowLeft className="h-4 w-4" /> Back
-        </Button>
-        <Separator orientation="vertical" className="h-6" />
-        <h2 className="text-lg font-semibold">Boarding Settings</h2>
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <SectionCard title="House Defaults" icon={Home} contentClassName="space-y-4">
-            <div className="grid gap-2">
-              <Label className="text-sm">Default Gender Assignment</Label>
-              <Select value={settings.defaultGender} onValueChange={(v) => setSettings((p) => ({ ...p, defaultGender: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="MALE">Male</SelectItem>
-                  <SelectItem value="FEMALE">Female</SelectItem>
-                  <SelectItem value="MIXED">Mixed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm">Auto-Allocate Beds</Label>
-                <p className="text-xs text-muted-foreground">Automatically assign bed numbers</p>
-              </div>
-              <Switch checked={settings.autoAllocate} onCheckedChange={(v) => setSettings((p) => ({ ...p, autoAllocate: v }))} />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-sm">Show Bed Numbers</Label>
-              <Switch checked={settings.showBedNumbers} onCheckedChange={(v) => setSettings((p) => ({ ...p, showBedNumbers: v }))} />
-            </div>
-        </SectionCard>
-
-        <SectionCard title="Check-in / Check-out Rules" icon={Clock} contentClassName="space-y-4">
-            <div className="grid gap-2">
-              <Label className="text-sm">Curfew Time</Label>
-              <Input type="time" value={settings.curfewTime} onChange={(e) => setSettings((p) => ({ ...p, curfewTime: e.target.value }))} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label className="text-sm">Check-in Start</Label>
-                <Input type="time" value={settings.checkInStartTime} onChange={(e) => setSettings((p) => ({ ...p, checkInStartTime: e.target.value }))} />
-              </div>
-              <div className="grid gap-2">
-                <Label className="text-sm">Check-in End</Label>
-                <Input type="time" value={settings.checkInEndTime} onChange={(e) => setSettings((p) => ({ ...p, checkInEndTime: e.target.value }))} />
-              </div>
-            </div>
-        </SectionCard>
-
-        <SectionCard title="Visitor Policies" icon={Shield} contentClassName="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm">Visitors Allowed</Label>
-              <Switch checked={settings.visitorAllowed} onCheckedChange={(v) => setSettings((p) => ({ ...p, visitorAllowed: v }))} />
-            </div>
-            <div className="grid gap-2">
-              <Label className="text-sm">Visitor Hours</Label>
-              <Input placeholder="e.g., 10:00-16:00" value={settings.visitorHours} onChange={(e) => setSettings((p) => ({ ...p, visitorHours: e.target.value }))} />
-            </div>
-        </SectionCard>
-
-        <SectionCard title="Notifications" icon={Bell} contentClassName="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm">Notify on Check-in</Label>
-                <p className="text-xs text-muted-foreground">Alert when students check in</p>
-              </div>
-              <Switch checked={settings.notifyOnCheckIn} onCheckedChange={(v) => setSettings((p) => ({ ...p, notifyOnCheckIn: v }))} />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm">Notify on Overstay</Label>
-                <p className="text-xs text-muted-foreground">Alert when students miss curfew</p>
-              </div>
-              <Switch checked={settings.notifyOnOverstay} onCheckedChange={(v) => setSettings((p) => ({ ...p, notifyOnOverstay: v }))} />
-            </div>
-        </SectionCard>
-      </div>
-      <div className="flex items-center gap-3">
-        <Button onClick={handleSaveSettings} className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white">
-          <Save className="mr-2 h-4 w-4" /> Save Settings
-        </Button>
-      </div>
-    </motion.div>
-  )
-
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
     <ModuleContainer>
       <AnimatePresence mode="wait">
+        {/* eslint-disable-next-line react-hooks/static-components */}
         {viewMode === 'assign-boarder' && <AssignBoarderInlineForm key="assign-boarder" />}
+        {/* eslint-disable-next-line react-hooks/static-components */}
         {viewMode === 'detail' && <HostelDetailView key="detail" />}
-        {viewMode === 'settings' && <BoardingSettingsView key="settings" />}
+        {viewMode === 'settings' && (
+          <BoardingSettingsView
+            key="settings"
+            settings={settings}
+            onSettingsChange={setSettings}
+            onBack={() => setViewMode('list')}
+            onSave={handleSaveSettings}
+          />
+        )}
       </AnimatePresence>
 
       {viewMode === 'list' && (
@@ -677,7 +463,7 @@ export default function BoardingModule() {
 
             {/* ─── Hostels Tab ──────────────────────────────────────────────── */}
             <TabsContent value="hostels" className="space-y-4">
-              {data?.hostels.length === 0 ? (
+              {boardingData?.hostels.length === 0 ? (
                 <Card className="border-0 shadow-md">
                   <CardContent className="p-12 text-center">
                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mx-auto mb-4">
@@ -689,7 +475,7 @@ export default function BoardingModule() {
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {data?.hostels.map((hostel) => {
+                  {boardingData?.hostels.map((hostel) => {
                     const totalOccupancy = hostel.dormitories.reduce((s, d) => s + d.currentOccupancy, 0)
                     const totalCapacity = hostel.dormitories.reduce((s, d) => s + d.capacity, 0)
                     const rate = totalCapacity > 0 ? (totalOccupancy / totalCapacity) * 100 : 0

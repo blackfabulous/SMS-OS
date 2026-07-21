@@ -38,6 +38,7 @@ function createPrisma() {
       },
       feePayment: {
         amount: { needs: { amount: true }, compute: (r) => Number(r.amount) },
+        exchangeRate: { needs: { exchangeRate: true }, compute: (r) => Number(r.exchangeRate) },
       },
       paymentAllocation: {
         amount: { needs: { amount: true }, compute: (r) => Number(r.amount) },
@@ -47,6 +48,7 @@ function createPrisma() {
       },
       scholarship: {
         amount: { needs: { amount: true }, compute: (r) => (r.amount == null ? null : Number(r.amount)) },
+        discountPercentage: { needs: { discountPercentage: true }, compute: (r) => Number(r.discountPercentage) },
       },
       zimsecCandidate: {
         totalFees: { needs: { totalFees: true }, compute: (r) => Number(r.totalFees) },

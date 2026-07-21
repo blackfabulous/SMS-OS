@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useMemo } from 'react'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Library,
@@ -131,6 +132,13 @@ interface Student {
   studentNumber: string
 }
 
+interface StudentsResponse {
+  data: Student[]
+  total: number
+  page: number
+  totalPages: number
+}
+
 // ─── Chart Configs ──────────────────────────────────────────────────────────
 
 const categoryChartConfig = {
@@ -154,15 +162,12 @@ const categoryColors = ['#10b981', '#14b8a6', '#06b6d4', '#f59e0b', '#ef4444', '
 // ─── Library Module ──────────────────────────────────────────────────────────
 
 export default function LibraryModule() {
-  const [data, setData] = useState<LibraryData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('ALL')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [selectedBook, setSelectedBook] = useState<LibraryBook | null>(null)
-  const [students, setStudents] = useState<Student[]>([])
-  const [submitting, setSubmitting] = useState(false)
 
 
   // Issue form
@@ -205,140 +210,89 @@ export default function LibraryModule() {
     showShelfLocation: true,
   })
 
-  // ─── Data Fetching ─────────────────────────────────────────────────────
+  // ─── Data & Mutations ────────────────────────────────────────────────
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true)
-      const params = new URLSearchParams()
-      if (search) params.set('search', search)
-      if (categoryFilter && categoryFilter !== 'ALL') params.set('category', categoryFilter)
-      const res = await fetch(`/api/library?${params}`)
-      if (res.ok) {
-        const d = await res.json()
-        setData(d)
-      }
-    } catch (err) {
-      console.error('Failed to fetch library data:', err)
-    } finally {
-      setLoading(false)
-    }
+  const params = useMemo(() => {
+    const p = new URLSearchParams()
+    if (search) p.set('search', search)
+    if (categoryFilter && categoryFilter !== 'ALL') p.set('category', categoryFilter)
+    return p.toString()
   }, [search, categoryFilter])
 
-  const fetchStudents = useCallback(async () => {
-    try {
-      const res = await fetch('/api/students?limit=200')
-      if (res.ok) {
-        const d = await res.json()
-        setStudents(d.data || d || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch students:', err)
-    }
-  }, [])
+  const {
+    data,
+    isPending: loading,
+  } = useApiQuery<LibraryData>(['library', search, categoryFilter], `/api/library?${params}`)
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  const {
+    data: studentsData,
+  } = useApiQuery<StudentsResponse>(['students', 'library'], '/api/students?limit=200', { enabled: viewMode === 'issue-book' || viewMode === 'return-book' })
 
-  useEffect(() => {
-    if (viewMode === 'issue-book' || viewMode === 'return-book') fetchStudents()
-  }, [viewMode, fetchStudents])
+  const students = studentsData?.data ?? []
+
+  const { mutate: issueBook, isPending: isIssuing } = useApiMutation<
+    { action: 'issue'; bookId: string; studentId: string; dueDate?: string },
+    BookTransaction
+  >('/api/library', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['library'] })
+      toast.success('Book issued successfully')
+      setIssueForm({ bookId: '', studentId: '', dueDate: '' })
+      setViewMode('list')
+    },
+    onError: (err) => toast.error(err.message || 'Failed to issue book'),
+  })
+
+  const { mutate: returnBook, isPending: isReturning } = useApiMutation<
+    { action: 'return'; transactionId: string; conditionOnReturn: string; fine: number },
+    BookTransaction
+  >('/api/library', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['library'] })
+      toast.success('Book returned successfully')
+      setReturnForm({ transactionId: '', conditionOnReturn: 'GOOD', fine: '0' })
+      setViewMode('list')
+    },
+    onError: (err) => toast.error(err.message || 'Failed to return book'),
+  })
+
+  const { mutate: addBook, isPending: isAddingBook } = useApiMutation<
+    { action: 'addBook'; isbn?: string; title: string; author?: string; publisher?: string; category?: string; shelfLocation?: string; totalCopies: number },
+    LibraryBook
+  >('/api/library', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['library'] })
+      toast.success('Book added successfully')
+      setAddBookForm({ isbn: '', title: '', author: '', publisher: '', category: '', shelfLocation: '', totalCopies: '1', description: '' })
+      setViewMode('list')
+    },
+    onError: (err) => toast.error(err.message || 'Failed to add book'),
+  })
 
   // ─── Handlers ──────────────────────────────────────────────────────────
 
-  const handleIssueBook = async () => {
+  const handleIssueBook = () => {
     if (!issueForm.bookId || !issueForm.studentId) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/library', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'issue',
-          bookId: issueForm.bookId,
-          studentId: issueForm.studentId,
-          dueDate: issueForm.dueDate || undefined,
-        }),
-      })
-      if (res.ok) {
-        toast.success('Book issued successfully')
-        setIssueForm({ bookId: '', studentId: '', dueDate: '' })
-        setViewMode('list')
-        fetchData()
-      } else {
-        const err = await res.json()
-        toast.error(err.error || 'Failed to issue book')
-      }
-    } catch {
-      toast.error('Failed to issue book')
-    } finally {
-      setSubmitting(false)
-    }
+    issueBook({ action: 'issue', bookId: issueForm.bookId, studentId: issueForm.studentId, dueDate: issueForm.dueDate || undefined })
   }
 
-  const handleReturnBook = async () => {
+  const handleReturnBook = () => {
     if (!returnForm.transactionId) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/library', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'return',
-          transactionId: returnForm.transactionId,
-          conditionOnReturn: returnForm.conditionOnReturn,
-          fine: parseFloat(returnForm.fine) || 0,
-        }),
-      })
-      if (res.ok) {
-        toast.success('Book returned successfully')
-        setReturnForm({ transactionId: '', conditionOnReturn: 'GOOD', fine: '0' })
-        setViewMode('list')
-        fetchData()
-      } else {
-        const err = await res.json()
-        toast.error(err.error || 'Failed to return book')
-      }
-    } catch {
-      toast.error('Failed to return book')
-    } finally {
-      setSubmitting(false)
-    }
+    returnBook({ action: 'return', transactionId: returnForm.transactionId, conditionOnReturn: returnForm.conditionOnReturn, fine: parseFloat(returnForm.fine) || 0 })
   }
 
-  const handleAddBook = async () => {
+  const handleAddBook = () => {
     if (!addBookForm.title) return
-    try {
-      setSubmitting(true)
-      const res = await fetch('/api/library', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'addBook',
-          isbn: addBookForm.isbn || undefined,
-          title: addBookForm.title,
-          author: addBookForm.author || undefined,
-          publisher: addBookForm.publisher || undefined,
-          category: addBookForm.category || undefined,
-          shelfLocation: addBookForm.shelfLocation || undefined,
-          totalCopies: parseInt(addBookForm.totalCopies) || 1,
-        }),
-      })
-      if (res.ok) {
-        toast.success('Book added successfully')
-        setAddBookForm({ isbn: '', title: '', author: '', publisher: '', category: '', shelfLocation: '', totalCopies: '1', description: '' })
-        setViewMode('list')
-        fetchData()
-      } else {
-        const err = await res.json()
-        toast.error(err.error || 'Failed to add book')
-      }
-    } catch {
-      toast.error('Failed to add book')
-    } finally {
-      setSubmitting(false)
-    }
+    addBook({
+      action: 'addBook',
+      isbn: addBookForm.isbn || undefined,
+      title: addBookForm.title,
+      author: addBookForm.author || undefined,
+      publisher: addBookForm.publisher || undefined,
+      category: addBookForm.category || undefined,
+      shelfLocation: addBookForm.shelfLocation || undefined,
+      totalCopies: parseInt(addBookForm.totalCopies) || 1,
+    })
   }
 
   const handleSaveSettings = () => {
@@ -389,7 +343,7 @@ export default function LibraryModule() {
 
   // ─── Inline Views ──────────────────────────────────────────────────────
 
-  const AddBookInlineForm = () => (
+  const addBookView = (
     <ModuleContainer>
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5">
@@ -450,8 +404,8 @@ export default function LibraryModule() {
               <Textarea placeholder="Brief description of the book..." value={addBookForm.description} onChange={(e) => setAddBookForm((p) => ({ ...p, description: e.target.value }))} rows={3} />
             </div>
             <div className="flex items-center gap-3 pt-2">
-              <Button onClick={handleAddBook} disabled={submitting || !addBookForm.title} className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white">
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button onClick={handleAddBook} disabled={isAddingBook || !addBookForm.title} className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white">
+                {isAddingBook && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Add Book
               </Button>
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
@@ -461,7 +415,7 @@ export default function LibraryModule() {
     </ModuleContainer>
   )
 
-  const IssueBookInlineForm = () => (
+  const issueBookView = (
     <ModuleContainer>
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5">
@@ -506,8 +460,8 @@ export default function LibraryModule() {
               <p className="text-xs text-muted-foreground">Default: {settings.loanPeriodDays} days from today</p>
             </div>
             <div className="flex items-center gap-3 pt-2">
-              <Button onClick={handleIssueBook} disabled={submitting || !issueForm.bookId || !issueForm.studentId} className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white">
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button onClick={handleIssueBook} disabled={isIssuing || !issueForm.bookId || !issueForm.studentId} className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white">
+                {isIssuing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Issue Book
               </Button>
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
@@ -517,7 +471,7 @@ export default function LibraryModule() {
     </ModuleContainer>
   )
 
-  const ReturnBookInlineForm = () => (
+  const returnBookView = (
     <ModuleContainer>
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5">
@@ -544,8 +498,8 @@ export default function LibraryModule() {
               <p className="text-xs text-muted-foreground">Auto-calculated at ${settings.finePerDay}/day overdue</p>
             </div>
             <div className="flex items-center gap-3 pt-2">
-              <Button onClick={handleReturnBook} disabled={submitting || !returnForm.transactionId} className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white">
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button onClick={handleReturnBook} disabled={isReturning || !returnForm.transactionId} className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white">
+                {isReturning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Return Book
               </Button>
               <Button variant="outline" onClick={() => setViewMode('list')}>Cancel</Button>
@@ -555,10 +509,8 @@ export default function LibraryModule() {
     </ModuleContainer>
   )
 
-  const BookDetailView = () => {
-    if (!selectedBook) return null
-    const activeTransactions = selectedBook.transactions.filter(t => t.transactionType === 'ISSUE' && !t.returnDate)
-    return (
+  const activeTransactions = selectedBook ? selectedBook.transactions.filter(t => t.transactionType === 'ISSUE' && !t.returnDate) : []
+  const bookDetailView = selectedBook ? (
       <ModuleContainer>
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => { setViewMode('list'); setSelectedBook(null) }} className="gap-1.5">
@@ -666,10 +618,9 @@ export default function LibraryModule() {
           </div>
         </div>
       </ModuleContainer>
-    )
-  }
+    ) : null
 
-  const LibrarySettingsView = () => (
+  const librarySettingsView = (
     <ModuleContainer>
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className="gap-1.5">
@@ -760,11 +711,11 @@ export default function LibraryModule() {
 
   return (
     <AnimatePresence mode="wait">
-      {viewMode === 'add-book' && <AddBookInlineForm key="add-book" />}
-      {viewMode === 'issue-book' && <IssueBookInlineForm key="issue-book" />}
-      {viewMode === 'return-book' && <ReturnBookInlineForm key="return-book" />}
-      {viewMode === 'detail' && <BookDetailView key="detail" />}
-      {viewMode === 'settings' && <LibrarySettingsView key="settings" />}
+      {viewMode === 'add-book' && addBookView}
+      {viewMode === 'issue-book' && issueBookView}
+      {viewMode === 'return-book' && returnBookView}
+      {viewMode === 'detail' && bookDetailView}
+      {viewMode === 'settings' && librarySettingsView}
 
       {viewMode === 'list' && (
         <ModuleContainer key="list">

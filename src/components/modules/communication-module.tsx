@@ -1,7 +1,7 @@
 'use client'
 
 import { ModulePageLayout, ModuleSettingsButton, ModuleContainer, StatGrid, ModuleStatCard, SectionCard, TableShell, KitEmptyState } from '@/components/module-ui';
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MessageSquare,
@@ -38,6 +38,7 @@ import {
 } from 'recharts'
 
 import { cn } from '@/lib/utils'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -99,6 +100,25 @@ interface CommStats {
   delivered: number
   pending: number
   failed: number
+  sent?: number
+}
+
+interface CommResponse {
+  data: CommunicationRecord[]
+  stats: CommStats
+  channelDistribution: Array<{ channel: string; count: number }>
+  total: number
+  page: number
+  totalPages: number
+}
+
+interface SendCommunicationPayload {
+  channel: string
+  recipientGroup: string
+  subject: string
+  message: string
+  parentId?: string
+  gradeId?: string
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -154,13 +174,9 @@ const priorityColors: Record<string, string> = {
 // ─── Communication Module ───────────────────────────────────────────────────
 
 export default function CommunicationModule() {
-  const [messages, setMessages] = useState<CommunicationRecord[]>([])
-  const [stats, setStats] = useState<CommStats | null>(null)
-  const [channelDistribution, setChannelDistribution] = useState<Array<{ channel: string; count: number }>>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
-  const [sending, setSending] = useState(false)
   const [channelFilter, setChannelFilter] = useState('ALL')
   const [selectedMessage, setSelectedMessage] = useState<CommunicationRecord | null>(null)
 
@@ -191,52 +207,48 @@ export default function CommunicationModule() {
     quietHoursEnd: '07:00',
   })
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true)
-      const params = new URLSearchParams()
-      if (channelFilter !== 'ALL') params.set('channel', channelFilter)
-      const res = await fetch(`/api/communication?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        setMessages(data.data || [])
-        setStats(data.stats || null)
-        setChannelDistribution(data.channelDistribution || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch communications:', err)
-    } finally {
-      setLoading(false)
-    }
+  const queryUrl = useMemo(() => {
+    const params = new URLSearchParams()
+    if (channelFilter !== 'ALL') params.set('channel', channelFilter)
+    return `/api/communication?${params.toString()}`
   }, [channelFilter])
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  const {
+    data: commData,
+    isPending: loading,
+    error: queryError,
+  } = useApiQuery<CommResponse>(['communications', channelFilter], queryUrl)
 
-  const handleSend = async () => {
-    if (!composeForm.message) return
-    try {
-      setSending(true)
-      const res = await fetch('/api/communication', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(composeForm),
+  const messages = commData?.data ?? []
+  const stats = commData?.stats ?? null
+  const channelDistribution = commData?.channelDistribution ?? []
+
+  const { mutate: send, isPending: sending } = useApiMutation<SendCommunicationPayload, unknown>('/api/communication', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['communications'] })
+      setComposeForm({ channel: 'SMS', recipientGroup: 'ALL_PARENTS', subject: '', message: '', templateId: '' })
+      setViewMode('list')
+      toast.success('Message sent successfully', {
+        description: `${composeForm.channel} message sent to ${composeForm.recipientGroup === 'ALL_PARENTS' ? 'all parents' : composeForm.recipientGroup}`,
       })
-      if (res.ok) {
-        setComposeForm({ channel: 'SMS', recipientGroup: 'ALL_PARENTS', subject: '', message: '', templateId: '' })
-        setViewMode('list')
-        fetchData()
-        toast.success('Message sent successfully', {
-          description: `${composeForm.channel} message sent to ${composeForm.recipientGroup === 'ALL_PARENTS' ? 'all parents' : composeForm.recipientGroup}`,
-        })
-      }
-    } catch (err) {
-      console.error('Failed to send message:', err)
-      toast.error('Failed to send message')
-    } finally {
-      setSending(false)
-    }
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to send message')
+    },
+  })
+
+  useEffect(() => {
+    if (queryError) toast.error(queryError.message || 'Failed to fetch communications')
+  }, [queryError])
+
+  const handleSend = () => {
+    if (!composeForm.message) return
+    send({
+      channel: composeForm.channel,
+      recipientGroup: composeForm.recipientGroup,
+      subject: composeForm.subject,
+      message: composeForm.message,
+    })
   }
 
   const applyTemplate = (templateId: string) => {

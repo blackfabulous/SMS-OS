@@ -69,6 +69,7 @@ import {
 } from 'recharts'
 
 import { cn } from '@/lib/utils'
+import { useApiQuery, useApiMutation, useQueryClient } from '@/hooks/use-api-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
 import { StatGrid, ModuleStatCard, ModuleContainer, ModuleToolbar, ModulePageLayout, ModuleSettingsButton } from '@/components/module-ui'
 import { Button } from '@/components/ui/button'
@@ -171,6 +172,44 @@ const categoryConfig: Record<string, { label: string; badgeClass: string }> = {
   General: { label: 'General', badgeClass: 'bg-violet-100 text-violet-700 border-violet-200' },
 }
 
+interface NotificationResponse {
+  stats: { sentToday: number; deliveryRate: number; smsCreditsRemaining: number; whatsappMessages: number }
+  history: { id: string; date: string; recipients: number; channel: string; subject: string; status: string; deliveryRate: number; phone: string }[]
+  dailyVolume: { day: string; sms: number; whatsapp: number; email: number }[]
+  channelUsage: { name: string; value: number; fill: string }[]
+  recentActivity: { id: string; type: string; message: string; time: string; status: string }[]
+}
+
+interface NotificationTemplateRaw {
+  id: string
+  name: string
+  category: string
+  channels: string
+  subject: string | null
+  body: string
+  usageCount: number
+  lastUsed: string | null
+}
+
+interface TemplatesResponse { data: NotificationTemplateRaw[] }
+
+interface SendNotificationPayload {
+  channel: string
+  recipients: number
+  subject: string
+  body: string
+  status: string
+  eventType: string
+}
+
+interface CreateTemplatePayload {
+  name: string
+  category: string
+  channels: string
+  subject: string
+  body: string
+}
+
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export default function NotificationCenterModule() {
@@ -183,7 +222,6 @@ export default function NotificationCenterModule() {
   const [historyChannelFilter, setHistoryChannelFilter] = useState('All')
   const [historyStatusFilter, setHistoryStatusFilter] = useState('All')
   const [deliveryDetailOpen, setDeliveryDetailOpen] = useState<string | null>(null)
-  const [sending, setSending] = useState(false)
 
   // Compose form state
   const [composeChannel, setComposeChannel] = useState('SMS')
@@ -199,63 +237,95 @@ export default function NotificationCenterModule() {
   const [settingsTab, setSettingsTab] = useState('gateway')
 
   // ─── Live data (↔ /api/notifications + /api/notifications/templates) ───────
-  const [messageVolumeData, setMessageVolumeData] = useState<{ day: string; sms: number; whatsapp: number; email: number }[]>([])
-  const [channelUsageData, setChannelUsageData] = useState<{ name: string; value: number; fill: string }[]>([])
-  const [recentActivity, setRecentActivity] = useState<{ id: string; type: string; message: string; time: string; status: string; icon: React.ElementType }[]>([])
-  const [historyData, setHistoryData] = useState<{ id: string; date: string; recipients: number; channel: string; subject: string; status: string; deliveryRate: number; phone: string }[]>([])
-  const [templatesData, setTemplatesData] = useState<{ id: string; name: string; category: string; channels: string[]; subject: string; body: string; usageCount: number; lastUsed: string }[]>([])
-  const [notifStats, setNotifStats] = useState<{ sentToday: number; deliveryRate: number; smsCreditsRemaining: number; whatsappMessages: number } | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [newTemplate, setNewTemplate] = useState({ name: '', category: 'General', channels: 'sms_whatsapp', subject: '', body: '' })
+  const queryClient = useQueryClient()
 
   const iconForType = (type: string): React.ElementType => (type === 'whatsapp' ? Phone : type === 'email' ? Mail : Smartphone)
 
-  const fetchNotifications = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const [nRes, tRes] = await Promise.all([fetch('/api/notifications'), fetch('/api/notifications/templates')])
-      const nJson = await nRes.json()
-      const tJson = await tRes.json()
-      if (!nRes.ok) throw new Error(nJson.error || 'Failed to load notifications')
-      setMessageVolumeData(nJson.dailyVolume || [])
-      setChannelUsageData(nJson.channelUsage || [])
-      setHistoryData(nJson.history || [])
-      setNotifStats(nJson.stats || null)
-      const acts = (nJson.recentActivity || []) as { id: string; type: string; message: string; time: string; status: string }[]
-      setRecentActivity(acts.map((a) => ({ ...a, icon: iconForType(a.type) })))
-      if (tRes.ok) {
-        const tpl = (tJson.data || []) as { id: string; name: string; category: string; channels: string; subject: string | null; body: string; usageCount: number; lastUsed: string | null }[]
-        setTemplatesData(tpl.map((t) => ({ id: t.id, name: t.name, category: t.category, channels: typeof t.channels === 'string' ? t.channels.split(',').map((c) => c.trim()).filter(Boolean) : [], subject: t.subject ?? '', body: t.body, usageCount: t.usageCount ?? 0, lastUsed: t.lastUsed ? String(t.lastUsed).slice(0, 10) : '' })))
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load notifications')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const {
+    data: notifications,
+    isPending: notifPending,
+    error: notifError,
+    refetch: refetchNotifications,
+  } = useApiQuery<NotificationResponse>(['notifications'], '/api/notifications')
 
-  useEffect(() => { fetchNotifications() }, [fetchNotifications])
+  const {
+    data: templatesResult,
+    isPending: templatesPending,
+    error: templatesError,
+  } = useApiQuery<TemplatesResponse>(['notification-templates'], '/api/notifications/templates')
 
-  const handleCreateTemplate = async () => {
-    if (!newTemplate.name || !newTemplate.body) { toast.error('Template name and body are required'); return }
-    const channelMap: Record<string, string> = { sms_whatsapp: 'SMS,WhatsApp', all: 'SMS,WhatsApp,Email', sms: 'SMS', whatsapp_email: 'WhatsApp,Email' }
-    try {
-      const res = await fetch('/api/notifications/templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newTemplate.name, category: newTemplate.category, channels: channelMap[newTemplate.channels] || 'SMS', subject: newTemplate.subject, body: newTemplate.body }),
+  const messageVolumeData = notifications?.dailyVolume ?? []
+  const channelUsageData = notifications?.channelUsage ?? []
+  const historyData = notifications?.history ?? []
+  const notifStats = notifications?.stats ?? null
+  const recentActivity = useMemo(() =>
+    (notifications?.recentActivity || []).map((a) => ({ ...a, icon: iconForType(a.type) })),
+  [notifications])
+
+  const templatesData = useMemo(() =>
+    (templatesResult?.data || []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      category: t.category,
+      channels: typeof t.channels === 'string' ? t.channels.split(',').map((c) => c.trim()).filter(Boolean) : [],
+      subject: t.subject ?? '',
+      body: t.body,
+      usageCount: t.usageCount ?? 0,
+      lastUsed: t.lastUsed ? String(t.lastUsed).slice(0, 10) : '',
+    })),
+  [templatesResult])
+
+  const loading = notifPending || templatesPending
+  const error = notifError?.message || templatesError?.message || null
+
+  const { mutate: sendNotification, isPending: sending } = useApiMutation<SendNotificationPayload, unknown>('/api/notifications', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      setConfirmSendOpen(false)
+      setComposeMessage('')
+      setComposeSubject('')
+      setComposeTemplate('')
+      setComposeChannel('SMS')
+      setComposeRecipients('all_parents')
+      setScheduleToggle(false)
+      setScheduleDate('')
+      setScheduleTime('')
+      toast.success('Message sent successfully!', {
+        description: `Recorded for ${currentRecipientCount} recipients via ${composeChannel}`,
       })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Failed to create template')
-      await fetchNotifications()
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to send message')
+    },
+  })
+
+  const { mutate: createTemplate, isPending: creatingTemplate } = useApiMutation<CreateTemplatePayload, unknown>('/api/notifications/templates', {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notification-templates'] })
       setCreateTemplateOpen(false)
       setNewTemplate({ name: '', category: 'General', channels: 'sms_whatsapp', subject: '', body: '' })
       toast.success('Template created successfully')
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to create template')
-    }
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to create template')
+    },
+  })
+
+  useEffect(() => {
+    if (error) toast.error(error)
+  }, [error])
+
+  const handleCreateTemplate = () => {
+    if (!newTemplate.name || !newTemplate.body) { toast.error('Template name and body are required'); return }
+    const channelMap: Record<string, string> = { sms_whatsapp: 'SMS,WhatsApp', all: 'SMS,WhatsApp,Email', sms: 'SMS', whatsapp_email: 'WhatsApp,Email' }
+    createTemplate({
+      name: newTemplate.name,
+      category: newTemplate.category,
+      channels: channelMap[newTemplate.channels] || 'SMS',
+      subject: newTemplate.subject,
+      body: newTemplate.body,
+    })
   }
 
   // Computed recipient count
@@ -300,41 +370,15 @@ export default function NotificationCenterModule() {
     setConfirmSendOpen(true)
   }
 
-  const confirmSend = async () => {
-    setSending(true)
-    try {
-      const res = await fetch('/api/notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          channel: composeChannel === 'All' ? 'SMS' : composeChannel,
-          recipients: currentRecipientCount,
-          subject: composeSubject,
-          body: composeMessage,
-          status: 'Delivered',
-          eventType: 'general',
-        }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Failed to send message')
-      await fetchNotifications()
-      setConfirmSendOpen(false)
-      setComposeMessage('')
-      setComposeSubject('')
-      setComposeTemplate('')
-      setComposeChannel('SMS')
-      setComposeRecipients('all_parents')
-      setScheduleToggle(false)
-      setScheduleDate('')
-      setScheduleTime('')
-      toast.success('Message sent successfully!', {
-        description: `Recorded for ${currentRecipientCount} recipients via ${composeChannel}`,
-      })
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to send message')
-    } finally {
-      setSending(false)
-    }
+  const confirmSend = () => {
+    sendNotification({
+      channel: composeChannel === 'All' ? 'SMS' : composeChannel,
+      recipients: currentRecipientCount,
+      subject: composeSubject,
+      body: composeMessage,
+      status: 'Delivered',
+      eventType: 'general',
+    })
   }
 
   // Copy template
@@ -730,7 +774,7 @@ export default function NotificationCenterModule() {
     <ModuleContainer>
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
-          {error} · <button onClick={() => fetchNotifications()} className="underline underline-offset-2">retry</button>
+          {error} · <button onClick={() => refetchNotifications()} className="underline underline-offset-2">retry</button>
         </div>
       )}
       <ModuleToolbar
